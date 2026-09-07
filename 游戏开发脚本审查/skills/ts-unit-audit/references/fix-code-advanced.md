@@ -1,6 +1,6 @@
 # 正确写法 · 进阶族（P–W）
 
-修 P–W 族缺陷时从这里取代码。A–H 族见 `fix-code-core.md`，I–O 族见 `fix-code-data.md`。
+修 P–W 族缺陷时从这里取代码。A–H 族见 `fix-code-core.md`，I–O 族见 `fix-code-data.md`，X–Y 族见 `fix-code-lifecycle.md`。
 
 ## P 族 · 值域与类型收口
 
