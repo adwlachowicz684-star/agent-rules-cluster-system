@@ -1,0 +1,85 @@
+# 技能集群配置
+
+# 大类根目录：所有大类文件夹统一放在这里管理
+root: ~/.ai/domains
+
+# 项目内 junction / 软链接的名称
+# 项目文件夹内执行 mklink /J .ai <root>/<大类> 即可接入
+link_name: .ai
+
+# 项目级覆盖层：真实目录（非链接），存放项目特化的规则与技能
+# 与大类中同类内容冲突时，以本目录为准
+local_name: .ai-local
+
+# 通用大类：跨领域技能存放处，每个大类内部会 junction 到它
+common: _common
+
+# 大类文件夹内的固定子目录
+subdirs: [agents, skills, rules]
+
+# 变更溯源目录：记录「为什么改」，每个大类都有（另见 scripts/note.py）
+assets_dir: assets
+
+# 单文件体积上限（行数）。超过就该拆——预警不是硬报错。
+# 依据：skills <500（Anthropic 建议）；rules 每次必读所以必须极短；
+# reference 按需加载，400 行是「读起来不累」的临界
+size_limits:
+  SKILL.md: 200
+  reference: 400
+  skills: 500
+  rules: 50
+  agents: 100
+  assets: 300
+  _hot.md: 40
+  _preferences.md: 40
+  _commands.md: 120
+
+# 大类注册表
+# keywords 用于自动归属推荐，写全同义词与典型术语
+# core：领域核心词，命中 1 个即确认归属（无需二次确认）
+# keywords：全部同义词，命中越多置信度越高
+domains:
+  _common:
+    desc: 跨领域通用技能
+    keywords: [通用, 交付, 打包, 文件, 调试, 报错, 流程, 沟通, 搜索, 写作]
+  legal:
+    name: 法律
+    desc: 法律实务、合规、合同、诉讼
+    core: [合同, 诉讼, 法条, 民法典, 起诉, 仲裁]
+    keywords: [法条, 法规, 法律, 合同, 诉讼, 合规, 判决, 律所, 民法典, 仲裁, 起诉, 答辩, 证据, 条款]
+  education:
+    name: 教育
+    desc: 教学设计、课程开发、教研
+    keywords: [课程, 教学, 教案, 学生, 考试, 课件, 学科, 教研, 课堂, 学情, 作业, 大纲]
+    core: [教案, 课程, 教学, 学情]
+  dev:
+    name: 开发
+    desc: 软件开发、工程实践、游戏开发
+    keywords: [代码, 编程, 开发, 接口, 部署, 测试, 架构, 数据库, 前端, 后端, 重构, git, api, cocos, 游戏, 引擎, 脚本, 帧率, 渲染]
+    core: [代码, 编程, 部署, git, 接口, 重构, cocos, 游戏, 脚本]
+  art:
+    name: 美术
+    desc: 视觉设计、插画、平面
+    keywords: [设计, 插画, 视觉, 配色, 排版, 海报, 绘画, 素材, 图库, 品牌, 构图]
+    core: [插画, 配色, 排版, 构图]
+  fiction:
+    name: 小说创作
+    desc: 小说、故事、剧本创作
+    keywords: [小说, 故事, 剧情, 角色, 人物, 章节, 大纲, 对白, 世界观, 叙事, 文风, 剧本]
+    core: [小说, 章节, 剧情, 世界观]
+  medical:
+    name: 医疗
+    desc: 医疗健康、临床、医药
+    keywords: [病历, 诊断, 症状, 用药, 临床, 患者, 疾病, 治疗, 药品, 检查]
+    core: [病历, 诊断, 用药, 临床]
+  finance:
+    name: 金融
+    desc: 金融分析、投研、财报
+    keywords: [财报, 估值, 投资, 基金, 股票, 风控, 财务, 研报, 定价, 资产]
+    core: [财报, 估值, 基金, 股票]
+
+# 泛词：仅靠这些词命中 _common 不算真正归属（否则任何描述都"装得下"）
+generic_words: [通用, 流程, 输出, 文件, 交付, 打包, 沟通, 搜索, 写作, 整理]
+
+# 归属判定阈值：关键词命中数达到此值才自动推荐，否则询问用户
+auto_route_threshold: 2
