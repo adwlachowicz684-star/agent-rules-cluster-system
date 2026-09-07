@@ -1241,6 +1241,190 @@ def w01(module, files):
 # 装配后处理：按 id 去重，保留最后定义（修正区覆盖 core34 的失效实现）
 # ============================================================
 
+
+# ---------- X 族：成对 API 配对（获取 ↔ 释放） ----------
+# 来源：cocos_audit.py 的 PAIRS / LOAD_PAT / TWEEN_FOREVER
+# 抽象：任何「注册-注销」「获取-归还」的成对契约，缺一侧即泄漏
+# 判据：这类泄漏随运行时长累积，测试期看不出，上线后 OOM
+
+@pattern('X01', 'P0', '事件订阅无对应注销（监听泄漏）',
+         '注册了 on/addEventListener/subscribe，全文未见 off/removeEventListener/unsubscribe')
+def x01(module, files):
+    hits = []
+    REG = r'\.\s*(?:on|addEventListener|addListener|subscribe)\s*\('
+    # 清理可能是 .off( 调用，也可能是 off( 方法定义 —— 两种都要认
+    CLEAN = (r'(?:\.\s*|\b)(?:off|targetOff|removeEventListener|removeListener|'
+             r'unsubscribe|removeAllListeners|dispose)\s*\(')
+    for fn, src in files.items():
+        regs = list(re.finditer(REG, src))
+        if not regs:
+            continue
+        if re.search(CLEAN, src):
+            continue
+        line = src[:regs[0].start()].count('\n') + 1
+        hits.append((fn, line, '注册了 %d 处监听，未见任何注销调用' % len(regs)))
+    return hits
+
+
+@pattern('X02', 'P0', '定时器注册无清理（定时任务泄漏）',
+         'schedule/setInterval/setTimeout 全文未见 unschedule/clearInterval/clearTimeout')
+def x02(module, files):
+    hits = []
+    PAIRS = [
+        (r'\b(?:schedule|scheduleOnce)\s*\(',
+         r'(?:\.\s*|\b)unschedule(?:All)?(?:Callbacks)?\s*\(', 'schedule 无 unschedule'),
+        (r'\bsetInterval\s*\(', r'\bclearInterval\s*\(', 'setInterval 无 clearInterval'),
+        (r'\bsetTimeout\s*\(', r'\bclearTimeout\s*\(', 'setTimeout 无 clearTimeout'),
+    ]
+    for fn, src in files.items():
+        for reg, clean, msg in PAIRS:
+            regs = list(re.finditer(reg, src))
+            if not regs:
+                continue
+            if re.search(clean, src):
+                continue
+            line = src[:regs[0].start()].count('\n') + 1
+            hits.append((fn, line, '%s（%d 处注册）' % (msg, len(regs))))
+    return hits
+
+
+@pattern('X03', 'P0', '资源/句柄获取后无释放（资源泄漏）',
+         'load/open/acquire 类调用全文未见 decRef/release/close/dispose')
+def x03(module, files):
+    hits = []
+    REG = (r'\b(?:resources\.load|assetManager\.load|bundle\.load|loader\.loadRes|'
+           r'open|acquire|loadAsset|createTexture)\s*\(')
+    CLEAN = (r'(?:\.\s*|\b)(?:decRef|addRef|releaseAsset|releaseAll|release|close|dispose|'
+             r'free|destroy)\s*\(')
+    for fn, src in files.items():
+        regs = list(re.finditer(REG, src))
+        if not regs:
+            continue
+        if re.search(CLEAN, src):
+            continue
+        line = src[:regs[0].start()].count('\n') + 1
+        hits.append((fn, line, '获取了资源/句柄（%d 处），未见释放调用' % len(regs)))
+    return hits
+
+
+@pattern('X04', 'P0', '循环/常驻动画无停止调用（切场景后驻留）',
+         'repeatForever/setLoop/loop=true 全文未见 stop/clear 类调用')
+def x04(module, files):
+    hits = []
+    REG = (r'\brepeatForever\s*\(|\bsetLoop\s*\(\s*true|\bloop\s*[:=]\s*true|'
+           r'\bplayForever\s*\(')
+    CLEAN = (r'(?:\.\s*|\b)(?:stop|clear|pause|cancel)\s*\(|'
+             r'\bstopAll(?:ByTarget|ByTag)?\s*\(|\bcancelAnimationFrame\s*\(')
+    for fn, src in files.items():
+        regs = list(re.finditer(REG, src))
+        if not regs:
+            continue
+        if re.search(CLEAN, src):
+            continue
+        line = src[:regs[0].start()].count('\n') + 1
+        hits.append((fn, line, '启动了循环动画/任务，未见停止调用'))
+    return hits
+
+
+@pattern('X05', 'P1', '成对方法只出现一侧（获取无归还）',
+         'lock/unlock、acquire/release、open/close 等成对方法缺一侧')
+def x05(module, files):
+    hits = []
+    PAIRS = [
+        (r'\block\s*\(', r'(?:\.\s*|\b)unlock\s*\(', 'lock 无 unlock'),
+        (r'\bacquire\s*\(', r'(?:\.\s*|\b)release\s*\(', 'acquire 无 release'),
+        (r'\bopen\s*\(', r'(?:\.\s*|\b)close\s*\(', 'open 无 close'),
+    ]
+    for fn, src in files.items():
+        for reg, clean, msg in PAIRS:
+            if not re.search(reg, src):
+                continue
+            if re.search(clean, src):
+                continue
+            m = re.search(reg, src)
+            line = src[:m.start()].count('\n') + 1
+            hits.append((fn, line, msg))
+    return hits
+
+
+@pattern('X06', 'P1', '匿名回调注册（无法精确注销）',
+         'on(ev, () => {...}) 之后 off 需同一函数引用，匿名函数导致写了也 off 不掉')
+def x06(module, files):
+    hits = []
+    ANON = (r'\.\s*(?:on|addEventListener|addListener|subscribe|once)\s*\('
+            r'[^;]{0,140}?(?:\(\s*\)\s*=>|function\s*\(|=>\s*\{)')
+    for fn, src in files.items():
+        m = re.search(ANON, src)
+        if m:
+            line = src[:m.start()].count('\n') + 1
+            hits.append((fn, line, '匿名回调注册，后续无法精确 off'))
+    return hits
+
+
+# ---------- Y 族：热路径与高频回调 ----------
+# 来源：cocos_audit.py 的 UPDATE_BAN
+# 抽象：每帧/高频回调内的昂贵操作会随帧率线性放大
+
+@pattern('Y01', 'P1', '每帧回调内的昂贵操作（应缓存到初始化）',
+         'update/tick/lateUpdate 内 find/getComponent/instantiate/destroy 等每帧开销')
+def y01(module, files):
+    hits = []
+    HOT = (r'\b(?:update|lateUpdate|tick|fixedUpdate|onTick)\s*\(\s*(?:[^)]{0,40})?\)'
+           r'\s*(?::[^{]+)?\{')
+    BAN = [
+        (r'\b(?:find|getChildByName|getChildByPath)\s*\(', '查找节点'),
+        (r'\bgetComponent\s*\(', '获取组件'),
+        (r'\binstantiate\s*\(', '实例化节点'),
+        (r'\bdestroy\s*\(', '销毁节点'),
+        (r'\bnew\s+[A-Z]\w*', '新建对象'),
+        (r'\bJSON\.(?:parse|stringify)\s*\(', 'JSON 序列化'),
+        (r'\b\w+\.sort\s*\(', '排序'),
+        (r'\bObject\.(?:keys|values|entries)\s*\(', '遍历分配'),
+    ]
+    for fn, src in files.items():
+        for hm in re.finditer(HOT, src):
+            body = _body_of(src, hm, 6000)
+            if not body:
+                continue
+            start_line = src[:hm.start()].count('\n') + 1
+            for pat, what in BAN:
+                bm = re.search(pat, body)
+                if not bm:
+                    continue
+                off = body[:bm.start()].count('\n')
+                hits.append((fn, start_line + off,
+                             '每帧回调内%s → 应缓存到初始化' % what))
+    return hits
+
+
+@pattern('Y02', 'P1', '每帧回调内分配对象（GC 压力）',
+         'update 内创建数组/对象字面量/闭包，每帧产生垃圾')
+def y02(module, files):
+    hits = []
+    HOT = (r'\b(?:update|lateUpdate|tick|fixedUpdate|onTick)\s*\(\s*(?:[^)]{0,40})?\)'
+           r'\s*(?::[^{]+)?\{')
+    ALLOC = [
+        (r'=\s*\[\s*\]', '空数组'),
+        (r'=\s*\{\s*\}', '空对象'),
+        (r'\.\s*(?:map|filter|slice|concat)\s*\(', '数组变换'),
+        (r'\(\s*\)\s*=>', '闭包'),
+    ]
+    for fn, src in files.items():
+        for hm in re.finditer(HOT, src):
+            body = _body_of(src, hm, 6000)
+            if not body:
+                continue
+            start_line = src[:hm.start()].count('\n') + 1
+            for pat, what in ALLOC:
+                bm = re.search(pat, body)
+                if not bm:
+                    continue
+                off = body[:bm.start()].count('\n')
+                hits.append((fn, start_line + off, '每帧分配%s → 复用外部对象' % what))
+                break
+    return hits
+
+
 _dedup = {}
 for _p in PATTERNS:
     _dedup[_p['id']] = _p
@@ -1303,6 +1487,29 @@ SELF_TEST_CASES = {
     'U01': 'function display(v) { return v || 0; }',
     'W01': ('function buy(id: string, quantity: number) {\n'
             '  const t = price * quantity;\n'
+            '}'),
+    'X01': ('onLoad() {\n'
+            '  this.node.on(Node.EventType.TOUCH_START, this.onTouch, this);\n'
+            '}\n'
+            'private onTouch() { }'),
+    'X02': ('onLoad() {\n'
+            '  this.schedule(this.tick, 1);\n'
+            '}\n'
+            'private tick() { }'),
+    'X03': ('onLoad() {\n'
+            "  resources.load('bg/spriteFrame', SpriteFrame, (e, sp) => { this.sp = sp; });\n"
+            '}'),
+    'X04': ('onLoad() {\n'
+            '  tween(this.node).repeatForever(tween().to(1, { angle: 360 })).start();\n'
+            '}'),
+    'X05': 'lock(mutex);\ndoWork();',
+    'X06': "this.node.on('evt', () => { this.hp -= 1; });",
+    'Y01': ('update(dt: number) {\n'
+            '  const n = find("Canvas/Player");\n'
+            '}'),
+    'Y02': ('update(dt: number) {\n'
+            '  const list = [];\n'
+            '  for (const x of this.items) list.push(x);\n'
             '}'),
 }
 
