@@ -1,5 +1,5 @@
-<!-- oversize-exempt: 查表型文档，确认候选时需整体对照 53 条判据，拆分反而增加往返 -->
-# 缺陷模式检测（53 条）
+<!-- oversize-exempt: 查表型文档，确认候选时需整体对照 61 条判据，拆分反而增加往返 -->
+# 缺陷模式检测（61 条）
 
 每条给出：**正确做法 → 扫描特征 → 如何确认是否为真问题**。
 扫描器输出的是候选，确认按本文判据。
@@ -249,6 +249,50 @@ const norm = (a: number) => { const r = a % (Math.PI * 2); return r < 0 ? r + Ma
 特征：`buy`/`sell`/`craft`/`pullN`/`roll`/`simulate`/`prewarm` 的数量参数无双重校验；
 失效：购买 `-2` 件 → `total = -20` → **钱包凭空增加 20、库存增加 2**，日志却记为成功。
 注意：`<= 0` 挡不住 NaN，且必须同时查整数性。
+
+## X 族 · 成对 API 配对（获取 ↔ 释放）
+
+**来源与抽象**：从引擎脚本审计的「on 无 off / schedule 无 unschedule / load 无 release」
+抽象而来。判据是**换个语言或框架还成立**——任何「注册-注销」「获取-归还」的成对契约，
+缺一侧即泄漏。**这类泄漏随运行时长累积，测试期看不出，上线后 OOM，定位成本远高于修复成本。**
+
+**X01 (P0) 事件订阅无注销** — 正确：注册与注销必须在同一生命周期层级对称出现
+（`onLoad`↔`onDestroy`，`onEnable`↔`onDisable`）；
+特征：有 `.on(` / `addEventListener(` / `subscribe(`，全文无 `off`/`removeEventListener`/`unsubscribe`；
+确认：注销是否可能在基类或其他文件（是 → 降级，但仍需确认）。
+
+**X02 (P0) 定时器无清理** — 正确：`schedule`↔`unschedule`、`setInterval`↔`clearInterval`、
+`setTimeout`↔`clearTimeout`，**三套机制各自配对，不能互相替代**；
+特征：有注册无清理；确认：是否为全局单例（是 → 标"待确认：生命周期长于页面"）。
+
+**X03 (P0) 资源/句柄无释放** — 正确：load/open/acquire 后必须 decRef/release/close/dispose；
+特征：有获取无释放；
+确认：框架是否提供自动释放（注意：**自动释放通常不覆盖动态加载的资源**，这是高频误区）。
+
+**X04 (P0) 循环/常驻任务无停止** — 正确：持有引用并在销毁时 `stop()`/`clear()`；
+特征：`repeatForever` / `setLoop(true)` / `loop: true` 无停止调用；
+**为什么**：这类任务**永远不会自己结束**，宿主销毁后仍驻留。
+
+**X05 (P1) 成对方法只出现一侧** — 正确：`lock`↔`unlock`、`acquire`↔`release`、`open`↔`close`；
+特征：有前半无后半；确认：是否有兜底路径（如 try/finally 中的释放写成了别的名字）。
+
+**X06 (P1) 匿名回调注册** — 正确：回调必须是**具名方法/持有引用**；
+特征：`on(ev, () => {...})` 或 `on(ev, function(){})`；
+**为什么**：`off` 需同一函数引用，匿名函数导致"写了 off 也 off 不掉"，
+与"忘了写 off"成因不同、改法不同，所以单列。
+
+## Y 族 · 热路径与高频回调
+
+**抽象**：每帧/高频回调内的操作会随帧率**线性放大**——60fps 下每秒执行 60 次。
+
+**Y01 (P1) 每帧回调内昂贵操作** — 正确：把结果缓存到初始化阶段，回调内只做增量计算；
+特征：`update`/`tick`/`lateUpdate` 内出现 `find` / `getComponent` / `instantiate` /
+`destroy` / `new X` / `JSON.parse` / `sort` / `Object.keys`；
+确认：该回调是否真的每帧执行（有些引擎的回调可能被降频或手动驱动）。
+
+**Y02 (P1) 每帧分配对象** — 正确：复用外部对象（`this._tmp.length = 0` 而非 `= []`）；
+特征：`update` 内创建数组/对象字面量/闭包/数组变换；
+确认：是否在热路径（每秒 >30 次）→ 否则降级为 P2。
 
 ---
 
