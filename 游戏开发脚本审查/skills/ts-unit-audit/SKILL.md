@@ -1,6 +1,6 @@
 ---
 name: ts-unit-audit
-description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 53 条缺陷模式先机器扫描缩小范围，再独立验证候选、人工确认、探针实测，产出分级报告与修正代码。Use when the user asks to 精审、逐单元审查、复核、挑毛病、挑隐藏 bug a TS/JS library, or asks whether a codebase with passing tests is safe to ship. 不用于单次代码走查、纯风格检查、PR diff 审查。
+description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 61 条缺陷模式先机器扫描缩小范围，再独立验证候选、人工确认、探针实测，产出分级报告与修正代码。Use when the user asks to 精审、逐单元审查、复核、挑毛病、挑隐藏 bug a TS/JS library, or asks whether a codebase with passing tests is safe to ship. 不用于单次代码走查、纯风格检查、PR diff 审查。
 ---
 
 # TS/JS 代码库单元级精审
@@ -15,6 +15,7 @@ description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 5
 - 用户要求「精审」「逐单元审查」「复核」「挑毛病」某个 TS/JS 代码库
 - 代码库由多个独立模块组成（插件库、工具库、SDK），需保证单元可独立复用
 - 已有历史审核报告，需**修复复核**（确认修了没、有无引入新问题）
+- **Cocos Creator 项目**：先跑通用扫描，再读 `references/cocos-engine.md` 走引擎专项
 
 不适用：单次走查、纯风格检查、PR diff 审查（那是另一套流程）。
 
@@ -48,7 +49,7 @@ description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 5
 | 步 | 做什么 | 命令 / 读哪个文件 |
 |---|---|---|
 | 1 | 摸清现状（是否已有历史报告，避免重复功） | `references/workflow.md` |
-| 2 | 全库模式扫描（53 条） | `scripts/pattern-scan.py --src=<根>` |
+| 2 | 全库模式扫描（61 条） | `scripts/pattern-scan.py --src=<根>` |
 | 3 | 依赖 + 交付物扫描 | `scripts/dep-scan.py` · `scripts/doc-scan.py` |
 | 4 | **验证候选**（独立步骤，过滤误报） | `references/pattern-detection.md` |
 | 5 | 人工精审 + 探针实测 | `references/manual-review.md` · `assets/adversarial-inputs-card.md` |
@@ -84,6 +85,12 @@ python3 scripts/doc-scan.py --src=<根>                          # 默认：被�
 python3 scripts/doc-scan.py --src=<根> --strict                 # 要求专属示例文件
 python3 scripts/doc-scan.py --src=<根> --missing-only           # 只列缺失
 
+# 引擎专项（Cocos Creator 项目）
+python3 scripts/cocos-audit.py <路径>                   # 全量
+python3 scripts/cocos-audit.py <路径> --level P0         # 只看阻塞级（CI 卡口）
+python3 scripts/cocos-audit.py <路径> --rule memory      # memory/perf/migration/physics
+python3 scripts/cocos-audit.py <路径> --json             # 机器可读
+
 # skill 自检
 python3 scripts/check-skill.py
 
@@ -113,13 +120,15 @@ node build/audit/probe_<单元>.js
 | T | 角度与周期归一化（while 死循环、±Infinity 自增） | 2 |
 | U | 展示层掩盖 | 1 |
 | W | 交易与批量数量 | 1 |
+| X | **成对 API 配对**（订阅↔注销、获取↔释放） | 6 |
+| Y | **热路径与高频回调** | 2 |
 
 ## 参考文件（按需读取，不要一次性全读）
 
 | 文件 | 何时读 | 行数 |
 |---|---|---|
 | `references/workflow.md` | **首次执行**：六步展开、批量推进顺序 | ~200 |
-| `references/pattern-detection.md` | 第 4 步：53 条判据与确认方法 | ~277 ¹ |
+| `references/pattern-detection.md` | 第 4 步：61 条判据与确认方法 | ~277 ¹ |
 | `references/manual-review.md` | 第 5 步：7 项人工清单 | ~110 |
 | `references/adversarial-inputs.md` | 第 5 步写探针：九类必测输入详解 | ~130 |
 | `references/global-consistency.md` | 第 5 步：跨单元一致性、地基优先 | ~110 |
@@ -128,8 +137,10 @@ node build/audit/probe_<单元>.js
 | `references/fix-code-core.md` | 第 6 步修 A–H 族 | ~160 |
 | `references/fix-code-data.md` | 第 6 步修 I–O 族 | ~75 |
 | `references/fix-code-advanced.md` | 第 6 步修 P–W 族 | ~190 |
+| `references/fix-code-lifecycle.md` | 第 6 步修 X–Y 族（成对契约、热路径） | ~70 |
+| `references/cocos-engine.md` | **Cocos 项目**：生命周期、泄漏源、迁移、性能、包体 | ~370 ¹ |
 
-¹ 查表型文档，已声明体积豁免：确认候选时需整体对照 53 条判据，拆分反而增加往返。
+¹ 查表型文档，已声明体积豁免：确认候选时需整体对照 61 条判据，拆分反而增加往返。
 
 ## 输出资产（不读入上下文，用于填充）
 
@@ -148,6 +159,10 @@ node build/audit/probe_<单元>.js
 - **NaN 必须单独测**。只测 0 / 负数 / 正常值测不出 NaN 类缺陷——
   很多守卫对 0 和负数有效，唯独 NaN 绕过。
 - **Infinity 必须单独测**。它会让循环挂死、数组分配 OOM，且错误不指向配置字段。
+- **成对契约缺一侧按 P0 处理**（注册无注销、获取无释放）：随运行时长累积，
+  测试期看不出，上线后 OOM，定位成本远高于修复成本。
+- **每帧回调内的开销要乘 60 看**：`find`/`getComponent`/`new`/`JSON.parse`
+  放进 update，在 60fps 下每秒执行 60 次。
 - **先读注释再报问题**。最高频的误报来源就是没读注释。
 - **安全 / 经济 / 权限链路的「放行」一律按 P0 处理**。
 - **文档把缺陷记为设计意图 → P0**（会阻止下一个人修复）。
@@ -163,7 +178,7 @@ node build/audit/probe_<单元>.js
 | 已修单元再扫，报告的是残留项而非原问题 | 分类器会漂移 | 复核前先确认该单元是否修过，对照历史报告与当前代码 |
 | 三件套扫描报「几乎全部缺示例」 | 该仓库用批量综合示例（`batchN-usage.ts` import 十几个模块），而判据要求专属文件 | 先确认仓库的示例组织约定。专属约定 → `--strict`；批量约定 → 默认模式 |
 | 有一条模式在全库 0 命中 | 可能已全部修好，也可能模式本身失效 | 跑 `pattern-scan.py --self-test`。自检会注入已知缺陷验证每条模式能否检出 |
-| 改了模式逻辑后想确认没弄坏 | — | `pattern-scan.py --self-test`，要求 53/53 通过 |
+| 改了模式逻辑后想确认没弄坏 | — | `pattern-scan.py --self-test`，要求 61/61 通过 |
 | 报了问题被指出「这其实是设计意图」 | 没读注释 | 报之前先读该处上方的注释 |
 | 想确认 skill 自身结构没问题 | — | `check-skill.py`：断链、孤儿文件、体积预算、frontmatter |
 
