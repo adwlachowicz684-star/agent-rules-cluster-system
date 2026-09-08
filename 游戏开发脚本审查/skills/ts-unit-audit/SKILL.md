@@ -181,6 +181,7 @@ node build/audit/probe_<单元>.js
 | 改了模式逻辑后想确认没弄坏 | — | `pattern-scan.py --self-test`，要求 61/61 通过 |
 | 报了问题被指出「这其实是设计意图」 | 没读注释 | 报之前先读该处上方的注释 |
 | 想确认 skill 自身结构没问题 | — | `check-skill.py`：断链、孤儿文件、体积预算、frontmatter |
+| 报告的行号指向错误的代码 | `strip_comments` 未保持行数守恒 | 先跑 `--self-test` 看 `✓ 行数守恒`；不通过则整份报告不可用 |
 
 ## 交付物
 
