@@ -35,7 +35,7 @@
 **A02 (P0) 配置默认值** — 正确：`clampNum(opts.x, min, max, def)`；
 特征：`opts.x ?? d` 且附近无收口；确认：字段是否为数值型。命中最多（常数百条），按族批量修。
 
-**A03 (P0) clamp 前置校验** — 正确：入参来自外部时先 `Number.isFinite`；
+**A03 (P0) clamp 前置校验** — 正确：入参来自外部时先 `Number.isFinite`； **注意：`clampNum` / `numOr` 不算问题**——它们内部走 `numOr(v,NaN)`+`isNaN→fallback`，非有限值有兜底，不穿透；只有裸 `clamp` / `clamp01` 才是。
 特征：`clamp*(opts.x, ...)` 附近无 `isFinite`；确认：调用方有没有兜住。
 
 **A04 (P0) 累加 / EMA** — 正确：脏样本**丢弃**（`if (!Number.isFinite(s)) return;`），
