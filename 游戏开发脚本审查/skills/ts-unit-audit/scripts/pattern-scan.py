@@ -59,12 +59,53 @@ BLOCK_COMMENT = re.compile(r'/\*.*?\*/', re.S)
 LINE_COMMENT = re.compile(r'^\s*//.*$', re.M)
 
 
+def _strip_line_comments(src):
+    """剥离开注解（含**行尾**注释），替换成等长空格。
+
+    为什么不能用 `^\s*//.*$` 只剥整行注释：
+    代码后跟的注释同样会参与模式匹配。实测 `const a = 1; // clamp(opts.x, 0, 1)`
+    会让 A03 把注释里的 clamp 当成真代码报出来。
+
+    为什么不用简单的 `//.*`：会误伤两处——
+      · URL 协议 `https://example.com` 里的 `//`
+      · 字符串里的 `"//path/to"`
+    所以用「前一个字符不是 `:`」+「该行此前引号数为偶数」两个条件排除。
+    跨行模板字符串内的 `//` 不在处理范围（罕见，且代价高于收益）。
+    """
+    out = []
+    for line in src.split('\n'):
+        i = 0
+        n = len(line)
+        while i < n - 1:
+            if line[i] == '/' and line[i + 1] == '/':
+                prev = line[i - 1] if i > 0 else ''
+                head = line[:i]
+                # 引号计数需排除转义引号
+                unescaped_q = head.replace('\\"', '').replace("\\'", '')
+                q_even = (unescaped_q.count('"') + unescaped_q.count("'")) % 2 == 0
+                if prev != ':' and q_even:
+                    line = line[:i] + ' ' * (n - i)
+                    break
+                i += 2
+                continue
+            i += 1
+        out.append(line)
+    return '\n'.join(out)
+
+
 def strip_comments(src):
-    """剥离注释，但**保留行数与原始文件一致**（否则报告的行号会错位）"""
-    def _keep_lines(m):
-        return '\n' * m.group(0).count('\n')
-    src = BLOCK_COMMENT.sub(_keep_lines, src)
-    return LINE_COMMENT.sub('', src)
+    """把注释替换成**等长空白**。
+
+    为什么是"替换成空格"而不是"删掉"：
+    注释参与匹配会误报（注释里写的 `clamp(opts.x)` 也会被当成真代码），
+    但直接删除会让后续所有行号整体前移——实测 93% 的文件受影响，
+    最大偏移 85 行，报告出来的行号全部不可信。
+    替换成等长空格可以做到：行数不变、列位置不变、注释内容不再参与匹配。
+    """
+    def _blank(m):
+        return ''.join(ch if ch == '\n' else ' ' for ch in m.group(0))
+    src = BLOCK_COMMENT.sub(_blank, src)
+    return _strip_line_comments(src)
 
 
 def _read_files(dirpath):
@@ -168,9 +209,11 @@ def a02(plugin, files):
 def a03(plugin, files):
     hits = []
     for fn, src in files.items():
-        # 找 clamp* 调用，看同函数内是否有 isFinite 前置
-        for m in re.finditer(r'\bclamp(?:Num|01)?\s*\(\s*([^,()]+),', src):
-            arg = m.group(1).strip()
+        # 只报裸 clamp / clamp01 —— 它们用比较实现，NaN 两个分支都 false → 原样穿透
+        # **clampNum / numOr 不算问题**：内部走 numOr(v, NaN) + isNaN → fallback，
+        # 非有限值有兜底，不会穿透。把它们算进来会淹没真问题。
+        for m in re.finditer(r'\bclamp(01)?\s*\(\s*([^,()]+),', src):
+            arg = m.group(2).strip()
             line = src[:m.start()].count('\n') + 1
             # 若参数直接来自外部字段（.xx / opts. / ctx.）且附近无 isFinite
             if re.search(r'(opts|cfg|config|ctx|d|def|data)\.', arg):
@@ -1558,7 +1601,51 @@ def _run_one_pattern(p, src):
     return p['fn']('selftest', files)
 
 
+def self_test_infra():
+    """元检查：扫描器基础设施本身是否可信。
+
+    为什么需要这一层：
+    模式自检只验证"这条模式能不能检出"，但**行号对不对**、**注释有没有被
+    误当代码**这类问题出在公共基建上，模式自检一条都抓不到。
+    实测教训：strip_comments 曾把块注释替换成等量换行，导致 93% 的
+    文件行号前移（最大偏移 85 行），报告出来的行号全部不可信——
+    而当时 61/61 模式自检全绿，完全没报警。
+    """
+    cases = [
+        ('块注释', 'const a = 1;\n/* 注释\n   第二行\n   第三行 */\nconst b = 2;\n'),
+        ('行注释', 'const a = 1; // 这里有 clamp(opts.x, 0, 1)\nconst b = 2;\n'),
+        ('混合',   '/* 头 */\nconst a = 1; // 尾注\n/* 中\n段 */\nconst b = 2;\n'),
+        ('无注释', 'const a = 1;\nconst b = 2;\n'),
+        ('注释在行中', 'const a = 1 /* 内联 */ + 2;\n'),
+    ]
+    bad = []
+    for name, src in cases:
+        out = strip_comments(src)
+        if len(out.split('\n')) != len(src.split('\n')):
+            bad.append('%s: 行数 %d → %d' % (
+                name, len(src.split('\n')), len(out.split('\n'))))
+        # 注释内容不得残留
+        for kw in ('clamp(opts.x', '这里有', '注释', '内联', '第二行', '尾注', '段'):
+            if kw in out:
+                bad.append('%s: 注释内容残留 "%s"' % (name, kw))
+    print('=' * 70)
+    print('基础设施自检（strip_comments）')
+    print('=' * 70)
+    if bad:
+        print('  ✗ 发现问题：')
+        for b in bad:
+            print('    %s' % b)
+        print('\n  行号错位会让整份报告不可用，必须先修这里。')
+        return 1
+    print('  ✓ 行数守恒（%d 个用例）' % len(cases))
+    print('  ✓ 注释内容已剔除，不参与匹配')
+    return 0
+
+
 def self_test():
+    if self_test_infra():
+        return 1
+    print()
     tmp = tempfile.mkdtemp(prefix='pattern-selftest-')
     mod = os.path.join(tmp, 'selftest')
     os.makedirs(mod)
