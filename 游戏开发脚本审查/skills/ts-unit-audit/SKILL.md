@@ -1,6 +1,6 @@
 ---
 name: ts-unit-audit
-description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 61 条缺陷模式先机器扫描缩小范围，再独立验证候选、人工确认、探针实测，产出分级报告与修正代码。Use when the user asks to 精审、逐单元审查、复核、挑毛病、挑隐藏 bug a TS/JS library, or asks whether a codebase with passing tests is safe to ship. 不用于单次代码走查、纯风格检查、PR diff 审查。
+description: 对 TypeScript/JavaScript 代码库做单元级深度审查：用 62 条缺陷模式先机器扫描缩小范围，再独立验证候选、人工确认、探针实测，产出分级报告与修正代码。Use when the user asks to 精审、逐单元审查、复核、挑毛病、挑隐藏 bug a TS/JS library, or asks whether a codebase with passing tests is safe to ship. 不用于单次代码走查、纯风格检查、PR diff 审查。
 ---
 
 # TS/JS 代码库单元级精审
@@ -128,7 +128,7 @@ node build/audit/probe_<单元>.js
 | 文件 | 何时读 | 行数 |
 |---|---|---|
 | `references/workflow.md` | **首次执行**：六步展开、批量推进顺序 | ~200 |
-| `references/pattern-detection.md` | 第 4 步：61 条判据与确认方法 | ~277 ¹ |
+| `references/pattern-detection.md` | 第 4 步：62 条判据与确认方法 | ~277 ¹ |
 | `references/manual-review.md` | 第 5 步：7 项人工清单 | ~110 |
 | `references/adversarial-inputs.md` | 第 5 步写探针：九类必测输入详解 | ~130 |
 | `references/global-consistency.md` | 第 5 步：跨单元一致性、地基优先 | ~110 |
@@ -140,7 +140,7 @@ node build/audit/probe_<单元>.js
 | `references/fix-code-lifecycle.md` | 第 6 步修 X–Y 族（成对契约、热路径） | ~70 |
 | `references/cocos-engine.md` | **Cocos 项目**：生命周期、泄漏源、迁移、性能、包体 | ~370 ¹ |
 
-¹ 查表型文档，已声明体积豁免：确认候选时需整体对照 61 条判据，拆分反而增加往返。
+¹ 查表型文档，已声明体积豁免：确认候选时需整体对照 62 条判据，拆分反而增加往返。
 
 ## 输出资产（不读入上下文，用于填充）
 
