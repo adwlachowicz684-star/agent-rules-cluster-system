@@ -1102,6 +1102,90 @@ def q05(module, files):
 
 # ---------- R 族：路径、序列化与 key 编码 ----------
 
+@pattern('Q06', 'P1', '容器摘除未清内容（闭包持有 → 无法 GC / 复查失效）',
+         '删除 Map<K, Set<V>> / Map<K, Array<V>> 条目时必须先清空内部容器；'
+         '否则返回的取消函数等闭包仍持有它 → 监听器无法 GC，且 emit 的 has 复查失效')
+def q06(module, files):
+    """删容器不清内容，是 Q03「空桶不回收」的反向同类问题。
+
+    Q03：删元素后不删空容器 → 空桶累积
+    Q06：删容器时不清理内容 → 闭包持有无法 GC + 存续复查失效
+
+    典型形态（真问题）：
+        off(name)  { this._map.delete(name); }   // Set 仍在，内容没清
+        offAll()   { this._map.clear(); }        // 所有 Set 仍在
+
+    **两个必须排除的安全写法**（否则误报率极高）：
+      ① 先删内容再摘条目，且带空判断：
+         bucket.delete(id);
+         if (bucket.size === 0) this._cells.delete(key);   ← 摘的时候已空，安全
+      ② 取消函数内 set.delete(fn) 后再摘，且有 `=== set` 归属校验
+
+    **为什么必须 clear**（真问题的后果）：
+      ① on() 返回的取消函数闭包持有该 Set。只要调用方还持有 off
+         （组件里存着待销毁时调是常态），整个 Set 及其监听器闭包无法 GC。
+      ② 遍历中的存续复查（set.has(fn)）依赖内容被真正移除，
+         只摘 Map 条目会让"整条 off"拦不住本轮，与单个取消语义不一致。
+    """
+    hits = []
+    for fn, src in files.items():
+        # 仅针对「值是 Set/Array 的 Map」
+        if not re.search(r'Map\s*<[^>]*,\s*(?:Set|Array)\s*<', src):
+            continue
+        # **前置判据：必须存在「闭包或外部引用持有容器内条目」的途径，否则不是问题。**
+        # 若容器只被 Map 自己持有，`map.delete(k)` 之后条目即可被 GC —— 完全安全。
+        # 真正的问题场景是：外部还握着一份引用（最典型是 on() 返回的取消函数闭包）。
+        # 实测：ranking 的 _granted 无取消函数，delete 后可 GC → 误报；
+        #       event-bus 的 _map 由 on() 返回闭包持有 → 真问题。
+        holds = (
+            re.search(r'return\s*\(\s*\)(?:\s*:[^=]+)?\s*=>', src)          # 返回箭头闭包
+            or re.search(r'return\s+function\b', src)                        # 返回函数
+            # 直接把条目返回给外部。注意排除 `return map.get(k)?.has(x)` /
+            # `return map.get(k)?.size ?? 0` 这类——返回的是布尔/数字，不是容器本身
+            or re.search(r'return\s+(?:this\.)?\w+\s*\.\s*get\s*\([^()]*\)(?!\s*[.?])', src)
+            or re.search(r'return\s+new\s+Set\s*\(', src)                    # 返回新集合（外部持有）
+            or re.search(r'\bof\s+(?:this\.)?\w+\s*\.\s*values\s*\(', src)  # 暴露迭代器
+        )
+        if not holds:
+            continue
+        for m in re.finditer(r'([A-Za-z_$][\w$]*)\s*\.\s*(delete|clear)\s*\(', src):
+            var, op = m.group(1), m.group(2)
+            decl = re.search(
+                r'(?:private\s+|readonly\s+)?' + re.escape(var) +
+                r'\s*(?::[^=;]+)?=\s*new\s+Map\s*<[^>]*,\s*(?:Set|Array)\s*<', src)
+            if not decl:
+                continue
+            line = src[:m.start()].count('\n') + 1
+            lines = src.split('\n')
+
+            # 排除①：**摘除时容器已空** —— 安全写法的核心特征是摘之前判了空。
+            #   典型：`const b = map.get(k); b.delete(id); if (b.size === 0) map.delete(k);`
+            #   这里 delete 时 bucket 已被删空，不存在"内容残留"问题。
+            # 判据：同一行（或紧邻前一行）出现 `.size === 0` / `.size == 0` / `size < 1`。
+            #   用"同行 size 判断"而不是"函数体内有 get+delete"，
+            #   是因为后者会把"另一个函数里恰好有同样写法"误判为安全（实测踩过）。
+            cur = lines[line - 1] if line - 1 < len(lines) else ''
+            prv = lines[line - 2] if line - 2 >= 0 else ''
+            if re.search(r'\.\s*size\s*(?:===?\s*0|==\s*0|<\s*1)', cur + ' ' + prv):
+                continue
+
+            # 排除②：附近有 .clear() 调用
+            prev = '\n'.join(lines[max(0, line - 4):line])
+            if re.search(r'\.\s*clear\s*\(', prev):
+                continue
+
+            if op == 'clear':
+                # 排除③：clear 之前有遍历该 map 并逐个 clear 内部容器
+                if re.search(r'for\s*\([^)]*' + re.escape(var), head):
+                    continue
+                hits.append((fn, line,
+                             '%s.clear() 未先清空内部容器 → 各条目仍持有内容（无法 GC）' % var))
+            else:
+                hits.append((fn, line,
+                             '%s.delete(...) 未先清空该条目内容 → 闭包仍持有（无法 GC / 复查失效）' % var))
+    return hits
+
+
 @pattern('R01', 'P0', '按路径写入未过滤危险段（原型污染）',
          '解析路径后必须拒绝 __proto__ / prototype / constructor 段，且只在自有容器上写入')
 def r01(module, files):
@@ -1558,6 +1642,24 @@ SELF_TEST_CASES = {
 
 # 需要多行上下文才能触发的模式（单句不足以命中）
 SELF_TEST_CONTEXT_CASES = {
+    'Q06': (
+        'export class Bus {\n'
+        '  private readonly _map = new Map<string, Set<Function>>();\n'
+        '  on(name: string, fn: Function): () => void {\n'
+        '    let set = this._map.get(name);\n'
+        '    if (!set) { set = new Set(); this._map.set(name, set); }\n'
+        '    set.add(fn);\n'
+        '    return () => { set.delete(fn); };\n'
+        '  }\n'
+        '  off(name: string): void {\n'
+        '    this._map.delete(name);\n'
+        '  }\n'
+        '  offAll(): void {\n'
+        '    this._map.clear();\n'
+        '  }\n'
+        '}\n'
+    ),
+
     'D01': ('export interface PlaceResult {\n'
             '  ok: boolean;\n'
             '  missing: string[];\n'
