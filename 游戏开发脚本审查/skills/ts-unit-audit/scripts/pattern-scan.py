@@ -1069,9 +1069,21 @@ def q03(module, files):
     return hits
 
 
-@pattern('Q04', 'P0', '对象池缺归属校验 / prewarm 无界',
+@pattern('Q04', 'P0', '对象池缺归属校验 / prewarm 无界 / active 无下限',
          'put/release 必须拒绝非本池借出的对象；active 不得为负；prewarm 必须有限整数上限')
 def q04(module, files):
+    """对象池三类缺陷。
+
+    **为什么「缺归属校验」是 P0** —— 实测（pool 单元）：
+        get 3 个 → active=3
+        put 5 个**外部对象** → active = max(0, 3-5) = 0
+    于是 active（泄漏检测的唯一指标）被外部对象"刷"成 0，
+    而那 3 个真实借出的对象根本没还。全程无报错无警告，
+    泄漏检测彻底失效——比"active 变负"更隐蔽，因为 0 看起来完全正常。
+
+    另外两类（prewarm 无上界、active 无下限）在 pool 单元已修，
+    本函数保留检测以防回归。
+    """
     hits = []
     for fn, src in files.items():
         if not re.search(r'\bclass\s+\w*Pool\b|\bprewarm\s*\(', src):
@@ -1087,6 +1099,35 @@ def q04(module, files):
             if re.search(r'Math\.max\(\s*0', ctx):
                 continue
             hits.append((fn, line, 'active/used 递减无下限保护（可为负）'))
+
+        # ── 归属校验：put/release 是否在扣减 active 前确认"这个对象确实是从这里借出的" ──
+        for m in re.finditer(
+                r'\bput\s*\(\s*([A-Za-z_$][\w$]*)\s*(?::[^)]*)?\)\s*(?::[^{]+)?\{', src):
+            body = _body_of(src, m, 1200)
+            if not body:
+                continue
+            # 该 put 里是否有 active 扣减
+            if not re.search(r'(?:this\.)?_?(?:active|used|borrowed|_borrowed)\s*(?:--|-=|=\s*.*?-\s*1)', body):
+                continue
+            # 关键判据：**扣减是否无条件**。
+            # 若 `active--` 直接写在方法体里（花括号深度 == 1，不在任何 if 内），
+            # 说明它没有"这个对象确实是从本池借出的"作为前提 → 任意对象都能扣。
+            #
+            # 为什么不用"有没有 has()"来判：重复归还拦截也用 has()，
+            # 但它查的是"是否已空闲"，方向与归属相反——按 has() 判会把
+            # pool 这种**只有重复拦截、没有归属校验**的情况漏掉（实测踩过）。
+            dec = re.search(
+                r'(?:this\.)?_?(?:active|used|borrowed|_borrowed)\s*(?:--|-=|=\s*[^;\n]*?-\s*1)',
+                body)
+            if not dec:
+                continue
+            depth = 1 + body.count('{', 0, dec.start()) - body.count('}', 0, dec.start())
+            if depth > 1:
+                continue  # 在某个 if / for 内 → 有条件，视为已做归属判断
+            line = src[:m.start()].count('\n') + 1
+            hits.append((fn, line,
+                         'put() 无条件扣减 active（无归属校验）→ 任意对象都能归还，'
+                         'active 会被外部对象刷成 0，泄漏检测失效'))
     return hits
 
 
