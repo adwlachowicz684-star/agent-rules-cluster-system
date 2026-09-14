@@ -151,8 +151,13 @@ def main():
     for _sub in ('references', 'assets'):
         _dd = os.path.join(SKILL_DIR, _sub)
         if os.path.isdir(_dd):
-            _targets += [os.path.join(_dd, f) for f in os.listdir(_dd)
-                         if f.endswith('.md')]
+            for f in sorted(os.listdir(_dd)):
+                if not f.endswith('.md'):
+                    continue
+                # changelog 记录的是「当时叫什么」，被删掉的文件名在这里出现是合法的
+                if f == 'changelog.md':
+                    continue
+                _targets.append(os.path.join(_dd, f))
     for _tf in _targets:
         try:
             _txt = open(_tf, encoding='utf-8').read()
