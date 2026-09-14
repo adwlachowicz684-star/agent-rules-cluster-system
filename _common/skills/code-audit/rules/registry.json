@@ -63,8 +63,8 @@
     "html"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/APP-J04/tp.js",
-    "fp": "rules/fixtures/APP-J04/fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -155,8 +155,8 @@
     "html"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/APP-J08/tp.js",
-    "fp": "rules/fixtures/APP-J08/fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -178,8 +178,8 @@
     "html"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/APP-J09/tp.js",
-    "fp": "rules/fixtures/APP-J09/fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -483,8 +483,8 @@
     "html"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/APP-R04/tp.rs",
-    "fp": "rules/fixtures/APP-R04/fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -631,6 +631,29 @@
    }
   },
   {
+   "rule_id": "APP-R11",
+   "native_id": "R11",
+   "scanner": "scan-app.py",
+   "level": "P0",
+   "title": "文件读取无路径约束（可越权读取）",
+   "family": "R",
+   "scene": "s-build",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
    "rule_id": "TS-A01",
    "native_id": "A01",
    "scanner": "scan-ts.py",
@@ -647,8 +670,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-A01/tp.ts",
-    "fp": "rules/fixtures/TS-A01/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -697,8 +720,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-A03/tp.ts",
-    "fp": "rules/fixtures/TS-A03/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -947,8 +970,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-D02/tp.ts",
-    "fp": "rules/fixtures/TS-D02/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1297,8 +1320,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-M01/tp.ts",
-    "fp": "rules/fixtures/TS-M01/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1347,8 +1370,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-N01/tp.ts",
-    "fp": "rules/fixtures/TS-N01/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1547,8 +1570,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-P03/tp.ts",
-    "fp": "rules/fixtures/TS-P03/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1672,8 +1695,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-Q03/tp.ts",
-    "fp": "rules/fixtures/TS-Q03/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1872,8 +1895,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-T01/tp.ts",
-    "fp": "rules/fixtures/TS-T01/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
@@ -1972,8 +1995,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "rules/fixtures/TS-X01/tp.ts",
-    "fp": "rules/fixtures/TS-X01/fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",

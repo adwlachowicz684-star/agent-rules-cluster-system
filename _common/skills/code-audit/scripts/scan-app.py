@@ -140,6 +140,15 @@ LINE_PATTERNS = [
      r'if\s+\w*(?:token|secret|pass|key|auth|pwd)\w*\.is_empty\(\)\s*\{\s*return\s+true', None),
     ('R10', 'P2', 'rename 无跨设备回退', ('rs',),
      r'::rename\s*\(', None),
+    # R11 越权文件读取：读了文件，但上下文里没有任何路径约束。
+    # 来源：2026-09-14 nexus-panel 第三轮（由另一份审查报告指出）。
+    # fs_op 建了 resolve_within + 授权根目录的完整模型，旁边的
+    # fpx_read_file → content::read_preview 却直接 fs::read_to_string(p)，
+    # 能读任意文本文件 —— R01 只管「整文件读入的内存上限」，管不到「能不能读」。
+    ('R11', 'P0', '文件读取无路径约束（可越权读取）', ('rs',),
+     r'\b(?:std::fs::read|fs::read_to_string|read_to_string|File::open)\s*\(',
+     {'absent': r'(?:resolve_within|canonicalize|\.starts_with|is_within|allowed_root|within_root|check_path)',
+      'window': 60}),
 ]
 COMPILED_LINE = [(p[0], p[1], p[2], p[3], re.compile(p[4]),
                   ({k: (re.compile(v) if k != 'window' else v)
