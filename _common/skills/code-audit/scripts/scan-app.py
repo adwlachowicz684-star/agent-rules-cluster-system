@@ -187,13 +187,85 @@ def _f_j08(path, text, st):
     return [(st[:m.start()].count('\n') + 1, m.group(0))
             for m in re.finditer(r'window\.__[A-Z][A-Z0-9_]*', st)]
 
+# 明确只跑一次的初始化函数。其余函数名（含工厂函数 fileItem / createX / buildX 等）
+# 都进入泄漏判定 —— 若改成「白名单只含 render 类」会漏掉工厂函数里的重复注册。
+_J09_ONCE = re.compile(r'^(?:init|initialize|init[A-Z]|boot|bootstrap|setup|start|main|once|entry)$', re.I)
+
+# 接收者"不会被 innerHTML 清空"，因此永远不该降级
+_J09_LONGLIVED = re.compile(
+    r'^(?:window|document|globalThis|self|top|parent|this)$'
+    r'|document\.body|\.contentWindow|\.contentDocument'
+    r'|querySelector|getElementById|getElementsBy|closest|\$\(|jQuery\(')
+
 def _f_j09(path, text, st):
-    has_add = re.search(r'addEventListener\s*\(', st)
-    if not has_add:
+    """只注册不注销。
+
+    **接收者感知**：`innerHTML = ''` 只对"注册在将被丢弃的子节点上"的监听有效。
+    2026-09-14 nexus-panel：作者用 sidebar-listener-test.mjs 实证
+    `renderSidebar` 里 `list.innerHTML=''` 会连节点一起丢弃、监听器随之失效，
+    推翻了我上一轮"6 处监听泄漏"的静态推断。
+
+    但**不能据此无条件降级** —— 反例（都在 fixtures 里）：
+      b.js  有清空，却注册在 window 上  → 真泄漏（window 永远不会被清空）
+      c.js  有清空，却注册在容器自身    → 真泄漏（清空子节点不影响容器自己）
+      d.js  注册在新建节点，但节点被外部缓存持有 → 真泄漏（节点不回收，监听也不回收）
+
+    故降级必须同时满足：接收者是本作用域 createElement 的局部变量
+    + 文件里确有清空操作 + 该变量没被 push 到外部持有。
+    """
+    if not re.search(r'addEventListener\s*\(', st):
         return []
-    if not re.search(r'removeEventListener\s*\(', st):
-        return [(st[:has_add.start()].count('\n') + 1, '只注册不注销（无 removeEventListener）')]
-    return []
+    # 文件里已有成对注销 → 不报（保持原有行为）
+    if re.search(r'removeEventListener\s*\(', st):
+        return []
+    created = set(re.findall(
+        r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*document\.createElement', st))
+    has_clear = bool(re.search(
+        r"innerHTML\s*=\s*['\"]\s*['\"]|replaceChildren\s*\(|\.remove\s*\(\s*\)", st))
+    out = []
+    def enclosing_fn(line_no):
+        """向上找**外层**函数名；找不到（顶层）返回 None。
+
+        必须按缩进层级找，不能"找最近的"：nexus-panel `shell.js:476` 的
+        window.addEventListener 缩进 2，其上紧邻的是缩进同为 2 的
+        `const runShellShortcut = (combo) => ...`（一个**平级**的辅助函数定义），
+        只找最近会误把它当成外层函数，于是把 init() 里的一次性注册误报成泄漏。
+        """
+        ls = st.split('\n')
+        cur = len(ls[line_no - 1]) - len(ls[line_no - 1].lstrip())
+        for i in range(line_no - 1, -1, -1):
+            ind = len(ls[i]) - len(ls[i].lstrip())
+            if ind >= cur and i != line_no - 1:
+                continue
+            mm = (re.match(r'\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)', ls[i])
+                  or re.match(r'\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?\(', ls[i]))
+            if mm and (len(ls[i]) - len(ls[i].lstrip())) < cur:
+                return mm.group(1)
+        return None
+
+    for m in re.finditer(r'([A-Za-z_$][\w.$]*)\s*\.\s*addEventListener\s*\(', st):
+        recv = m.group(1)
+        ln = st[:m.start()].count('\n') + 1
+        # 一次性上下文（顶层 / IIFE / init、boot 等只跑一次的函数）里的注册
+        # 不随重渲染累积 —— 实测 nexus-panel：shell.js 3 处 window 监听全在
+        # `async function init()` 里，是正常用法，不是泄漏。
+        # 只有"会被反复调用"的渲染类函数才进入泄漏判定。
+        _fn = enclosing_fn(ln)
+        if _fn is None or _J09_ONCE.match(_fn):
+            continue
+
+        if _J09_LONGLIVED.search(recv):
+            # 长期对象上的注册：即使别处有清空也泄漏
+            out.append((st[:m.start()].count('\n') + 1,
+                        '只注册不注销：%s 上的监听不会被 innerHTML 清空带走' % recv))
+        elif (recv in created and has_clear
+              and not re.search(r'push\s*\(\s*' + re.escape(recv) + r'\b', st)):
+            # 注册在随容器一起丢弃的新建子节点上 → 不泄漏
+            continue
+        else:
+            out.append((st[:m.start()].count('\n') + 1,
+                        '只注册不注销（无 removeEventListener）：%s' % recv))
+    return out
 
 def _f_j10(path, text, st):
     m = re.search(r'setInterval\s*\(', st)
@@ -519,6 +591,12 @@ SELF_FILES = {
     'package.json': json.dumps({'scripts': {'test': 'node t.js', 'typecheck': 'tsc'},
                                 'tauri:dev': 'tauri dev --config src-tauri/tauri.vite.conf.json'}),
     'js/a.js': "export const THEME_VARS = ['--bg'];\n"
+               # J09 用例必须放在"会被反复调用"的渲染函数里：
+               # 顶层 / 一次性 init 里的 window 监听是正常用法，按设计不该检出
+               "function renderPane() {\n"
+               "  const box = document.createElement('div');\n"
+               "  window.addEventListener('resize', () => relayout(box));\n"
+               "}\n"
                "window.addEventListener('message', (e) => { const d = e.data; });\n"
                "const r = JSON.parse(localStorage.getItem('k'));\n"
                "if (_cache !== undefined) return _cache;\n"

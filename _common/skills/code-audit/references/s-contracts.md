@@ -146,3 +146,31 @@ python3 scripts/doc-deliverable.py --src=<根> --missing-only  # 单元三件套
 - **不同插件各自定义同名常量** —— 见 C-09 降级条件
 - **注释解释了为什么那样写** —— 先读注释
 - **按栈分流的隐藏** —— 某些条目在特定模式下故意隐藏
+
+
+## 人工检查项
+
+### H-03 安全增强把回归测试打挂了（静默失效）
+
+给代码加安全校验（来源校验、鉴权、白名单）后，**测试构造的假数据可能不再满足新条件**，
+于是行为层断言失效 —— 而源码层断言（搜文本）仍然绿，CI 看不出异常。
+
+**检查方法**：新增/收紧任何入口校验后，回头跑一遍行为层测试，
+确认失败数是 0 且**行为断言真的执行了**（不只是"没报错"）。
+
+**实例**：2026-09-14 nexus-panel。`plugin-sdk.js:514` 新增
+`if (e.source !== window.parent) return;`，而 `handshake-test.mjs:69`
+构造 `MessageEvent` 时没设 `source` → `null !== window.parent` → 直接 return。
+实测：`通过 9 项，失败 3 项`，且失败的全是行为层
+（"收到 mount 后执行了挂载" / "挂载后回发 mounted" / "重复 mount 幂等"）。
+**源码层 6 项全绿，所以不至于全瞎，但行为覆盖归零了。**
+
+**修法**：
+```js
+const ev = new sdkWin.MessageEvent('message', { data: {...}, source: sdkWin.parent });
+```
+
+**同类**：断言依赖源码文本距离的测试也很脆 —— `shell-audit-test.mjs` 断言
+`expected.is_empty()` 到 `BROWSER_GUARD_HEADER` 的距离 ≤200 字符，
+实际 300（中间隔了 6 行注释）→ 代码是对的，断言过时了。
+先剥注释再匹配，或放宽窗口。
