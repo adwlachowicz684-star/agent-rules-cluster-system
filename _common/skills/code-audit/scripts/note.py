@@ -21,7 +21,32 @@ from datetime import date
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from domain import load_config, domain_dir, CONFIG  # noqa: E402
+
+
+def _find_domain_dir():
+    """domain.py 属技能集群引擎（另一个技能包），本技能不自带。
+
+    直接 `from domain import ...` 在未设 PYTHONPATH 时会 ModuleNotFoundError。
+    这里按常见布局自动回退查找，找不到再给出可执行的指引。
+    """
+    rel = Path("self-evolving_skill_mechanism/skills/scripts")
+    for base in [ROOT] + list(ROOT.parents)[:6]:
+        for cand in (base / "scripts" / "domain.py",
+                     base / rel / "domain.py"):
+            if cand.exists():
+                return cand.parent
+    return None
+
+
+_d = _find_domain_dir()
+if _d:
+    sys.path.insert(0, str(_d))
+try:
+    from domain import load_config, domain_dir, CONFIG  # noqa: E402
+except ImportError:
+    sys.exit("找不到 domain.py（技能集群引擎模块）。二选一：\n"
+             "  export PYTHONPATH=<repo>/self-evolving_skill_mechanism/skills/scripts\n"
+             "  或确保该目录与本技能包在同一父目录下（脚本会自动向上查找）")
 
 TYPES = ["新增", "补充", "修正", "更新", "参考", "合并", "拆分", "冷藏"]
 

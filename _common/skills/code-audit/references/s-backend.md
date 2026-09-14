@@ -21,7 +21,9 @@
 | **K-04** 删除目录 | 是否要求显式 force + dry-run 预览 | P1 |
 | **K-05** 递归遍历 | 是否用 `symlink_metadata` 跳过链接点 | P1 |
 | **K-06** 跨设备移动 | `rename` 是否有 copy+delete 回退 | P2 |
-| **K-07** 路径穿越 | 是否允许（本地工具可免责，但要在文档写明） | P2 |
+| **K-07** 路径穿越 | 是否 `canonicalize` / `realpath` 后比较（**`normpath` 不算**）。本地工具可免责，但要在文档写明 | P2 |
+| **K-30** 元数据推断 | mode / 类型是否取自版本库索引，而非 `os.access` / `os.stat` 现算 | **P1** |
+| **K-31** 子进程返回码 | 包装函数是否丢弃 `returncode` 只看 stdout | **P1** |
 
 **典型缺陷**（K-01）：
 ```rust
@@ -29,6 +31,39 @@ let bytes = std::fs::read(p)?;                        // 10GB 直接进内存
 let text = &bytes[..bytes.len().min(cap)];            // 之后才截断 → 上限形同虚设
 ```
 先整文件读入再按 `max_bytes` 截断 —— **上限参数形同虚设**，10GB 文件直接 OOM。
+
+**典型缺陷**（K-07，`normpath` 不等于 `canonicalize`）：
+```python
+full = os.path.normpath(os.path.join(ROOT, rel))      # 只做字符串规整
+if full.startswith(ROOT): 通过                        # ← 符号链接被放过
+```
+仓库内若有指向外部目录的符号链接（`etcdir -> /etc`），
+`etcdir/passwd` 通过校验，`open()` 却读到 `/etc/passwd`。
+**判据**：路径校验必须解析链接后再比较（`os.path.realpath` / `canonicalize`），
+只做 `..` / `.` 的字符串规整等于没校验。
+**确认**：造一个 `ln -s /etc <repo>/etcdir`，读 `<repo>/etcdir/passwd` 看是否可读。
+
+**典型缺陷**（K-30，容器里 `os.access` 恒为 true）：
+```python
+mode = "100755" if os.access(p, os.X_OK) else "100644"
+```
+容器 / 挂载文件系统（overlayfs、Windows 盘、共享目录）上文件权限常是 `0777`
+或 `core.fileMode=false`，此时 `os.access(X_OK)` **恒真**，
+结果是把所有改动文件一律写成可执行，污染远端。
+**判据**：文件 mode 应取自版本库索引（`git ls-files -s`），
+索引缺失（新文件）时**回退 `100644` 而非 `100755`** —— 宁可丢执行位，
+也不要把 `.md` / `.json` 变成可执行。
+**确认**：`git config core.fileMode` 与 `ls -l` 一起看；
+`chmod +x` 后 `git ls-files -s` 的 mode 不变 → 该环境不跟踪执行位，禁用推断。
+
+**典型缺陷**（K-31，返回码被吞）：
+```python
+def git(*a):
+    return subprocess.run([...], capture_output=True, text=True).stdout.strip()
+```
+只看 stdout，`git add` 部分失败（退出码 1，被 `.gitignore` 拦下部分路径）
+**照常返回空字符串**，调用方以为成功。
+**确认**：造一条必然失败的子命令，看包装函数的返回值是否可区分成功与失败。
 
 ---
 
@@ -105,35 +140,3 @@ let text = &bytes[..bytes.len().min(cap)];            // 之后才截断 → 上
 - **「用 std::fs 而非官方 fs 插件」** —— 语义上更接近「执行一条命令」，
   可省去逐条声明路径权限，不是缺陷
 - **「硬编码 sleep 等待」** —— 若有更精确的信号可用才报（见 K-24）
-
-
-## 人工检查项（正则扫不出，必须人看）
-
-### H-01 防护函数定义了却没接上
-
-「写了防护没接上」比「没写防护」更危险 —— 读代码的人会以为已经防住了。
-
-**检查方法**：找文件里的 `pub fn safe_*` / `check_*` / `validate_*`，
-逐个搜全项目调用点。零调用的就是问题（排除 `use` 引入行）。
-
-**实例**：2026-09-14 nexus-panel。`fpx/safety.rs:58` 定义了 `safe_url`，
-`chain.rs:13` 也 import 了，但 `open_url()` 与自定义 scheme 两处都没调用。
-而同一个文件里 `has_scheme()` 用了 `safe_scheme`、`custom_exe()` 用了
-`check_executable` —— **不对称本身就是线索**：同族函数有的接了有的没接，
-没接上的那个往往就是漏的。
-
-> 尝试过做成自动规则（R12），因实现未达标（10 个函数里 8 个误报）已移除，
-> 待重做。目前作为人工检查项。
-
-### H-02 同族命令的授权模型不一致
-
-一个入口做了严格校验，同族的另一个没有 —— 严格那个形同虚设。
-
-**检查方法**：找出所有对外命令（Tauri 的 `#[tauri::command]`、
-HTTP 路由、IPC handler），逐个确认是否走同一套授权。
-**特别注意"后来加的"命令**：它往往绕过先建的模型。
-
-**实例**：同上。`fs_op` 建了 `resolve_within` + 授权根目录 + `is_forbidden_root`
-的完整模型，但只覆盖 `fs_op` 一个命令；后加的 `fpx_read_file` →
-`content::read_preview` 直接 `fs::read_to_string(p)`，能读任意文本文件。
-前端 `invoke` **不按插件隔离**，任何插件能调任何已注册命令。
