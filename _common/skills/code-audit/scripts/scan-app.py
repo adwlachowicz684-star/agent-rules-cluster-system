@@ -26,6 +26,11 @@ import json
 import shutil
 import tempfile
 
+try:
+    from sarif import build_sarif, write_sarif
+except ImportError:
+    build_sarif = None
+
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 
@@ -51,6 +56,10 @@ if '--self-test' not in _flags:
 FLAT = '--flat' in _flags
 P0_ONLY = '--p0' in _flags
 AS_JSON = '--json' in _flags
+SARIF_OUT = None
+for _f in _flags:
+    if _f.startswith('--sarif='):
+        SARIF_OUT = _f.split('=', 1)[1]
 
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
@@ -110,7 +119,8 @@ LINE_PATTERNS = [
     ('J03', 'P1', "postMessage 目标 origin 通配", ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'),
      r'postMessage\s*\([^;]{0,200}?,\s*[\'"]\*[\'"]\s*\)', None),
     ('J04', 'P2', '存储反序列化无兜底', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'),
-     r'JSON\.parse\(\s*(?:localStorage|window\.localStorage|raw|saved|stored|text)\b', None),
+     r'JSON\.parse\(\s*(?:localStorage|window\.localStorage|raw|saved|stored|text)\b',
+     {'absent': r'(?:try\s*\{|\bcatch\b|\|\|\s*\{|\?\?\s*\{)', 'window': 8}),
     ('J06', 'P2', '能力探测一次性缓存降级', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'),
      r'if\s*\(\s*(\w+)\s*!==\s*undefined\s*\)\s*return\s*\1', None),
     ('R01', 'P1', '整文件读入后才截断（上限形同虚设）', ('rs',),
@@ -455,6 +465,11 @@ def scan(root, only=None):
     return files, findings
 
 
+def _to_findings(findings):
+    return [{'id': f[0], 'level': f[1], 'name': f[2], 'file': f[3],
+             'line': f[4], 'snippet': f[5]} for f in findings]
+
+
 def render(root, files, findings):
     if P0_ONLY:
         findings = [f for f in findings if f[1] == 'P0']
@@ -561,6 +576,14 @@ def main():
     if '--self-test' in _flags:
         sys.exit(self_test())
     files, findings = scan(SRC, set(_args) if _args else None)
+    if SARIF_OUT:
+        if build_sarif is None:
+            print('sarif.py 不可用'); sys.exit(1)
+        doc = build_sarif(_to_findings(findings), tool_name='scan-app.py',
+                          root=SRC, version='1.0.0')
+        write_sarif(doc, SARIF_OUT)
+        print('SARIF → %s：%d 条结果' % (SARIF_OUT, len(doc['runs'][0]['results'])))
+        return
     if AS_JSON:
         print(json.dumps([{'id': f[0], 'level': f[1], 'name': f[2],
                            'file': os.path.relpath(f[3], SRC), 'line': f[4],

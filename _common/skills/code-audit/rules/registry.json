@@ -1,0 +1,2159 @@
+{
+ "version": "1.0.0",
+ "note": "由 scripts/rule-registry.py --sync 从扫描器提取生成。不要手改条目（会被 --check 判为漂移）；改扫描器后重新 sync。",
+ "rules": [
+  {
+   "rule_id": "APP-J01",
+   "native_id": "J01",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "message 监听未校验来源",
+   "family": "J",
+   "scene": "s-boundary",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J02",
+   "native_id": "J02",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "动态成员调用（桥接/分发无白名单）",
+   "family": "J",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J04",
+   "native_id": "J04",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "存储反序列化无兜底",
+   "family": "J",
+   "scene": "s-state",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/APP-J04/tp.js",
+    "fp": "rules/fixtures/APP-J04/fp.js"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J05",
+   "native_id": "J05",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "事件解绑引用可能不一致",
+   "family": "J",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J06",
+   "native_id": "J06",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "能力探测一次性缓存降级",
+   "family": "J",
+   "scene": "s-state",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J07",
+   "native_id": "J07",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "扩展层直连底层 API（隔离后静默失效）",
+   "family": "J",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J08",
+   "native_id": "J08",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "扩展读取宿主全局单例（沙箱内取不到）",
+   "family": "J",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/APP-J08/tp.js",
+    "fp": "rules/fixtures/APP-J08/fp.js"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J09",
+   "native_id": "J09",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "只注册不注销",
+   "family": "J",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/APP-J09/tp.js",
+    "fp": "rules/fixtures/APP-J09/fp.js"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J10",
+   "native_id": "J10",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "setInterval 无清理",
+   "family": "J",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J11",
+   "native_id": "J11",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "objectURL 未释放",
+   "family": "J",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J12",
+   "native_id": "J12",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "innerHTML 拼接变量",
+   "family": "J",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-J13",
+   "native_id": "J13",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "同名常量清单重复定义且已分叉",
+   "family": "J",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-P01",
+   "native_id": "P01",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "忽略清单缺常见项",
+   "family": "P",
+   "scene": "s-build",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-P02",
+   "native_id": "P02",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "孤儿源文件（无任何引用）",
+   "family": "P",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-P03",
+   "native_id": "P03",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "有校验脚本但无 CI",
+   "family": "P",
+   "scene": "s-build",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-P04",
+   "native_id": "P04",
+   "scanner": "scan-app.py",
+   "level": "P0",
+   "title": "多入口但安全策略只覆盖其一",
+   "family": "P",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-P05",
+   "native_id": "P05",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "多份构建配置合并关系存疑",
+   "family": "P",
+   "scene": "s-build",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R01",
+   "native_id": "R01",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "整文件读入后才截断（上限形同虚设）",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R02",
+   "native_id": "R02",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "lock().unwrap()（配 panic=abort 即崩溃）",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R03",
+   "native_id": "R03",
+   "scanner": "scan-app.py",
+   "level": "P0",
+   "title": "按声明长度分配缓冲（无上限）",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R04",
+   "native_id": "R04",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "递归遍历未识别符号链接",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/APP-R04/tp.rs",
+    "fp": "rules/fixtures/APP-R04/fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R05",
+   "native_id": "R05",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "路径黑名单字符串比较（可 ../ 绕过）",
+   "family": "R",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R06",
+   "native_id": "R06",
+   "scanner": "scan-app.py",
+   "level": "P0",
+   "title": "命令执行（shell 解析 / 可执行文件来自变量）",
+   "family": "R",
+   "scene": "s-sandbox",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R07",
+   "native_id": "R07",
+   "scanner": "scan-app.py",
+   "level": "P1",
+   "title": "thread::sleep 轮询 / 连接循环内 spawn",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R08",
+   "native_id": "R08",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "未被 mod 声明的孤儿 .rs 文件",
+   "family": "R",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html",
+    "json"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R09",
+   "native_id": "R09",
+   "scanner": "scan-app.py",
+   "level": "P0",
+   "title": "空凭据即放行",
+   "family": "R",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "APP-R10",
+   "native_id": "R10",
+   "scanner": "scan-app.py",
+   "level": "P2",
+   "title": "rename 无跨设备回退",
+   "family": "R",
+   "scene": "s-backend",
+   "languages": [
+    "ts",
+    "js",
+    "rs",
+    "html"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-A01",
+   "native_id": "A01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "守卫用 <=0/<0 挡不住 NaN",
+   "family": "A",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-A01/tp.ts",
+    "fp": "rules/fixtures/TS-A01/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-A02",
+   "native_id": "A02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "?? 默认值未收口（只挡 undefined，不挡 NaN/Infinity）",
+   "family": "A",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-A03",
+   "native_id": "A03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "clamp/clamp01 对 NaN 原样返回 → 穿透",
+   "family": "A",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-A03/tp.ts",
+    "fp": "rules/fixtures/TS-A03/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-A04",
+   "native_id": "A04",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "状态字段被 NaN 污染后不可逆（累加/EMA 类）",
+   "family": "A",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-A05",
+   "native_id": "A05",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": ">>> 0 / |0 把 NaN 静默变成 0",
+   "family": "A",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-B01",
+   "native_id": "B01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "循环上界来自入参且未收口（Infinity/NaN → 死循环）",
+   "family": "B",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-B02",
+   "native_id": "B02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "while 循环的退出条件可能被 NaN/Infinity 绕过",
+   "family": "B",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-B03",
+   "native_id": "B03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "递归无访问集/深度上限（互相引用 → 栈溢出）",
+   "family": "B",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-C01",
+   "native_id": "C01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "裸 Record 查表命中 Object.prototype",
+   "family": "C",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-C02",
+   "native_id": "C02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "用 {} 字面量累加计数（key 为 __proto__ 时丢失）",
+   "family": "C",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-C03",
+   "native_id": "C03",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "Object.assign / spread 合并外部对象（触发 __proto__ setter）",
+   "family": "C",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-D01",
+   "native_id": "D01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "接口字段声明但从未被赋值/读取（死契约）",
+   "family": "D",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-D02",
+   "native_id": "D02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "参数声明但函数体内从未使用（承诺无效）",
+   "family": "D",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-D02/tp.ts",
+    "fp": "rules/fixtures/TS-D02/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-E01",
+   "native_id": "E01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "forEach 遍历监听器数组 + 回调可能取消订阅",
+   "family": "E",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-E02",
+   "native_id": "E02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "按函数值去重的 Set 配合\"每注册一条\"的数组",
+   "family": "E",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-F01",
+   "native_id": "F01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "import/importState 直接写内部容器，绕过 register/set 的校验",
+   "family": "F",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-G01",
+   "native_id": "G01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "onXxx 直接赋值（第二个订阅者顶掉第一个）",
+   "family": "G",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-H01",
+   "native_id": "H01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "成对 API 的校验不对称（一个校验一个不校验）",
+   "family": "H",
+   "scene": "s-contracts",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-I01",
+   "native_id": "I01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "容量类字段无上限（无限增长）",
+   "family": "I",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-I02",
+   "native_id": "I02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "O(n²)：filter/map 内调用全量扫描方法",
+   "family": "I",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-J01",
+   "native_id": "J01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "连续多个写操作，中间可能抛错且不回滚",
+   "family": "J",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-J02",
+   "native_id": "J02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "空 catch 吞异常",
+   "family": "J",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-K01",
+   "native_id": "K01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "状态字段只有置 true 没有复位 false",
+   "family": "K",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-K02",
+   "native_id": "K02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "clear/reset 遗漏部分容器（清理不彻底）",
+   "family": "K",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-L01",
+   "native_id": "L01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "空 if 块（校验写了一半）",
+   "family": "L",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-L02",
+   "native_id": "L02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "三元表达式两支返回同一个值",
+   "family": "L",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-M01",
+   "native_id": "M01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "fail-open：校验缺失时默认放行/通过",
+   "family": "L",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-M01/tp.ts",
+    "fp": "rules/fixtures/TS-M01/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-M02",
+   "native_id": "M02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "安全/经济判定依赖可能污染的数值",
+   "family": "L",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-N01",
+   "native_id": "N01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "硬编码 Date.now / performance.now（时间源不可注入）",
+   "family": "N",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-N01/tp.ts",
+    "fp": "rules/fixtures/TS-N01/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-N02",
+   "native_id": "N02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "裸 Math.random（破坏可复现）",
+   "family": "N",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-O01",
+   "native_id": "O01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "32 位移位溢出（1 << 31/32）",
+   "family": "O",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-O02",
+   "native_id": "O02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "除法分母来自变量且无零/NaN 防护",
+   "family": "O",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-O03",
+   "native_id": "O03",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "console.* 直接输出（应走 logger 注入）",
+   "family": "O",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-O04",
+   "native_id": "O04",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "返回内部可变引用（调用方持有的会被后续帧改写）",
+   "family": "O",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-P01",
+   "native_id": "P01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "数值收口函数缺 typeof 校验",
+   "family": "P",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-P02",
+   "native_id": "P02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "Infinity 被用作哨兵值，与合法极值冲突",
+   "family": "P",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-P03",
+   "native_id": "P03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "Math.max/min 当收口守卫（对 NaN / Infinity 无效）",
+   "family": "P",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-P04",
+   "native_id": "P04",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "slice / splice 的负数参数陷阱",
+   "family": "P",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-P05",
+   "native_id": "P05",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "数值 op 未校验操作数类型（+ 变字符串拼接）",
+   "family": "P",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Q01",
+   "native_id": "Q01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "TypedArray / 大数组尺寸来自未校验变量",
+   "family": "Q",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Q02",
+   "native_id": "Q02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "惰性删除结构的 size / isEmpty 与 pop 语义不一致",
+   "family": "Q",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Q03",
+   "native_id": "Q03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "分桶 / 空间索引删除后不回收空桶",
+   "family": "Q",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-Q03/tp.ts",
+    "fp": "rules/fixtures/TS-Q03/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Q04",
+   "native_id": "Q04",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "对象池缺归属校验 / prewarm 无界 / active 无下限",
+   "family": "Q",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Q05",
+   "native_id": "Q05",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "spread 展开不定参数（大量参数 → RangeError）",
+   "family": "Q",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-R01",
+   "native_id": "R01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "按路径写入未过滤危险段（原型污染）",
+   "family": "R",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-R02",
+   "native_id": "R02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "批量删除未降序（索引前移导致删错）",
+   "family": "R",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-R03",
+   "native_id": "R03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "路径协议不可逆（无法表达含分隔符的键）",
+   "family": "R",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-R04",
+   "native_id": "R04",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "复合 key 未编码（分隔符碰撞）",
+   "family": "R",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-S01",
+   "native_id": "S01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "调试 / 作弊 / 后门功能默认启用",
+   "family": "S",
+   "scene": "s-atomicity",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-T01",
+   "native_id": "T01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "while 循环做角度 / 周期归一化",
+   "family": "T",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-T01/tp.ts",
+    "fp": "rules/fixtures/TS-T01/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-T02",
+   "native_id": "T02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "循环变量可为 ±Infinity（自增后仍为 ±Infinity）",
+   "family": "T",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-U01",
+   "native_id": "U01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "展示层把非有限值掩盖成 0",
+   "family": "U",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-W01",
+   "native_id": "W01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "交易 / 批量数量未校验有限正整数",
+   "family": "W",
+   "scene": "s-numerics",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X01",
+   "native_id": "X01",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "事件订阅无对应注销（监听泄漏）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": "rules/fixtures/TS-X01/tp.ts",
+    "fp": "rules/fixtures/TS-X01/fp.ts"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X02",
+   "native_id": "X02",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "定时器注册无清理（定时任务泄漏）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X03",
+   "native_id": "X03",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "资源/句柄获取后无释放（资源泄漏）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X04",
+   "native_id": "X04",
+   "scanner": "scan-ts.py",
+   "level": "P0",
+   "title": "循环/常驻动画无停止调用（切场景后驻留）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X05",
+   "native_id": "X05",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "成对方法只出现一侧（获取无归还）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-X06",
+   "native_id": "X06",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "匿名回调注册（无法精确注销）",
+   "family": "X",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Y01",
+   "native_id": "Y01",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "每帧回调内的昂贵操作（应缓存到初始化）",
+   "family": "Y",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "TS-Y02",
+   "native_id": "Y02",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "每帧回调内分配对象（GC 压力）",
+   "family": "Y",
+   "scene": "s-lifecycle",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  }
+ ]
+}

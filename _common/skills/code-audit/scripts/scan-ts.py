@@ -32,10 +32,18 @@ import tempfile
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 
+try:
+    from sarif import build_sarif, write_sarif
+except ImportError:
+    build_sarif = None
+
 SRC = None
+SARIF_OUT = None
 for f in _flags:
     if f.startswith('--src='):
         SRC = os.path.abspath(os.path.expanduser(f.split('=', 1)[1]))
+    if f.startswith('--sarif='):
+        SARIF_OUT = f.split('=', 1)[1]
 
 if SRC is None:
     for cand in ('src', '.'):
@@ -1874,6 +1882,19 @@ def main():
                 rows.append((mod, p, fn, line, snip))
                 by_pattern[p['id']] = by_pattern.get(p['id'], 0) + 1
                 total += 1
+
+    if SARIF_OUT:
+        if build_sarif is None:
+            print('sarif.py 不可用'); sys.exit(1)
+        items = [{'id': p['id'], 'level': p['level'], 'name': p['name'],
+                  'file': fn, 'line': ln, 'snippet': sn, 'scanner': 'scan-ts.py'}
+                 for m, p, fn, ln, sn in rows]
+        doc = build_sarif(items, tool_name='scan-ts.py', root=SRC, version='1.0.0')
+        write_sarif(doc, SARIF_OUT)
+        print('SARIF → %s：%d 条结果 · %d 条规则'
+              % (SARIF_OUT, len(doc['runs'][0]['results']),
+                 len(doc['runs'][0]['tool']['driver']['rules'])))
+        return
 
     if '--json' in flags:
         json.dump({

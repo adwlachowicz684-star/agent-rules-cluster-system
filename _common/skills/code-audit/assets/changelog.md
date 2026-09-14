@@ -24,3 +24,9 @@
 | 2026-09-14 | ts-unit-audit | 修正 | 原 SKILL.md 模式数有 62/61/53 三种口径打架，实际 62 条。迁入后以场景文件为准 |
 | 2026-09-14 | doc-scan | 拆分 | 原两个 skill 都有 `scripts/doc-scan.py` 但语义相反（交付物三件套 vs 文档承诺一致性）。分别改名 `doc-deliverable.py` / `doc-promise.py` |
 | 2026-09-14 | route.py | **修正** | 原设计「命中 >4 个时取前 4，其余列候选」**会漏检**——剩余场景降为候选后审着审着就忘了。改为**不设上限、分批加载**：命中多少审多少，每批 ≤4（`--batch=N` 可调），一批审完再加载下一批。分批只影响阅读节奏，不影响覆盖范围 |
+| 2026-09-14 | rule-registry.py | 新增 | 规则注册表：88 条规则统一 rule_id（TS-*/APP-*），`--sync` 从扫描器提取、`--check` 防漂移、`--test` 跑 fixture |
+| 2026-09-14 | J04 | **修正** | fixture 实测发现规则过宽：`JSON.parse` 在 try/catch 里仍报。加降级：窗口内有 `try{`/`catch`/`\|\| {}` 则忽略 |
+| 2026-09-14 | sarif.py | 新增 | SARIF 2.1.0 输出。指纹含行号（初版不含导致 126 条里 35 条撞车）；修重复 relpath 导致的路径嵌套 `../../a/b/a/b/x.js` |
+| 2026-09-14 | audit.py | 新增 | 编排器：预算控制（默认 120k token）+ 断点续跑（`.audit-state.json`）+ 统一 SARIF 输出 |
+| 2026-09-14 | project-rules.py | 新增 | 按路径绑定的项目级规则（借鉴 open-code-review 的 `rule.json`）。补通用模式库的反面：项目特化、无法抽象的约定 |
+| 2026-09-14 | fixtures | 新增 | 12 组 TP/FP fixture（优先「有降级条件」的规则——最易误报）。实测发现 5 个问题：J04 过宽、J08 需 plugins/ 目录、R02 应为 R04、D02 跳过 len<4 参数名 |

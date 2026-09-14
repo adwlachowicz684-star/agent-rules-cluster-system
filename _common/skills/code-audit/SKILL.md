@@ -80,6 +80,44 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 场景文件内自带「本场景模式清单 + 判据 + 确认方法 + 降级条件 + 修法」，
 **每个场景自成一体**，只看这一个文件就能干活。
 
+## 四个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制）
+
+```bash
+# ① 规则注册表：88 条规则统一 rule_id，可查、可测、可防漂移
+python3 scripts/rule-registry.py --sync     # 从扫描器重建（改扫描器后跑）
+python3 scripts/rule-registry.py --check    # 漂移检查 + fixture 覆盖率
+python3 scripts/rule-registry.py --test     # 跑 fixture：TP 必须命中 / FP 必须不命中
+python3 scripts/rule-registry.py --scene s-numerics
+
+# ② SARIF 2.1.0：接 GitHub Code Scanning / IDE / CI
+python3 scan-ts.py  --src=<根> --sarif=ts.sarif
+python3 scan-app.py --src=<根> --sarif=app.sarif
+python3 sarif.py ts.sarif app.sarif --root=<根> --out=all.sarif
+python3 sarif.py --diff old.sarif new.sarif     # 新增 / 消失 / 持续
+
+# ③ 编排器：预算控制 + 断点续跑
+python3 audit.py --src=<根> --budget=120000 --batch=4 --sarif=out.sarif
+python3 audit.py --src=<根> --resume            # 从断点继续
+python3 audit.py --src=<根> --status            # 看进度
+
+# ④ 按路径绑定的项目级规则（通用模式库覆盖不到的项目特化约定）
+python3 project-rules.py --src=<根> --init      # 生成 .audit-rules.json
+python3 project-rules.py --src=<根> --match=<文件>  # 查该文件适用哪些规则
+python3 project-rules.py --src=<根> --check     # 校验 + 报失效规则
+```
+
+**为什么需要 ①**：90 条正则散在扫描器里是隐式知识——没有 ID、无法灰度下线、
+改一条不知道影响谁。注册表把它们变成可管理资产，`--check` 防注册表与扫描器漂移。
+
+**为什么需要 ②**：扫描器原本只输出人类可读文本，接不进任何 CI/IDE。
+SARIF 是通用交换格式，接上就能在 PR 里内联显示。
+
+**为什么需要 ③**：大项目全量扫可能超预算，失败即前功尽弃。
+编排器按批推进、每批记账、超预算停下并可续跑。
+
+**为什么需要 ④**：11 个场景都是「换个项目还成立」的抽象模式，
+但「改 providers.go 要同步四份语言文档」这类永远抽象不出来，对项目却极其有效。
+
 ## 输出资产（不读入上下文，用于填充）
 
 | 文件 | 用途 |
