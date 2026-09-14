@@ -1,6 +1,6 @@
 # 正确写法 · 核心族（A–H）
 
-修 A–H 族缺陷时从这里取代码。I–O 族见 `fix-code-data.md`，P–W 族见 `fix-code-advanced.md`。
+修 A–H 族缺陷时从这里取代码。I–O 族见 `s-structures-fix.md`，P–W 族见 `s-numerics-fix-adv.md`。
 
 ## A 族 · 数值收口
 

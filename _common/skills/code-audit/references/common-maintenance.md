@@ -17,7 +17,7 @@
 ```
 ① 归入 A~G 某一族（都不合适 → 新建族，并同步改 SKILL.md 的族总览）
 ② 分配新 ID（族字母 + 下一个序号）
-③ 写进 references/pattern-detection.md：判据 / 确认 / 降级 / 默认级别
+③ 写进对应场景文件（references/s-*.md）：判据 / 确认 / 降级 / 默认级别
 ④ 若能正则检出 → 加进 scripts/tool-scan.py 的 PATTERNS，并补 --self-test 用例
 ⑤ python3 scripts/note.py "<ID>" 新增 "<一句话来源>"
 ⑥ python3 scripts/check-skill.py  确认体积与断链
@@ -39,8 +39,8 @@
 | `assets/*.md` | 300 行 |
 | `scripts/*.py` | 300 行 |
 
-`pattern-detection.md` 已声明体积豁免：确认候选时需整体对照 52 条判据，
-拆分反而增加往返。若超过 500 行，按族拆成 `pattern-detection-A.md` 等。
+场景文件已声明体积豁免：确认候选时需整体对照该场景全部判据，
+拆分反而增加往返。若超过 500 行，按族拆成 `s-numerics.md（数值族）等场景文件` 等。
 
 ## 自检
 

@@ -30,3 +30,6 @@
 | 2026-09-14 | audit.py | 新增 | 编排器：预算控制（默认 120k token）+ 断点续跑（`.audit-state.json`）+ 统一 SARIF 输出 |
 | 2026-09-14 | project-rules.py | 新增 | 按路径绑定的项目级规则（借鉴 open-code-review 的 `rule.json`）。补通用模式库的反面：项目特化、无法抽象的约定 |
 | 2026-09-14 | fixtures | 新增 | 12 组 TP/FP fixture（优先「有降级条件」的规则——最易误报）。实测发现 5 个问题：J04 过宽、J08 需 plugins/ 目录、R02 应为 R04、D02 跳过 len<4 参数名 |
+| 2026-09-14 | 迁移断链 | **修正** | 重组改名后留下 20 处悬挂引用：`s-*-fix.md` 互链仍指向 `fix-code-core/data/advanced/lifecycle.md`；`common-workflow.md` 指向 `host-plugin/sandbox-security/native-backend/lifecycle-build/severity/reporting.md`；`common-maintenance.md` / `p-cocos.md` 指向已删除的 `pattern-detection.md`。逐个按新名映射修复 |
+| 2026-09-14 | K-24 | **修正** | `s-backend.md` 误报区提到 K-29 但表内只到 K-28（悬挂编号）。把「阻塞式固定 sleep 轮询」提回表内编为 K-24，后续编号顺延至 K-29 |
+| 2026-09-14 | check-skill.py | 新增 | **PD003 悬挂引用检查**：正文反引号引用的技能内文件必须存在。加上后立刻又查出 5 处（`assets/review-checklist.md` 仍引用旧名），说明这类断链靠人工过目必漏 |

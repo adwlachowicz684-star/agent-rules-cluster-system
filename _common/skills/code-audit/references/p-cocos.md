@@ -1,7 +1,7 @@
 <!-- oversize-exempt: 引擎专项查表文档，含生命周期/迁移/性能/包体四张对照表，需整体查阅 -->
 # Cocos Creator 引擎专项
 
-通用缺陷见 `pattern-detection.md`（A–W 族）与 X/Y 族（成对配对、热路径）。
+通用缺陷按场景分见 `s-numerics.md`（数值边界）、`s-structures.md`（数据结构）、`s-lifecycle.md`（成对配对 / 热路径）、`s-contracts.md`（死契约）。
 本文件只写**引擎特有**的规则——换个引擎不成立的部分。
 
 ## 适用场景

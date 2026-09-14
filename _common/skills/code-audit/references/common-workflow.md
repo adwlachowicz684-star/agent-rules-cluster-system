@@ -73,17 +73,17 @@ python3 scripts/doc-scan.py --src=<根>
 
 | 维度 | 读哪份 | 典型发现 |
 |---|---|---|
-| 契约与双实现 | `host-plugin.md` | 孤儿组件、双栈能力不对等、扩展取不到宿主状态 |
-| 沙箱与权限 | `sandbox-security.md` | 桥接无白名单、隔离后静默失效、CSP 只覆盖一个入口 |
-| 原生后端 | `native-backend.md` | 整文件读入 OOM、命令注入面、空口令放行 |
-| 生命周期 | `lifecycle-build.md` | 只注册不注销、定时器叠加、blob 未 revoke |
-| 构建与卫生 | `lifecycle-build.md` | 打包范围过宽、硬编码清单、无 CI |
+| 契约与双实现 | `s-contracts.md` / `s-sandbox-host.md` | 孤儿组件、双栈能力不对等、扩展取不到宿主状态 |
+| 沙箱与权限 | `s-sandbox.md` / `s-sandbox-security.md` | 桥接无白名单、隔离后静默失效、CSP 只覆盖一个入口 |
+| 原生后端 | `s-backend.md` | 整文件读入 OOM、命令注入面、空口令放行 |
+| 生命周期 | `s-lifecycle.md` | 只注册不注销、定时器叠加、blob 未 revoke |
+| 构建与卫生 | `s-build.md` | 打包范围过宽、硬编码清单、无 CI |
 
 **每个模块审完立刻写结论**，不要攒到最后——攒着会丢细节。
 
 ## 第 6 步：分级、报告、修复清单
 
-见 `severity.md`（定级）与 `reporting.md`（格式）。
+见 `common-severity.md`（定级）与 `common-reporting.md`（格式）。
 
 ## 推进节奏（>5 万行项目参考）
 

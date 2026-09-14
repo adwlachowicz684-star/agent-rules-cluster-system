@@ -1,7 +1,7 @@
 # 正确写法 · 成对契约与热路径（X–Y 族）
 
 修 X / Y 族缺陷时从这里取代码。
-A–H 族见 `fix-code-core.md`，I–O 族见 `fix-code-data.md`，P–W 族见 `fix-code-advanced.md`。
+A–H 族见 `s-numerics-fix.md`，I–O 族见 `s-structures-fix.md`，P–W 族见 `s-numerics-fix-adv.md`。
 
 ## X 族 · 成对 API 配对
 

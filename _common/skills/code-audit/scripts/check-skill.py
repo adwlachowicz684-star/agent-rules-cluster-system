@@ -129,6 +129,40 @@ def main():
         if f in REDUNDANT_ROOT and os.path.isfile(os.path.join(SKILL_DIR, f)):
             add('warn', 'PD002', '根目录冗余文件（社区共识应移除）: %s' % f)
 
+    # PD003 悬挂引用：正文里反引号引用的技能内部文件必须真实存在。
+    # 改名/拆分后最容易留下这类断链——读文档的人点过去是 404，
+    # 而它在 SKILL.md 层面完全看不出问题，只有逐个文件扫才能发现。
+    _known = {'rule.json',  # open-code-review 的外部配置，非本技能文件
+              'registry.json', '.audit-rules.json', '.audit-state.json',
+              'README.md', 'package.json', '.gitignore', 'Cargo.toml',
+              'cc.config.json', 'SKILL.md', 'AGENTS.md', 'CLAUDE.md'}
+    _exts = ('.md', '.py', '.ts', '.json')
+    def _exists(name):
+        if name in _known:
+            return True
+        for d in (SKILL_DIR, os.path.join(SKILL_DIR, 'references'),
+                  os.path.join(SKILL_DIR, 'scripts'),
+                  os.path.join(SKILL_DIR, 'assets'),
+                  os.path.join(SKILL_DIR, 'rules')):
+            if os.path.isfile(os.path.join(d, name)):
+                return True
+        return os.path.isfile(name)
+    _targets = [os.path.join(SKILL_DIR, 'SKILL.md')]
+    for _sub in ('references', 'assets'):
+        _dd = os.path.join(SKILL_DIR, _sub)
+        if os.path.isdir(_dd):
+            _targets += [os.path.join(_dd, f) for f in os.listdir(_dd)
+                         if f.endswith('.md')]
+    for _tf in _targets:
+        try:
+            _txt = open(_tf, encoding='utf-8').read()
+        except OSError:
+            continue
+        for _m in set(re.findall(r'`([A-Za-z0-9][A-Za-z0-9\-_.]*\.(?:md|py|ts|json))`', _txt)):
+            if not _exists(_m):
+                add('warn', 'PD003', '悬挂引用（文件不存在）: %s 内引用 %s'
+                    % (os.path.basename(_tf), _m))
+
     refdir = os.path.join(SKILL_DIR, 'references')
     if os.path.isdir(refdir):
         for f in sorted(os.listdir(refdir)):

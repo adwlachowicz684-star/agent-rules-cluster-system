@@ -1,6 +1,6 @@
 # 正确写法 · 数据族（I–O）
 
-修 I–O 族缺陷时从这里取代码。A–H 族见 `fix-code-core.md`，P–W 族见 `fix-code-advanced.md`。
+修 I–O 族缺陷时从这里取代码。A–H 族见 `s-numerics-fix.md`，P–W 族见 `s-numerics-fix-adv.md`。
 
 ## I / J / K 族 · 资源、原子性、清理
 
