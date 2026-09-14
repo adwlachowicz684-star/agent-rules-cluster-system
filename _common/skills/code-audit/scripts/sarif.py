@@ -87,7 +87,9 @@ def build_sarif(findings, tool_name='code-audit', root=None, version='1.0.0'):
     rules_seen, results = {}, []
 
     for f in findings:
-        native = f.get('id') or f.get('rule_id') or 'UNKNOWN'
+        # scan-ts 的 items 用 `pattern`，scan-app 用 `id`；
+        # audit.py 缓存的 JSON 两种都可能出现，缺一个就退化成 UNKNOWN
+        native = f.get('id') or f.get('rule_id') or f.get('pattern') or 'UNKNOWN'
         rid = _rule_id(native, f.get('scanner') or tool_name)
         title, scene, def_level = _RULE_INFO.get(rid, (f.get('name', ''), '', None))
         level = _severity_to_level(f.get('level') or def_level or 'P1')

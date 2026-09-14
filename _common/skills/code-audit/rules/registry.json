@@ -1547,8 +1547,8 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "rules/fixtures/TS-P03/tp.ts",
+    "fp": "rules/fixtures/TS-P03/fp.ts"
    },
    "eval": {
     "precision": "unverified",

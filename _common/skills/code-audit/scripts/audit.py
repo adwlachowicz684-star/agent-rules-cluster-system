@@ -101,6 +101,18 @@ def run(cmd, root):
         return 3, '', str(e)
 
 
+def _scene_map():
+    # 从 rules/registry.json 读「规则 ID -> 场景」映射
+    reg = os.path.join(SKILL, 'rules', 'registry.json')
+    if not os.path.isfile(reg):
+        return {}
+    try:
+        return dict((r['rule_id'], r['scene'])
+                    for r in json.load(open(reg, encoding='utf-8'))['rules'])
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
 def route_scenes():
     """调 route.py --json 拿场景排序。"""
     code, out, err = run([os.path.join(HERE, 'route.py'), '--src=' + SRC, '--json'], HERE)
@@ -165,34 +177,66 @@ def main():
           % (len(order), len(st['done']), len(todo), BUDGET))
     print()
 
+    # 关键：扫描器**每个只跑一次全量**，再按场景分组。
+    # 旧版是「每个场景跑一次全量扫描器」——同一份结果被计入 N 次
+    # （实测 nexus-panel：111 条 TS 候选被算成 666 条，虚增 6 倍），
+    # 既浪费时间又让预算估算失真。分批控制的是**人工阅读节奏**，不是重复扫描。
+    scene_of = _scene_map()
+
+    if 'scan_cache' not in st:
+        st['scan_cache'] = {}
+    cache = st['scan_cache']
+
+    for sc in ('scan-ts.py', 'scan-app.py'):
+        sp = os.path.join(HERE, sc)
+        if not os.path.isfile(sp):
+            continue
+        if sc in cache and cache[sc] and os.path.isfile(cache[sc]):
+            continue
+        print('── 扫描：%s ──────────' % sc)
+        code, out, err = run([sp, '--src=' + SRC, '--json'], HERE)
+        if code != 0 and not out.strip():
+            print('  x %s：%s' % (sc, (err or '')[:80]))
+            cache[sc] = None
+            continue
+        try:
+            _d = json.loads(out) if out.strip() else []
+            items = _d.get('items', []) if isinstance(_d, dict) else _d
+        except ValueError:
+            items = []
+        tmp = os.path.join('/tmp', 'audit_%s.json' % sc.replace('.py', ''))
+        open(tmp, 'w', encoding='utf-8').write(json.dumps(items, ensure_ascii=False))
+        cache[sc] = tmp
+        print('  %d 条候选' % len(items))
+    save_state(st)
+
+    # 按场景分组（用 registry 的 scene 字段）
+    grouped = {}
+    for sc, path in cache.items():
+        if not path or not os.path.isfile(path):
+            continue
+        for it in json.load(open(path, encoding='utf-8')):
+            native = it.get('id') or it.get('pattern') or ''
+            rid = ('APP-' if 'app' in sc else 'TS-') + native
+            # 补 scanner 字段：sarif.py 靠它决定 APP-/TS- 前缀，
+            # 不补就会全部退化成 TS-*（实测 R06 被误标成 TS-R06）
+            it.setdefault('scanner', sc)
+            grouped.setdefault(scene_of.get(rid, 's-contracts'), []).append(it)
+
     for i in range(0, len(todo), BATCH):
         chunk = todo[i:i + BATCH]
+        print()
         print('── 第 %d 批：%s ──────────' % (i // BATCH + 1, ', '.join(chunk)))
         for scene in chunk:
-            scripts = SCENE_SCRIPTS.get(scene, ['scan-ts.py', 'scan-app.py'])
-            count = 0
-            for sc in scripts:
-                sp = os.path.join(HERE, sc)
-                if not os.path.isfile(sp):
-                    continue
-                tmp = os.path.join('/tmp', 'audit_%s_%s.json' % (scene, sc.replace('.py', '')))
-                code, out, err = run([sp, '--src=' + SRC, '--json'], HERE)
-                if code != 0 and not out.strip():
-                    print('  ✗ %s / %s：%s' % (scene, sc, (err or '')[:80]))
-                    continue
-                try:
-                    _d = json.loads(out) if out.strip() else []
-                    # scan-ts 输出 {'items':[...]}；scan-app 直接输出 [...]
-                    items = _d.get('items', []) if isinstance(_d, dict) else _d
-                except ValueError:
-                    items = []
-                open(tmp, 'w', encoding='utf-8').write(json.dumps(items, ensure_ascii=False))
-                count += len(items)
-                st['scenes'].setdefault(scene, {})[sc] = tmp
-            st['scenes'][scene]['count'] = count
+            items = grouped.get(scene, [])
+            tmp = os.path.join('/tmp', 'audit_scene_%s.json' % scene)
+            open(tmp, 'w', encoding='utf-8').write(json.dumps(items, ensure_ascii=False))
+            st['scenes'].setdefault(scene, {})['items'] = tmp
+            n = len(items)
+            st['scenes'][scene]['count'] = n
             st['done'].append(scene)
-            st['spent'] += int(count * 60)   # 粗估：每条候选约 60 token 的复核成本
-            print('  ✓ %-14s %d 条候选（累计已耗 %d）' % (scene, count, st['spent']))
+            st['spent'] += int(n * 60)
+            print('  ✓ %-14s %d 条候选（累计已耗 %d）' % (scene, n, st['spent']))
             save_state(st)
 
             if st['spent'] >= BUDGET:
@@ -206,15 +250,13 @@ def main():
     st['exhausted'] = False
     save_state(st)
     print()
-    print('全部完成：%d 个场景 · %d 条候选 · token 估算 %d'
+    print('全部完成：%d 个场景 · %d 条候选（去重后）· token 估算 %d'
           % (len(st['done']), sum(v.get('count', 0) for v in st['scenes'].values()), st['spent']))
 
     if SARIF_OUT:
-        parts = []
-        for scene, v in st['scenes'].items():
-            for k, p in v.items():
-                if k != 'count' and os.path.isfile(p):
-                    parts.append(p)
+        # 各场景的候选已按规则归属分组，互不重叠，直接合并
+        parts = [v['items'] for v in st['scenes'].values()
+                 if v.get('items') and os.path.isfile(v['items'])]
         if parts:
             cmd = [os.path.join(HERE, 'sarif.py')] + parts + \
                   ['--root=' + SRC, '--out=' + SARIF_OUT]

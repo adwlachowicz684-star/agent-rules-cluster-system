@@ -33,3 +33,9 @@
 | 2026-09-14 | 迁移断链 | **修正** | 重组改名后留下 20 处悬挂引用：`s-*-fix.md` 互链仍指向 `fix-code-core/data/advanced/lifecycle.md`；`common-workflow.md` 指向 `host-plugin/sandbox-security/native-backend/lifecycle-build/severity/reporting.md`；`common-maintenance.md` / `p-cocos.md` 指向已删除的 `pattern-detection.md`。逐个按新名映射修复 |
 | 2026-09-14 | K-24 | **修正** | `s-backend.md` 误报区提到 K-29 但表内只到 K-28（悬挂编号）。把「阻塞式固定 sleep 轮询」提回表内编为 K-24，后续编号顺延至 K-29 |
 | 2026-09-14 | check-skill.py | 新增 | **PD003 悬挂引用检查**：正文反引号引用的技能内文件必须存在。加上后立刻又查出 5 处（`assets/review-checklist.md` 仍引用旧名），说明这类断链靠人工过目必漏 |
+| 2026-09-14 | audit.py | **修正（严重）** | 「每个场景跑一次全量扫描器」导致同一结果计入 6~7 次：nexus-panel 111 条 TS 候选被算成 666 条，总计虚报 1378（真实 200）。改为扫描器各跑一次、按 registry 的 scene 字段分组。token 估算同步失真（82680 → 12000） |
+| 2026-09-14 | sarif.py | **修正** | 不认 scan-ts items 的 `pattern` 字段 → 111 条规则 ruleId 全变 `TS-UNKNOWN`。兼容 `id`/`rule_id`/`pattern` 三种 |
+| 2026-09-14 | audit.py | **修正** | 分组时未给 item 补 `scanner` → sarif 无法判断前缀，scan-app 的 R06 被标成 `TS-R06` |
+| 2026-09-14 | D02 | **修正（3 类误报）** | 实测 13 条 100% 误报：① `.d.ts` 纯类型声明无函数体（9 条）② `_body_of` 截断到 2000 字符，长函数后半段参数看不到（2 条，`mountIframeView` 154 行）③ 正则字面量 `/(^\|\})([^{}@]+)\{/g` 的花括号破坏配平，body 只剩 27 字符（1 条，`scopeCss`）。修法：排除 .d.ts / 不截断 / body<200 时全文计数兜底 |
+| 2026-09-14 | P03 | **修正** | 2 条全误报：`isNaN(n) ? 0 : Math.max(...)` 前置已挡 NaN。加降级：同行有 `isNaN`/`isFinite`/`typeof…number` 则跳过 |
+| 2026-09-14 | fixtures | 新增 | 4 组（TS-P03 / TS-D02-dts / TS-D02-long / TS-D02-regex），断言 24→29，未覆盖规则 76→72 |

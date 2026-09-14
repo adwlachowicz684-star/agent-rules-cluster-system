@@ -168,17 +168,27 @@ def iter_lines(files):
             yield fn, i, ln
 
 
-def _body_of(src, m, limit=4000):
-    """取函数体（从 m.end() 开始的第一个完整 {} 块）"""
-    depth, j = 0, len(src)
-    for k in range(m.end() - 1, min(len(src), m.end() + limit)):
+def _body_of(src, m, limit=None):
+    """取函数体（从 m.end() 开始的第一个完整 {} 块）。
+
+    limit 曾默认 4000 —— 长函数扫不到配平的 `}`，就退化为「只取前 2000 字符」，
+    于是**函数后半段用到的参数被误判为「从未使用」**。
+    实测 nexus-panel：`mountIframeView` 154 行，`view` 在第 53 行用、
+    `hostEl` 在第 118 行用，全落在截断区外 → 2 条误报。
+
+    正确性优先于速度：默认不截断，扫到文件末尾。
+    """
+    end = len(src) if limit is None else min(len(src), m.end() + limit)
+    depth = 0
+    for k in range(m.end() - 1, end):
         if src[k] == '{':
             depth += 1
         elif src[k] == '}':
             depth -= 1
             if depth == 0:
                 return src[m.end():k]
-    return src[m.end():m.end() + min(2000, limit)]
+    # 配平失败（字符串/注释里有花括号）：返回剩余全部，宁可多包含也不要漏
+    return src[m.end():end]
 
 # ---------- A 族：NaN 穿透与守卫失效 ----------
 
@@ -434,6 +444,13 @@ def d02(plugin, files):
                 if len(pn) < 4 or pn in {'this', 'type', 'name', 'opts', 'args'}:
                     continue
                 if not re.search(r'\b' + re.escape(pn) + r'\b', body):
+                    # 兜底：函数体里的**正则字面量或字符串**含花括号时，配平会提前结束，
+                    # body 被截成几十字 → 后半段用到的参数全被误判为"未使用"。
+                    # 实测 nexus-panel：scopeCss() 体内有正则 /(^|\})([^{}@]+)\{/g，
+                    # body 只剩 27 字符，`scope` 明明用了却报未使用。
+                    # 此时用全文出现次数兜底：>1 说明别处用过，宁可漏报也不误报。
+                    if len(body) < 200 and src.count(pn) > 1:
+                        continue
                     line = src[:m.start()].count('\n') + 1
                     hits.append((fn, line, f'参数 `{pn}` 在函数体内未被使用'))
     return hits
@@ -846,6 +863,10 @@ def b03(plugin, files):
 def d02(plugin, files):
     hits = []
     for fn, src in files.items():
+        # 降级：.d.ts 是纯类型声明，没有函数体 —— 每个参数都"未被使用"，
+        # 扫它必然 100% 误报（实测 nexus-panel 13 条命中里有 9 条来自 .d.ts）。
+        if fn.endswith('.d.ts') or fn.endswith('.d.mts') or fn.endswith('.d.cts'):
+            continue
         # 三种形态都覆盖：类方法 name( / 独立函数 function name( / 箭头方法 name = (
         for m in re.finditer(r'^[ \t]*(?:export\s+)?(?:default\s+)?'
                              r'(?:private\s+|public\s+|protected\s+)?'
@@ -870,6 +891,13 @@ def d02(plugin, files):
                 if len(pn) < 4 or pn in {'this', 'type', 'name', 'opts', 'args'}:
                     continue
                 if not re.search(r'\b' + re.escape(pn) + r'\b', body):
+                    # 兜底：函数体里的**正则字面量或字符串**含花括号时，配平会提前结束，
+                    # body 被截成几十字 → 后半段用到的参数全被误判为"未使用"。
+                    # 实测 nexus-panel：scopeCss() 体内有正则 /(^|\})([^{}@]+)\{/g，
+                    # body 只剩 27 字符，`scope` 明明用了却报未使用。
+                    # 此时用全文出现次数兜底：>1 说明别处用过，宁可漏报也不误报。
+                    if len(body) < 200 and src.count(pn) > 1:
+                        continue
                     line = src[:m.start()].count('\n') + 1
                     hits.append((fn, line, f'参数 `{pn}` 在函数体内未被使用'))
     return hits
@@ -991,8 +1019,18 @@ def p02(module, files):
 def p03(module, files):
     hits = []
     for fn, i, ln in iter_lines(files):
-        if re.search(r'Math\.(max|min)\s*\(\s*\d+\s*,\s*([A-Za-z_$][\w.$]*)\s*\)', ln):
-            hits.append((fn, i, ln.strip()[:90]))
+        if not re.search(r'Math\.(max|min)\s*\(\s*\d+\s*,\s*([A-Za-z_$][\w.$]*)\s*\)', ln):
+            continue
+        # 降级：同一行（或三元的前半）已有 NaN 收口，则 Math.max 拿到的一定是有限数。
+        # 实测 nexus-panel theme-manager.js:
+        #   return isNaN(n) ? 0 : Math.max(-180, Math.min(180, n));
+        # 前置 isNaN 已挡住 NaN —— 原规则会误报（P03 命中 2 处，全是这种形态）。
+        if re.search(r'(?:isNaN|Number\.isFinite|isFinite)\s*\(', ln):
+            continue
+        # 降级：同一行有 typeof 数值校验
+        if re.search(r"typeof\s+\w+\s*===?", ln) and 'number' in ln:
+            continue
+        hits.append((fn, i, ln.strip()[:90]))
     return hits
 
 
