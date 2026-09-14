@@ -24,6 +24,7 @@
 | **K-07** 路径穿越 | 是否 `canonicalize` / `realpath` 后比较（**`normpath` 不算**）。本地工具可免责，但要在文档写明 | P2 |
 | **K-30** 元数据推断 | mode / 类型是否取自版本库索引，而非 `os.access` / `os.stat` 现算 | **P1** |
 | **K-31** 子进程返回码 | 包装函数是否丢弃 `returncode` 只看 stdout | **P1** |
+| **K-32** 不安全反序列化 | `pickle.loads` / `yaml.load`（无 SafeLoader）/ `ObjectInputStream` / 无 allowlist 的 JSON 转对象。Python 形态见 `p-python` PY-05 | **P0** |
 
 **典型缺陷**（K-01）：
 ```rust
@@ -68,6 +69,17 @@ def git(*a):
 只看 stdout，`git add` 部分失败（退出码 1，被 `.gitignore` 拦下部分路径）
 **照常返回空字符串**，调用方以为成功。
 **确认**：造一条必然失败的子命令，看包装函数的返回值是否可区分成功与失败。
+
+**典型缺陷**（K-32，反序列化 = 任意代码执行）：
+```python
+data = pickle.loads(request.body)          # 攻击者构造 payload 即可执行任意代码
+config = yaml.load(f)                      # 无 SafeLoader，同样可达
+```
+**判据**：先看数据来源是否可被外部控制（网络、文件上传、消息队列）。
+可控 + 无 allowlist/签名 → **P0**。
+**修法**：改 JSON / `yaml.safe_load`；必须反序列化原生对象则加类型 allowlist + 验签。
+**降级**：数据完全由本进程产生且不可被替换（如本地临时文件）→ P2。
+**为什么易漏**：代码看起来只是"读个配置"，没有 `eval` / `exec` 那么显眼。
 
 ---
 

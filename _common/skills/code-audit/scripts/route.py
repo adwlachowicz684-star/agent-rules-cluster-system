@@ -133,6 +133,25 @@ SCENES = [
       ('file', 'project.json', 'cocos project'),
       ('dir', 'assets', 'assets/'),
       ('rx', r"from\s+['\"]cc['\"]|cc\.Class|_decorator", 'cc 导入')]),
+    ('p-python', 'Python 语言包', 'Python 语义特有缺陷（默认参数/异常隔离/资源配对）',
+     [('ext', '.py', 'Python 文件'),
+      ('file', 'requirements.txt', '依赖声明'),
+      ('file', 'pyproject.toml', 'Python 项目'),
+      ('file', 'setup.py', '打包配置'),
+      ('rx', r'^\s*def\s+\w+\s*\([^)]*=\s*\[|^\s*def\s+\w+\s*\([^)]*=\s*\{',
+       '可变默认参数'),
+      ('rx', r'except\s*:|except\s+Exception\s*:', '宽泛异常')]),
+    ('s-concurrency', '并发与生命周期', '共享状态 / 取消传播 / 任务泄漏 / 重试幂等',
+     [('rx', r'\bThread\s*\(|threading\.|ThreadPoolExecutor|multiprocessing',
+       'Python 线程'),
+      ('rx', r'\bgo\s+func\s*\(|sync\.WaitGroup|context\.Context|\bchan\s',
+       'Go 并发'),
+      ('rx', r'\basyncio\.|await\s+\w+|create_task|ensure_future', 'Python 协程'),
+      ('rx', r'new\s+Thread\s*\(|ExecutorService|CompletableFuture|synchronized',
+       'Java 并发'),
+      ('rx', r'std::thread|std::mutex|std::async|pthread_create', 'C++ 并发'),
+      ('rx', r'\b(?:Lock|RLock|Semaphore|Condition|Event)\s*\(|mutex|atomic',
+       '锁/同步原语')]),
 ]
 
 # 结构信号：目录/文件存在即命中（最强）
@@ -204,6 +223,11 @@ def route(root):
                     ev_struct.append(pat_or_name)
                 elif pat_or_name.startswith('*') and any(f.endswith(pat_or_name[1:]) for f in top_files):
                     ev_feat.append('%s（普遍存在，弱信号）' % pat_or_name)
+            elif kind == 'ext':
+                # 按扩展名计数：语言包靠它命中（.py 有多少个）
+                n = len([p for p in files if p.endswith(pat_or_name)])
+                if n:
+                    ev_struct.append('%s (%d 个文件)' % (pat_or_name, n))
             elif kind == 'rx':
                 n = len(re.findall(pat_or_name, blob))
                 if n:

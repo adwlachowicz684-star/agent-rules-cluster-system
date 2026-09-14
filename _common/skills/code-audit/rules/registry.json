@@ -654,6 +654,246 @@
    }
   },
   {
+   "rule_id": "PY-01",
+   "native_id": "PY-01",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "可变默认参数（跨调用累积）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-02",
+   "native_id": "PY-02",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "宽泛异常吞没（未重新抛出）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-03",
+   "native_id": "PY-03",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "资源未用 with（可能未释放）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-04",
+   "native_id": "PY-04",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "并发无同步证据（共享状态缺保护）",
+   "family": "PY",
+   "scene": "s-concurrency",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-05",
+   "native_id": "PY-05",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "不安全反序列化（任意代码执行）",
+   "family": "PY",
+   "scene": "s-backend",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-06",
+   "native_id": "PY-06",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "敏感数据进日志",
+   "family": "PY",
+   "scene": "s-sandbox",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-07",
+   "native_id": "PY-07",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "__del__ 中执行 IO/加锁",
+   "family": "PY",
+   "scene": "s-concurrency",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-08",
+   "native_id": "PY-08",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "模块级可变全局状态",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-09",
+   "native_id": "PY-09",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "assert 做运行时校验（-O 下失效）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-10",
+   "native_id": "PY-10",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "subprocess shell=True / os.system（命令注入）",
+   "family": "PY",
+   "scene": "s-backend",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-11",
+   "native_id": "PY-11",
+   "scanner": "scan-py.py",
+   "level": "P0",
+   "title": "裸 except（吞掉 KeyboardInterrupt）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "PY-12",
+   "native_id": "PY-12",
+   "scanner": "scan-py.py",
+   "level": "P2",
+   "title": "naive datetime（无时区）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
    "rule_id": "TS-A01",
    "native_id": "A01",
    "scanner": "scan-ts.py",

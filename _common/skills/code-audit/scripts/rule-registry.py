@@ -59,6 +59,14 @@ APP2SCENE = {
 }
 
 
+PY2SCENE = {
+    'PY-01': 'p-python', 'PY-02': 'p-python', 'PY-03': 'p-python',
+    'PY-04': 's-concurrency', 'PY-05': 's-backend', 'PY-06': 's-sandbox',
+    'PY-07': 's-concurrency', 'PY-08': 'p-python', 'PY-09': 'p-python',
+    'PY-10': 's-backend', 'PY-11': 'p-python', 'PY-12': 'p-python',
+}
+
+
 def extract():
     """从两个扫描器提取规则定义。改扫描器后跑 --sync 重建注册表。"""
     out = []
@@ -98,6 +106,21 @@ def extract():
                     'languages': ['ts', 'js', 'rs', 'html'],
                     'fixtures': {'tp': None, 'fp': None},
                     'eval': {'precision': 'unverified', 'recall': 'unverified'}})
+    # ---------- scan-py.py ----------
+    psrc = open(os.path.join(HERE, 'scan-py.py'), encoding='utf-8').read()
+    pseen = set()
+    # PATTERNS 里的四元组：("PY-01", "P0", "标题", fn)
+    for m in re.finditer(r'\(\s*"(PY-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,', psrc):
+        if m.group(1) in pseen:
+            continue
+        pseen.add(m.group(1))
+        out.append({'rule_id': m.group(1), 'native_id': m.group(1),
+                    'scanner': 'scan-py.py', 'level': m.group(2), 'title': m.group(3),
+                    'family': 'PY', 'scene': PY2SCENE.get(m.group(1), 'p-python'),
+                    'languages': ['py'],
+                    'fixtures': {'tp': None, 'fp': None},
+                    'eval': {'precision': 'unverified', 'recall': 'unverified'}})
+
     # scan-app 的 FILE_PATTERNS / PROJECT_CHECKS 无法用统一正则提取，按已知清单补齐
     extra = {'J13': ('P1', '同名常量清单重复定义且已分叉', 's-contracts'),
              'P01': ('P2', '忽略清单缺常见项', 's-build'),

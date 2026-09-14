@@ -61,7 +61,10 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
   每批 ≤4（可调 `--batch=N`），一批审完再加载下一批
 - **精审中发现新的结构特征 → 回路由层补加载**（增量路由，见 `common.md`）
 
-## 场景表（11 个）
+## 场景表（11 风险面 + 1 语言包）
+
+**风险面**（换个项目还成立）与**语言包**（某种语言的语义特有判据）是并列维度，
+不是二选一：Python 项目同样要审状态、并发、边界，只是判据要用 Python 语义去看。
 
 | 场景 | 触发条件 | 主要风险 |
 |---|---|---|
@@ -74,20 +77,22 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`s-boundary.md`** | `postMessage` / IPC / 桥接 / iframe | origin 未校验、握手竞态、退订不精确、无超时 |
 | **`s-sandbox.md`** | 插件 / 扩展 / 隔离 / CSP / 凭据 | 隔离后静默失效、自授权、路径黑名单、密钥可推导 |
 | **`s-backend.md`** | Rust / C++ / Go、fs、进程、本地服务 | 读入无边界、shell 解析、请求体无上限、锁中毒 |
-| **`s-build.md`** | 构建 / 打包 / CI / 依赖 | 打包范围过宽、硬编码清单、CI 缺失、占位资源 |
+| **`s-build.md`** | 构建 / 打包 / CI / 依赖 | 打包范围过宽、硬编码清单、CI 缺失、占位资源、**供应链无证据**（G-11） |
+| **`s-concurrency.md`** | 多线程 / 协程 / 锁 / 消息消费 | 共享状态无同步、取消不传播、任务泄漏、超时不回滚、重试不幂等 |
+| **`p-python.md`** ⭐ | 仓库有 `.py` | 可变默认参数、宽泛异常吞没、资源未 `with`、`assert` 守大门 |
 | **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
+
+⭐ `p-python` 的存在理由：`scan-ts.py` / `scan-app.py` 对 Python 输出 **0 文件 0 候选**，
+这不是"没问题"而是**压根没看**。Python 项目必须额外跑 `scripts/scan-py.py`。
 
 场景文件内自带「本场景模式清单 + 判据 + 确认方法 + 降级条件 + 修法」，
 **每个场景自成一体**，只看这一个文件就能干活。
 
 ## 报告产出：默认拆成多文件
 
-整机审查产出**一个目录**：主窗口按子系统拆（Vanilla 外壳 / React 外壳 /
-原生后端 / 构建配置），插件一个一份，外加 `00-索引.md`。
-≥5 个文件打包 zip 交付。模板见 `assets/report-template-split.md`。
-
-硬约束：**只写问题不写过程**（不写"上轮核对""工具改进""扫描统计"）、
-每条必须有位置 + 后果、**误报段必写**、同类问题合并。
+整机审查产出**一个目录**：主窗口按子系统拆、插件一个一份 + `00-索引.md`，
+≥5 个文件打包 zip。模板 `assets/report-template-split.md`。
+硬约束：只写问题不写过程、每条须有位置+后果、误报段必写、同类合并。
 
 ## 四个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制）
 
@@ -138,6 +143,10 @@ python3 scripts/route.py --src=<根>
 # TS/JS 模式扫描（numerics / structures / lifecycle / atomicity / state 用）
 python3 scripts/scan-ts.py --src=<根> [--p0] [--json] [--flat]
 python3 scripts/scan-ts.py --self-test
+
+# ⚠ 有 Python 代码时必须额外跑这个（scan-ts/scan-app 不覆盖 Python）
+python3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=py.sarif]
+python3 scripts/scan-py.py --self-test
 
 # 应用级模式扫描（sandbox / boundary / backend / build 用）
 python3 scripts/scan-app.py --src=<根> [--p0] [--json]

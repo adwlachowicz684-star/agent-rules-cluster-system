@@ -28,7 +28,13 @@
 | `s-sandbox` | `plugins/` · `extensions/` | CSP · `sandbox=` · 凭据关键词 · 隔离 |
 | `s-backend` | `src-tauri/` · `Cargo.toml` | `Command::new` · `std::fs::` · `TcpListener` · `thread::spawn` |
 | `s-build` | `package.json` · `.github/` · `.gitignore` | `frontendDist` · `files: [` |
+| `s-concurrency` | — | `Thread(` · `threading` · `asyncio` · `create_task` · `go func` · `WaitGroup` · `chan ` · `ExecutorService` · `synchronized` · `std::thread` · `Lock(` |
+| `p-python` | `.py` 文件 | `def f(x=[])` · `except:` / `except Exception:` · `requirements.txt` · `pyproject.toml` |
 | `p-cocos` | `cc.config.json` · `assets/` | `from 'cc'` · `_decorator` |
+
+**语言包是并列维度，不是第 12 个风险面**：命中 `p-python` 不代表可以跳过 `s-state`。
+正确读法是「风险面 × 语言包」——Python 项目同样可能有状态、并发、边界问题，
+只是判据要用 Python 语义去看。
 
 ## 人工审核清单
 
@@ -61,10 +67,13 @@
 |---|---|
 | `scan-ts.py` | numerics · structures · lifecycle · atomicity · state · contracts |
 | `scan-app.py` | sandbox · boundary · backend · build · lifecycle |
+| `scan-py.py` | **p-python · concurrency · backend · sandbox**（Python 语义，AST 驱动） |
 | `doc-deliverable.py` | contracts（单元三件套） |
 | `doc-promise.py` | contracts（文档承诺） |
 | `dep-scan.py` | build（依赖合规） |
 | `cocos-audit.py` | p-cocos |
+
+**多语言仓库要跑多个扫描器**，用 TS 侧的 0 命中推断 Python 侧无问题是错的。
 
 ## ⚠ 扫描器的语言覆盖边界（0 命中 ≠ 没问题）
 
