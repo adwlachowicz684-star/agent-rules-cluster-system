@@ -41,7 +41,8 @@ size_limits:
 domains:
   _common:
     desc: 跨领域通用技能
-    keywords: [通用, 交付, 打包, 文件, 调试, 报错, 流程, 沟通, 搜索, 写作]
+    keywords: [通用, 交付, 打包, 文件, 调试, 报错, 流程, 沟通, 搜索, 写作,
+               审查, 审计, 体检, 精审, 挑毛病, 复核, 代码审查, review, audit]
   legal:
     name: 法律
     desc: 法律实务、合规、合同、诉讼

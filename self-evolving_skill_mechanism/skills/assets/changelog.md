@@ -13,3 +13,4 @@
 | 2026-09-07 | cocos_audit.py | 补充 | 新增tween泄漏/2.x遗留/物理/UI性能/Mask规则，支持--rule分类  （来源：官方文档+社区实践） |
 | 2026-09-07 | index.py | 修正 | 匹配度用any只算1分，改sum按命中词数累加，专项包才能排前面 |
 | 2026-09-14 | 大类 | 新增 | 注册 tooling（工具审查）大类，落地首个技能 `tool-audit`（52 条模式，28 条可机扫） |
+| 2026-09-14 | code-audit | 新增 | 跨领域审查技能进 `_common`：公共层 + 11 场景按需加载，替代原 ts-unit-audit（dev）与 tool-audit（tooling） |
