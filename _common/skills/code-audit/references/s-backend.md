@@ -43,6 +43,10 @@ if full.startswith(ROOT): 通过                        # ← 符号链接被放
 只做 `..` / `.` 的字符串规整等于没校验。
 **确认**：造一个 `ln -s /etc <repo>/etcdir`，读 `<repo>/etcdir/passwd` 看是否可读。
 
+**修法注意（易踩）**：用 `realpath` **校验**、用 `normpath` **返回**。
+若把 `realpath` 的结果直接当路径用，仓库内的合法符号链接（`link -> sub/t.txt`）
+会被改写成 `sub/t.txt`，推送的就不是链接本身了。校验与取值要用两套结果。
+
 **典型缺陷**（K-30，容器里 `os.access` 恒为 true）：
 ```python
 mode = "100755" if os.access(p, os.X_OK) else "100644"
