@@ -19,13 +19,17 @@ route.py —— 代码审查场景路由（精确辅助，非结论）
     python3 route.py --src=<根> --json
     python3 route.py --src=<根> --all          # 列出全部场景（含未命中）
     python3 route.py --src=<根> --min-hits=2   # 提高命中门槛（默认 1）
+    python3 route.py --src=<根> --batch=6      # 每批加载数（默认 4）
 
 输出示例：
     sandbox   [结构] plugins/(8) src-tauri/
               [特征] createObjectURL×3
     boundary  [特征] postMessage×12 addEventListener('message')×5
     ---
-    命中 7 个，建议加载 ≤4 个：按 P0 密度排序取前 4，其余列候选
+    命中 7 个 —— 全部都要审，分 2 批加载（每批 ≤4）
+
+设计要点：**不设命中上限**。截断会漏检——大项目命中 10+ 是正常的。
+改为分批：一批审完再加载下一批，既不漏又能保证每批读得深。
 """
 
 import os
@@ -45,9 +49,12 @@ if ROOT is None:
 AS_JSON = '--json' in _flags
 SHOW_ALL = '--all' in _flags
 MIN_HITS = 1
+BATCH = 4
 for f in _flags:
     if f.startswith('--min-hits='):
         MIN_HITS = int(f.split('=', 1)[1])
+    if f.startswith('--batch='):
+        BATCH = int(f.split('=', 1)[1])
 
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
@@ -251,16 +258,21 @@ def main():
             print('   [特征] %s' % ' · '.join(v['feat'][:6]))
     print()
     print('─' * 56)
-    print('命中 %d 个' % len(ranked))
-    if len(ranked) > 4:
-        print('⚠ 超过 4 个：建议按 P0 密度取前 4（%s），其余列候选待人工确认'
-              % ', '.join(k for k, _ in ranked[:4]))
+    print('命中 %d 个 —— **全部都要审**，不设上限（截断会漏检）' % len(ranked))
+    if len(ranked) <= BATCH:
+        print('一批加载：%s' % ', '.join(k for k, _ in ranked))
     else:
-        print('建议全部加载：%s' % ', '.join(k for k, _ in ranked))
+        n = (len(ranked) + BATCH - 1) // BATCH
+        print('分 %d 批加载（每批 ≤%d，避免一次读太多导致都读不深）：' % (n, BATCH))
+        for i in range(n):
+            chunk = ranked[i * BATCH:(i + 1) * BATCH]
+            print('   第 %d 批  %s' % (i + 1, ', '.join(k for k, _ in chunk)))
+        print('每批审完再加载下一批；审的过程中发现新特征 → 回头补加载（增量路由）')
     print()
     print('⚠ 脚本只按信号机械扫描，输出的是候选。必须人工审核：')
     print('   · 可能漏（相关代码在没扫到的路径）→ 手动补')
     print('   · 可能多（只审前端却探测到 src-tauri/）→ 手动剔')
+    print('   · 不设命中上限：大项目命中 10+ 是正常的，分批审完，不要截断')
 
 
 if __name__ == '__main__':
