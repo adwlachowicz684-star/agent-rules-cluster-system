@@ -152,6 +152,23 @@ SCENES = [
       ('rx', r'std::thread|std::mutex|std::async|pthread_create', 'C++ 并发'),
       ('rx', r'\b(?:Lock|RLock|Semaphore|Condition|Event)\s*\(|mutex|atomic',
        '锁/同步原语')]),
+    ('p-go', 'Go 语言包', 'Go 语义特有缺陷（goroutine 泄漏 / context 传播 / channel）',
+     [('ext', '.go', 'Go 文件'),
+      ('file', 'go.mod', 'Go 模块'),
+      ('rx', r'\bgo\s+func\s*\(|\bgo\s+\w+\s*\(', 'goroutine'),
+      ('rx', r'\bchan\s|make\s*\(\s*chan', 'channel')]),
+    ('p-java', 'Java 语言包', 'Java 语义特有缺陷（资源关闭 / 线程池 / 中断语义）',
+     [('ext', '.java', 'Java 文件'),
+      ('file', 'pom.xml', 'Maven'),
+      ('file', 'build.gradle', 'Gradle'),
+      ('rx', r'ExecutorService|newFixedThreadPool|synchronized', '并发'),
+      ('rx', r'catch\s*\(\s*(?:final\s+)?Exception\b', '宽泛异常')]),
+    ('p-cpp', 'C/C++ 语言包', 'C/C++ 语义特有缺陷（所有权 / 越界 / 虚假唤醒）',
+     [('ext', '.cpp', 'C++ 文件'),
+      ('ext', '.c', 'C 文件'),
+      ('file', 'CMakeLists.txt', 'CMake'),
+      ('rx', r'\bnew\s+\w+|malloc\s*\(|std::thread|pthread_create', '分配/线程'),
+      ('rx', r'strcpy\s*\(|sprintf\s*\(|memcpy\s*\(', '不安全内存函数')]),
 ]
 
 # 结构信号：目录/文件存在即命中（最强）

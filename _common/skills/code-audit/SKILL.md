@@ -61,7 +61,7 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
   每批 ≤4（可调 `--batch=N`），一批审完再加载下一批
 - **精审中发现新的结构特征 → 回路由层补加载**（增量路由，见 `common.md`）
 
-## 场景表（11 风险面 + 1 语言包）
+## 场景表（11 风险面 + 4 语言包）
 
 **风险面**（换个项目还成立）与**语言包**（某种语言的语义特有判据）是并列维度，
 不是二选一：Python 项目同样要审状态、并发、边界，只是判据要用 Python 语义去看。
@@ -80,10 +80,15 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`s-build.md`** | 构建 / 打包 / CI / 依赖 | 打包范围过宽、硬编码清单、CI 缺失、占位资源、**供应链无证据**（G-11） |
 | **`s-concurrency.md`** | 多线程 / 协程 / 锁 / 消息消费 | 共享状态无同步、取消不传播、任务泄漏、超时不回滚、重试不幂等 |
 | **`p-python.md`** ⭐ | 仓库有 `.py` | 可变默认参数、宽泛异常吞没、资源未 `with`、`assert` 守大门 |
+| **`p-go.md`** ⭐ | 仓库有 `.go` | goroutine 泄漏、context 未传播、channel 死锁、err 被丢 |
+| **`p-java.md`** ⭐ | 仓库有 `.java` | 资源未 try-with-resources、线程池不关、中断被吞 |
+| **`p-cpp.md`** ⭐ | 仓库有 `.c/.cpp/.h` | 所有权不清、异常路径泄漏、缓冲区溢出、虚假唤醒 |
 | **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
 
-⭐ `p-python` 的存在理由：`scan-ts.py` / `scan-app.py` 对 Python 输出 **0 文件 0 候选**，
-这不是"没问题"而是**压根没看**。Python 项目必须额外跑 `scripts/scan-py.py`。
+⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，
+对 Python / Go / Java / C++ 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。
+有多语言代码就必须跑对应扫描器；证明手段各不同：
+Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测与线程 dump。
 
 场景文件内自带「本场景模式清单 + 判据 + 确认方法 + 降级条件 + 修法」，
 **每个场景自成一体**，只看这一个文件就能干活。
@@ -147,6 +152,11 @@ python3 scripts/scan-ts.py --self-test
 # ⚠ 有 Python 代码时必须额外跑这个（scan-ts/scan-app 不覆盖 Python）
 python3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=py.sarif]
 python3 scripts/scan-py.py --self-test
+
+# ⚠ 多语言仓库：按实际语言跑，scan-ts/scan-app 对这些一律 0 命中
+python3 scripts/scan-go.py   --src=<根> [--p0]      # Go
+python3 scripts/scan-java.py --src=<根> [--p0]      # Java
+python3 scripts/scan-cpp.py  --src=<根> [--p0]      # C/C++
 
 # 应用级模式扫描（sandbox / boundary / backend / build 用）
 python3 scripts/scan-app.py --src=<根> [--p0] [--json]

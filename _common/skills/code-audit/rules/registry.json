@@ -654,6 +654,656 @@
    }
   },
   {
+   "rule_id": "CPP-01",
+   "native_id": "CPP-01",
+   "scanner": "scan-cpp.py",
+   "level": "P0",
+   "title": "裸资源无释放（异常路径泄漏）",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-02",
+   "native_id": "CPP-02",
+   "scanner": "scan-cpp.py",
+   "level": "P0",
+   "title": "不安全的内存/字符串函数",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-03",
+   "native_id": "CPP-03",
+   "scanner": "scan-cpp.py",
+   "level": "P1",
+   "title": "循环边界风险（<= 与 size 混用）",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-04",
+   "native_id": "CPP-04",
+   "scanner": "scan-cpp.py",
+   "level": "P0",
+   "title": "共享数据无同步（数据竞争）",
+   "family": "CPP",
+   "scene": "s-concurrency",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-05",
+   "native_id": "CPP-05",
+   "scanner": "scan-cpp.py",
+   "level": "P0",
+   "title": "条件变量用 if（虚假唤醒）",
+   "family": "CPP",
+   "scene": "s-concurrency",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-06",
+   "native_id": "CPP-06",
+   "scanner": "scan-cpp.py",
+   "level": "P1",
+   "title": "析构中的危险操作",
+   "family": "CPP",
+   "scene": "s-concurrency",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-07",
+   "native_id": "CPP-07",
+   "scanner": "scan-cpp.py",
+   "level": "P0",
+   "title": "悬垂引用/生命周期错误",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-08",
+   "native_id": "CPP-08",
+   "scanner": "scan-cpp.py",
+   "level": "P1",
+   "title": "无符号回绕 / 有符号混用",
+   "family": "CPP",
+   "scene": "s-numerics",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-09",
+   "native_id": "CPP-09",
+   "scanner": "scan-cpp.py",
+   "level": "P1",
+   "title": "内置类型未初始化",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "CPP-10",
+   "native_id": "CPP-10",
+   "scanner": "scan-cpp.py",
+   "level": "P2",
+   "title": "违反项目运行时策略",
+   "family": "CPP",
+   "scene": "p-cpp",
+   "languages": [
+    "c",
+    "cc",
+    "cpp",
+    "cxx",
+    "h",
+    "hpp"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-01",
+   "native_id": "GO-01",
+   "scanner": "scan-go.py",
+   "level": "P0",
+   "title": "goroutine 泄漏（无退出机制）",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-02",
+   "native_id": "GO-02",
+   "scanner": "scan-go.py",
+   "level": "P0",
+   "title": "context 未传播到阻塞调用",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-03",
+   "native_id": "GO-03",
+   "scanner": "scan-go.py",
+   "level": "P0",
+   "title": "channel 使用不当（无缓冲/重复关闭/无人关）",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-04",
+   "native_id": "GO-04",
+   "scanner": "scan-go.py",
+   "level": "P0",
+   "title": "map 并发写无同步",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-05",
+   "native_id": "GO-05",
+   "scanner": "scan-go.py",
+   "level": "P1",
+   "title": "mutex 值拷贝（保护失效）",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-06",
+   "native_id": "GO-06",
+   "scanner": "scan-go.py",
+   "level": "P0",
+   "title": "错误返回值被丢弃",
+   "family": "GO",
+   "scene": "p-go",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-07",
+   "native_id": "GO-07",
+   "scanner": "scan-go.py",
+   "level": "P1",
+   "title": "WaitGroup 计数不匹配",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-08",
+   "native_id": "GO-08",
+   "scanner": "scan-go.py",
+   "level": "P1",
+   "title": "循环内 defer（资源累积）",
+   "family": "GO",
+   "scene": "p-go",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-09",
+   "native_id": "GO-09",
+   "scanner": "scan-go.py",
+   "level": "P1",
+   "title": "select 无退出路径",
+   "family": "GO",
+   "scene": "s-concurrency",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "GO-10",
+   "native_id": "GO-10",
+   "scanner": "scan-go.py",
+   "level": "P1",
+   "title": "goroutine 内无 recover",
+   "family": "GO",
+   "scene": "p-go",
+   "languages": [
+    "go"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-01",
+   "native_id": "JAVA-01",
+   "scanner": "scan-java.py",
+   "level": "P0",
+   "title": "Closeable 未用 try-with-resources",
+   "family": "JAVA",
+   "scene": "p-java",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-02",
+   "native_id": "JAVA-02",
+   "scanner": "scan-java.py",
+   "level": "P0",
+   "title": "线程池未 shutdown",
+   "family": "JAVA",
+   "scene": "s-concurrency",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-03",
+   "native_id": "JAVA-03",
+   "scanner": "scan-java.py",
+   "level": "P0",
+   "title": "InterruptedException 被吞（取消失效）",
+   "family": "JAVA",
+   "scene": "s-concurrency",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-04",
+   "native_id": "JAVA-04",
+   "scanner": "scan-java.py",
+   "level": "P0",
+   "title": "并发上下文用非线程安全集合",
+   "family": "JAVA",
+   "scene": "s-concurrency",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-05",
+   "native_id": "JAVA-05",
+   "scanner": "scan-java.py",
+   "level": "P1",
+   "title": "ThreadLocal 未 remove（跨请求串扰）",
+   "family": "JAVA",
+   "scene": "s-concurrency",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-06",
+   "native_id": "JAVA-06",
+   "scanner": "scan-java.py",
+   "level": "P1",
+   "title": "synchronized 锁共享对象/块内 IO",
+   "family": "JAVA",
+   "scene": "s-concurrency",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-07",
+   "native_id": "JAVA-07",
+   "scanner": "scan-java.py",
+   "level": "P2",
+   "title": "equals 与 hashCode 不配对",
+   "family": "JAVA",
+   "scene": "p-java",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-08",
+   "native_id": "JAVA-08",
+   "scanner": "scan-java.py",
+   "level": "P1",
+   "title": "static 可变共享状态",
+   "family": "JAVA",
+   "scene": "p-java",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-09",
+   "native_id": "JAVA-09",
+   "scanner": "scan-java.py",
+   "level": "P0",
+   "title": "异常吞没（catch 块为空）",
+   "family": "JAVA",
+   "scene": "p-java",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "JAVA-10",
+   "native_id": "JAVA-10",
+   "scanner": "scan-java.py",
+   "level": "P1",
+   "title": "非线程安全的格式化对象被共享",
+   "family": "JAVA",
+   "scene": "p-java",
+   "languages": [
+    "java"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified"
+   }
+  },
+  {
    "rule_id": "PY-01",
    "native_id": "PY-01",
    "scanner": "scan-py.py",

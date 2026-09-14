@@ -121,6 +121,43 @@ def extract():
                     'fixtures': {'tp': None, 'fp': None},
                     'eval': {'precision': 'unverified', 'recall': 'unverified'}})
 
+    # ---------- 其它语言包扫描器 ----------
+    # 三个扫描器共用同一套 PATTERNS 四元组写法，按前缀 + 语言 + 场景映射统一提取
+    LANG_SCANNERS = [
+        ('scan-go.py', 'GO', r'\(\s*"(GO-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+         {'GO-01': 's-concurrency', 'GO-02': 's-concurrency', 'GO-03': 's-concurrency',
+          'GO-04': 's-concurrency', 'GO-05': 's-concurrency', 'GO-06': 'p-go',
+          'GO-07': 's-concurrency', 'GO-08': 'p-go', 'GO-09': 's-concurrency',
+          'GO-10': 'p-go'}, ['go']),
+        ('scan-java.py', 'JAVA', r'\(\s*"(JAVA-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+         {'JAVA-01': 'p-java', 'JAVA-02': 's-concurrency', 'JAVA-03': 's-concurrency',
+          'JAVA-04': 's-concurrency', 'JAVA-05': 's-concurrency', 'JAVA-06': 's-concurrency',
+          'JAVA-07': 'p-java', 'JAVA-08': 'p-java', 'JAVA-09': 'p-java',
+          'JAVA-10': 'p-java'}, ['java']),
+        ('scan-cpp.py', 'CPP', r'\(\s*"(CPP-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+         {'CPP-01': 'p-cpp', 'CPP-02': 'p-cpp', 'CPP-03': 'p-cpp',
+          'CPP-04': 's-concurrency', 'CPP-05': 's-concurrency',
+          'CPP-06': 's-concurrency', 'CPP-07': 'p-cpp', 'CPP-08': 's-numerics',
+          'CPP-09': 'p-cpp', 'CPP-10': 'p-cpp'}, ['c', 'cc', 'cpp', 'cxx', 'h', 'hpp']),
+    ]
+    for fname, fam, rx, scene_map, langs in LANG_SCANNERS:
+        fpath = os.path.join(HERE, fname)
+        if not os.path.isfile(fpath):
+            continue
+        fsrc = open(fpath, encoding='utf-8').read()
+        fseen = set()
+        for m in re.finditer(rx, fsrc):
+            rid = m.group(1)
+            if rid in fseen:
+                continue
+            fseen.add(rid)
+            out.append({'rule_id': rid, 'native_id': rid,
+                        'scanner': fname, 'level': m.group(2), 'title': m.group(3),
+                        'family': fam, 'scene': scene_map.get(rid, 's-contracts'),
+                        'languages': langs,
+                        'fixtures': {'tp': None, 'fp': None},
+                        'eval': {'precision': 'unverified', 'recall': 'unverified'}})
+
     # scan-app 的 FILE_PATTERNS / PROJECT_CHECKS 无法用统一正则提取，按已知清单补齐
     extra = {'J13': ('P1', '同名常量清单重复定义且已分叉', 's-contracts'),
              'P01': ('P2', '忽略清单缺常见项', 's-build'),
