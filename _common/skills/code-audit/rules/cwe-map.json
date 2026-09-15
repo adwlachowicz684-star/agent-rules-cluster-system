@@ -1,0 +1,133 @@
+{
+ "_note": "CWE 映射与修复建议。由 scripts/rule-registry.py --sync 读入并写入 registry.json。改这里后重新 sync。",
+ "_why": "对接外部安全平台（SARIF 消费者、漏洞看板）需要标准编号；fix 让报告可直接给出改法而不必回查场景文档。",
+
+ "_important_no_cwe": "cwe 为空数组不是遗漏——原型污染有 CWE-1321，但『死契约』『每帧 GC 压力』『孤儿源文件』不是安全漏洞。硬塞一个相近编号会让下游把它当漏洞统计，反而污染安全视图。没有就留空。",
+
+ "_group_defaults": [
+  {
+   "_comment": "数值收口与 NaN 穿透：守卫存在但挡不住非有限值",
+   "ids": ["TS-A01", "TS-A02", "TS-A03", "TS-A04", "TS-P01", "TS-P02", "TS-P03", "TS-P04", "TS-U01", "TS-W01", "TS-H01", "TS-F01"],
+   "cwe": ["CWE-20"],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
+  },
+  {
+   "_comment": "循环/递归无法终止",
+   "ids": ["TS-B01", "TS-B02", "TS-T01", "TS-T02"],
+   "cwe": ["CWE-835"],
+   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while"
+  },
+  {
+   "_comment": "原型污染",
+   "ids": ["TS-C01", "TS-C02", "TS-C03", "TS-R01"],
+   "cwe": ["CWE-1321"],
+   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype"
+  },
+  {
+   "_comment": "资源/监听/句柄泄漏（随运行时长累积）",
+   "ids": ["TS-X01", "TS-X02", "TS-X03", "TS-X04", "TS-X06", "TS-Q03", "APP-J05", "APP-J09", "APP-J10", "JAVA-01", "JAVA-02", "GO-01", "GO-08", "CPP-01"],
+   "cwe": ["CWE-401"],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
+  },
+  {
+   "_comment": "资源未关闭/未释放（单点，非累积）",
+   "ids": ["TS-X05", "APP-J11", "PY-03", "GO-02", "CPP-06"],
+   "cwe": ["CWE-404"],
+   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close"
+  },
+  {
+   "_comment": "失败被吞（异常/错误码不处理）",
+   "ids": ["TS-J02", "PY-02", "PY-11", "JAVA-09", "GO-06", "JAVA-03"],
+   "cwe": ["CWE-390"],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
+  },
+  {
+   "_comment": "并发共享状态无同步",
+   "ids": ["PY-04", "GO-04", "JAVA-04", "JAVA-08", "JAVA-10", "CPP-04", "CPP-05", "JAVA-06"],
+   "cwe": ["CWE-362"],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
+  },
+  {
+   "_comment": "死锁 / 无法退出的等待",
+   "ids": ["GO-03", "GO-07", "GO-09", "CPP-05"],
+   "cwe": ["CWE-833"],
+   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前"
+  },
+  {
+   "_comment": "资源分配无上限（注意 APP-R01 不在此组，它是读入端无节流 → CWE-400，见 _rules）",
+   "ids": ["TS-I01", "TS-Q01", "TS-Q04", "TS-Q05", "APP-R03"],
+   "cwe": ["CWE-770"],
+   "fix": "尺寸/次数先校验上界再分配"
+  },
+  {
+   "_comment": "⚠ 多 CWE 的组会让**每个成员都继承全部编号**——TS-O01（移位溢出）会被误标 CWE-369（除零）。这类必须逐条写进 _rules，不能合并成组。下面三组因此留空 ids，实际值都在 _rules",
+   "ids": [],
+   "cwe": [],
+   "fix": ""
+  },
+  {
+   "_comment": "不可测试 / 性能 —— 无安全含义，留空 CWE 是刻意的（见 _important_no_cwe）",
+   "ids": ["TS-N01", "TS-N02", "TS-O03", "TS-I02", "TS-Y01", "TS-Y02", "TS-D01", "TS-D02", "TS-E01", "TS-E02", "TS-G01", "TS-K01", "TS-K02", "TS-Q02", "TS-R02", "TS-R03", "APP-J06", "APP-J13", "APP-P01", "APP-P02", "APP-P03", "APP-P05", "APP-R08", "APP-R10", "PY-12", "JAVA-07", "CPP-10"],
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
+  }
+ ],
+
+ "_rules": {
+  "TS-A05": {"cwe": ["CWE-704"], "fix": "位运算取整对 NaN 静默得 0，先 Number.isFinite 再转"},
+  "TS-B03": {"cwe": ["CWE-674"], "fix": "递归加访问集与深度上限"},
+  "TS-J01": {"cwe": ["CWE-664"], "fix": "多步写先算好再一次性提交，或失败时显式回滚"},
+  "TS-M01": {"cwe": ["CWE-636"], "fix": "fail-closed：校验缺失时默认拒绝，不要默认放行"},
+  "TS-M02": {"cwe": ["CWE-636", "CWE-20"], "fix": "安全/经济判定前先校验操作数有限，被污染则拒绝"},
+  "TS-O04": {"cwe": ["CWE-374"], "fix": "返回副本或冻结对象，别把内部可变引用交给调用方"},
+  "TS-P05": {"cwe": ["CWE-704"], "fix": "运算前 typeof 校验，避免 + 变字符串拼接"},
+  "TS-R04": {"cwe": ["CWE-20"], "fix": "复合 key 对分隔符编码，或改用数组/嵌套结构"},
+
+  "APP-J01": {"cwe": ["CWE-346"], "fix": "message/事件先校验 event.origin 或 sender，不匹配直接 return"},
+  "APP-J02": {"cwe": ["CWE-470"], "fix": "动态分发走白名单映射，禁止直接 obj[name]()"},
+  "APP-J07": {"cwe": ["CWE-693"], "fix": "隔离后能力静默失效：改走桥接并显式处理不可用分支"},
+  "APP-J08": {"cwe": ["CWE-693"], "fix": "沙箱内取不到宿主单例，改由宿主注入依赖"},
+  "APP-J12": {"cwe": ["CWE-79"], "fix": "用 textContent 或对插值做转义，别拼接 innerHTML"},
+  "APP-P04": {"cwe": ["CWE-693"], "fix": "每个入口都套同一份安全策略，别只覆盖主入口"},
+  "APP-R01": {"cwe": ["CWE-400"], "fix": "边读边截断，别整文件读入后再截断（上限形同虚设）"},
+
+  "APP-R05": {"cwe": ["CWE-22"], "fix": "路径用 realpath 校验后仍在根内，别用字符串黑名单比较"},
+  "APP-R11": {"cwe": ["CWE-22"], "fix": "文件读取前约束路径，防止越权读到仓库外"},
+  "APP-R06": {"cwe": ["CWE-78"], "fix": "命令用参数数组，禁 shell 解析；可执行文件不来自变量"},
+  "PY-10": {"cwe": ["CWE-78"], "fix": "subprocess 传参数数组，不用 shell=True / os.system"},
+
+  "PY-05": {"cwe": ["CWE-502"], "fix": "改 JSON / yaml.safe_load；必须 pickle 则验签 + 类型 allowlist"},
+  "APP-J04": {"cwe": ["CWE-502"], "fix": "存储反序列化加兜底，解析失败用默认值而非崩溃"},
+  "APP-R09": {"cwe": ["CWE-287"], "fix": "空凭据必须拒绝而非放行"},
+
+  "TS-O01": {"cwe": ["CWE-190"], "fix": "1 << 31 变负数、1 << 32 变 1；改乘法或 BigInt"},
+  "TS-O02": {"cwe": ["CWE-369"], "fix": "除法前判零与 NaN"},
+  "TS-S01": {"cwe": ["CWE-489"], "fix": "后门默认关闭，由构建标志剔除"},
+  "TS-L01": {"cwe": ["CWE-561"], "fix": "空 if 块要么补校验逻辑要么删掉"},
+  "TS-L02": {"cwe": ["CWE-561"], "fix": "三元两支返回同值，说明条件无效"},
+  "APP-R02": {"cwe": ["CWE-755"], "fix": "unwrap 改 match/unwrap_or_else；配 panic=abort 时崩溃即进程退出"},
+  "APP-R04": {"cwe": ["CWE-59"], "fix": "用 symlink_metadata 识别链接，别跟随；或显式跳过"},
+  "APP-R07": {"cwe": ["CWE-400"], "fix": "sleep 轮询改事件驱动；连接循环内不要 spawn"},
+
+  "PY-01": {"cwe": ["CWE-665"], "fix": "默认参数用 None，函数体内再 acc = acc or []"},
+  "PY-06": {"cwe": ["CWE-532"], "fix": "脱敏后记录（只留前 4 位/哈希），或整个字段移出日志"},
+  "PY-07": {"cwe": ["CWE-362", "CWE-404"], "fix": "__del__ 不保证执行，改显式 close + atexit/上下文管理器"},
+  "PY-08": {"cwe": ["CWE-567"], "fix": "改为实例字段或加锁；只读常量（无 mutate）不构成风险"},
+  "PY-09": {"cwe": ["CWE-20"], "fix": "assert 在 python -O 下被移除，改显式 if + raise"},
+
+  "GO-05": {"cwe": ["CWE-543"], "fix": "用 *sync.Mutex；值拷贝后保护失效（go vet copylocks 可查）"},
+  "GO-06": {"cwe": ["CWE-390"], "fix": "显式 if err != nil 返回；确实可忽略写 _ = 并注释"},
+  "GO-10": {"cwe": ["CWE-755"], "fix": "长期 goroutine 加 defer recover + 日志，否则 panic 拖垮整个进程"},
+
+  "JAVA-05": {"cwe": ["CWE-488"], "fix": "finally 里 tl.remove()，否则线程池复用会跨请求串数据"},
+  "JAVA-07": {"cwe": [], "fix": "equals 与 hashCode 同时重写（IDE 可生成）；放进 HashMap 才暴露"},
+
+  "CPP-02": {"cwe": ["CWE-120"], "fix": "改 snprintf/std::string；memcpy 长度必须是 sizeof(目标) 或已校验值"},
+  "CPP-06": {"cwe": ["CWE-833", "CWE-404"], "fix": "析构里加锁可能与持锁线程互等；改由持有者显式释放"},
+  "CPP-10": {"cwe": [], "fix": "先读项目规范（如 HotSpot 禁异常/RTTI）再判断是否违反"},
+  "CPP-07": {"cwe": ["CWE-416"], "fix": "按值返回；string_view 不绑定 std::string 临时对象"},
+  "CPP-03": {"cwe": ["CWE-125"], "fix": "循环用 < 而非 <=，上界用容器 size()"},
+  "CPP-09": {"cwe": ["CWE-457"], "fix": "成员默认初始化 int count_{0};"},
+  "CPP-08": {"cwe": ["CWE-191"], "fix": "size()-1 在空容器时下溢；无符号循环用反向迭代器，别用 >= 0"}
+ }
+}

@@ -84,3 +84,9 @@
 | 2026-09-15 | review 退出标准 | 新增 | 三类清单（已验证/未验证/需人工确认）+ blocking 判定表，写入 common-reporting.md 与 report-template.md。没有这三张表审查不算完成：读者无法区分「查过没问题」和「没查」 |
 | 2026-09-15 | finding 四要素 | 补充 | 位置·原因·后果之外补「复现/验证建议」。不写怎么验证，读者只能选择全信或全不信 |
 | 2026-09-15 | rule-registry.py | 修正 | 两处统计失真：① 规则总数写死只报 scan-ts/scan-app，新增语言包后 131 条只显示 89，掩盖新规则是否入表；② fixture 覆盖率恒报 0/131——extract 只从源码提取，不知道 fixtures 目录，导致测试全通过却显示零覆盖 |
+| 2026-09-15 | cwe-map.json | 新增 | 131 条规则的 CWE 映射 + fix 建议（39 种 CWE）。104 条有 CWE，27 条显式写 [] 表示非安全类 |
+| 2026-09-15 | cwe 语义 | 修正 | cwe:[] 与 null 必须区分：空数组=明确非安全漏洞（死契约/性能/孤儿文件），null=没映射。硬塞相近 CWE 会让下游把它当漏洞统计，污染安全视图 |
+| 2026-09-15 | 多 CWE 分组 | 修正 | _group_defaults 里一个组写多个 CWE 会让每条成员继承全部编号（TS-O01 移位溢出被标成 CWE-369 除零）。这类必须逐条写进 _rules |
+| 2026-09-15 | sarif.py | 修正 | _rule_id 前缀推断写死 else 'TS-'，导致新语言包被误加前缀（PY-01→TS-PY-01），SARIF 里查不到元数据。改已知前缀直接返回 |
+| 2026-09-15 | sarif.py | 新增 | 导出带 properties.cwe / properties.fix，供 GitHub Code Scanning / DefectDojo 等消费者读取 |
+| 2026-09-15 | rule-registry.py | 补充 | --check 增加 CWE 映射与 fix 完整性校验。已实测：故意删两条映射后正确告警 |

@@ -19,18 +19,41 @@ python3 scripts/rule-registry.py --scene s-numerics
 改一条不知道影响谁。注册表把它们变成可查可测的资产，
 `--check` 防止注册表与扫描器漂移（改了扫描器忘了同步注册表）。
 
+**CWE 映射与修复建议**（`rules/cwe-map.json`）：
+
+每条规则带 `cwe`（标准编号数组）与 `fix`（一句话修法），
+`--sync` 时写入注册表，SARIF 导出带出 `properties.cwe` / `properties.fix`。
+
+```bash
+python3 rule-registry.py --check     # 缺映射会告警
+```
+
+两个设计点：
+
+1. **`cwe: []` 与 `cwe: null` 是两回事**。空数组 = 明确声明「这条不是安全漏洞」
+   （死契约、每帧 GC 压力、孤儿源文件这类），
+   null = 还没映射。`--check` 只告警后者。
+   硬给非安全问题塞一个相近 CWE，会让下游把它当漏洞统计，污染安全视图。
+2. **多 CWE 的规则不能合并成组**。`_group_defaults` 里一个组写两个 CWE，
+   会让组内每条都继承全部编号（移位溢出被标成除零）。
+   这类必须逐条写进 `_rules` 精确覆盖。
+
 ## ② SARIF 2.1.0：结果可交换
 
 ```bash
 python3 scan-ts.py  --src=<根> --sarif=ts.sarif
 python3 scan-app.py --src=<根> --sarif=app.sarif
-python3 sarif.py ts.sarif app.sarif --root=<根> --out=all.sarif
+python3 scan-py.py  --src=<根> --sarif=py.sarif    # 多语言同理
+python3 sarif.py ts.sarif app.sarif py.sarif --root=<根> --out=all.sarif
 python3 sarif.py --diff old.sarif new.sarif     # 新增 / 消失 / 持续
 ```
 
 **为什么需要**：扫描器原本只输出人类可读文本，接不进任何 CI/IDE。
 SARIF 是通用交换格式，接上就能在 PR 里内联显示。
 `--diff` 用于复核：确认上一轮报的问题真的消失了，而不是报告重写了一遍。
+
+导出结果里每条规则带 `properties.cwe` 与 `properties.fix`，
+GitHub Code Scanning / DefectDojo 等消费者可直接读。
 
 ## ③ 编排器：预算控制 + 断点续跑
 

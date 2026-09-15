@@ -48,7 +48,26 @@ _RULE_INFO = {}
 for _r in _REGISTRY.get('rules', []):
     _RULE_INFO[_r['rule_id']] = (_r.get('title', ''),
                                  _r.get('scene', ''),
-                                 _r.get('level', 'P1'))
+                                 _r.get('level', 'P1'),
+                                 tuple(_r.get('cwe') or ()),
+                                 _r.get('fix', ''))
+
+
+def _rule_properties(rid, scene, cwes, fix, native):
+    """规则元数据：CWE 关系 + 修复建议 + 场景标签。
+
+    为什么塞进 properties：SARIF 的 relationships[].target 要指向 reportingDescriptor，
+    写起来冗长；cwe 放 properties 是 SARIF 消费者的**事实标准做法**
+    （GitHub Code Scanning、DefectDojo 都认 `properties.cwe` 或 `tags`）。
+    """
+    props = {'tags': ([scene] if scene else []) + list(cwes)}
+    if cwes:
+        props['cwe'] = list(cwes)
+    if fix:
+        props['fix'] = fix
+    if native and native != rid:
+        props['nativeId'] = native
+    return props
 
 
 def _severity_to_level(sev):
@@ -64,8 +83,13 @@ def _rule_id(native_id, scanner):
     """把扫描器原生 ID 映射到注册表里的统一 rule_id。"""
     if not native_id:
         return 'UNKNOWN'
-    if native_id.startswith(('TS-', 'APP-')):
+    # 已知前缀直接返回（PY-/GO-/JAVA-/CPP-/TS-/APP- 都是注册表里的真实 ID）
+    known = ('TS-', 'APP-', 'PY-', 'GO-', 'JAVA-', 'CPP-')
+    if native_id.startswith(known):
         return native_id
+    # 只有 scan-ts/scan-app 的裸族号（如 A01）才需要补前缀。
+    # 这里原来写了 `else 'TS-'`，导致新语言包被误加 TS- 前缀
+    # （PY-01 → TS-PY-01），SARIF 里查不到元数据。
     prefix = 'APP-' if scanner and 'app' in scanner else 'TS-'
     return prefix + native_id
 
@@ -91,7 +115,8 @@ def build_sarif(findings, tool_name='code-audit', root=None, version='1.0.0'):
         # audit.py 缓存的 JSON 两种都可能出现，缺一个就退化成 UNKNOWN
         native = f.get('id') or f.get('rule_id') or f.get('pattern') or 'UNKNOWN'
         rid = _rule_id(native, f.get('scanner') or tool_name)
-        title, scene, def_level = _RULE_INFO.get(rid, (f.get('name', ''), '', None))
+        title, scene, def_level, cwes, fix = _RULE_INFO.get(
+        rid, (f.get('name', ''), '', None, (), ''))
         level = _severity_to_level(f.get('level') or def_level or 'P1')
 
         fp = f.get('file') or f.get('path') or ''
@@ -125,7 +150,7 @@ def build_sarif(findings, tool_name='code-audit', root=None, version='1.0.0'):
                 'help': {'text': help_txt,
                          'markdown': '**%s**\n\n%s\n\n判据见 `references/%s.md`。'
                                      % (rid, help_txt, scene or 'common')},
-                'properties': {'tags': [scene] if scene else []},
+                'properties': _rule_properties(rid, scene, cwes, fix, native),
             }
         elif level == 'error':
             rules_seen[rid]['defaultConfiguration']['level'] = 'error'

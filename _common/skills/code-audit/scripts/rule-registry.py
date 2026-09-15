@@ -208,8 +208,46 @@ def attach_fixtures(rules):
     return rules
 
 
+def load_cwe_map():
+    """读 CWE 映射与修复建议。
+
+    为什么单独一个文件：131 条规则的映射数据塞进脚本会让脚本体积失控，
+    且映射是**数据**不是逻辑，改映射不该动代码。
+    """
+    path = os.path.join(SKILL, 'rules', 'cwe-map.json')
+    if not os.path.isfile(path):
+        return {}, {}
+    try:
+        m = json.load(open(path, encoding='utf-8'))
+    except (ValueError, OSError) as e:
+        print('[warn] cwe-map.json 解析失败: %s' % e, file=sys.stderr)
+        return {}, {}
+    by_group, by_rule = {}, {}
+    for g in m.get('_group_defaults', []):
+        for rid in g.get('ids', []):
+            by_group[rid] = (list(g.get('cwe', [])), g.get('fix', ''))
+    for rid, v in (m.get('_rules') or {}).items():
+        by_rule[rid] = (list(v.get('cwe', [])), v.get('fix', ''))
+    return by_group, by_rule
+
+
+def attach_cwe(rules):
+    """把 cwe / fix 写入规则条目。`_rules` 精确覆盖 `_group_defaults`。"""
+    by_group, by_rule = load_cwe_map()
+    if not by_group and not by_rule:
+        return rules
+    for r in rules:
+        rid = r['rule_id']
+        cwe, fix = by_rule.get(rid, by_group.get(rid, (None, None)))
+        # cwe 为空数组是**明确声明无安全含义**（如死契约、性能），与"未映射"不同：
+        # 未映射写 null，明确无 CWE 写 []。下游据此区分"待补"和"不适用"。
+        r['cwe'] = cwe
+        r['fix'] = fix or ''
+    return rules
+
+
 def cmd_sync():
-    rules = attach_fixtures(extract())
+    rules = attach_cwe(attach_fixtures(extract()))
     reg = {'version': '1.0.0',
            'note': '由 scripts/rule-registry.py --sync 从扫描器提取生成。'
                    '不要手改条目（会被 --check 判为漂移）；改扫描器后重新 sync。',
@@ -225,7 +263,7 @@ def cmd_check():
     if reg is None:
         print('没有注册表，先跑 --sync')
         return 1
-    live = extract()
+    live = attach_cwe(attach_fixtures(extract()))
     live_ids = {r['rule_id'] for r in live}
     reg_ids = {r['rule_id'] for r in reg['rules']}
 
@@ -241,6 +279,16 @@ def cmd_check():
         if r['rule_id'] in livemap and livemap[r['rule_id']]['level'] != r['level']:
             warns.append('%s 级别已从 %s 变为 %s' % (r['rule_id'], r['level'],
                                                 livemap[r['rule_id']]['level']))
+
+    # CWE 映射完整性：未映射(null)与明确无([])是两回事，只报前者
+    uncwe = [r['rule_id'] for r in reg['rules'] if r.get('cwe') is None]
+    nofix_text = [r['rule_id'] for r in reg['rules'] if not r.get('fix')]
+    if uncwe:
+        warns.append('%d 条规则缺 CWE 映射（非安全类请在 cwe-map.json 显式写 []）: %s'
+                     % (len(uncwe), ' '.join(uncwe[:8])))
+    if nofix_text:
+        warns.append('%d 条规则缺 fix 建议: %s'
+                     % (len(nofix_text), ' '.join(nofix_text[:8])))
 
     # fixture 覆盖
     nofix = [r['rule_id'] for r in reg['rules'] if not r['fixtures'].get('tp')]

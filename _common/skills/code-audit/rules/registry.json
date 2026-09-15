@@ -23,7 +23,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-346"
+   ],
+   "fix": "message/事件先校验 event.origin 或 sender，不匹配直接 return"
   },
   {
    "rule_id": "APP-J02",
@@ -46,7 +50,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-470"
+   ],
+   "fix": "动态分发走白名单映射，禁止直接 obj[name]()"
   },
   {
    "rule_id": "APP-J04",
@@ -69,7 +77,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-502"
+   ],
+   "fix": "存储反序列化加兜底，解析失败用默认值而非崩溃"
   },
   {
    "rule_id": "APP-J05",
@@ -92,7 +104,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "APP-J06",
@@ -115,7 +131,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-J07",
@@ -138,7 +156,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-693"
+   ],
+   "fix": "隔离后能力静默失效：改走桥接并显式处理不可用分支"
   },
   {
    "rule_id": "APP-J08",
@@ -161,7 +183,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-693"
+   ],
+   "fix": "沙箱内取不到宿主单例，改由宿主注入依赖"
   },
   {
    "rule_id": "APP-J09",
@@ -184,7 +210,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "APP-J10",
@@ -207,7 +237,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "APP-J11",
@@ -230,7 +264,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-404"
+   ],
+   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close"
   },
   {
    "rule_id": "APP-J12",
@@ -253,7 +291,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-79"
+   ],
+   "fix": "用 textContent 或对插值做转义，别拼接 innerHTML"
   },
   {
    "rule_id": "APP-J13",
@@ -277,7 +319,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-P01",
@@ -301,7 +345,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-P02",
@@ -325,7 +371,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-P03",
@@ -349,7 +397,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-P04",
@@ -373,7 +423,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-693"
+   ],
+   "fix": "每个入口都套同一份安全策略，别只覆盖主入口"
   },
   {
    "rule_id": "APP-P05",
@@ -397,7 +451,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-R01",
@@ -420,7 +476,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-400"
+   ],
+   "fix": "边读边截断，别整文件读入后再截断（上限形同虚设）"
   },
   {
    "rule_id": "APP-R02",
@@ -443,7 +503,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-755"
+   ],
+   "fix": "unwrap 改 match/unwrap_or_else；配 panic=abort 时崩溃即进程退出"
   },
   {
    "rule_id": "APP-R03",
@@ -466,7 +530,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "尺寸/次数先校验上界再分配"
   },
   {
    "rule_id": "APP-R04",
@@ -489,7 +557,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-59"
+   ],
+   "fix": "用 symlink_metadata 识别链接，别跟随；或显式跳过"
   },
   {
    "rule_id": "APP-R05",
@@ -512,7 +584,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-22"
+   ],
+   "fix": "路径用 realpath 校验后仍在根内，别用字符串黑名单比较"
   },
   {
    "rule_id": "APP-R06",
@@ -535,7 +611,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-78"
+   ],
+   "fix": "命令用参数数组，禁 shell 解析；可执行文件不来自变量"
   },
   {
    "rule_id": "APP-R07",
@@ -558,7 +638,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-400"
+   ],
+   "fix": "sleep 轮询改事件驱动；连接循环内不要 spawn"
   },
   {
    "rule_id": "APP-R08",
@@ -582,7 +666,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-R09",
@@ -605,7 +691,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-287"
+   ],
+   "fix": "空凭据必须拒绝而非放行"
   },
   {
    "rule_id": "APP-R10",
@@ -628,7 +718,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "APP-R11",
@@ -651,7 +743,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-22"
+   ],
+   "fix": "文件读取前约束路径，防止越权读到仓库外"
   },
   {
    "rule_id": "CPP-01",
@@ -676,7 +772,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "CPP-02",
@@ -701,7 +801,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-120"
+   ],
+   "fix": "改 snprintf/std::string；memcpy 长度必须是 sizeof(目标) 或已校验值"
   },
   {
    "rule_id": "CPP-03",
@@ -726,7 +830,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-125"
+   ],
+   "fix": "循环用 < 而非 <=，上界用容器 size()"
   },
   {
    "rule_id": "CPP-04",
@@ -751,7 +859,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "CPP-05",
@@ -776,7 +888,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-833"
+   ],
+   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前"
   },
   {
    "rule_id": "CPP-06",
@@ -801,7 +917,12 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-833",
+    "CWE-404"
+   ],
+   "fix": "析构里加锁可能与持锁线程互等；改由持有者显式释放"
   },
   {
    "rule_id": "CPP-07",
@@ -826,7 +947,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-416"
+   ],
+   "fix": "按值返回；string_view 不绑定 std::string 临时对象"
   },
   {
    "rule_id": "CPP-08",
@@ -851,7 +976,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-191"
+   ],
+   "fix": "size()-1 在空容器时下溢；无符号循环用反向迭代器，别用 >= 0"
   },
   {
    "rule_id": "CPP-09",
@@ -876,7 +1005,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-457"
+   ],
+   "fix": "成员默认初始化 int count_{0};"
   },
   {
    "rule_id": "CPP-10",
@@ -901,7 +1034,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "先读项目规范（如 HotSpot 禁异常/RTTI）再判断是否违反"
   },
   {
    "rule_id": "GO-01",
@@ -921,7 +1056,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "GO-02",
@@ -941,7 +1080,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-404"
+   ],
+   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close"
   },
   {
    "rule_id": "GO-03",
@@ -961,7 +1104,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-833"
+   ],
+   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前"
   },
   {
    "rule_id": "GO-04",
@@ -981,7 +1128,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "GO-05",
@@ -1001,7 +1152,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-543"
+   ],
+   "fix": "用 *sync.Mutex；值拷贝后保护失效（go vet copylocks 可查）"
   },
   {
    "rule_id": "GO-06",
@@ -1021,7 +1176,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "显式 if err != nil 返回；确实可忽略写 _ = 并注释"
   },
   {
    "rule_id": "GO-07",
@@ -1041,7 +1200,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-833"
+   ],
+   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前"
   },
   {
    "rule_id": "GO-08",
@@ -1061,7 +1224,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "GO-09",
@@ -1081,7 +1248,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-833"
+   ],
+   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前"
   },
   {
    "rule_id": "GO-10",
@@ -1101,7 +1272,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-755"
+   ],
+   "fix": "长期 goroutine 加 defer recover + 日志，否则 panic 拖垮整个进程"
   },
   {
    "rule_id": "JAVA-01",
@@ -1121,7 +1296,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "JAVA-02",
@@ -1141,7 +1320,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "JAVA-03",
@@ -1161,7 +1344,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
   },
   {
    "rule_id": "JAVA-04",
@@ -1181,7 +1368,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "JAVA-05",
@@ -1201,7 +1392,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-488"
+   ],
+   "fix": "finally 里 tl.remove()，否则线程池复用会跨请求串数据"
   },
   {
    "rule_id": "JAVA-06",
@@ -1221,7 +1416,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "JAVA-07",
@@ -1241,7 +1440,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "equals 与 hashCode 同时重写（IDE 可生成）；放进 HashMap 才暴露"
   },
   {
    "rule_id": "JAVA-08",
@@ -1261,7 +1462,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "JAVA-09",
@@ -1281,7 +1486,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
   },
   {
    "rule_id": "JAVA-10",
@@ -1301,7 +1510,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "PY-01",
@@ -1321,7 +1534,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-665"
+   ],
+   "fix": "默认参数用 None，函数体内再 acc = acc or []"
   },
   {
    "rule_id": "PY-02",
@@ -1341,7 +1558,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
   },
   {
    "rule_id": "PY-03",
@@ -1361,7 +1582,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-404"
+   ],
+   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close"
   },
   {
    "rule_id": "PY-04",
@@ -1381,7 +1606,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362"
+   ],
+   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载"
   },
   {
    "rule_id": "PY-05",
@@ -1401,7 +1630,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-502"
+   ],
+   "fix": "改 JSON / yaml.safe_load；必须 pickle 则验签 + 类型 allowlist"
   },
   {
    "rule_id": "PY-06",
@@ -1421,7 +1654,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-532"
+   ],
+   "fix": "脱敏后记录（只留前 4 位/哈希），或整个字段移出日志"
   },
   {
    "rule_id": "PY-07",
@@ -1441,7 +1678,12 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-362",
+    "CWE-404"
+   ],
+   "fix": "__del__ 不保证执行，改显式 close + atexit/上下文管理器"
   },
   {
    "rule_id": "PY-08",
@@ -1461,7 +1703,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-567"
+   ],
+   "fix": "改为实例字段或加锁；只读常量（无 mutate）不构成风险"
   },
   {
    "rule_id": "PY-09",
@@ -1481,7 +1727,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "assert 在 python -O 下被移除，改显式 if + raise"
   },
   {
    "rule_id": "PY-10",
@@ -1501,7 +1751,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-78"
+   ],
+   "fix": "subprocess 传参数数组，不用 shell=True / os.system"
   },
   {
    "rule_id": "PY-11",
@@ -1521,7 +1775,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
   },
   {
    "rule_id": "PY-12",
@@ -1541,7 +1799,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-A01",
@@ -1566,7 +1826,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-A02",
@@ -1591,7 +1855,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-A03",
@@ -1616,7 +1884,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-A04",
@@ -1641,7 +1913,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-A05",
@@ -1666,7 +1942,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-704"
+   ],
+   "fix": "位运算取整对 NaN 静默得 0，先 Number.isFinite 再转"
   },
   {
    "rule_id": "TS-B01",
@@ -1691,7 +1971,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-835"
+   ],
+   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while"
   },
   {
    "rule_id": "TS-B02",
@@ -1716,7 +2000,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-835"
+   ],
+   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while"
   },
   {
    "rule_id": "TS-B03",
@@ -1741,7 +2029,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-674"
+   ],
+   "fix": "递归加访问集与深度上限"
   },
   {
    "rule_id": "TS-C01",
@@ -1766,7 +2058,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-1321"
+   ],
+   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype"
   },
   {
    "rule_id": "TS-C02",
@@ -1791,7 +2087,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-1321"
+   ],
+   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype"
   },
   {
    "rule_id": "TS-C03",
@@ -1816,7 +2116,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-1321"
+   ],
+   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype"
   },
   {
    "rule_id": "TS-D01",
@@ -1841,7 +2145,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-D02",
@@ -1866,7 +2172,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-E01",
@@ -1891,7 +2199,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-E02",
@@ -1916,7 +2226,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-F01",
@@ -1941,7 +2253,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-G01",
@@ -1966,7 +2282,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-H01",
@@ -1991,7 +2309,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-I01",
@@ -2016,7 +2338,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "尺寸/次数先校验上界再分配"
   },
   {
    "rule_id": "TS-I02",
@@ -2041,7 +2367,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-J01",
@@ -2066,7 +2394,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-664"
+   ],
+   "fix": "多步写先算好再一次性提交，或失败时显式回滚"
   },
   {
    "rule_id": "TS-J02",
@@ -2091,7 +2423,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志"
   },
   {
    "rule_id": "TS-K01",
@@ -2116,7 +2452,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-K02",
@@ -2141,7 +2479,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-L01",
@@ -2166,7 +2506,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-561"
+   ],
+   "fix": "空 if 块要么补校验逻辑要么删掉"
   },
   {
    "rule_id": "TS-L02",
@@ -2191,7 +2535,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-561"
+   ],
+   "fix": "三元两支返回同值，说明条件无效"
   },
   {
    "rule_id": "TS-M01",
@@ -2216,7 +2564,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-636"
+   ],
+   "fix": "fail-closed：校验缺失时默认拒绝，不要默认放行"
   },
   {
    "rule_id": "TS-M02",
@@ -2241,7 +2593,12 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-636",
+    "CWE-20"
+   ],
+   "fix": "安全/经济判定前先校验操作数有限，被污染则拒绝"
   },
   {
    "rule_id": "TS-N01",
@@ -2266,7 +2623,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-N02",
@@ -2291,7 +2650,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-O01",
@@ -2316,7 +2677,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-190"
+   ],
+   "fix": "1 << 31 变负数、1 << 32 变 1；改乘法或 BigInt"
   },
   {
    "rule_id": "TS-O02",
@@ -2341,7 +2706,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-369"
+   ],
+   "fix": "除法前判零与 NaN"
   },
   {
    "rule_id": "TS-O03",
@@ -2366,7 +2735,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-O04",
@@ -2391,7 +2762,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-374"
+   ],
+   "fix": "返回副本或冻结对象，别把内部可变引用交给调用方"
   },
   {
    "rule_id": "TS-P01",
@@ -2416,7 +2791,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-P02",
@@ -2441,7 +2820,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-P03",
@@ -2466,7 +2849,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-P04",
@@ -2491,7 +2878,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-P05",
@@ -2516,7 +2907,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-704"
+   ],
+   "fix": "运算前 typeof 校验，避免 + 变字符串拼接"
   },
   {
    "rule_id": "TS-Q01",
@@ -2541,7 +2936,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "尺寸/次数先校验上界再分配"
   },
   {
    "rule_id": "TS-Q02",
@@ -2566,7 +2965,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-Q03",
@@ -2591,7 +2992,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-Q04",
@@ -2616,7 +3021,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "尺寸/次数先校验上界再分配"
   },
   {
    "rule_id": "TS-Q05",
@@ -2641,7 +3050,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "尺寸/次数先校验上界再分配"
   },
   {
    "rule_id": "TS-R01",
@@ -2666,7 +3079,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-1321"
+   ],
+   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype"
   },
   {
    "rule_id": "TS-R02",
@@ -2691,7 +3108,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-R03",
@@ -2716,7 +3135,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-R04",
@@ -2741,7 +3162,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "复合 key 对分隔符编码，或改用数组/嵌套结构"
   },
   {
    "rule_id": "TS-S01",
@@ -2766,7 +3191,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-489"
+   ],
+   "fix": "后门默认关闭，由构建标志剔除"
   },
   {
    "rule_id": "TS-T01",
@@ -2791,7 +3220,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-835"
+   ],
+   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while"
   },
   {
    "rule_id": "TS-T02",
@@ -2816,7 +3249,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-835"
+   ],
+   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while"
   },
   {
    "rule_id": "TS-U01",
@@ -2841,7 +3278,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-W01",
@@ -2866,7 +3307,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-20"
+   ],
+   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）"
   },
   {
    "rule_id": "TS-X01",
@@ -2891,7 +3336,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-X02",
@@ -2916,7 +3365,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-X03",
@@ -2941,7 +3394,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-X04",
@@ -2966,7 +3423,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-X05",
@@ -2991,7 +3452,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-404"
+   ],
+   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close"
   },
   {
    "rule_id": "TS-X06",
@@ -3016,7 +3481,11 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理"
   },
   {
    "rule_id": "TS-Y01",
@@ -3041,7 +3510,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
    "rule_id": "TS-Y02",
@@ -3066,7 +3537,9 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified"
-   }
+   },
+   "cwe": [],
+   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   }
  ]
 }
