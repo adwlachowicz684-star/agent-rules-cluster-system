@@ -232,3 +232,8 @@
 | 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
 | 2026-09-15 | 规则→判据 显式映射 | 新增 | items.json 按 scene 编号、scan-ts 按族编号，两套体系撞在同一字母上（TS-A05 归一化后与 A-05 同号）。加 registry 的 item 字段存显式映射，item-index 优先读它。116/131 条已映射，15 条确认无对应。此前 41/131 条取到无关判据 |
 | 2026-09-15 | 语言包候选丢失 | 修正 | registry 把 PY-05 标 s-backend、PY-06 标 s-sandbox，按 registry 分组导致这两条被分到路由未命中的场景、候选静默丢失。改为按 ID 前缀归语言包（判据就写在 p-python.md，审 Python 该在 p-python 看到） |
+| 2026-09-15 | H-12 | 修正 | 撞号：s-sandbox 与 s-contracts 各自定义了 H-12，--get H-12 返回两条分不清场景。后加的 s-contracts 那条改为 H-15（先到先得，保留 s-sandbox 的 H-12）  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
+| 2026-09-15 | C-01 | 修正 | 补回被覆盖丢失的 8 行「死参数 / 孤儿键」形态：add_argument 有键但实现从不读，传了无效果且无提示；另 --method bogus 无值校验靠服务端 422 兜底  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
+| 2026-09-15 | PY-13 | 修正 | registry.json 里被清掉的 PY-13 已补回。注意：它由 extract() 自动提取（scan-py.py），**不需要**进 extra 清单——extra 那段 rule_id 硬编码为 APP-%s、scanner 写死 scan-app.py，加进去会生成错误的 APP-PY-13  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
+| 2026-09-15 | item-index.py | 修正 | ENTRY_RX 级别改为可选：原正则要求 (Px) 必填，而 H 系列全写成『### H-03 标题』无级别 → 整个 H 族 13 条索引里 0 条、只能整文件读。索引 234→247  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
+| 2026-09-15 | check-skill.py | 新增 | IX001 判据 ID 撞号 / IX002 定义了但索引取不到 / IX003 索引有但正文被删（过期副本）。三条都做反向验证：注入人为缺陷后均能报 error 退出码 1，干净副本 0 误报  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |

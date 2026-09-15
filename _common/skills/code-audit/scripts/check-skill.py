@@ -255,6 +255,61 @@ def main():
                 add('warn', 'PD003', '悬挂引用（文件不存在）: %s 内引用 %s'
                     % (os.path.basename(_tf), _m))
 
+    # ---- IX001 撞号 / IX002 定义了却取不到 ----
+    #
+    # 为什么必须自动查（三次真实事故，全部「静默」）：
+    #   ① 两个文件各自定义了 H-12（s-sandbox 与 s-contracts），撞号后
+    #      --get H-12 返回两条，分不清属于哪个场景
+    #   ② 整个 H 族写成 `### H-03 标题`（无 (Px) 级别括号），解析器匹配不到
+    #      → 索引里 0 条、只能整文件读，而文件本身看起来完全正常
+    #   ③ S-10/S-11/S-12/C-14 的正文被覆盖删除后，items.json 还留着全文副本，
+    #      --get 仍能返回，直到有人跑 --sync 才真正消失
+    # 三者都只能靠「定义数 vs 索引数」的差值发现。
+    _refd = os.path.join(SKILL_DIR, 'references')
+    if os.path.isdir(_refd):
+        import collections as _col
+        _rx = re.compile(r'^###\s+([A-Z]{1,4}-\d{1,3})', re.M)   # re.M 必需：^ 要匹配行首
+        _defs = _col.defaultdict(list)
+        for _f in sorted(os.listdir(_refd)):
+            if not _f.endswith('.md'):
+                continue
+            try:
+                _txt = open(os.path.join(_refd, _f), encoding='utf-8').read()
+            except OSError:
+                continue
+            for _m in _rx.finditer(_txt):
+                _defs[_m.group(1)].append(_f)
+        for _id in sorted(_defs):
+            if len(_defs[_id]) > 1:
+                add('error', 'IX001', '判据 ID 撞号 %s：同时定义在 %s'
+                    % (_id, ' / '.join(_defs[_id])))
+        _ix = os.path.join(SKILL_DIR, 'rules', 'items.json')
+        if os.path.exists(_ix):
+            try:
+                _have = {i['id'] for i in json.load(open(_ix, encoding='utf-8'))['items']}
+            except Exception:
+                _have = None
+            if _have is not None:
+                _miss = sorted(i for i in _defs if i not in _have)
+                if _miss:
+                    add('error', 'IX002',
+                        '定义了 %d 条判据但索引里取不到（%s）'
+                        % (len(_miss),
+                           ' '.join(_miss[:12]) + (' …' if len(_miss) > 12 else '')))
+
+                # IX003 反向：索引里有、正文里没定义了 —— 正文被删了，
+                # items.json 留的是过期副本，--get 仍能返回（最会骗人的一种），
+                # 直到有人跑 --sync 才真正消失（S-10/S-11/S-12/C-14 就是这么丢的）。
+                # 只查 source=='entry'：table 来源的 35 条本来就没有 ### 定义。
+                _ent = [i['id'] for i in json.load(open(_ix, encoding='utf-8'))['items']
+                        if i.get('source') == 'entry']
+                _ghost = sorted(set(_ent) - set(_defs))
+                if _ghost:
+                    add('error', 'IX003',
+                        '索引里是过期副本，正文定义已被删（%d 条，跑 --sync 后会真正消失）: %s'
+                        % (len(_ghost),
+                           ' '.join(_ghost[:12]) + (' …' if len(_ghost) > 12 else '')))
+
     refdir = os.path.join(SKILL_DIR, 'references')
     if os.path.isdir(refdir):
         for f in sorted(os.listdir(refdir)):

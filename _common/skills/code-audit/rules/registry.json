@@ -49,6 +49,60 @@
       }
     },
     {
+      "rule_id": "APP-G09",
+      "level": "P2",
+      "scanner": "scan-app.py",
+      "kind": "project",
+      "note": "PROJECT_CHECK 类，--sync 不自动提取，手工维护。P1 条件：名字像机制/防护/订阅",
+      "source": "2026-09-14 nexus-panel：552 导出中 16 个零引用",
+      "native_id": "G09",
+      "title": "导出后零引用（已实现未接线）",
+      "family": "G",
+      "scene": "s-contracts",
+      "languages": [
+        "ts",
+        "js",
+        "rs",
+        "html",
+        "json"
+      ],
+      "fixtures": {
+        "tp": null,
+        "fp": null
+      },
+      "eval": {
+        "precision": "unverified",
+        "recall": "unverified"
+      }
+    },
+    {
+      "rule_id": "APP-G10",
+      "level": "P0",
+      "scanner": "scan-app.py",
+      "kind": "project",
+      "note": "PROJECT_CHECK 类，手工维护。必须收集**所有** package.json 的 scripts 并集（monorepo 里 package.json 在子目录而 .github 在根）",
+      "source": "2026-09-14 nexus-panel：ci.yml 首步 npm run config:check 不存在 → 退出码 1 → 后续 5 step 从未执行。实测零误报（6 处 npm run 只报不存在的 1 条）",
+      "native_id": "G10",
+      "title": "CI 引用不存在的 npm script",
+      "family": "G",
+      "scene": "s-build",
+      "languages": [
+        "ts",
+        "js",
+        "rs",
+        "html",
+        "json"
+      ],
+      "fixtures": {
+        "tp": null,
+        "fp": null
+      },
+      "eval": {
+        "precision": "unverified",
+        "recall": "unverified"
+      }
+    },
+    {
       "rule_id": "APP-J01",
       "native_id": "J01",
       "scanner": "scan-app.py",
@@ -689,6 +743,26 @@
         "js",
         "rs",
         "html"
+      ],
+      "fixtures": {
+        "tp": null,
+        "fp": null
+      },
+      "eval": {
+        "precision": "unverified",
+        "recall": "unverified"
+      }
+    },
+    {
+      "rule_id": "PY-13",
+      "native_id": "PY-13",
+      "scanner": "scan-py.py",
+      "level": "P1",
+      "title": "清理/回滚用 except Exception（Ctrl-C 时不执行）",
+      "family": "PY",
+      "scene": "p-python",
+      "languages": [
+        "py"
       ],
       "fixtures": {
         "tp": null,
@@ -2214,60 +2288,6 @@
         "jsx",
         "mjs",
         "cjs"
-      ],
-      "fixtures": {
-        "tp": null,
-        "fp": null
-      },
-      "eval": {
-        "precision": "unverified",
-        "recall": "unverified"
-      }
-    },
-    {
-      "rule_id": "APP-G09",
-      "level": "P2",
-      "scanner": "scan-app.py",
-      "kind": "project",
-      "note": "PROJECT_CHECK 类，--sync 不自动提取，手工维护。P1 条件：名字像机制/防护/订阅",
-      "source": "2026-09-14 nexus-panel：552 导出中 16 个零引用",
-      "native_id": "G09",
-      "title": "导出后零引用（已实现未接线）",
-      "family": "G",
-      "scene": "s-contracts",
-      "languages": [
-        "ts",
-        "js",
-        "rs",
-        "html",
-        "json"
-      ],
-      "fixtures": {
-        "tp": null,
-        "fp": null
-      },
-      "eval": {
-        "precision": "unverified",
-        "recall": "unverified"
-      }
-    },
-    {
-      "rule_id": "APP-G10",
-      "level": "P0",
-      "scanner": "scan-app.py",
-      "kind": "project",
-      "note": "PROJECT_CHECK 类，手工维护。必须收集**所有** package.json 的 scripts 并集（monorepo 里 package.json 在子目录而 .github 在根）",
-      "source": "2026-09-14 nexus-panel：ci.yml 首步 npm run config:check 不存在 → 退出码 1 → 后续 5 step 从未执行。实测零误报（6 处 npm run 只报不存在的 1 条）",
-      "native_id": "G10",
-      "title": "CI 引用不存在的 npm script",
-      "family": "G",
-      "scene": "s-build",
-      "languages": [
-        "ts",
-        "js",
-        "rs",
-        "html",
-        "json"
       ],
       "fixtures": {
         "tp": null,

@@ -39,7 +39,7 @@ REF = os.path.join(SKILL, 'references')
 OUT = os.path.join(SKILL, 'rules', 'items.json')
 
 # `### PY-01 (P0) 可变默认参数（跨调用累积）`
-ENTRY_RX = re.compile(r'^### ([A-Z]{1,4}-\d{1,2}) \((P\d(?:/P\d)?)\)\s+(.+?)\s*$')
+ENTRY_RX = re.compile(r'^### ([A-Z]{1,4}-\d{1,2})(?:\s*\((P\d(?:/P\d)?)\))?\s+(.+?)\s*$')
 # 表格格式的判据（s-backend.md 用这种）：
 #   | **K-01** 读入是否有界 | 是否用 `take(cap)` 流式读取 | P1 |
 # 级别可能被加粗成 **P0**
