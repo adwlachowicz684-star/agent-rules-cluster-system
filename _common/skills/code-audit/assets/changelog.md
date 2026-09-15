@@ -122,3 +122,6 @@
 | 2026-09-15 | fixture 批量补齐 | 新增 | 新增 38 组 tp/fp（scan-ts 25 条 + scan-app 13 条）。TP fixture 覆盖率 56/131 → 124/131；fixture 实测 114 通过 → 250 通过 0 失败 |
 | 2026-09-15 | fixture 生成即验证 | 新增 | 新增的 tp/fp 全部实跑扫描器确认「tp 命中且 fp 不命中」再入库，不靠看起来对。TS-Q02 首版 remove(x: any) 带类型标注匹配不到判据，当场修正 |
 | 2026-09-15 | eval 刷新 | 更新 | 全部 fixture 跑完后重跑 --eval：123 条 recall/precision 双 pass（原 131 条全 unverified），仅 7 条项目级规则仍未覆盖 |
+| 2026-09-15 | fixture 项目树形态 | 新增 | J13/P01~P05/R08 判的是整棵工程（忽略清单、CI 配置、多入口 CSP 覆盖、孤儿文件），单文件表达不了。新增 tp.d/ / fp.d/ 整树模式，内容原样铺到扫描根 |
+| 2026-09-15 | fixture 全覆盖 | 新增 | 补 7 组项目级 + 补 APP-R11 的 fp。TP fixture 124/131 → 131/131；fixture 实测 264 → 265 通过 0 失败；eval 131 条全部 recall+precision 双 pass（原 131 条全 unverified） |
+| 2026-09-15 | common-maintenance | 修正 | 自检段仍指向已重命名的 scripts/tool-scan.py（现 scan-app.py），是死链。改为遍历六个扫描器 --self-test；新增「加模式必须配 fixture」段，写明 fp 不是可选项 |

@@ -1,0 +1,6 @@
+{
+  "name": "demo",
+  "scripts": {
+    "build": "vite build --config vite.extra.config.ts"
+  }
+}

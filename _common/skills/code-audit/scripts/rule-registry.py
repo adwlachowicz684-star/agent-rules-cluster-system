@@ -201,8 +201,10 @@ def attach_fixtures(rules):
         d = os.path.join(FIXDIR, rid)
         if not os.path.isdir(d):
             continue
-        tp = next((f for f in os.listdir(d) if f.startswith('tp.')), None)
-        fp = next((f for f in os.listdir(d) if f.startswith('fp.')), None)
+        names = os.listdir(d)
+        # 两种形态：单文件 tp.<ext>（默认）与项目树 tp.d/（项目级规则需要多文件）
+        tp = next((f for f in names if f.startswith('tp.')), None)
+        fp = next((f for f in names if f.startswith('fp.')), None)
         if tp or fp:
             have[rid] = {'tp': tp, 'fp': fp}
     for r in rules:
@@ -413,30 +415,40 @@ def run_all_fixtures(reg, verbose=True):
         d = os.path.join(FIXDIR, rid)
         if not os.path.isdir(d):
             continue
-        files = [f for f in os.listdir(d) if f.startswith(('tp.', 'fp.'))]
-        if not files:
+        names = os.listdir(d)
+        files = [f for f in names if f.startswith(('tp.', 'fp.'))]
+        # 项目级规则（J13 / P01~P05 / R08）判的是「整棵工程」——忽略清单、CI 配置、
+        # 多入口 HTML 的安全策略覆盖。单文件 fixture 表达不了，故支持 tp.d/ / fp.d/
+        # 整树模式：目录内容原样铺到临时根，扫描器按平时的方式扫整个根。
+        trees = [f for f in names if f in ('tp.d', 'fp.d')]
+        if not files and not trees:
             continue
         meta = next((r for r in reg['rules'] if r['rule_id'] == rid), None)
         scanner = (meta or {}).get('scanner', 'scan-ts.py')
         native = (meta or {}).get('native_id', rid.split('-', 1)[-1])
         rec = {'tp': None, 'fp': None, 'errors': []}
         for kind in ('tp', 'fp'):
-            src = next((f for f in files if f.startswith(kind + '.')), None)
-            if not src:
-                continue
-            # 扫描器按「一级子目录 = 模块」切分，fixture 要放进一个模块目录
+            tree = kind + '.d'
             tmp = tempfile.mkdtemp(prefix='fix-')
             try:
-                # 部分规则要求特定目录结构（如 J08 要求文件在 plugins/ 下），
-                # fixture 可用 .subdir 文件指定存放子目录
-                _sd = 'mod'
-                _sdf = os.path.join(d, '.subdir')
-                if os.path.isfile(_sdf):
-                    _sd = open(_sdf).read().strip() or 'mod'
-                mod = os.path.join(tmp, _sd)
-                os.makedirs(mod, exist_ok=True)
-                shutil.copy(os.path.join(d, src), os.path.join(mod, src))
-                ok, hits, err = _run_scanner(scanner, tmp, native)
+                if os.path.isdir(os.path.join(d, tree)):
+                    shutil.copytree(os.path.join(d, tree), tmp, dirs_exist_ok=True)
+                    ok, hits, err = _run_scanner(scanner, tmp, native)
+                else:
+                    src = next((f for f in files if f.startswith(kind + '.')), None)
+                    if not src:
+                        continue
+                    # 扫描器按「一级子目录 = 模块」切分，fixture 要放进一个模块目录
+                    # 部分规则要求特定目录结构（如 J08 要求文件在 plugins/ 下），
+                    # fixture 可用 .subdir 文件指定存放子目录
+                    _sd = 'mod'
+                    _sdf = os.path.join(d, '.subdir')
+                    if os.path.isfile(_sdf):
+                        _sd = open(_sdf).read().strip() or 'mod'
+                    mod = os.path.join(tmp, _sd)
+                    os.makedirs(mod, exist_ok=True)
+                    shutil.copy(os.path.join(d, src), os.path.join(mod, src))
+                    ok, hits, err = _run_scanner(scanner, tmp, native)
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
             if not ok:

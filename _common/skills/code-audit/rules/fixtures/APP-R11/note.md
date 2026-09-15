@@ -4,6 +4,7 @@
 
 - `tp.rs` —— **必须命中**：`pub fn` 对外命令，`fs::read_to_string(p)` 的 `p` 直接来自 IPC，
   整个函数体无 `resolve_within` / `canonicalize` / `starts_with`
+- `fp.rs` —— **必须不命中**：同样读外部传入的 path，但先经 `resolve_within` 收敛到授权根内
 
 **来源**：2026-09-14 nexus-panel 第三轮。由另一份审查报告指出：
 `fs_op` 建了 `resolve_within` + 授权根目录的完整模型，但只覆盖 `fs_op` 一个命令；

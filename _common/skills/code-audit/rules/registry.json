@@ -335,13 +335,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "af9a6cad"
    },
    "cwe": [],
@@ -363,13 +363,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "92ef0d13"
    },
    "cwe": [],
@@ -391,13 +391,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "88bc04fa"
    },
    "cwe": [],
@@ -419,13 +419,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "ef888182"
    },
    "cwe": [],
@@ -447,13 +447,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "3ba49f32"
    },
    "cwe": [
@@ -477,13 +477,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "5a7ac949"
    },
    "cwe": [],
@@ -708,13 +708,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "e90b00ea"
    },
    "cwe": [],
@@ -792,10 +792,10 @@
    ],
    "fixtures": {
     "tp": "tp.rs",
-    "fp": null
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
+    "precision": "pass",
     "recall": "pass",
     "verified_at": "2026-09-15",
     "sig": "f24f46b4"

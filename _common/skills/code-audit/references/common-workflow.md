@@ -29,9 +29,9 @@
 ## 第 2 步：全库模式扫描
 
 ```bash
-python3 scripts/tool-scan.py --src=<根>                 # 全量，先扫一遍
-python3 scripts/tool-scan.py --src=<根> --p0            # 致命级优先处理
-python3 scripts/tool-scan.py --src=<根> --json > base.json   # 存基线
+python3 scripts/scan-app.py --src=<根>                  # 全量，先扫一遍
+python3 scripts/scan-app.py --src=<根> --p0             # 致命级优先处理
+python3 scripts/scan-app.py --src=<根> --json > base.json    # 存基线
 ```
 
 扫描器按**模块**聚合输出。先看每个模块的命中总数与 P0 数，

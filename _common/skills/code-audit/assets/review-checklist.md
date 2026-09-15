@@ -15,7 +15,7 @@
 ## 第 2 步 模式扫描
 
 ```
-□ tool-scan.py --self-test 通过（28/28）
+□ 六个扫描器 --self-test 均通过（scan-ts / scan-app / scan-py / scan-go / scan-java / scan-cpp）
 □ 全量扫描跑完，基线存盘
 □ P0 候选单独导出
 □ 按模块排出可疑度顺序

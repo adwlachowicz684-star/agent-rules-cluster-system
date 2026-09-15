@@ -1,0 +1,6 @@
+{
+  "name": "demo",
+  "scripts": {
+    "build": "vite build"
+  }
+}

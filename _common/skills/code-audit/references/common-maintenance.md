@@ -18,9 +18,11 @@
 ① 归入 A~G 某一族（都不合适 → 新建族，并同步改 SKILL.md 的族总览）
 ② 分配新 ID（族字母 + 下一个序号）
 ③ 写进对应场景文件（references/s-*.md）：判据 / 确认 / 降级 / 默认级别
-④ 若能正则检出 → 加进 scripts/tool-scan.py 的 PATTERNS，并补 --self-test 用例
-⑤ python3 scripts/note.py "<ID>" 新增 "<一句话来源>"
-⑥ python3 scripts/check-skill.py  确认体积与断链
+④ 若能正则检出 → 加进对应扫描器的 PATTERNS（应用级 → scripts/scan-app.py，
+   TS/JS → scripts/scan-ts.py，Python/Go/Java/C++ → scripts/scan-<lang>.py），并补 --self-test 用例
+⑤ rules/fixtures/<ID>/ 下补 tp / fp 样本（见下方「加模式必须配 fixture」）
+⑥ python3 scripts/note.py "<ID>" 新增 "<一句话来源>"
+⑦ python3 scripts/check-skill.py  确认体积与断链
 ```
 
 ## 两条纪律
@@ -45,11 +47,43 @@
 ## 自检
 
 ```bash
-python3 scripts/tool-scan.py --self-test    # 模式必须 28/28（加模式后同步加用例）
+for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp; do
+  python3 scripts/$s.py --self-test         # 模式必须全通过（加模式后同步加用例）
+done
+python3 scripts/rule-registry.py --check    # 漂移 + fixture 覆盖 + eval 状态
+python3 scripts/rule-registry.py --test     # TP 必须命中 / FP 必须不命中
 python3 scripts/check-skill.py              # 断链 / 孤儿 / 体积 / frontmatter
 ```
 
 **加模式后必须跑 `--self-test`**：永远 0 命中的检查等于没有检查。
+
+## 加模式必须配 fixture
+
+新规则不配 fixture = 无法判断它是「有效」还是「从来没命中过」。
+`--check` 会报未覆盖，`--test` 会实跑断言。
+
+```bash
+mkdir -p rules/fixtures/<规则ID>
+# 单文件规则
+rules/fixtures/<ID>/tp.<ext>     # 必须命中
+rules/fixtures/<ID>/fp.<ext>     # 必须不命中（证明规则不过宽）
+rules/fixtures/<ID>/note.md      # 一句话说明「什么算、什么不算」
+python3 scripts/rule-registry.py --test
+```
+
+**项目级规则用整树形态**：J13 / P01~P05 / R08 判的是「整棵工程」
+（忽略清单、CI 配置、多入口的安全策略覆盖、孤儿文件），单文件表达不了。
+改放 `tp.d/` / `fp.d/` 目录，内容原样铺到扫描根：
+
+```
+rules/fixtures/APP-P04/tp.d/index.html      # 有 CSP
+rules/fixtures/APP-P04/tp.d/admin.html      # 无 CSP → 必须命中
+rules/fixtures/APP-P04/fp.d/index.html      # 有 CSP
+rules/fixtures/APP-P04/fp.d/admin.html      # 有 CSP → 必须不命中
+```
+
+**fp 不是可选项**。只写 tp 的话 `precision` 永远是 `unverified`——
+知道规则抓得到真问题，却不知道它会不会误伤。
 
 ## 变更溯源
 
