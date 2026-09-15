@@ -1,0 +1,8 @@
+# 审查运行时的状态与产物。
+# 这些是**跑出来的**，不是 skill 内容——入库会让每次审查都产生 diff，
+# 也会把别人的进度带进仓库。
+.audit-state.json
+.audit-items/
+audit/
+__pycache__/
+*.pyc
