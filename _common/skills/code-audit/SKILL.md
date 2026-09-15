@@ -100,7 +100,7 @@ Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测
 硬约束：只写问题不写过程、每条须有位置+后果+**验证建议**、误报段必写、同类合并。
 **退出标准**（三类清单 + blocking 判定）见 `references/common-reporting.md`。
 
-## 四个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制）
+## 五个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制 · 判据可索引）
 
 规则注册表 / SARIF / 编排器 / 项目级规则——**命令与「为什么需要」见 `references/mechanisms.md`**。
 项目特化约定（通用模式库抽象不出来的）走 `scripts/project-rules.py`，按路径绑定生效。
@@ -111,6 +111,26 @@ python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture �
 python3 scripts/audit.py --src=<根> --resume      # 断点续跑
 python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 ```
+
+## 判据加载：默认按条目，不整文件读
+
+路由命中场景后，**不要直接读整个场景文件**（如 `references/p-python.md`）——
+实测只取相关条目可省 67%~91%（取 1 条：366 vs 2771 tokens）。
+
+```bash
+python3 scripts/item-index.py --get PY-01 PY-05     # 只取这几条
+python3 scripts/item-index.py --scan <扫描结果.json> # 按扫描器命中取
+python3 scripts/item-index.py --query "线程池"        # 关键词检索
+python3 scripts/item-index.py --with-preamble ...    # 首次接触该场景时带前言
+```
+
+自动附带三类上下文，不用手工拼：**常见误报**段（判断是不是误报靠它）·
+**标题引用了该条目 ID 的章节**（如「双实现比对（C-02 的展开）」）·
+**标了「必读」的前置段**（如「NaN 的三副面孔」）。
+
+**仍要整文件读的两种情况**（见 `references/mechanisms.md` ⑤）：
+① 确认扫描候选时——语言包标了 `oversize-exempt`，理由就是"需整体对照本包全部判据"；
+② 首次接触某场景、还没建立心智模型时。
 
 ## 输出资产（不读入上下文，用于填充）
 

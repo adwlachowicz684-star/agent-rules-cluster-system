@@ -1,0 +1,5956 @@
+{
+ "version": "1.0.0",
+ "note": "由 scripts/item-index.py --sync 从 references/*.md 提取。不要手改（会被 --check 判为漂移）；改 Markdown 后重新 sync。",
+ "files": [
+  {
+   "file": "p-cpp.md",
+   "scene": "p-cpp",
+   "entries": 9,
+   "sections": 5,
+   "preamble": "# 语言包：C/C++（p-cpp）\n\n**触发**：仓库里有 `.c` / `.cc` / `.cpp` / `.cxx` / `.h` / `.hpp` 文件\n（`CMakeLists.txt` / `Makefile` / `Cargo.toml` + `build.rs` 是强信号）。\n**风险**：资源所有权不清、异常路径泄漏、缓冲区越界、数据竞争、析构期访问。\n\n`overlaps:` 本包只放 **C/C++ 语义特有**的判据。\n跨语言并发判据主条目在 `s-concurrency` R-01~R-10 —— 本包是它们的 C++ 形态：\nCPP-05↔R-05、CPP-06↔R-10、CPP-04↔R-01。\n整数溢出/角度归一化归 `s-numerics`（N-01~N-19），CPP-08 只记 C/C++ 特有的\n**符号转换与 size_t 回绕**。\n\n```bash\npython3 scripts/scan-cpp.py --src=<根> [--p0] [--json] [--sarif=out.sarif]\npython3 scripts/scan-cpp.py --self-test        # 改规则后必跑\n```\n\n---",
+   "preamble_tokens": 264
+  },
+  {
+   "file": "p-go.md",
+   "scene": "p-go",
+   "entries": 10,
+   "sections": 5,
+   "preamble": "# 语言包：Go（p-go）\n\n**触发**：仓库里有 `.go` 文件（`go.mod` 是强信号）。\n**风险**：goroutine 泄漏、取消不传播、channel 死锁、map 并发写、错误被丢。\n\n`overlaps:` 本包只放 **Go 语义特有**的判据。\n跨语言的并发判据主条目在 `s-concurrency`（R-01~R-10）——本包是它们在 Go 里的\n**可机扫形态**，同源不重复报：GO-01↔R-02、GO-02↔R-03、GO-04↔R-01、GO-05↔R-04。\n锁中毒/资源无限读入归 `s-backend` K-21 / K-01。\n\n```bash\npython3 scripts/scan-go.py --src=<根> [--p0] [--json] [--sarif=out.sarif]\npython3 scripts/scan-go.py --self-test        # 改规则后必跑\n```\n\n---",
+   "preamble_tokens": 224
+  },
+  {
+   "file": "p-java.md",
+   "scene": "p-java",
+   "entries": 10,
+   "sections": 5,
+   "preamble": "# 语言包：Java（p-java）\n\n**触发**：仓库里有 `.java` 文件（`pom.xml` / `build.gradle` 是强信号）。\n**风险**：资源未关闭、线程池不退出、中断被吞、并发集合误用、异常被吞。\n\n`overlaps:` 本包只放 **Java 语义特有**的判据。\n跨语言并发判据主条目在 `s-concurrency` R-01~R-10 —— 本包是它们的 Java 形态：\nJAVA-02↔R-02、JAVA-03↔R-03（中断即取消）、JAVA-04↔R-01。\n注入类归 `s-backend`（K-08 命令注入、K-32 反序列化），本包不重复。\n\n```bash\npython3 scripts/scan-java.py --src=<根> [--p0] [--json] [--sarif=out.sarif]\npython3 scripts/scan-java.py --self-test        # 改规则后必跑\n```\n\n---",
+   "preamble_tokens": 238
+  },
+  {
+   "file": "p-python.md",
+   "scene": "p-python",
+   "entries": 12,
+   "sections": 5,
+   "preamble": "<!-- oversize-exempt: 语言包，确认候选时需整体对照本包全部判据 -->\n# 语言包：Python（p-python）\n\n**触发**：仓库里有 `.py` 文件（含脚本、服务、工具、测试）。\n**风险**：Python 的缺陷形态与 TS/JS 不同——**不能把 TS 规则翻译一遍了事**。\n\n`overlaps:` 本包只放 **Python 语义特有**的判据。\n通用的归各自场景：不安全反序列化归 `s-backend` K-32、敏感日志归 `s-sandbox` S-10、\n命令注入归 `s-backend` K-08（本包的 PY-10 是它的 Python 形态，同源不重复报）。\n\n> **为什么需要单独一个语言包**：`scan-ts.py` / `scan-app.py` 对 Python 输出\n> `文件: 0　候选: 0`。这不是「没命中」，是**压根没看**（该陷阱见 `route.md` 末节）。\n> 本包配 `scripts/scan-py.py`（AST 驱动），让 Python 真正进入审查范围。\n\n```bash\npython3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=out.sarif]\npython3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20\n```\n\n---",
+   "preamble_tokens": 368
+  },
+  {
+   "file": "s-atomicity.md",
+   "scene": "s-atomicity",
+   "entries": 13,
+   "sections": 4,
+   "preamble": "# 场景：原子性与安全判定（s-atomicity）\n\n**触发**：多步写操作 / 批处理 / 交易 / 权限或经济判定 / 调试开关。\n**风险**：中间抛错不回滚、空 catch 吞异常、fail-open（校验缺失时放行）、\n调试后门默认启用。\n\n`overlaps:` **只管「判定是否放行」**与「多步写是否整体成功」。\n判定依赖的**数值**是否有限归 `s-numerics`；权限的**隔离边界**归 `s-sandbox`；\n判定函数的**参数是否被使用**归 `s-contracts`。\n\n---",
+   "preamble_tokens": 205
+  },
+  {
+   "file": "s-boundary.md",
+   "scene": "s-boundary",
+   "entries": 9,
+   "sections": 4,
+   "preamble": "# 场景：跨边界通信（s-boundary）\n\n**触发**：`postMessage` / IPC / 桥接层 / iframe / 事件总线 / 请求-响应协议。\n**风险**：来源未校验、握手竞态、退订不精确、无超时悬挂、目标 origin 通配。\n\n`overlaps:` **只管通道本身**（origin、握手、超时、消息格式）。\n通道两端的**订阅是否成对清理**归 `s-lifecycle`；\n通道能否被**被隔离方滥用**归 `s-sandbox`；\n通道传的**数值**归 `s-numerics`。\n\n---",
+   "preamble_tokens": 184
+  },
+  {
+   "file": "s-build.md",
+   "scene": "s-build",
+   "entries": 12,
+   "sections": 3,
+   "preamble": "# 场景：构建与交付（s-build）\n\n**触发**：有构建配置 / 打包 / CI / 依赖声明 / 发布流程。\n**风险**：打包范围过宽（源码进包）、硬编码清单导致新增成员静默缺失、\nCI 缺失使测试形同虚设、占位资源未替换、依赖无法复现。\n\n`overlaps:` **只管构建产物与流程**。\n产物是否**实现了文档承诺的功能**归 `s-contracts`；\n产物里的**后端二进制安全性**归 `s-backend`；\n构建脚本里的**路径处理**归 `s-backend`（K 族）。\n\n---",
+   "preamble_tokens": 216
+  },
+  {
+   "file": "s-concurrency.md",
+   "scene": "s-concurrency",
+   "entries": 9,
+   "sections": 5,
+   "preamble": "# 场景：并发与生命周期（s-concurrency）\n\n**触发**：多线程 / 协程 / goroutine / 进程池 / 异步任务 / 锁 / 信号量 / 消息队列消费。\n**风险**：共享状态无保护、取消不传播、任务泄漏、超时后状态不回滚、重试不幂等。\n\n`overlaps:` **只管「并发执行流之间的状态与生命周期」**。\n单线程内的订阅/定时器成对归 `s-lifecycle`；通道本身的 origin/握手归 `s-boundary`；\n多步写不回滚归 `s-atomicity`；锁中毒崩溃归 `s-backend` K-21/K-22。\n**语言语法形态**在各语言包里（`p-python` PY-04 / PY-07），此处记跨语言判据，同源不重复报。\n\n> **为什么独立成域**：并发缺陷原本散在 A-（原子性）、B-（握手）、L-（生命周期）里，\n> 但三者都没处理完整链条：**共享状态 → 取消传播 → 清理配对 → 部分失败回滚**。\n> 本场景是这条链的唯一检索入口。\n\n---",
+   "preamble_tokens": 376
+  },
+  {
+   "file": "s-contracts.md",
+   "scene": "s-contracts",
+   "entries": 12,
+   "sections": 6,
+   "preamble": "# 场景：契约与承诺（s-contracts）\n\n**触发**：有对外 API / 接口声明 / README 承诺 / 两套实现 / 插件注册契约。\n**风险**：声明了却没接线、文档与实现不一致、双实现能力分叉、死契约。\n\n`overlaps:` **只管「声明 vs 实现」的一致性**。构建产物是否齐全归 `s-build`；\n接口参数是否成对校验归 `s-atomicity`；文档里的命令能否跑通归 `s-build`（CI 部分）。\n\n---",
+   "preamble_tokens": 179
+  },
+  {
+   "file": "s-lifecycle.md",
+   "scene": "s-lifecycle",
+   "entries": 15,
+   "sections": 4,
+   "preamble": "# 场景：生命周期与资源（s-lifecycle）\n\n**触发**：订阅 / 定时器 / 句柄 / 资源获取 / 每帧回调 / 重挂载。\n**风险**：成对契约缺一侧、随运行时长累积的泄漏、每帧开销被放大、重挂载叠加。\n\n配套：`s-lifecycle-fix.md`（修法）、`s-sandbox-host.md`（外壳-扩展的挂载与卸载契约）。\n\n`overlaps:` **只管「获取 ↔ 释放」是否成对、是否清理**。\n通道本身的 origin/握手/超时归 `s-boundary`；容器内部条目的回收归 `s-structures`；\n子进程与文件句柄的**后端实现**归 `s-backend`。\n\n---",
+   "preamble_tokens": 232
+  },
+  {
+   "file": "s-numerics.md",
+   "scene": "s-numerics",
+   "entries": 19,
+   "sections": 5,
+   "preamble": "<!-- oversize-exempt: 查表型文档，确认候选时需整体对照本场景全部判据，拆分反而增加往返 -->\n# 场景：数值与边界（s-numerics）\n\n**触发**：浮点运算 + 守卫 / `clamp` / 累加 / 循环上界 / 角度周期。\n**风险**：NaN 静默穿透、Infinity 死循环或 OOM、哨兵值与合法极值冲突、展示层掩盖故障。\n**来源**：A B P T U W 族（TS/JS 代码库 240+ 条真实 P0/P1 缺陷聚类）。\n\n`overlaps:` **只管数值语义本身**。循环/递归的**结构**问题（无访问集、栈溢出）归 `s-structures`；\n循环内的**每帧开销**归 `s-lifecycle`；数值判定的**放行**语义归 `s-atomicity`。\n\n---",
+   "preamble_tokens": 265
+  },
+  {
+   "file": "s-sandbox.md",
+   "scene": "s-sandbox",
+   "entries": 12,
+   "sections": 6,
+   "preamble": "<!-- oversize-exempt: 查表型文档，确认候选时需整体对照本场景全部判据 -->\n# 场景：沙箱与权限（s-sandbox）\n\n**触发**：有插件 / 扩展 / 微前端 / 隔离模式 / CSP / 凭据存储 / 外链策略。\n**风险**：隔离后能力**静默失效**、被隔离方可自授权、路径黑名单可绕过、密钥离线可推导。\n\n配套文件：`s-sandbox-host.md`（外壳-扩展契约、双实现比对）、\n`s-sandbox-security.md`（CSP 合并语义、凭据、外链入口）。\n\n`overlaps:` **只管隔离边界内外的权限与能力**。通道本身的消息格式/握手/超时归 `s-boundary`；\n子进程与文件系统的**具体实现**归 `s-backend`；插件代码的数值问题归 `s-numerics`。\n\n---",
+   "preamble_tokens": 297
+  },
+  {
+   "file": "s-state.md",
+   "scene": "s-state",
+   "entries": 10,
+   "sections": 3,
+   "preamble": "# 场景：状态与配置（s-state）\n\n**触发**：有 store / 序列化 / 配置快照 / 主题系统 / 能力探测。\n**风险**：反序列化无兜底导致整块数据不可用、快照不随状态更新、降级后永不重试、\n内联样式压过后续注入。\n\n`overlaps:` **只管状态本身的正确性与新鲜度**。\n状态容器的**容量上限**归 `s-structures`；配置项参与**数值运算**归 `s-numerics`；\n配置项是否**被文档正确描述**归 `s-contracts`；持久化到**后端文件**归 `s-backend`。\n\n---",
+   "preamble_tokens": 223
+  },
+  {
+   "file": "s-structures.md",
+   "scene": "s-structures",
+   "entries": 17,
+   "sections": 3,
+   "preamble": "<!-- oversize-exempt: 查表型文档，确认候选时需整体对照本场景全部判据 -->\n# 场景：数据结构与内存（s-structures）\n\n**触发**：TypedArray / 对象池 / 分桶 / 裸对象查表 / 惰性删除 / 路径与 key 编码。\n**风险**：原型污染、空桶长期泄漏、尺寸未收口 OOM、删除索引错位、key 碰撞静默合并。\n\n配套：`s-structures-fix.md`（修法）。\n\n`overlaps:` **只管容器与索引本身的结构正确性**。容器里元素的生命周期归 `s-lifecycle`；\n元素参与数值运算归 `s-numerics`；序列化格式的版本兼容归 `s-state`。\n\n---",
+   "preamble_tokens": 245
+  }
+ ],
+ "items": [
+  {
+   "id": "CPP-01",
+   "level": "P0",
+   "name": "裸资源所有权不清",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "`new` / `malloc` / `fopen` / `socket` / `pthread_mutex_init` 出现，"
+    ],
+    "确认": [
+     "数一数每条路径——**正常路径配对了，异常路径呢？**"
+    ],
+    "典型": [
+     "`char* p = new char[n]; parse(p); delete[] p;` —— `parse` 抛异常就泄漏"
+    ],
+    "修法": [
+     "RAII —— `std::unique_ptr` / `std::vector` / `std::fstream`"
+    ],
+    "定级": [
+     "异常路径泄漏 → **P0**；仅所有权不清晰但无异常 → P1"
+    ]
+   },
+   "keywords": [
+    "char",
+    "delete",
+    "fopen",
+    "malloc",
+    "new",
+    "parse",
+    "pthread_mutex_init",
+    "socket",
+    "不清",
+    "裸资源所有权"
+   ],
+   "body": "- **判据**：`new` / `malloc` / `fopen` / `socket` / `pthread_mutex_init` 出现，\n  但文件内**没有**对应的 `delete` / `free` / `fclose` / `close` / `destroy`，\n  且未使用智能指针（`unique_ptr` / `shared_ptr`）\n- **确认**：数一数每条路径——**正常路径配对了，异常路径呢？**\n- **典型**：`char* p = new char[n]; parse(p); delete[] p;` —— `parse` 抛异常就泄漏\n- **修法**：RAII —— `std::unique_ptr` / `std::vector` / `std::fstream`\n- **定级**：异常路径泄漏 → **P0**；仅所有权不清晰但无异常 → P1",
+   "tokens": 189,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-02",
+   "level": "P0",
+   "name": "不安全的内存/字符串函数",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "`strcpy` / `strcat` / `sprintf` / `gets` / `memcpy` / `memset` /"
+    ],
+    "确认": [
+     "长度是否可被外部输入影响。是 → **缓冲区溢出 = 任意代码执行**"
+    ],
+    "典型": [
+     "`char buf[64]; strcpy(buf, user_input);`"
+    ],
+    "修法": [
+     "`snprintf` / `strncpy`（注意末尾补 `\\0`）/ `std::string` / `std::vector`"
+    ],
+    "降级": [
+     "长度是 `sizeof(目标)` 或字面量常量 → 安全，不报"
+    ]
+   },
+   "keywords": [
+    "buf",
+    "char",
+    "gets",
+    "memcpy",
+    "memset",
+    "sprintf",
+    "strcat",
+    "strcpy",
+    "user_input",
+    "不安全的内存",
+    "字符串函数"
+   ],
+   "body": "- **判据**：`strcpy` / `strcat` / `sprintf` / `gets` / `memcpy` / `memset` /\n  `alloca` 出现，**长度参数不是常量也不来自 sizeof**\n- **确认**：长度是否可被外部输入影响。是 → **缓冲区溢出 = 任意代码执行**\n- **典型**：`char buf[64]; strcpy(buf, user_input);`\n- **修法**：`snprintf` / `strncpy`（注意末尾补 `\\0`）/ `std::string` / `std::vector`\n- **降级**：长度是 `sizeof(目标)` 或字面量常量 → 安全，不报",
+   "tokens": 165,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-03",
+   "level": "P0",
+   "name": "数组/指针越界风险",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "指针算术（`p + n` / `p[i]`）的下标来自外部输入或循环变量，"
+    ],
+    "确认": [
+     "下标上界是否收口（同 `s-structures` D-11 尺寸未收口）"
+    ],
+    "典型": [
+     "`for (int i = 0; i <= n; ++i) a[i] = 0;` —— `<=` 多一个"
+    ]
+   },
+   "keywords": [
+    "for",
+    "int",
+    "structures",
+    "指针越界风险",
+    "数组"
+   ],
+   "body": "- **判据**：指针算术（`p + n` / `p[i]`）的下标来自外部输入或循环变量，\n  且无边界检查；或 `arr[n]` 的 `n` 来自 `size()` / `strlen()` 之外的计算\n- **确认**：下标上界是否收口（同 `s-structures` D-11 尺寸未收口）\n- **典型**：`for (int i = 0; i <= n; ++i) a[i] = 0;` —— `<=` 多一个",
+   "tokens": 123,
+   "xrefs": [
+    "D-11"
+   ]
+  },
+  {
+   "id": "CPP-04",
+   "level": "P0",
+   "name": "共享数据无同步",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "全局/`static` 变量被写，且文件内有 `std::thread` / `pthread_create` /"
+    ],
+    "确认": [
+     "该变量是否被多线程写。是 → 数据竞争 = 未定义行为"
+    ],
+    "修法": [
+     "`std::atomic` / `mutex` + `lock_guard`（RAII 式，异常安全）"
+    ]
+   },
+   "keywords": [
+    "pthread_create",
+    "static",
+    "std",
+    "thread",
+    "共享数据无同"
+   ],
+   "body": "- **判据**：全局/`static` 变量被写，且文件内有 `std::thread` / `pthread_create` /\n  `std::async`，但**无** `std::mutex` / `atomic` / `lock_guard`\n- **确认**：该变量是否被多线程写。是 → 数据竞争 = 未定义行为\n- **修法**：`std::atomic` / `mutex` + `lock_guard`（RAII 式，异常安全）",
+   "tokens": 111,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-05",
+   "level": "P0",
+   "name": "条件变量用 `if` 而非 `while`",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "`wait(` 前是 `if (` 而非 `while (`",
+     "析构函数 `~X()` 里调用 `lock()` / `open()` / 网络 IO / 虚函数"
+    ],
+    "确认": [
+     "条件变量的**虚假唤醒**是合法的（POSIX 允许），`if` 会导致条件未满足就继续",
+     "析构期对象可能已部分销毁，调用虚函数会分发到基类版本"
+    ],
+    "典型": [
+     "`if (queue.empty()) cv.wait(lock);` → 醒来时 queue 可能仍为空 → 崩溃"
+    ],
+    "修法": [
+     "`cv.wait(lock, []{ return !queue.empty(); });` 或 `while (queue.empty()) cv.wait(lock);`"
+    ],
+    "定级": [
+     "析构里**加锁** → **P0**（与持锁线程互等形成死锁）；其余 → P1"
+    ],
+    "注": [
+     "与 `s-concurrency` R-10 同源"
+    ]
+   },
+   "keywords": [
+    "POSIX",
+    "lock",
+    "open",
+    "queue",
+    "queue.empty",
+    "wait",
+    "while",
+    "条件变量用",
+    "而非"
+   ],
+   "body": "- **判据**：`wait(` 前是 `if (` 而非 `while (`\n- **确认**：条件变量的**虚假唤醒**是合法的（POSIX 允许），`if` 会导致条件未满足就继续\n- **典型**：`if (queue.empty()) cv.wait(lock);` → 醒来时 queue 可能仍为空 → 崩溃\n- **修法**：`cv.wait(lock, []{ return !queue.empty(); });` 或 `while (queue.empty()) cv.wait(lock);`\n\n### CPP-06 (P1/P0) 析构中的危险操作\n- **判据**：析构函数 `~X()` 里调用 `lock()` / `open()` / 网络 IO / 虚函数\n- **确认**：析构期对象可能已部分销毁，调用虚函数会分发到基类版本\n- **定级**：析构里**加锁** → **P0**（与持锁线程互等形成死锁）；其余 → P1\n- **注**：与 `s-concurrency` R-10 同源",
+   "tokens": 268,
+   "xrefs": [
+    "CPP-06",
+    "R-10"
+   ]
+  },
+  {
+   "id": "CPP-07",
+   "level": "P0",
+   "name": "悬垂引用 / 生命周期错误",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "函数返回**局部变量或临时对象的引用/指针**；"
+    ],
+    "典型": [
+     "`const std::string& f() { std::string s = \"x\"; return s; }` —— 返回即悬垂"
+    ],
+    "修法": [
+     "按值返回；或延长被引用对象的生命周期"
+    ],
+    "易漏点": [
+     "`std::string_view sv = std::string(\"tmp\");` —— 临时对象语句结束即销毁"
+    ]
+   },
+   "keywords": [
+    "const",
+    "return",
+    "std",
+    "string",
+    "悬垂引用",
+    "生命周期错误"
+   ],
+   "body": "- **判据**：函数返回**局部变量或临时对象的引用/指针**；\n  或 `string_view` / `span` / 迭代器所引用的容器在其后被修改/销毁\n- **典型**：`const std::string& f() { std::string s = \"x\"; return s; }` —— 返回即悬垂\n- **修法**：按值返回；或延长被引用对象的生命周期\n- **易漏点**：`std::string_view sv = std::string(\"tmp\");` —— 临时对象语句结束即销毁",
+   "tokens": 161,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-08",
+   "level": "P1",
+   "name": "整数转换与回绕",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "`size_t` / 无符号数与 `int` 混算；`n - 1` 形式的长度计算；"
+    ],
+    "典型": [
+     "`for (size_t i = v.size() - 1; i >= 0; --i)` —— `size()` 为 0 时下溢成巨大值；"
+    ],
+    "修法": [
+     "用反向迭代器；或先判空；避免混用有符号无符号"
+    ]
+   },
+   "keywords": [
+    "for",
+    "int",
+    "size",
+    "size_t",
+    "整数转换与回"
+   ],
+   "body": "- **判据**：`size_t` / 无符号数与 `int` 混算；`n - 1` 形式的长度计算；\n  有符号→无符号隐式转换后参与比较\n- **典型**：`for (size_t i = v.size() - 1; i >= 0; --i)` —— `size()` 为 0 时下溢成巨大值；\n  且 `i >= 0` 对无符号恒真 → 无限循环 + 越界\n- **修法**：用反向迭代器；或先判空；避免混用有符号无符号",
+   "tokens": 148,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-09",
+   "level": "P1",
+   "name": "未初始化的成员/变量",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "类构造函数初始化列表里**漏掉**某些内置类型成员；"
+    ],
+    "确认": [
+     "未初始化的值是**不确定的**（不是 0），调试版和发布版可能不同"
+    ],
+    "修法": [
+     "成员默认初始化 `int count_{0};`"
+    ]
+   },
+   "keywords": [
+    "变量",
+    "未初始化的成"
+   ],
+   "body": "- **判据**：类构造函数初始化列表里**漏掉**某些内置类型成员；\n  或 `int n;` 声明后直接参与计算\n- **确认**：未初始化的值是**不确定的**（不是 0），调试版和发布版可能不同\n- **修法**：成员默认初始化 `int count_{0};`",
+   "tokens": 118,
+   "xrefs": []
+  },
+  {
+   "id": "CPP-10",
+   "level": "P2",
+   "name": "违反项目运行时策略",
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "fields": {
+    "判据": [
+     "项目明确禁用项出现——异常（`throw` / `catch`）、RTTI（`dynamic_cast` /"
+    ],
+    "确认": [
+     "先读项目规范（如 HotSpot Style 禁用异常与 RTTI）。无规范则不报"
+    ],
+    "定级": [
+     "P2（是约定违反，非缺陷本身）"
+    ]
+   },
+   "keywords": [
+    "HotSpot",
+    "RTTI",
+    "Style",
+    "catch",
+    "dynamic_cast",
+    "throw",
+    "时策略",
+    "违反项目运行"
+   ],
+   "body": "- **判据**：项目明确禁用项出现——异常（`throw` / `catch`）、RTTI（`dynamic_cast` /\n  `typeid`）、全局 `operator new` 重载、`thread_local`、动态分配\n  （游戏/嵌入式项目常见约束）\n- **确认**：先读项目规范（如 HotSpot Style 禁用异常与 RTTI）。无规范则不报\n- **定级**：P2（是约定违反，非缺陷本身）\n\n---",
+   "tokens": 133,
+   "xrefs": []
+  },
+  {
+   "id": "GO-01",
+   "level": "P0",
+   "name": "goroutine 泄漏",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "`go func` / `go f()` 出现，但文件内**没有** `context` / `WaitGroup` /"
+    ],
+    "确认": [
+     "找启动路径——是否每次请求/每次循环都起一个。是 → 随运行时长累积"
+    ],
+    "典型": [
+     "`go func() { for { select { case v := <-ch: ... } } }()`，"
+    ],
+    "修法": [
+     "接 `ctx.Done()`；`defer wg.Done()`；channel 由发送方关闭"
+    ],
+    "降级": [
+     "`main` 里的 `go` 且生命周期等同进程 → P2"
+    ]
+   },
+   "keywords": [
+    "WaitGroup",
+    "case",
+    "context",
+    "for",
+    "func",
+    "select",
+    "泄漏"
+   ],
+   "body": "- **判据**：`go func` / `go f()` 出现，但文件内**没有** `context` / `WaitGroup` /\n  `done` channel / `sync` 包任何一个\n- **确认**：找启动路径——是否每次请求/每次循环都起一个。是 → 随运行时长累积\n- **典型**：`go func() { for { select { case v := <-ch: ... } } }()`，\n  `ch` 永不关闭 → goroutine 永久挂住\n- **修法**：接 `ctx.Done()`；`defer wg.Done()`；channel 由发送方关闭\n- **降级**：`main` 里的 `go` 且生命周期等同进程 → P2",
+   "tokens": 179,
+   "xrefs": []
+  },
+  {
+   "id": "GO-02",
+   "level": "P0",
+   "name": "context 未传播",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "函数签名里有 `ctx context.Context`，但函数体内调用"
+    ],
+    "确认": [
+     "上游取消后，这些调用是否立刻返回。否 → 上游超时下游照跑"
+    ],
+    "典型": [
+     "`http.Get(url)` 而非 `http.NewRequestWithContext(ctx, ...)`"
+    ],
+    "修法": [
+     "所有阻塞调用都带 ctx；`time.After` 改 `time.AfterFunc` 或 ctx 定时器"
+    ]
+   },
+   "keywords": [
+    "context.Context",
+    "ctx",
+    "http.Get",
+    "http.NewRequestWithContext",
+    "url",
+    "未传播"
+   ],
+   "body": "- **判据**：函数签名里有 `ctx context.Context`，但函数体内调用\n  `http.Get` / `http.NewRequest` / `db.Query` / `time.After` 时**没传 ctx**\n- **确认**：上游取消后，这些调用是否立刻返回。否 → 上游超时下游照跑\n- **典型**：`http.Get(url)` 而非 `http.NewRequestWithContext(ctx, ...)`\n- **修法**：所有阻塞调用都带 ctx；`time.After` 改 `time.AfterFunc` 或 ctx 定时器",
+   "tokens": 150,
+   "xrefs": []
+  },
+  {
+   "id": "GO-03",
+   "level": "P0",
+   "name": "channel 使用不当",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "三种形态——① 无缓冲 channel 在 `go func` 里收但可能无发送方"
+    ],
+    "确认": [
+     "画发送方/接收方数量与关闭位置。**由接收方关闭** = 多发送方时 panic"
+    ],
+    "典型": [
+     "`c := make(chan int); go func(){ c <- 1 }()` 但主协程已 return → 永久阻塞"
+    ],
+    "修法": [
+     "由发送方关闭；或用 `sync.Once` 保关闭唯一；加 `default` 分支防阻塞"
+    ]
+   },
+   "keywords": [
+    "chan",
+    "channel",
+    "func",
+    "int",
+    "make",
+    "panic",
+    "return",
+    "使用不当"
+   ],
+   "body": "- **判据**：三种形态——① 无缓冲 channel 在 `go func` 里收但可能无发送方\n  ② `close()` 出现多次或出现在接收方 ③ `for range ch` 但没人关闭\n- **确认**：画发送方/接收方数量与关闭位置。**由接收方关闭** = 多发送方时 panic\n- **典型**：`c := make(chan int); go func(){ c <- 1 }()` 但主协程已 return → 永久阻塞\n- **修法**：由发送方关闭；或用 `sync.Once` 保关闭唯一；加 `default` 分支防阻塞",
+   "tokens": 187,
+   "xrefs": []
+  },
+  {
+   "id": "GO-04",
+   "level": "P0",
+   "name": "map 并发写无同步",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "存在 `map[...]...` 类型 + 文件里有 `go func` 或 `sync` 未引入"
+    ],
+    "确认": [
+     "该 map 是否被多个 goroutine 同时写。是 → `fatal error: concurrent map writes`"
+    ],
+    "修法": [
+     "`sync.Mutex` / `sync.Map` / 用 channel 串行化"
+    ],
+    "注": [
+     "Go 的 map 并发写会 **panic 崩溃**（不是静默），但只读并发是安全的——"
+    ]
+   },
+   "keywords": [
+    "concurrent",
+    "error",
+    "fatal",
+    "func",
+    "goroutine",
+    "map",
+    "sync",
+    "writes",
+    "并发写无同步"
+   ],
+   "body": "- **判据**：存在 `map[...]...` 类型 + 文件里有 `go func` 或 `sync` 未引入\n- **确认**：该 map 是否被多个 goroutine 同时写。是 → `fatal error: concurrent map writes`\n- **修法**：`sync.Mutex` / `sync.Map` / 用 channel 串行化\n- **注**：Go 的 map 并发写会 **panic 崩溃**（不是静默），但只读并发是安全的——\n  先确认到底是读还是写",
+   "tokens": 141,
+   "xrefs": []
+  },
+  {
+   "id": "GO-05",
+   "level": "P1",
+   "name": "mutex 值拷贝",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "函数参数或结构体字段出现 `sync.Mutex` **非指针**，或 `sync.Mutex` / `RWMutex` 被赋值传递"
+    ],
+    "确认": [
+     "锁被拷贝后，两个副本各自保护自己的状态 → **保护完全失效**"
+    ],
+    "修法": [
+     "用 `*sync.Mutex`；或结构体嵌入时不拷贝（`go vet` 可查）"
+    ]
+   },
+   "keywords": [
+    "RWMutex",
+    "sync.Mutex",
+    "值拷贝"
+   ],
+   "body": "- **判据**：函数参数或结构体字段出现 `sync.Mutex` **非指针**，或 `sync.Mutex` / `RWMutex` 被赋值传递\n- **确认**：锁被拷贝后，两个副本各自保护自己的状态 → **保护完全失效**\n- **修法**：用 `*sync.Mutex`；或结构体嵌入时不拷贝（`go vet` 可查）",
+   "tokens": 121,
+   "xrefs": []
+  },
+  {
+   "id": "GO-06",
+   "level": "P0",
+   "name": "错误被丢弃",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "`_` 接收错误返回值，或 `err` 赋值后从未被判断"
+    ],
+    "确认": [
+     "被丢的错误是否影响正确性（写文件失败、网络失败）"
+    ],
+    "典型": [
+     "`v, _ := strconv.Atoi(s)` —— 解析失败时 `v` 是 0，后续按 0 算"
+    ],
+    "修法": [
+     "至少 `if err != nil { return err }`；确实可忽略要写 `_ =` 并注释"
+    ],
+    "定级": [
+     "写操作/网络/解析的 err 被丢 → P0；纯打印类 → P2"
+    ]
+   },
+   "keywords": [
+    "err",
+    "strconv.Atoi",
+    "错误被丢弃"
+   ],
+   "body": "- **判据**：`_` 接收错误返回值，或 `err` 赋值后从未被判断\n- **确认**：被丢的错误是否影响正确性（写文件失败、网络失败）\n- **典型**：`v, _ := strconv.Atoi(s)` —— 解析失败时 `v` 是 0，后续按 0 算\n- **修法**：至少 `if err != nil { return err }`；确实可忽略要写 `_ =` 并注释\n- **定级**：写操作/网络/解析的 err 被丢 → P0；纯打印类 → P2",
+   "tokens": 162,
+   "xrefs": []
+  },
+  {
+   "id": "GO-07",
+   "level": "P1",
+   "name": "WaitGroup 计数不匹配",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "文件内有 `wg.Add(` 但无 `wg.Done()`，或 `Add` 在 goroutine **内部**调用"
+    ],
+    "确认": [
+     "`Add` 必须在 `go` 之前调用，否则 `Wait()` 可能先返回"
+    ],
+    "典型": [
+     "`go func(){ wg.Add(1); ...; wg.Done() }()` → Wait 可能提前结束"
+    ]
+   },
+   "keywords": [
+    "Add",
+    "Done",
+    "Wait",
+    "func",
+    "goroutine",
+    "计数不匹配"
+   ],
+   "body": "- **判据**：文件内有 `wg.Add(` 但无 `wg.Done()`，或 `Add` 在 goroutine **内部**调用\n- **确认**：`Add` 必须在 `go` 之前调用，否则 `Wait()` 可能先返回\n- **典型**：`go func(){ wg.Add(1); ...; wg.Done() }()` → Wait 可能提前结束",
+   "tokens": 92,
+   "xrefs": []
+  },
+  {
+   "id": "GO-08",
+   "level": "P1",
+   "name": "循环里 defer（资源累积）",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "`for` 循环体内出现 `defer`"
+    ],
+    "确认": [
+     "defer 在**函数返回时**才执行，循环 N 次就累积 N 个"
+    ],
+    "典型": [
+     "`for _, f := range files { fh, _ := os.Open(f); defer fh.Close() }` →"
+    ],
+    "修法": [
+     "循环体抽成函数；或显式 close"
+    ]
+   },
+   "keywords": [
+    "Close",
+    "Open",
+    "defer",
+    "files",
+    "for",
+    "range",
+    "循环里",
+    "资源累积"
+   ],
+   "body": "- **判据**：`for` 循环体内出现 `defer`\n- **确认**：defer 在**函数返回时**才执行，循环 N 次就累积 N 个\n- **典型**：`for _, f := range files { fh, _ := os.Open(f); defer fh.Close() }` →\n  文件句柄累积到函数结束，上万文件直接打满 fd\n- **修法**：循环体抽成函数；或显式 close",
+   "tokens": 124,
+   "xrefs": []
+  },
+  {
+   "id": "GO-09",
+   "level": "P1",
+   "name": "select 无退出路径",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "`select` 语句里既无 `ctx.Done()` 也无 `default` 也无超时分支"
+    ],
+    "确认": [
+     "所有 case 的 channel 都不活跃时，这个 select 会永久阻塞"
+    ],
+    "修法": [
+     "加 `case <-ctx.Done(): return`"
+    ]
+   },
+   "keywords": [
+    "case",
+    "channel",
+    "ctx.Done",
+    "default",
+    "select",
+    "无退出路径"
+   ],
+   "body": "- **判据**：`select` 语句里既无 `ctx.Done()` 也无 `default` 也无超时分支\n- **确认**：所有 case 的 channel 都不活跃时，这个 select 会永久阻塞\n- **修法**：加 `case <-ctx.Done(): return`",
+   "tokens": 79,
+   "xrefs": []
+  },
+  {
+   "id": "GO-10",
+   "level": "P1",
+   "name": "goroutine 内 panic 无人 recover",
+   "scene": "p-go",
+   "file": "p-go.md",
+   "fields": {
+    "判据": [
+     "`go func` 内没有 `defer func(){ if r := recover(); ... }()`"
+    ],
+    "确认": [
+     "子 goroutine panic 会导致**整个进程退出**，且无法被外层 recover 捕获"
+    ],
+    "修法": [
+     "每个长期 goroutine 加 recover + 日志"
+    ]
+   },
+   "keywords": [
+    "defer",
+    "func",
+    "goroutine",
+    "panic",
+    "recover",
+    "无人"
+   ],
+   "body": "- **判据**：`go func` 内没有 `defer func(){ if r := recover(); ... }()`\n- **确认**：子 goroutine panic 会导致**整个进程退出**，且无法被外层 recover 捕获\n- **修法**：每个长期 goroutine 加 recover + 日志\n\n---",
+   "tokens": 84,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-01",
+   "level": "P0",
+   "name": "资源未用 try-with-resources",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`new FileInputStream` / `new FileOutputStream` / `Connection` /"
+    ],
+    "确认": [
+     "异常路径下是否释放。抛错即泄漏 → **P0**"
+    ],
+    "典型": [
+     "`Connection c = ds.getConnection();` 中途抛异常 → 连接池耗尽"
+    ],
+    "修法": [
+     "`try (Connection c = ds.getConnection()) { ... }`"
+    ],
+    "降级": [
+     "成员变量（生命周期更长）→ P2"
+    ]
+   },
+   "keywords": [
+    "Connection",
+    "FileInputStream",
+    "FileOutputStream",
+    "getConnection",
+    "new",
+    "资源未用"
+   ],
+   "body": "- **判据**：`new FileInputStream` / `new FileOutputStream` / `Connection` /\n  `Statement` / `ResultSet` / `BufferedReader` 等 `Closeable` 赋值给变量，\n  但不在 `try (` 里，也没有 `finally { .close() }`\n- **确认**：异常路径下是否释放。抛错即泄漏 → **P0**\n- **典型**：`Connection c = ds.getConnection();` 中途抛异常 → 连接池耗尽\n- **修法**：`try (Connection c = ds.getConnection()) { ... }`\n- **降级**：成员变量（生命周期更长）→ P2",
+   "tokens": 161,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-02",
+   "level": "P0",
+   "name": "ExecutorService 未 shutdown",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "出现 `Executors.newFixedThreadPool` / `newCachedThreadPool` /"
+    ],
+    "确认": [
+     "是每请求创建还是全局单例。**每请求创建** → 线程数随请求累积到 OOM"
+    ],
+    "典型": [
+     "某个方法里 `Executors.newCachedThreadPool()` → 每次调用建一个线程池，永不回收"
+    ],
+    "修法": [
+     "全局共享线程池 + 显式 shutdown；或用 Spring 托管的 `ThreadPoolTaskExecutor`"
+    ]
+   },
+   "keywords": [
+    "Executors.newCachedThreadPool",
+    "Executors.newFixedThreadPool",
+    "OOM",
+    "newCachedThreadPool"
+   ],
+   "body": "- **判据**：出现 `Executors.newFixedThreadPool` / `newCachedThreadPool` /\n  `newSingleThreadExecutor` / `new ThreadPoolTaskExecutor`，但无 `shutdown()` / `shutdownNow()`\n- **确认**：是每请求创建还是全局单例。**每请求创建** → 线程数随请求累积到 OOM\n- **典型**：某个方法里 `Executors.newCachedThreadPool()` → 每次调用建一个线程池，永不回收\n- **修法**：全局共享线程池 + 显式 shutdown；或用 Spring 托管的 `ThreadPoolTaskExecutor`",
+   "tokens": 175,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-03",
+   "level": "P0",
+   "name": "InterruptedException 被吞（中断标志未恢复）",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`catch (InterruptedException` 后既不 `Thread.currentThread().interrupt()`"
+    ],
+    "确认": [
+     "上层依赖中断来取消任务时，这里吞掉 = **取消永远不生效**"
+    ],
+    "典型": [
+     "`catch (InterruptedException e) { log.warn(\"interrupted\"); }` ——"
+    ],
+    "修法": [
+     "`catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }`"
+    ],
+    "定级": [
+     "**P0** —— 这是 Java 里最常见、也最难查的取消失效"
+    ]
+   },
+   "keywords": [
+    "InterruptedException",
+    "Thread.currentThread",
+    "catch",
+    "interrupt",
+    "interrupted",
+    "log.warn",
+    "中断标志未恢",
+    "被吞"
+   ],
+   "body": "- **判据**：`catch (InterruptedException` 后既不 `Thread.currentThread().interrupt()`\n  也不重新抛出\n- **确认**：上层依赖中断来取消任务时，这里吞掉 = **取消永远不生效**\n- **典型**：`catch (InterruptedException e) { log.warn(\"interrupted\"); }` ——\n  中断标志已被 JVM 清除，上层 `Future.cancel(true)` 形同虚设\n- **修法**：`catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }`\n- **定级**：**P0** —— 这是 Java 里最常见、也最难查的取消失效",
+   "tokens": 184,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-04",
+   "level": "P0",
+   "name": "并发集合误用",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`HashMap` / `ArrayList` / `HashSet` / `StringBuilder` 被"
+    ],
+    "确认": [
+     "确认该集合是否真的跨线程。是 → `HashMap` 并发 `put` 可能**死循环**（JDK7 扩容环形链表）"
+    ],
+    "修法": [
+     "`ConcurrentHashMap` / `CopyOnWriteArrayList` / `Collections.synchronizedXxx`"
+    ]
+   },
+   "keywords": [
+    "ArrayList",
+    "HashMap",
+    "HashSet",
+    "JDK7",
+    "StringBuilder",
+    "put",
+    "并发集合误用"
+   ],
+   "body": "- **判据**：`HashMap` / `ArrayList` / `HashSet` / `StringBuilder` 被\n  **多线程共享写**（附近有 `Thread` / `Executor` / `@Async` / `Runnable`）\n- **确认**：确认该集合是否真的跨线程。是 → `HashMap` 并发 `put` 可能**死循环**（JDK7 扩容环形链表）\n- **修法**：`ConcurrentHashMap` / `CopyOnWriteArrayList` / `Collections.synchronizedXxx`",
+   "tokens": 123,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-05",
+   "level": "P1",
+   "name": "ThreadLocal 在线程池中串数据",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`ThreadLocal` / `InheritableThreadLocal` 声明，且附近有线程池"
+    ],
+    "确认": [
+     "线程复用 → 上一次请求的值会被下一次读到（**跨请求数据串扰**）"
+    ],
+    "典型": [
+     "`ThreadLocal<User> currentUser` 在线程池里不 remove → 用户 A 看到用户 B 的数据"
+    ],
+    "修法": [
+     "`finally { tl.remove(); }`"
+    ]
+   },
+   "keywords": [
+    "InheritableThreadLocal",
+    "ThreadLocal",
+    "User",
+    "currentUser",
+    "remove",
+    "在线程池中串",
+    "数据"
+   ],
+   "body": "- **判据**：`ThreadLocal` / `InheritableThreadLocal` 声明，且附近有线程池\n- **确认**：线程复用 → 上一次请求的值会被下一次读到（**跨请求数据串扰**）\n- **典型**：`ThreadLocal<User> currentUser` 在线程池里不 remove → 用户 A 看到用户 B 的数据\n- **修法**：`finally { tl.remove(); }`",
+   "tokens": 124,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-06",
+   "level": "P1",
+   "name": "synchronized 使用不当",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "两种——① `synchronized` 锁在**字符串常量**或 `Integer` 等会被 intern/缓存的对象上"
+    ],
+    "确认": [
+     "① 会导致**不相关的代码意外互斥**（甚至死锁）② 会让所有线程串行等网络"
+    ],
+    "修法": [
+     "用专用 `private final Object lock = new Object()`"
+    ]
+   },
+   "keywords": [
+    "Integer",
+    "intern",
+    "synchronized",
+    "使用不当"
+   ],
+   "body": "- **判据**：两种——① `synchronized` 锁在**字符串常量**或 `Integer` 等会被 intern/缓存的对象上\n  ② 同步块内做 IO / 远程调用（粒度过粗）\n- **确认**：① 会导致**不相关的代码意外互斥**（甚至死锁）② 会让所有线程串行等网络\n- **修法**：用专用 `private final Object lock = new Object()`",
+   "tokens": 136,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-07",
+   "level": "P2",
+   "name": "equals 与 hashCode 不配对",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "类里有 `equals(` 但没有 `hashCode(`，或反之"
+    ],
+    "确认": [
+     "该类是否放进 `HashMap` / `HashSet`。是 → 查不到、重复插入"
+    ],
+    "修法": [
+     "两者同时重写（IDE 可生成）"
+    ]
+   },
+   "keywords": [
+    "HashMap",
+    "HashSet",
+    "equals",
+    "hashCode",
+    "不配对"
+   ],
+   "body": "- **判据**：类里有 `equals(` 但没有 `hashCode(`，或反之\n- **确认**：该类是否放进 `HashMap` / `HashSet`。是 → 查不到、重复插入\n- **修法**：两者同时重写（IDE 可生成）",
+   "tokens": 77,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-08",
+   "level": "P1",
+   "name": "static 可变共享状态",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`static` 非 `final` 的集合/可变对象字段（`static Map` / `static List` / `static StringBuilder`）"
+    ],
+    "确认": [
+     "是否有多处写入。是 → 竞态 + 内存泄漏（类加载器无法回收）"
+    ],
+    "修法": [
+     "`static final` + 不可变；或改实例字段 + 依赖注入"
+    ]
+   },
+   "keywords": [
+    "List",
+    "Map",
+    "StringBuilder",
+    "final",
+    "static",
+    "可变共享状态"
+   ],
+   "body": "- **判据**：`static` 非 `final` 的集合/可变对象字段（`static Map` / `static List` / `static StringBuilder`）\n- **确认**：是否有多处写入。是 → 竞态 + 内存泄漏（类加载器无法回收）\n- **修法**：`static final` + 不可变；或改实例字段 + 依赖注入",
+   "tokens": 108,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-09",
+   "level": "P0",
+   "name": "异常吞没",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`catch (Exception` / `catch (Throwable` 后既不抛出也不记录"
+    ],
+    "确认": [
+     "调用方能否区分成功失败。不能 → **静默失败**"
+    ],
+    "典型": [
+     "`catch (Exception e) { /* ignore */ }`"
+    ],
+    "降级": [
+     "`printStackTrace()` 至少有痕迹 → P1（但仍应改日志框架）"
+    ]
+   },
+   "keywords": [
+    "Exception",
+    "Throwable",
+    "catch",
+    "ignore",
+    "异常吞没"
+   ],
+   "body": "- **判据**：`catch (Exception` / `catch (Throwable` 后既不抛出也不记录\n  （空块或只有注释），或 `printStackTrace()` 后继续执行\n- **确认**：调用方能否区分成功失败。不能 → **静默失败**\n- **典型**：`catch (Exception e) { /* ignore */ }`\n- **降级**：`printStackTrace()` 至少有痕迹 → P1（但仍应改日志框架）",
+   "tokens": 132,
+   "xrefs": []
+  },
+  {
+   "id": "JAVA-10",
+   "level": "P1",
+   "name": "非线程安全的共享格式化/日期对象",
+   "scene": "p-java",
+   "file": "p-java.md",
+   "fields": {
+    "判据": [
+     "`SimpleDateFormat` / `DateTimeFormatter`（旧版）/ `DecimalFormat`"
+    ],
+    "确认": [
+     "`SimpleDateFormat` **不是线程安全的**，共享会产出错乱日期"
+    ],
+    "修法": [
+     "每次 new；或 `DateTimeFormatter`（不可变，线程安全）；或 `ThreadLocal`"
+    ]
+   },
+   "keywords": [
+    "DateTimeFormatter",
+    "DecimalFormat",
+    "SimpleDateFormat",
+    "共享格式化",
+    "日期对象",
+    "非线程安全的"
+   ],
+   "body": "- **判据**：`SimpleDateFormat` / `DateTimeFormatter`（旧版）/ `DecimalFormat`\n  声明为 `static` 字段并被多线程使用\n- **确认**：`SimpleDateFormat` **不是线程安全的**，共享会产出错乱日期\n- **修法**：每次 new；或 `DateTimeFormatter`（不可变，线程安全）；或 `ThreadLocal`\n\n---",
+   "tokens": 112,
+   "xrefs": []
+  },
+  {
+   "id": "PY-01",
+   "level": "P0",
+   "name": "可变默认参数",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`def f(x=[])` / `={}` / `=set()`，且函数体内对该参数做 `append` / `update` / `add` 等"
+    ],
+    "确认": [
+     "连调两次不带该参数，看返回值是否累积"
+    ],
+    "典型": [
+     "`def add_item(x, acc=[]): acc.append(x); return acc` —— 第二次调用返回第一次的结果"
+    ],
+    "修法": [
+     "`acc=None` + `acc = acc or []`"
+    ],
+    "定级": [
+     "函数体内检出修改 → P0；仅声明未检出修改 → P1（需人工确认）"
+    ],
+    "为什么易漏": [
+     "第一次调用永远正确，只在第二次起暴露"
+    ]
+   },
+   "keywords": [
+    "acc",
+    "acc.append",
+    "add",
+    "add_item",
+    "append",
+    "def",
+    "return",
+    "set",
+    "update",
+    "可变默认参数"
+   ],
+   "body": "- **判据**：`def f(x=[])` / `={}` / `=set()`，且函数体内对该参数做 `append` / `update` / `add` 等\n- **确认**：连调两次不带该参数，看返回值是否累积\n- **典型**：`def add_item(x, acc=[]): acc.append(x); return acc` —— 第二次调用返回第一次的结果\n- **修法**：`acc=None` + `acc = acc or []`\n- **定级**：函数体内检出修改 → P0；仅声明未检出修改 → P1（需人工确认）\n- **为什么易漏**：第一次调用永远正确，只在第二次起暴露",
+   "tokens": 193,
+   "xrefs": []
+  },
+  {
+   "id": "PY-02",
+   "level": "P0",
+   "name": "宽泛异常吞没",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`except:` / `except Exception:` / `except BaseException:` 后**不重新抛出**"
+    ],
+    "确认": [
+     "看 handler 里有没有 `raise`；没有则异常路径对调用方完全不可见"
+    ],
+    "降级": [
+     "清理路径（如 `finally` 里关文件）且已注释说明 → P2"
+    ],
+    "注": [
+     "与 `s-atomicity` A-02 同源，本条是 Python 语法形态"
+    ]
+   },
+   "keywords": [
+    "BaseException",
+    "Exception",
+    "except",
+    "handler",
+    "raise",
+    "宽泛异常吞没"
+   ],
+   "body": "- **判据**：`except:` / `except Exception:` / `except BaseException:` 后**不重新抛出**\n- **确认**：看 handler 里有没有 `raise`；没有则异常路径对调用方完全不可见\n- **降级**：清理路径（如 `finally` 里关文件）且已注释说明 → P2\n- **注**：与 `s-atomicity` A-02 同源，本条是 Python 语法形态",
+   "tokens": 128,
+   "xrefs": [
+    "A-02"
+   ]
+  },
+  {
+   "id": "PY-03",
+   "level": "P1",
+   "name": "资源未用 `with`",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`open()` / `socket.socket()` / `Lock()` / `Popen()` 直接赋值给变量，无 `with`"
+    ],
+    "确认": [
+     "异常路径下是否释放。抛错即泄漏 → 升 P0"
+    ],
+    "修法": [
+     "`with open(p) as f:`；锁用 `with lock:`"
+    ]
+   },
+   "keywords": [
+    "Lock",
+    "Popen",
+    "open",
+    "socket.socket",
+    "with",
+    "资源未用"
+   ],
+   "body": "- **判据**：`open()` / `socket.socket()` / `Lock()` / `Popen()` 直接赋值给变量，无 `with`\n- **确认**：异常路径下是否释放。抛错即泄漏 → 升 P0\n- **修法**：`with open(p) as f:`；锁用 `with lock:`",
+   "tokens": 77,
+   "xrefs": []
+  },
+  {
+   "id": "PY-04",
+   "level": "P0",
+   "name": "并发无同步证据（Python 形态，主判据见 `s-concurrency` R-01）",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "出现 `Thread` / `Process` / `ThreadPoolExecutor` / `asyncio.create_task`，"
+    ],
+    "确认": [
+     "画出被这些任务共同读写的状态；有共享且无同步 → 真竞态"
+    ],
+    "降级": [
+     "任务间无共享状态（纯计算、参数传入结果返回）→ P2"
+    ]
+   },
+   "keywords": [
+    "Process",
+    "Thread",
+    "ThreadPoolExecutor",
+    "asyncio.create_task",
+    "主判据见",
+    "并发无同步证",
+    "形态"
+   ],
+   "body": "- **判据**：出现 `Thread` / `Process` / `ThreadPoolExecutor` / `asyncio.create_task`，\n  但文件内**找不到** `Lock` / `Queue` / `Semaphore` 等任何同步原语\n- **确认**：画出被这些任务共同读写的状态；有共享且无同步 → 真竞态\n- **降级**：任务间无共享状态（纯计算、参数传入结果返回）→ P2",
+   "tokens": 133,
+   "xrefs": []
+  },
+  {
+   "id": "PY-05",
+   "level": "P0",
+   "name": "不安全反序列化（Python 形态，主判据见 `s-backend` K-32）",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`pickle.loads` / `pickle.load` / `marshal.loads` / `yaml.load`（无 `SafeLoader`）"
+    ],
+    "确认": [
+     "数据来源是否可被外部控制（网络、文件上传、消息队列）。是 → 任意代码执行"
+    ],
+    "修法": [
+     "改 JSON / `yaml.safe_load`；必须 pickle 则验签"
+    ],
+    "降级": [
+     "数据完全由本进程产生且不可被替换 → P2"
+    ]
+   },
+   "keywords": [
+    "SafeLoader",
+    "marshal.loads",
+    "pickle.load",
+    "pickle.loads",
+    "yaml.load",
+    "不安全反序列",
+    "主判据见",
+    "形态"
+   ],
+   "body": "- **判据**：`pickle.loads` / `pickle.load` / `marshal.loads` / `yaml.load`（无 `SafeLoader`）\n- **确认**：数据来源是否可被外部控制（网络、文件上传、消息队列）。是 → 任意代码执行\n- **修法**：改 JSON / `yaml.safe_load`；必须 pickle 则验签\n- **降级**：数据完全由本进程产生且不可被替换 → P2",
+   "tokens": 128,
+   "xrefs": []
+  },
+  {
+   "id": "PY-06",
+   "level": "P0",
+   "name": "敏感数据进日志（Python 形态，主判据见 `s-sandbox` S-10）",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`log/print/logger.*` 的参数名或关键字名含"
+    ],
+    "确认": [
+     "该日志是否落盘/上报。落盘即长期泄露，比内存泄露更严重"
+    ],
+    "修法": [
+     "脱敏（只留前 4 位）、或移出日志字段"
+    ],
+    "注意": [
+     "关键字名本身也要查——`logger.info(\"login\", password=pw)` 的敏感信息在 **arg** 上"
+    ]
+   },
+   "keywords": [
+    "log",
+    "logger",
+    "print",
+    "主判据见",
+    "形态",
+    "敏感数据进日"
+   ],
+   "body": "- **判据**：`log/print/logger.*` 的参数名或关键字名含\n  `password` / `token` / `secret` / `api_key` / `身份证` / `phone` 等\n- **确认**：该日志是否落盘/上报。落盘即长期泄露，比内存泄露更严重\n- **修法**：脱敏（只留前 4 位）、或移出日志字段\n- **注意**：关键字名本身也要查——`logger.info(\"login\", password=pw)` 的敏感信息在 **arg** 上",
+   "tokens": 155,
+   "xrefs": []
+  },
+  {
+   "id": "PY-07",
+   "level": "P1",
+   "name": "`__del__` 中执行 IO / 加锁",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`__del__` 里有 `open()` / `socket` / `requests` / `acquire()`"
+    ],
+    "确认": [
+     "解释器退出期模块可能已被回收，这些调用会抛异常或静默失败"
+    ],
+    "修法": [
+     "显式 `close()` + `atexit` / 上下文管理器"
+    ],
+    "定级": [
+     "`__del__` 里做跨线程操作 → 归 `s-concurrency` R-10，升 P0"
+    ]
+   },
+   "keywords": [
+    "__del__",
+    "acquire",
+    "open",
+    "requests",
+    "socket",
+    "中执行",
+    "加锁"
+   ],
+   "body": "- **判据**：`__del__` 里有 `open()` / `socket` / `requests` / `acquire()`\n- **确认**：解释器退出期模块可能已被回收，这些调用会抛异常或静默失败\n- **修法**：显式 `close()` + `atexit` / 上下文管理器\n- **定级**：`__del__` 里做跨线程操作 → 归 `s-concurrency` R-10，升 P0",
+   "tokens": 118,
+   "xrefs": [
+    "R-10"
+   ]
+  },
+  {
+   "id": "PY-08",
+   "level": "P1",
+   "name": "模块级可变全局且被修改",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "模块级 `X = {}` / `= []`，且全文件有对 `X` 的修改（`X[k] = v` / `X.append(...)`）"
+    ],
+    "确认": [
+     "是否有多线程/多请求同时读写。是 → 竞态"
+    ],
+    "⚠ 不要按「全大写就跳过」降级": [
+     "名为常量、实际被改的（`CACHE[k] = v`）"
+    ],
+    "降级（实测 68 条里 67 条是误报）": [
+     "只读常量（`EXCLUDE_DIRS` / `LEVEL_DESC`）→ 忽略。"
+    ]
+   },
+   "keywords": [
+    "append",
+    "局且被修改",
+    "模块级可变全"
+   ],
+   "body": "- **判据**：模块级 `X = {}` / `= []`，且全文件有对 `X` 的修改（`X[k] = v` / `X.append(...)`）\n- **确认**：是否有多线程/多请求同时读写。是 → 竞态\n- **⚠ 不要按「全大写就跳过」降级**：名为常量、实际被改的（`CACHE[k] = v`）\n  恰恰最危险——名字暗示不可变，读代码的人不会加锁\n- **降级（实测 68 条里 67 条是误报）**：只读常量（`EXCLUDE_DIRS` / `LEVEL_DESC`）→ 忽略。\n  **判据只看「有没有被改」**",
+   "tokens": 189,
+   "xrefs": []
+  },
+  {
+   "id": "PY-09",
+   "level": "P1",
+   "name": "`assert` 做运行时校验",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`assert isinstance(...)` / `assert x is not None` / `assert len(x) > 0`"
+    ],
+    "确认": [
+     "生产是否可能跑 `python -O`。是 → 校验凭空消失"
+    ],
+    "修法": [
+     "改成显式 `if ...: raise ValueError(...)`"
+    ],
+    "降级": [
+     "仅测试文件或内部开发脚本 → P3"
+    ]
+   },
+   "keywords": [
+    "None",
+    "assert",
+    "isinstance",
+    "len",
+    "not",
+    "python",
+    "做运行时校验"
+   ],
+   "body": "- **判据**：`assert isinstance(...)` / `assert x is not None` / `assert len(x) > 0`\n- **确认**：生产是否可能跑 `python -O`。是 → 校验凭空消失\n- **修法**：改成显式 `if ...: raise ValueError(...)`\n- **降级**：仅测试文件或内部开发脚本 → P3",
+   "tokens": 95,
+   "xrefs": []
+  },
+  {
+   "id": "PY-10",
+   "level": "P0",
+   "name": "`shell=True` / `os.system`（Python 形态，主判据见 `s-backend` K-08）",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`subprocess.*(..., shell=True)` / `os.system()` / `os.popen()`"
+    ],
+    "确认": [
+     "命令串是否拼接了外部输入。是 → 命令注入"
+    ],
+    "修法": [
+     "传参数数组 `subprocess.run(['ls', '-l'])`，不用字符串拼接"
+    ]
+   },
+   "keywords": [
+    "True",
+    "popen",
+    "shell",
+    "subprocess",
+    "system",
+    "主判据见",
+    "形态"
+   ],
+   "body": "- **判据**：`subprocess.*(..., shell=True)` / `os.system()` / `os.popen()`\n- **确认**：命令串是否拼接了外部输入。是 → 命令注入\n- **修法**：传参数数组 `subprocess.run(['ls', '-l'])`，不用字符串拼接",
+   "tokens": 82,
+   "xrefs": []
+  },
+  {
+   "id": "PY-11",
+   "level": "P0",
+   "name": "裸 `except:`",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`except:` 不指定异常类型"
+    ],
+    "后果": [
+     "连 `KeyboardInterrupt` / `SystemExit` 一起吞掉，Ctrl-C 都停不下来"
+    ],
+    "修法": [
+     "`except Exception:` 起，最好指定具体类型"
+    ]
+   },
+   "keywords": [
+    "except"
+   ],
+   "body": "- **判据**：`except:` 不指定异常类型\n- **后果**：连 `KeyboardInterrupt` / `SystemExit` 一起吞掉，Ctrl-C 都停不下来\n- **修法**：`except Exception:` 起，最好指定具体类型",
+   "tokens": 72,
+   "xrefs": []
+  },
+  {
+   "id": "PY-12",
+   "level": "P2",
+   "name": "naive datetime（无时区）",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`datetime.now()` / `utcnow()` / `fromtimestamp()` 不带 `tz`"
+    ],
+    "确认": [
+     "是否跨时区部署或与其它时间源比较。是 → 升 P1"
+    ],
+    "修法": [
+     "`datetime.now(timezone.utc)`"
+    ]
+   },
+   "keywords": [
+    "datetime.now",
+    "fromtimestamp",
+    "utcnow",
+    "无时区"
+   ],
+   "body": "- **判据**：`datetime.now()` / `utcnow()` / `fromtimestamp()` 不带 `tz`\n- **确认**：是否跨时区部署或与其它时间源比较。是 → 升 P1\n- **修法**：`datetime.now(timezone.utc)`\n\n---",
+   "tokens": 68,
+   "xrefs": []
+  },
+  {
+   "id": "A-01",
+   "level": "P0",
+   "name": "多步写操作原子性",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "先全量预检再统一动账，或 try/catch 整体回滚"
+    ],
+    "特征": [
+     "扣减与增加在相邻行且无 `try`"
+    ],
+    "典型": [
+     "扣库存成功、加钱包失败 → 库存没了钱没到账"
+    ]
+   },
+   "keywords": [
+    "catch",
+    "try",
+    "多步写操作原",
+    "子性"
+   ],
+   "body": "- **正确**：先全量预检再统一动账，或 try/catch 整体回滚\n- **特征**：扣减与增加在相邻行且无 `try`\n- **典型**：扣库存成功、加钱包失败 → 库存没了钱没到账",
+   "tokens": 86,
+   "xrefs": []
+  },
+  {
+   "id": "A-02",
+   "level": "P1",
+   "name": "空 catch 吞异常",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "至少记录日志"
+    ],
+    "特征": [
+     "`catch (e) { }`"
+    ],
+    "定级": [
+     "吞的是**安全/经济链路**的异常 → **P0**"
+    ]
+   },
+   "keywords": [
+    "catch",
+    "吞异常"
+   ],
+   "body": "- **正确**：至少记录日志\n- **特征**：`catch (e) { }`\n- **定级**：吞的是**安全/经济链路**的异常 → **P0**",
+   "tokens": 49,
+   "xrefs": []
+  },
+  {
+   "id": "A-03",
+   "level": "P0",
+   "name": "fail-open（校验缺失时默认放行）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "**fail-closed**"
+    ],
+    "特征": [
+     "`can*` / `is*` / `should*` / `check*` 体内 `if (!x) return true`"
+    ],
+    "确认": [
+     "放行分支是否涉及货币、解锁、封禁、权限 → 是则致命"
+    ],
+    "典型": [
+     "`if token.is_empty() { return true }` —— 本意「没配口令就不校验」，"
+    ]
+   },
+   "keywords": [
+    "can",
+    "check",
+    "closed",
+    "fail",
+    "return",
+    "should",
+    "token.is_empty",
+    "true",
+    "校验缺失时默",
+    "认放行"
+   ],
+   "body": "- **正确**：**fail-closed**\n- **特征**：`can*` / `is*` / `should*` / `check*` 体内 `if (!x) return true`\n- **确认**：放行分支是否涉及货币、解锁、封禁、权限 → 是则致命\n- **典型**：`if token.is_empty() { return true }` —— 本意「没配口令就不校验」，\n  实际「本机任何进程都能触发工作流」",
+   "tokens": 122,
+   "xrefs": []
+  },
+  {
+   "id": "A-04",
+   "level": "P0",
+   "name": "判定依赖脏数值",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "比较前先校验有限性"
+    ],
+    "特征": [
+     "`can*` / `has*` 返回 boolean，体内有数值比较但无 `isFinite` / `numOr`"
+    ],
+    "典型": [
+     "`hasEnough(x)` 里 `x` 是 NaN → 比较恒 false → 判定为「不够」或「够」取决于分支写法"
+    ]
+   },
+   "keywords": [
+    "NaN",
+    "boolean",
+    "can",
+    "false",
+    "has",
+    "hasEnough",
+    "isFinite",
+    "numOr",
+    "判定依赖脏数"
+   ],
+   "body": "- **正确**：比较前先校验有限性\n- **特征**：`can*` / `has*` 返回 boolean，体内有数值比较但无 `isFinite` / `numOr`\n- **典型**：`hasEnough(x)` 里 `x` 是 NaN → 比较恒 false → 判定为「不够」或「够」取决于分支写法",
+   "tokens": 94,
+   "xrefs": []
+  },
+  {
+   "id": "A-05",
+   "level": "P0",
+   "name": "调试 / 作弊 / 后门默认启用",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "`enabled` / `debug` / `cheat` / `devMode` 默认 **false**，宿主显式开启；"
+    ],
+    "特征": [
+     "`enabled = true` / `enabled: true` / `enabled ?? true`"
+    ],
+    "为什么 P0": [
+     "生产构建漏配即可暴露作弊命令、经济/关卡修改能力。"
+    ]
+   },
+   "keywords": [
+    "cheat",
+    "debug",
+    "devMode",
+    "enabled",
+    "false",
+    "true",
+    "作弊",
+    "后门默认启用",
+    "调试"
+   ],
+   "body": "- **正确**：`enabled` / `debug` / `cheat` / `devMode` 默认 **false**，宿主显式开启；\n  生产构建应 hard fail 或剔除\n- **特征**：`enabled = true` / `enabled: true` / `enabled ?? true`\n- **为什么 P0**：生产构建漏配即可暴露作弊命令、经济/关卡修改能力。\n  **把安全寄托于「调用方记得关」不可靠**",
+   "tokens": 130,
+   "xrefs": []
+  },
+  {
+   "id": "A-06",
+   "level": "P0",
+   "name": "空 if 块（校验写了一半）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "补处理体或删除整个 `if`"
+    ],
+    "特征": [
+     "`if (...) { }`"
+    ],
+    "注意": [
+     "命中少但**几乎条条是真问题**，优先处理"
+    ]
+   },
+   "keywords": [
+    "校验写了一半"
+   ],
+   "body": "- **正确**：补处理体或删除整个 `if`\n- **特征**：`if (...) { }`\n- **注意**：命中少但**几乎条条是真问题**，优先处理",
+   "tokens": 58,
+   "xrefs": []
+  },
+  {
+   "id": "A-07",
+   "level": "P1",
+   "name": "三元表达式两支返回同一个值",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "改写分支或删条件"
+    ],
+    "特征": [
+     "`cond ? A : A`"
+    ],
+    "典型": [
+     "本该 `cond ? A : B`，写错后分支失效"
+    ]
+   },
+   "keywords": [
+    "cond",
+    "三元表达式两",
+    "支返回同一个"
+   ],
+   "body": "- **正确**：改写分支或删条件\n- **特征**：`cond ? A : A`\n- **典型**：本该 `cond ? A : B`，写错后分支失效",
+   "tokens": 47,
+   "xrefs": []
+  },
+  {
+   "id": "A-08",
+   "level": "P0",
+   "name": "交易 / 批量数量未校验",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {},
+   "keywords": [
+    "交易",
+    "批量数量未校"
+   ],
+   "body": "（与 `s-numerics` N-16 同源。**报一次即可**，按实际语义归边：\n数值语义为主归 `s-numerics`，经济后果为主归本场景。）",
+   "tokens": 59,
+   "xrefs": [
+    "N-16"
+   ]
+  },
+  {
+   "id": "A-09",
+   "level": "P1",
+   "name": "日志注入缺失",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "正确": [
+     "库走 logger 注入，不直接 `console.*`"
+    ],
+    "特征": [
+     "`console.log/warn/error/info`"
+    ]
+   },
+   "keywords": [
+    "console",
+    "console.log",
+    "error",
+    "info",
+    "logger",
+    "warn",
+    "日志注入缺失"
+   ],
+   "body": "- **正确**：库走 logger 注入，不直接 `console.*`\n- **特征**：`console.log/warn/error/info`",
+   "tokens": 32,
+   "xrefs": []
+  },
+  {
+   "id": "A-10",
+   "level": "P1",
+   "name": "错误处理不对称（成对 API 校验不对称）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "`x.get(k, [])` / `x.get(k, {})` / `?? []` / `or {}` 在**失败路径**上"
+    ],
+    "确认": [
+     "把该调用强制改成失败（断网 / 429 / 返回错误体），看下游是否把空值"
+    ],
+    "典型": [
+     "`rmap = {t[\"path\"]: t[\"sha\"] for t in tree.get(\"tree\", [])}` ——"
+    ],
+    "修法": [
+     "必需键缺失**必须中止并回显原始错误**；"
+    ],
+    "定级": [
+     "把故障伪装成安全/冲突判定 → **P0**；仅影响展示 → P2"
+    ],
+    "为什么易漏": [
+     "它不崩、不报空指针，只是让排查方向整个偏掉"
+    ]
+   },
+   "keywords": [
+    "for",
+    "get",
+    "path",
+    "rmap",
+    "sha",
+    "tree",
+    "tree.get",
+    "成对",
+    "校验不对称",
+    "错误处理不对"
+   ],
+   "body": "（与 `s-contracts` C-12 同源。校验口径问题归 `s-contracts`，\n导致的**后果**是放行则归本场景。）\n\n### A-11 (P0/P1) 可选降级被赋予业务语义（fail-open 的隐性形态）\n- **判据**：`x.get(k, [])` / `x.get(k, {})` / `?? []` / `or {}` 在**失败路径**上\n  返回空容器，随后被下游当作「业务结论」参与判断\n- **确认**：把该调用强制改成失败（断网 / 429 / 返回错误体），看下游是否把空值\n  解释成「没有」「全都不匹配」「无变更」这类语义\n- **典型**：`rmap = {t[\"path\"]: t[\"sha\"] for t in tree.get(\"tree\", [])}` ——\n  API 失败时响应体没有 `tree` 键 → `rmap` 为空 →\n  每个文件都落到「基线未记录」分支被拦截，\n  表现为**「疑似他人改动」**，真实原因却是网络抖动/限流\n- **修法**：必需键缺失**必须中止并回显原始错误**；\n  空容器只允许出现在「确实为空」的业务场景，不得作为失败兜底\n- **定级**：把故障伪装成安全/冲突判定 → **P0**；仅影响展示 → P2\n- **为什么易漏**：它不崩、不报空指针，只是让排查方向整个偏掉",
+   "tokens": 459,
+   "xrefs": [
+    "A-11",
+    "C-12"
+   ]
+  },
+  {
+   "id": "A-12",
+   "level": "P1",
+   "name": "批量操作作用范围未显式限定（捎带环境既有状态）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "批量写（提交 / 暂存 / 批量更新）不指定作用范围，默认作用于「当前全部」"
+    ],
+    "确认": [
+     "预先在环境里放一份脏状态（别人 `git add` 过的文件、残留暂存），"
+    ],
+    "典型": [
+     "`git commit -m msg` 不带 pathspec →"
+    ],
+    "修法": [
+     "一律显式传 pathspec / 显式文件列表，不用「当前状态」当隐式范围"
+    ],
+    "降级": [
+     "该环境保证干净（CI 全新 checkout）→ P2"
+    ]
+   },
+   "keywords": [
+    "add",
+    "commit",
+    "git",
+    "msg",
+    "pathspec",
+    "批量操作作用",
+    "捎带环境既有",
+    "状态",
+    "范围未显式限"
+   ],
+   "body": "- **判据**：批量写（提交 / 暂存 / 批量更新）不指定作用范围，默认作用于「当前全部」\n- **确认**：预先在环境里放一份脏状态（别人 `git add` 过的文件、残留暂存），\n  看它是否被一起卷进去\n- **典型**：`git commit -m msg` 不带 pathspec →\n  把调用前就已暂存的其他文件一并提交\n- **修法**：一律显式传 pathspec / 显式文件列表，不用「当前状态」当隐式范围\n- **降级**：该环境保证干净（CI 全新 checkout）→ P2",
+   "tokens": 212,
+   "xrefs": []
+  },
+  {
+   "id": "A-13",
+   "level": "P0",
+   "name": "防覆盖校验的前提假设未校验（本地副本过期 → 静默回退远端）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "防覆盖逻辑只比对「远端当前 sha == 基线记录的 sha」就放行，"
+    ],
+    "为什么不够": [
+     "这个比对只能证明「远端没被**别人**改」，"
+    ],
+    "确认": [
+     "分别取「本地副本的原始版本 sha」与「远端当前 sha」，两者不等 → 本地已过期"
+    ],
+    "典型": [
+     "从 `.../tarball/main` 拉代码，CDN 命中旧快照；"
+    ],
+    "修法": [
+     "基线里额外记录「本地开始编辑时所基于的远端 commit」，"
+    ],
+    "定级": [
+     "**P0** —— 静默 + 不可逆 + 破坏的是别人的产出"
+    ],
+    "同类": [
+     "`ETag` / `Last-Modified` 未校验的离线缓存、`git pull` 后才 push 的纪律被绕过"
+    ]
+   },
+   "keywords": [
+    "CDN",
+    "main",
+    "sha",
+    "tarball",
+    "前提假设未校",
+    "本地副本过期",
+    "防覆盖校验的",
+    "静默回退远端"
+   ],
+   "body": "- **判据**：防覆盖逻辑只比对「远端当前 sha == 基线记录的 sha」就放行，\n  **没有校验本地副本是基于哪个远端版本改的**\n- **为什么不够**：这个比对只能证明「远端没被**别人**改」，\n  证明不了「本地是**从最新版**改的」。本地副本一旦过期\n  （CDN 缓存的 tarball、离线包、未 pull 的旧 clone、镜像延迟），\n  过期的全文 + 你的改动会被整文件覆盖上去，**把远端更新的内容回退掉，且不报错**\n- **确认**：分别取「本地副本的原始版本 sha」与「远端当前 sha」，两者不等 → 本地已过期\n- **典型**：从 `.../tarball/main` 拉代码，CDN 命中旧快照；\n  本地改 3 个文件后推送，第一层校验 `rsha == base` 全部通过，\n  实际把远端新加的一条扫描规则（含其 fixture）整体抹掉。\n  同一份代码隔几分钟重下一次，两份 tarball 的 blob sha 竟然不同\n- **修法**：基线里额外记录「本地开始编辑时所基于的远端 commit」，\n  推送前与当前远端比对；**落后就必须先同步再提交**，不允许直接覆盖\n- **定级**：**P0** —— 静默 + 不可逆 + 破坏的是别人的产出\n- **同类**：`ETag` / `Last-Modified` 未校验的离线缓存、`git pull` 后才 push 的纪律被绕过",
+   "tokens": 543,
+   "xrefs": []
+  },
+  {
+   "id": "A-14",
+   "level": "P1",
+   "name": "安全校验过度 fail-closed，导致 bypass 成为肌肉记忆",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "校验在**本无风险**的场景也拦截，逼着用户每次都加全局绕过开关"
+    ],
+    "确认": [
+     "列出被拦的场景，算「其实没风险」的占比。占比高 → 用户很快形成"
+    ],
+    "典型": [
+     "防覆盖脚本对**新增文件**（远端根本不存在）也报「基线未记录，无法确认原状态」→"
+    ],
+    "修法": [
+     "校验要精确到「**这个具体场景**有没有风险」，而不是「我能不能确认所有事」。"
+    ],
+    "定级": [
+     "P1（不直接造成损失，但**让已有的安全机制失效**）"
+    ],
+    "注意": [
+     "这不是「放宽标准」，是把 fail-closed 用在真正需要的地方——"
+    ]
+   },
+   "keywords": [
+    "安全校验过度",
+    "导致",
+    "成为肌肉记忆"
+   ],
+   "body": "- **判据**：校验在**本无风险**的场景也拦截，逼着用户每次都加全局绕过开关\n  （`--force` / `--yes` / `--skip-check` / `|| true`）\n- **确认**：列出被拦的场景，算「其实没风险」的占比。占比高 → 用户很快形成\n  肌肉记忆，真有风险时也被同一个开关一起放过，**保护形同虚设**\n- **典型**：防覆盖脚本对**新增文件**（远端根本不存在）也报「基线未记录，无法确认原状态」→\n  每次推新文件都要加 `--force-overwrite` → 真遇到他人改动时，同一个开关照加不误\n- **修法**：校验要精确到「**这个具体场景**有没有风险」，而不是「我能不能确认所有事」。\n  上例正确判据是「基线没记录**且远端却有**该文件」才拦；远端也没有即纯新增，直接放行\n- **定级**：P1（不直接造成损失，但**让已有的安全机制失效**）\n- **注意**：这不是「放宽标准」，是把 fail-closed 用在真正需要的地方——\n  泛化的严格等于没有严格\n\n\n---",
+   "tokens": 440,
+   "xrefs": []
+  },
+  {
+   "id": "B-01",
+   "level": "P1",
+   "name": "消息监听不校验来源",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "`addEventListener('message', h)` 的处理器里只校验数据字段，"
+    ],
+    "确认": [
+     "该文档里是否嵌套了第三方 iframe 或引用第三方脚本。"
+    ],
+    "降级": [
+     "同文档内无第三方内容、且消息只触发幂等的展示逻辑 → P2"
+    ]
+   },
+   "keywords": [
+    "addEventListener",
+    "iframe",
+    "message",
+    "消息监听不校",
+    "验来源"
+   ],
+   "body": "- **判据**：`addEventListener('message', h)` 的处理器里只校验数据字段，\n  不校验 `e.source` / `e.origin`\n- **确认**：该文档里是否嵌套了第三方 iframe 或引用第三方脚本。\n  有 → 攻击者可伪造消息驱动内部流程\n- **降级**：同文档内无第三方内容、且消息只触发幂等的展示逻辑 → P2",
+   "tokens": 144,
+   "xrefs": []
+  },
+  {
+   "id": "B-02",
+   "level": "P0",
+   "name": "桥接/分发方法无白名单",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {},
+   "keywords": [
+    "分发方法无白",
+    "名单",
+    "桥接"
+   ],
+   "body": "（与 `s-sandbox` S-02 同源。**若已按 S-02 报，此处不重复**。\n判定角度：S-02 关注「被隔离方能否自授权」，B-02 关注「动态派发本身是否安全」。）",
+   "tokens": 71,
+   "xrefs": [
+    "S-02"
+   ]
+  },
+  {
+   "id": "B-03",
+   "level": "P1",
+   "name": "握手竞态 / 重复握手",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "双向握手（ready ↔ init）里任一侧会对同一消息重复响应"
+    ],
+    "确认": [
+     "画一次时序，看是否存在 `init → ready → init` 的环。"
+    ],
+    "典型": [
+     "收到 init 就回发 ready，而 ready 又触发对端发 init → 无限往返，"
+    ]
+   },
+   "keywords": [
+    "init",
+    "ready",
+    "握手竞态",
+    "重复握手"
+   ],
+   "body": "- **判据**：双向握手（ready ↔ init）里任一侧会对同一消息重复响应\n- **确认**：画一次时序，看是否存在 `init → ready → init` 的环。\n  **去重标记**是否每次实例重建\n- **典型**：收到 init 就回发 ready，而 ready 又触发对端发 init → 无限往返，\n  每轮重建上下文与订阅",
+   "tokens": 136,
+   "xrefs": []
+  },
+  {
+   "id": "B-04",
+   "level": "P1",
+   "name": "订阅退订不精确",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "退订时按**事件名**匹配摘除（常见 LIFO 取最近一个），而不是按订阅 id"
+    ],
+    "确认": [
+     "构造「同一事件订阅两次、以不同顺序退订」的路径，看是否会摘错 handler"
+    ],
+    "典型": [
+     "改一次设置就多一个 handler → 按一次快捷键执行两次"
+    ]
+   },
+   "keywords": [
+    "LIFO",
+    "handler",
+    "订阅退订不精"
+   ],
+   "body": "- **判据**：退订时按**事件名**匹配摘除（常见 LIFO 取最近一个），而不是按订阅 id\n- **确认**：构造「同一事件订阅两次、以不同顺序退订」的路径，看是否会摘错 handler\n- **典型**：改一次设置就多一个 handler → 按一次快捷键执行两次",
+   "tokens": 128,
+   "xrefs": []
+  },
+  {
+   "id": "B-05",
+   "level": "P1",
+   "name": "postMessage 目标 origin 通配",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "`postMessage(data, '*')`",
+     "pending Map 里的请求只有「成功回调时删除」，无超时兜底"
+    ],
+    "确认": [
+     "消息里是否含敏感数据（主题变量、配置、DOM 结构）。",
+     "对端崩溃/不发响应时是否永久悬挂"
+    ],
+    "定级": [
+     "pending 随用户操作持续增长 → **P1**（内存泄漏）"
+    ]
+   },
+   "keywords": [
+    "DOM",
+    "Map",
+    "data",
+    "pending",
+    "postMessage",
+    "目标",
+    "通配"
+   ],
+   "body": "- **判据**：`postMessage(data, '*')`\n- **确认**：消息里是否含敏感数据（主题变量、配置、DOM 结构）。\n  含 → P2；含凭据/路径 → **P1**\n\n### B-06 (P2/P1) 请求-响应无超时或超时未清理\n- **判据**：pending Map 里的请求只有「成功回调时删除」，无超时兜底\n- **确认**：对端崩溃/不发响应时是否永久悬挂\n- **定级**：pending 随用户操作持续增长 → **P1**（内存泄漏）",
+   "tokens": 176,
+   "xrefs": [
+    "B-06"
+   ]
+  },
+  {
+   "id": "B-07",
+   "level": "P2",
+   "name": "错误消息透出内部细节",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "错误信息里回显完整本地路径、堆栈、配置内容"
+    ],
+    "降级": [
+     "纯本地工具、无网络出口 → P3"
+    ]
+   },
+   "keywords": [
+    "内部细节",
+    "错误消息透出"
+   ],
+   "body": "- **判据**：错误信息里回显完整本地路径、堆栈、配置内容\n- **降级**：纯本地工具、无网络出口 → P3",
+   "tokens": 55,
+   "xrefs": []
+  },
+  {
+   "id": "B-08",
+   "level": "P1",
+   "name": "消息格式无版本 / 无校验",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "消息体直接解构使用，无 type 判别 / 版本字段 / 字段存在性检查"
+    ],
+    "确认": [
+     "对端版本不一致时是否静默产生错误行为"
+    ]
+   },
+   "keywords": [
+    "type",
+    "无校验",
+    "消息格式无版"
+   ],
+   "body": "- **判据**：消息体直接解构使用，无 type 判别 / 版本字段 / 字段存在性检查\n- **确认**：对端版本不一致时是否静默产生错误行为",
+   "tokens": 74,
+   "xrefs": []
+  },
+  {
+   "id": "B-09",
+   "level": "P1",
+   "name": "返回值未过滤不可克隆字段",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "桥接返回值里含函数 / Symbol / DOM 节点"
+    ],
+    "失效": [
+     "`structuredClone` 抛错，**整条响应失败而不只是该字段**"
+    ]
+   },
+   "keywords": [
+    "DOM",
+    "Symbol",
+    "不可克隆字段",
+    "返回值未过滤"
+   ],
+   "body": "- **判据**：桥接返回值里含函数 / Symbol / DOM 节点\n- **失效**：`structuredClone` 抛错，**整条响应失败而不只是该字段**",
+   "tokens": 58,
+   "xrefs": []
+  },
+  {
+   "id": "B-10",
+   "level": "P1",
+   "name": "响应成功判定不靠状态码",
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "fields": {
+    "判据": [
+     "按「字段存在性」判成功（`\"sha\" in resp` / `resp.get(\"ok\")`）而**不看状态码**；"
+    ],
+    "确认": [
+     "让服务端返回 403 / 422 的**错误体**，看调用方是否当成正常响应继续解析"
+    ],
+    "典型": [
+     "`curl -s` 把 422 的 `{\"message\":\"Validation Failed\"}` 原样返回，"
+    ],
+    "修法": [
+     "显式取状态码（`curl -w \"\\n%{http_code}\"` / `res.ok`），"
+    ],
+    "附带判据（重试幂等性）": [
+     "重试是否区分方法 —— 对**非幂等 POST** 盲目重试，"
+    ],
+    "降级": [
+     "调用方对每个调用点都做了字段级校验且失败可观测 → P2"
+    ]
+   },
+   "keywords": [
+    "Failed",
+    "Validation",
+    "curl",
+    "message",
+    "resp",
+    "resp.get",
+    "sha",
+    "不靠状态码",
+    "响应成功判定"
+   ],
+   "body": "- **判据**：按「字段存在性」判成功（`\"sha\" in resp` / `resp.get(\"ok\")`）而**不看状态码**；\n  或客户端吞掉错误（`curl -s` 不配 `-w`、fetch 不查 `res.ok`、SDK 默认不抛）\n- **确认**：让服务端返回 403 / 422 的**错误体**，看调用方是否当成正常响应继续解析\n- **典型**：`curl -s` 把 422 的 `{\"message\":\"Validation Failed\"}` 原样返回，\n  解析后靠 `if \"sha\" not in blob` 猜；有的调用点直接 `resp[\"object\"][\"sha\"]` → KeyError 崩栈\n- **修法**：显式取状态码（`curl -w \"\\n%{http_code}\"` / `res.ok`），\n  非 2xx 一律中止并**回显响应体**（否则 403 和 422 的排查成本一样高）\n- **附带判据（重试幂等性）**：重试是否区分方法 —— 对**非幂等 POST** 盲目重试，\n  超时但已生效的请求会重复建对象 / 重复计账；5xx / 429 才值得退避重试\n- **降级**：调用方对每个调用点都做了字段级校验且失败可观测 → P2\n\n---",
+   "tokens": 376,
+   "xrefs": []
+  },
+  {
+   "id": "G-01",
+   "level": "P2",
+   "name": "打包范围过宽",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "`frontendDist` / `files` 指向项目根，且忽略清单未排除源码外的内容"
+    ],
+    "确认": [
+     "测试目录、构建配置、源码是否进了安装包（体积 + 源码暴露）"
+    ]
+   },
+   "keywords": [
+    "files",
+    "frontendDist",
+    "打包范围过宽"
+   ],
+   "body": "- **判据**：`frontendDist` / `files` 指向项目根，且忽略清单未排除源码外的内容\n- **确认**：测试目录、构建配置、源码是否进了安装包（体积 + 源码暴露）",
+   "tokens": 81,
+   "xrefs": []
+  },
+  {
+   "id": "G-02",
+   "level": "P2",
+   "name": "构建脚本硬编码清单",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "构建配置里写死成员列表（如要拷贝的插件名数组）"
+    ],
+    "确认": [
+     "新增成员是否会**静默缺失**"
+    ],
+    "典型": [
+     "`const PLUGINS = ['home', 'settings', ...]` —— 新增插件不进包"
+    ]
+   },
+   "keywords": [
+    "PLUGINS",
+    "const",
+    "home",
+    "settings",
+    "构建脚本硬编",
+    "码清单"
+   ],
+   "body": "- **判据**：构建配置里写死成员列表（如要拷贝的插件名数组）\n- **确认**：新增成员是否会**静默缺失**\n- **典型**：`const PLUGINS = ['home', 'settings', ...]` —— 新增插件不进包",
+   "tokens": 86,
+   "xrefs": []
+  },
+  {
+   "id": "G-03",
+   "level": "P2",
+   "name": "无 CI / lint 未纳入流程",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "存在 `typecheck` / `test:*` / `lint` 脚本但无 CI 配置引用它们"
+    ],
+    "确认": [
+     "这些脚本是否真的还能跑通（**过时的测试脚本本身就是缺陷**）"
+    ],
+    "典型": [
+     "package.json 有 15 个校验脚本，README 只提到 7 个，且无 CI"
+    ]
+   },
+   "keywords": [
+    "README",
+    "lint",
+    "package.json",
+    "test",
+    "typecheck",
+    "未纳入流程"
+   ],
+   "body": "- **判据**：存在 `typecheck` / `test:*` / `lint` 脚本但无 CI 配置引用它们\n- **确认**：这些脚本是否真的还能跑通（**过时的测试脚本本身就是缺陷**）\n- **典型**：package.json 有 15 个校验脚本，README 只提到 7 个，且无 CI",
+   "tokens": 107,
+   "xrefs": []
+  },
+  {
+   "id": "G-04",
+   "level": "P2",
+   "name": "依赖声明与锁定不一致",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "`package.json` 有依赖但 lock 文件缺失/过期；可选依赖未在文档说明"
+    ],
+    "确认": [
+     "干净环境下能否复现安装"
+    ]
+   },
+   "keywords": [
+    "lock",
+    "package.json",
+    "依赖声明与锁",
+    "定不一致"
+   ],
+   "body": "- **判据**：`package.json` 有依赖但 lock 文件缺失/过期；可选依赖未在文档说明\n- **确认**：干净环境下能否复现安装",
+   "tokens": 62,
+   "xrefs": []
+  },
+  {
+   "id": "G-05",
+   "level": "P3",
+   "name": "占位资源未替换",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "图标/证书/样例配置仍是脚手架默认值"
+    ],
+    "典型": [
+     "`icons/` 下是占位图标、identifier 是 `com.example.*`"
+    ]
+   },
+   "keywords": [
+    "com.example",
+    "icons",
+    "identifier",
+    "占位资源未替"
+   ],
+   "body": "- **判据**：图标/证书/样例配置仍是脚手架默认值\n- **典型**：`icons/` 下是占位图标、identifier 是 `com.example.*`",
+   "tokens": 54,
+   "xrefs": []
+  },
+  {
+   "id": "G-06",
+   "level": "P2",
+   "name": "缓存/依赖目录未忽略",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "`.gitignore` / 打包忽略清单缺 `node_modules` / `dist` / `target` /"
+    ],
+    "确认": [
+     "`git status` 里是否出现这些目录"
+    ]
+   },
+   "keywords": [
+    "dist",
+    "git",
+    "gitignore",
+    "node_modules",
+    "status",
+    "target",
+    "依赖目录未忽",
+    "缓存"
+   ],
+   "body": "- **判据**：`.gitignore` / 打包忽略清单缺 `node_modules` / `dist` / `target` /\n  `__pycache__` / `.DS_Store`\n- **确认**：`git status` 里是否出现这些目录",
+   "tokens": 57,
+   "xrefs": []
+  },
+  {
+   "id": "G-07",
+   "level": "P1",
+   "name": "多入口但安全策略只覆盖其一",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {},
+   "keywords": [
+    "多入口但安全",
+    "策略只覆盖其"
+   ],
+   "body": "（与 `s-sandbox` S-04 同源。**报一次即可**，归 `s-sandbox`。）",
+   "tokens": 23,
+   "xrefs": [
+    "S-04"
+   ]
+  },
+  {
+   "id": "G-08",
+   "level": "P1",
+   "name": "产物结构与运行时期望不一致",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "输出结构是否与运行时期望匹配"
+    ],
+    "确认": [
+     "跑一次构建，比对产物路径与代码里的加载路径"
+    ]
+   },
+   "keywords": [
+    "产物结构与运",
+    "行时期望不一"
+   ],
+   "body": "- **判据**：输出结构是否与运行时期望匹配\n  （如期望 `dist/plugins/<id>/index.html`，实际输出 `<id>/index.html`）\n- **确认**：跑一次构建，比对产物路径与代码里的加载路径",
+   "tokens": 85,
+   "xrefs": []
+  },
+  {
+   "id": "G-09",
+   "level": "P2",
+   "name": "多份配置合并关系存疑",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "构建使用了 `--config <额外配置>`"
+    ],
+    "确认": [
+     "**是合并（JSON Merge Patch）而非替换** —— 安全项谁覆盖谁要按合并规则推一遍"
+    ],
+    "典型": [
+     "主配置 `csp: null`，另一份配置没写 csp → 合并后仍为 null"
+    ]
+   },
+   "keywords": [
+    "JSON",
+    "Merge",
+    "Patch",
+    "config",
+    "csp",
+    "null",
+    "关系存疑",
+    "多份配置合并"
+   ],
+   "body": "- **判据**：构建使用了 `--config <额外配置>`\n- **确认**：**是合并（JSON Merge Patch）而非替换** —— 安全项谁覆盖谁要按合并规则推一遍\n- **典型**：主配置 `csp: null`，另一份配置没写 csp → 合并后仍为 null",
+   "tokens": 101,
+   "xrefs": []
+  },
+  {
+   "id": "G-10",
+   "level": "P2",
+   "name": "sourcemap / minify 未按 profile 区分",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "构建配置里的 `sourcemap` / `minify` 是常量，不随 debug / release 变化"
+    ],
+    "确认": [
+     "两个方向都要看——**生产构建是否产出了 `.map`**（源码随产物分发）、"
+    ],
+    "典型": [
+     "`sourcemap: true` 写死 → 生产包里带完整源码，"
+    ],
+    "修法": [
+     "按 profile 分别配置。生产关 sourcemap，"
+    ],
+    "降级": [
+     "纯前端且分发前会剥离 `.map` → P3"
+    ]
+   },
+   "keywords": [
+    "debug",
+    "map",
+    "minify",
+    "release",
+    "sourcemap",
+    "true",
+    "区分",
+    "未按"
+   ],
+   "body": "- **判据**：构建配置里的 `sourcemap` / `minify` 是常量，不随 debug / release 变化\n- **确认**：两个方向都要看——**生产构建是否产出了 `.map`**（源码随产物分发）、\n  **调试构建是否被 minify**（断点打不上、栈不可读）\n- **典型**：`sourcemap: true` 写死 → 生产包里带完整源码，\n  等于把未压缩的实现和注释一起发出去\n- **修法**：按 profile 分别配置。生产关 sourcemap，\n  确实需要定位线上报错则只上传到错误监控系统，不下发到 CDN\n- **降级**：纯前端且分发前会剥离 `.map` → P3",
+   "tokens": 244,
+   "xrefs": []
+  },
+  {
+   "id": "G-11",
+   "level": "P0",
+   "name": "依赖供应链无证据",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "四问——**有锁定文件吗**（npm / poetry / go / cargo 各自的全量锁文件）·"
+    ],
+    "确认": [
+     "删掉 lock 文件重装，看依赖版本是否会漂移。会 → 构建不可复现，"
+    ],
+    "典型": [
+     "只有 `requirements.txt` 不锁版本 → 某次构建自动升到带后门的版本"
+    ],
+    "修法": [
+     "锁全量（含间接依赖）+ CI 里跑 `npm audit` / `pip-audit` / `govulncheck`"
+    ],
+    "定级": [
+     "**P0** —— 供应链攻击不经过代码审查，看代码看不出来"
+    ],
+    "降级": [
+     "内部工具、无外部用户输入、无生产部署 → P2"
+    ]
+   },
+   "keywords": [
+    "cargo",
+    "lock",
+    "npm",
+    "poetry",
+    "requirements.txt",
+    "依赖供应链无",
+    "证据"
+   ],
+   "body": "- **判据**：四问——**有锁定文件吗**（npm / poetry / go / cargo 各自的全量锁文件）·\n  **有 SBOM 吗**·**跑漏洞扫描吗**·**原生依赖是否进审计**\n- **确认**：删掉 lock 文件重装，看依赖版本是否会漂移。会 → 构建不可复现，\n  且无法回答「线上跑的到底是哪一版」\n- **典型**：只有 `requirements.txt` 不锁版本 → 某次构建自动升到带后门的版本\n- **修法**：锁全量（含间接依赖）+ CI 里跑 `npm audit` / `pip-audit` / `govulncheck`\n- **定级**：**P0** —— 供应链攻击不经过代码审查，看代码看不出来\n- **降级**：内部工具、无外部用户输入、无生产部署 → P2",
+   "tokens": 275,
+   "xrefs": []
+  },
+  {
+   "id": "G-12",
+   "level": "P1",
+   "name": "构建不可复现",
+   "scene": "s-build",
+   "file": "s-build.md",
+   "fields": {
+    "判据": [
+     "构建依赖当前时间、随机数、`latest` 标签、或未固定的基础镜像",
+     "debug 与 release 使用相同构建选项"
+    ],
+    "确认": [
+     "同一份源码在两台机器上构建，产物是否逐字节一致。不一是 → 无法回滚定位"
+    ],
+    "修法": [
+     "固定基础镜像 digest、`SOURCE_DATE_EPOCH`、锁全量依赖"
+    ]
+   },
+   "keywords": [
+    "debug",
+    "latest",
+    "release",
+    "构建不可复现"
+   ],
+   "body": "- **判据**：构建依赖当前时间、随机数、`latest` 标签、或未固定的基础镜像\n- **确认**：同一份源码在两台机器上构建，产物是否逐字节一致。不一是 → 无法回滚定位\n- **修法**：固定基础镜像 digest、`SOURCE_DATE_EPOCH`、锁全量依赖\n- **判据**：debug 与 release 使用相同构建选项\n\n---",
+   "tokens": 145,
+   "xrefs": []
+  },
+  {
+   "id": "R-01",
+   "level": "P0",
+   "name": "共享可变状态无同步证据",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "多个执行流读写同一状态，文件/包内找不到任何同步原语"
+    ],
+    "确认": [
+     "列出被共同读写的变量；确认是否真共享（传值不共享，传引用才共享）"
+    ],
+    "降级": [
+     "任务间无共享状态（参数传入、结果返回）→ P2"
+    ],
+    "各语言形态": [
+     "Python `Thread` 无 Lock（PY-04）· Go map 跨 goroutine 无 mutex ·"
+    ]
+   },
+   "keywords": [
+    "Lock",
+    "Python",
+    "Thread",
+    "goroutine",
+    "map",
+    "mutex",
+    "共享可变状态",
+    "无同步证据"
+   ],
+   "body": "- **判据**：多个执行流读写同一状态，文件/包内找不到任何同步原语\n  （`Lock` / `Queue` / `channel` / `mutex` / `atomic` / immutable）\n- **确认**：列出被共同读写的变量；确认是否真共享（传值不共享，传引用才共享）\n- **降级**：任务间无共享状态（参数传入、结果返回）→ P2\n- **各语言形态**：Python `Thread` 无 Lock（PY-04）· Go map 跨 goroutine 无 mutex ·\n  Java `HashMap` 并发写 · C++ 裸指针跨线程",
+   "tokens": 184,
+   "xrefs": [
+    "PY-04"
+   ]
+  },
+  {
+   "id": "R-02",
+   "level": "P0",
+   "name": "任务 / 协程泄漏",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "起后台任务，但**没有**取消机制、等待机制，也没有退出测试"
+    ],
+    "确认": [
+     "反复创建任务的路径，看任务数是否单调增长"
+    ],
+    "典型": [
+     "每次请求起一个 goroutine 监听，请求结束不取消 → 随运行时长累积到 OOM"
+    ]
+   },
+   "keywords": [
+    "OOM",
+    "goroutine",
+    "任务",
+    "协程泄漏"
+   ],
+   "body": "- **判据**：起后台任务，但**没有**取消机制、等待机制，也没有退出测试\n  （Go 无 `context` / `WaitGroup`；Python 无 `join` / `shutdown`；Java 无 `shutdown()`）\n- **确认**：反复创建任务的路径，看任务数是否单调增长\n- **典型**：每次请求起一个 goroutine 监听，请求结束不取消 → 随运行时长累积到 OOM",
+   "tokens": 144,
+   "xrefs": []
+  },
+  {
+   "id": "R-03",
+   "level": "P0",
+   "name": "取消 / 上下文未传播",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "函数接收了 `context` / `CancellationToken`，但新起的任务、"
+    ],
+    "确认": [
+     "上游超时后，下游是否还在跑（画调用链逐个看入参）"
+    ],
+    "典型": [
+     "`ctx` 只用于最外层，内部 `http.Get` 用的是 `context.Background()` →"
+    ]
+   },
+   "keywords": [
+    "CancellationToken",
+    "context",
+    "context.Background",
+    "ctx",
+    "http.Get",
+    "上下文未传播",
+    "取消"
+   ],
+   "body": "- **判据**：函数接收了 `context` / `CancellationToken`，但新起的任务、\n  HTTP 调用、DB 查询、定时器**没收到**它\n- **确认**：上游超时后，下游是否还在跑（画调用链逐个看入参）\n- **典型**：`ctx` 只用于最外层，内部 `http.Get` 用的是 `context.Background()` →\n  上游超时，下游继续占着连接",
+   "tokens": 139,
+   "xrefs": []
+  },
+  {
+   "id": "R-04",
+   "level": "P0",
+   "name": "锁顺序不一致（死锁）",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "多把锁在不同函数里获取顺序相反，或无锁分级文档"
+    ],
+    "确认": [
+     "构造「A 持锁1等锁2 / B 持锁2等锁1」的时序"
+    ],
+    "修法": [
+     "全局锁序 + 按序获取；或用单锁/无锁结构"
+    ],
+    "定级": [
+     "P0（死锁不可恢复，且只在特定时序下出现，测试期难复现）"
+    ]
+   },
+   "keywords": [
+    "死锁",
+    "锁顺序不一致"
+   ],
+   "body": "- **判据**：多把锁在不同函数里获取顺序相反，或无锁分级文档\n- **确认**：构造「A 持锁1等锁2 / B 持锁2等锁1」的时序\n- **修法**：全局锁序 + 按序获取；或用单锁/无锁结构\n- **定级**：P0（死锁不可恢复，且只在特定时序下出现，测试期难复现）",
+   "tokens": 135,
+   "xrefs": []
+  },
+  {
+   "id": "R-05",
+   "level": "P0",
+   "name": "TOCTOU（先检查后使用）",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "`if check(x): use(x)` 中间无锁、无原子条件"
+    ],
+    "确认": [
+     "check 与 use 之间是否有其他执行流能改 `x`"
+    ],
+    "典型": [
+     "检查余额 → 扣款，中间被另一笔交易改掉 → 超卖 / 负余额"
+    ],
+    "修法": [
+     "`compare_and_swap` / 数据库条件更新 `WHERE balance >= amt` / 事务内重查"
+    ]
+   },
+   "keywords": [
+    "check",
+    "use",
+    "先检查后使用"
+   ],
+   "body": "- **判据**：`if check(x): use(x)` 中间无锁、无原子条件\n- **确认**：check 与 use 之间是否有其他执行流能改 `x`\n- **典型**：检查余额 → 扣款，中间被另一笔交易改掉 → 超卖 / 负余额\n- **修法**：`compare_and_swap` / 数据库条件更新 `WHERE balance >= amt` / 事务内重查",
+   "tokens": 126,
+   "xrefs": []
+  },
+  {
+   "id": "R-06",
+   "level": "P0",
+   "name": "超时后资源与状态未回滚",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "`with timeout` / `select` / deadline 触发后，连接、事务、文件、锁"
+    ],
+    "确认": [
+     "在超时分支里查 close / rollback / release 是否齐全"
+    ],
+    "典型": [
+     "RPC 超时抛错，但本地已扣的库存没回滚 → 库存凭空消失"
+    ]
+   },
+   "keywords": [
+    "RPC",
+    "close",
+    "deadline",
+    "release",
+    "rollback",
+    "select",
+    "timeout",
+    "with",
+    "状态未回滚",
+    "超时后资源与"
+   ],
+   "body": "- **判据**：`with timeout` / `select` / deadline 触发后，连接、事务、文件、锁\n  没有明确关闭或回滚\n- **确认**：在超时分支里查 close / rollback / release 是否齐全\n- **典型**：RPC 超时抛错，但本地已扣的库存没回滚 → 库存凭空消失",
+   "tokens": 111,
+   "xrefs": []
+  },
+  {
+   "id": "R-07",
+   "level": "P0",
+   "name": "重试 / 重投不幂等",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "写操作超时或消息重投后重试，**无幂等键、无状态机去重**"
+    ],
+    "确认": [
+     "同一请求连发两次，看是否产生两条记录 / 两次扣款"
+    ],
+    "修法": [
+     "幂等键 + 唯一索引；或状态机保证「已处理」直接返回"
+    ],
+    "注": [
+     "与 `s-boundary` B-10 附带的「重试幂等性」同源，此处从业务后果角度记一次"
+    ]
+   },
+   "keywords": [
+    "重投不幂等",
+    "重试"
+   ],
+   "body": "- **判据**：写操作超时或消息重投后重试，**无幂等键、无状态机去重**\n- **确认**：同一请求连发两次，看是否产生两条记录 / 两次扣款\n- **修法**：幂等键 + 唯一索引；或状态机保证「已处理」直接返回\n- **注**：与 `s-boundary` B-10 附带的「重试幂等性」同源，此处从业务后果角度记一次",
+   "tokens": 158,
+   "xrefs": [
+    "B-10"
+   ]
+  },
+  {
+   "id": "R-08",
+   "level": "P1",
+   "name": "退出不收敛",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "进程收到 SIGTERM 后，任务队列、定时器、订阅没有收敛到关闭点"
+    ],
+    "确认": [
+     "发 SIGTERM 后进程是否立刻退出；退出时是否有数据丢失"
+    ],
+    "典型": [
+     "K8s 滚动更新时正在处理的消息被强杀 → 半处理状态"
+    ]
+   },
+   "keywords": [
+    "K8s",
+    "SIGTERM",
+    "退出不收敛"
+   ],
+   "body": "- **判据**：进程收到 SIGTERM 后，任务队列、定时器、订阅没有收敛到关闭点\n- **确认**：发 SIGTERM 后进程是否立刻退出；退出时是否有数据丢失\n- **典型**：K8s 滚动更新时正在处理的消息被强杀 → 半处理状态",
+   "tokens": 115,
+   "xrefs": []
+  },
+  {
+   "id": "R-09",
+   "level": "P1",
+   "name": "后台任务不可观测",
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "fields": {
+    "判据": [
+     "无 metrics / log / trace 能证明后台任务**已退出**",
+     "`__del__` / finalize / C++ 析构里访问仍被其他线程持有的对象，或加锁/做 IO"
+    ],
+    "确认": [
+     "内存缓慢上涨时，能否从监控定位到是哪个任务没退",
+     "回收期模块可能已销毁，调用会抛异常或死锁"
+    ],
+    "典型": [
+     "只能靠 OOM 重启缓解，无法定位泄漏源"
+    ],
+    "定级": [
+     "析构里**加锁** → **P0**（可与持锁线程形成死锁）；仅做 IO → P1"
+    ]
+   },
+   "keywords": [
+    "OOM",
+    "__del__",
+    "finalize",
+    "log",
+    "metrics",
+    "trace",
+    "后台任务不可",
+    "观测"
+   ],
+   "body": "- **判据**：无 metrics / log / trace 能证明后台任务**已退出**\n- **确认**：内存缓慢上涨时，能否从监控定位到是哪个任务没退\n- **典型**：只能靠 OOM 重启缓解，无法定位泄漏源\n\n### R-10 (P1/P0) 析构 / 回收期跨线程访问\n- **判据**：`__del__` / finalize / C++ 析构里访问仍被其他线程持有的对象，或加锁/做 IO\n- **确认**：回收期模块可能已销毁，调用会抛异常或死锁\n- **定级**：析构里**加锁** → **P0**（可与持锁线程形成死锁）；仅做 IO → P1\n\n---",
+   "tokens": 228,
+   "xrefs": [
+    "R-10"
+   ]
+  },
+  {
+   "id": "C-01",
+   "level": "P0",
+   "name": "声明的特性未接线（孤儿组件 / 死代码）",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "存在组件/模块/命令的**定义**但全仓库无**引用**；或定义了回调却没传"
+    ],
+    "确认": [
+     "全局搜该标识符，只出现在自身定义与导出处 → 确认。"
+    ],
+    "典型": [
+     "`PluginSettingsDrawer.tsx` 全仓库唯一命中自身 → Vite 模式「设置」按钮永不出现"
+    ],
+    "修法": [
+     "接线，或删除并在文档里去掉该承诺"
+    ],
+    "定级": [
+     "无降级。声明了却完全不可用 = 对外承诺完全失效"
+    ]
+   },
+   "keywords": [
+    "PluginSettingsDrawer.tsx",
+    "Vite",
+    "声明的特性未",
+    "孤儿组件",
+    "接线",
+    "死代码"
+   ],
+   "body": "- **判据**：存在组件/模块/命令的**定义**但全仓库无**引用**；或定义了回调却没传\n- **确认**：全局搜该标识符，只出现在自身定义与导出处 → 确认。\n  **注意动态引用**（注册表、字符串拼接、构建配置自动扫描）\n- **典型**：`PluginSettingsDrawer.tsx` 全仓库唯一命中自身 → Vite 模式「设置」按钮永不出现\n- **修法**：接线，或删除并在文档里去掉该承诺\n- **定级**：无降级。声明了却完全不可用 = 对外承诺完全失效",
+   "tokens": 228,
+   "xrefs": []
+  },
+  {
+   "id": "C-02",
+   "level": "P1",
+   "name": "双实现 / 多栈能力不对等",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "README 或注释声称两套实现（原生/构建版、A 语言/B 语言、新旧并存）行为一致"
+    ],
+    "确认": [
+     "把两套入口的功能点列成**两列逐项比对**，重点比对"
+    ],
+    "典型": [
+     "React 外壳比无构建外壳少 4 个回调（设置抽屉、侧边栏注入、"
+    ],
+    "降级": [
+     "差异只在不影响功能的呈现细节（文案、顺序）→ P2"
+    ]
+   },
+   "keywords": [
+    "README",
+    "React",
+    "双实现",
+    "多栈能力不对"
+   ],
+   "body": "- **判据**：README 或注释声称两套实现（原生/构建版、A 语言/B 语言、新旧并存）行为一致\n- **确认**：把两套入口的功能点列成**两列逐项比对**，重点比对\n  **回调 / 钩子 / props / 命令注册**四类接线\n- **典型**：React 外壳比无构建外壳少 4 个回调（设置抽屉、侧边栏注入、\n  快捷键转发、CSP 上报）→ 焦点进 iframe 后 ⌘B/R/, 全失效\n- **降级**：差异只在不影响功能的呈现细节（文案、顺序）→ P2",
+   "tokens": 210,
+   "xrefs": []
+  },
+  {
+   "id": "C-03",
+   "level": "P1",
+   "name": "文档默认值 / 数量 / 清单与代码不符",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "文档写「默认 X」「共 N 个」「M 套」，代码里是另一个值"
+    ],
+    "确认": [
+     "定位代码里的常量/数组，数一遍"
+    ],
+    "典型": [
+     "README 说 22 套主题，`PRESET_THEMES` 实际 23 条；"
+    ],
+    "降级": [
+     "数量差 1 且不影响理解 → P2"
+    ]
+   },
+   "keywords": [
+    "PRESET_THEMES",
+    "README",
+    "数量",
+    "文档默认值",
+    "清单与代码不"
+   ],
+   "body": "- **判据**：文档写「默认 X」「共 N 个」「M 套」，代码里是另一个值\n- **确认**：定位代码里的常量/数组，数一遍\n- **典型**：README 说 22 套主题，`PRESET_THEMES` 实际 23 条；\n  README 说 4 个测试脚本，package.json 里 13 个\n- **降级**：数量差 1 且不影响理解 → P2",
+   "tokens": 121,
+   "xrefs": []
+  },
+  {
+   "id": "C-04",
+   "level": "P0",
+   "name": "文档把缺陷记为设计意图",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "文档描述某行为为「设计如此 / 已修复 / 已知限制」，实际是 bug 且未修"
+    ],
+    "确认": [
+     "按文档描述的路径去代码里找对应实现，看它是否真的做了"
+    ],
+    "典型": [
+     "README 声称「隔离后由插件自报基调，已修复」，实际自报字段没接上"
+    ],
+    "定级": [
+     "P0。它会**阻止下一个人修复**"
+    ]
+   },
+   "keywords": [
+    "README",
+    "bug",
+    "为设计意图",
+    "文档把缺陷记"
+   ],
+   "body": "- **判据**：文档描述某行为为「设计如此 / 已修复 / 已知限制」，实际是 bug 且未修\n- **确认**：按文档描述的路径去代码里找对应实现，看它是否真的做了\n- **典型**：README 声称「隔离后由插件自报基调，已修复」，实际自报字段没接上\n- **定级**：P0。它会**阻止下一个人修复**",
+   "tokens": 154,
+   "xrefs": []
+  },
+  {
+   "id": "C-05",
+   "level": "P0",
+   "name": "接口字段声明但从未被赋值/读取（死契约）",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "正确": [
+     "实现它，或连同 README/JSDoc 声明一起删",
+     "用起来或删除"
+    ],
+    "特征": [
+     "接口字段在模块内只出现 1 次（声明处）",
+     "类方法 / 独立函数 / 箭头方法三种形态"
+    ],
+    "确认": [
+     "同目录其他文件是否使用"
+    ],
+    "降级": [
+     "刻意保留的签名参数（接口一致性）→ P2 或忽略"
+    ]
+   },
+   "keywords": [
+    "JSDoc",
+    "README",
+    "但从未被赋值",
+    "接口字段声明",
+    "死契约",
+    "读取"
+   ],
+   "body": "- **正确**：实现它，或连同 README/JSDoc 声明一起删\n- **特征**：接口字段在模块内只出现 1 次（声明处）\n- **确认**：同目录其他文件是否使用\n\n### C-06 (P0/P2) 参数声明但函数体内从未使用\n- **正确**：用起来或删除\n- **特征**：类方法 / 独立函数 / 箭头方法三种形态\n- **降级**：刻意保留的签名参数（接口一致性）→ P2 或忽略",
+   "tokens": 174,
+   "xrefs": [
+    "C-06"
+   ]
+  },
+  {
+   "id": "C-07",
+   "level": "P1",
+   "name": "文档未覆盖主要模块",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "仓库里有大模块（行数占比 >10%）在文档里完全没有章节"
+    ],
+    "确认": [
+     "模块表 vs 文档目录，逐个对"
+    ]
+   },
+   "keywords": [
+    "文档未覆盖主",
+    "要模块"
+   ],
+   "body": "- **判据**：仓库里有大模块（行数占比 >10%）在文档里完全没有章节\n- **确认**：模块表 vs 文档目录，逐个对",
+   "tokens": 59,
+   "xrefs": []
+  },
+  {
+   "id": "C-08",
+   "level": "P1",
+   "name": "注释与代码矛盾",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "注释说做了 X，代码没做（或做了相反的 Y）"
+    ],
+    "确认": [
+     "**先确认自己没读错注释**——很多注释是在解释「为什么不能那样写」"
+    ],
+    "降级": [
+     "注释描述历史行为、代码后来改过 → P2，改注释即可"
+    ]
+   },
+   "keywords": [
+    "注释与代码矛"
+   ],
+   "body": "- **判据**：注释说做了 X，代码没做（或做了相反的 Y）\n- **确认**：**先确认自己没读错注释**——很多注释是在解释「为什么不能那样写」\n- **降级**：注释描述历史行为、代码后来改过 → P2，改注释即可",
+   "tokens": 110,
+   "xrefs": []
+  },
+  {
+   "id": "C-09",
+   "level": "P1",
+   "name": "同名常量清单重复定义且已分叉",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "同一语义的清单（变量白名单、主题变量表、命令列表）在两处各定义一份，内容不同"
+    ],
+    "确认": [
+     "diff 两份清单，确认哪份是权威来源"
+    ],
+    "典型": [
+     "`host.js` 的 `THEME_VARS` 与 `themes.js` 的 `THEME_VARS` 已分叉，"
+    ],
+    "降级": [
+     "**不同插件各自定义同名常量是常态**（取值本就不同）→ 忽略。"
+    ]
+   },
+   "keywords": [
+    "THEME_VARS",
+    "diff",
+    "host",
+    "themes",
+    "分叉",
+    "同名常量清单",
+    "重复定义且已"
+   ],
+   "body": "- **判据**：同一语义的清单（变量白名单、主题变量表、命令列表）在两处各定义一份，内容不同\n- **确认**：diff 两份清单，确认哪份是权威来源\n- **典型**：`host.js` 的 `THEME_VARS` 与 `themes.js` 的 `THEME_VARS` 已分叉，\n  导致插件拿到的主题快照缺一大半变量\n- **降级**：**不同插件各自定义同名常量是常态**（取值本就不同）→ 忽略。\n  只有**同一区域内**出现不同取值才算分叉",
+   "tokens": 203,
+   "xrefs": []
+  },
+  {
+   "id": "C-10",
+   "level": "P2",
+   "name": "清单遗漏",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "CSS/代码里定义了某变量，但主题/配置清单里没列"
+    ],
+    "后果": [
+     "该变量无法被主题覆盖 + 切主题时不会被清理（残留旧值）"
+    ],
+    "典型": [
+     "CSS 定义了 `--r: 14px`，`THEME_VARS` 只有 `--r-md`"
+    ]
+   },
+   "keywords": [
+    "CSS",
+    "THEME_VARS",
+    "清单遗漏"
+   ],
+   "body": "- **判据**：CSS/代码里定义了某变量，但主题/配置清单里没列\n- **后果**：该变量无法被主题覆盖 + 切主题时不会被清理（残留旧值）\n- **典型**：CSS 定义了 `--r: 14px`，`THEME_VARS` 只有 `--r-md`",
+   "tokens": 97,
+   "xrefs": []
+  },
+  {
+   "id": "C-11",
+   "level": "P1",
+   "name": "多订阅者互相顶掉",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "正确": [
+     "数组或 Set 存订阅者，`on()` 返回取消函数"
+    ],
+    "特征": [
+     "`this._onXxx = fn` 直接赋值 → 第二个订阅者顶掉第一个"
+    ]
+   },
+   "keywords": [
+    "Set",
+    "this._onXxx",
+    "多订阅者互相",
+    "顶掉"
+   ],
+   "body": "- **正确**：数组或 Set 存订阅者，`on()` 返回取消函数\n- **特征**：`this._onXxx = fn` 直接赋值 → 第二个订阅者顶掉第一个",
+   "tokens": 60,
+   "xrefs": []
+  },
+  {
+   "id": "C-12",
+   "level": "P1",
+   "name": "成对 API 校验不对称",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "正确": [
+     "抽 `private _normalize(raw)`，所有入口共用"
+    ],
+    "特征": [
+     "`set`/`add`、`register`/`import`、`preview`/`upgrade` 一个有校验一个没有"
+    ],
+    "注意": [
+     "需两个成员都出现才触发"
+    ],
+    "规律": [
+     "**后加的便捷入口最容易漏校验**"
+    ]
+   },
+   "keywords": [
+    "_normalize",
+    "add",
+    "import",
+    "preview",
+    "private",
+    "raw",
+    "register",
+    "set",
+    "upgrade",
+    "成对",
+    "校验不对称"
+   ],
+   "body": "- **正确**：抽 `private _normalize(raw)`，所有入口共用\n- **特征**：`set`/`add`、`register`/`import`、`preview`/`upgrade` 一个有校验一个没有\n- **注意**：需两个成员都出现才触发\n- **规律**：**后加的便捷入口最容易漏校验**",
+   "tokens": 100,
+   "xrefs": []
+  },
+  {
+   "id": "C-13",
+   "level": "P2",
+   "name": "死代码 / 重复实现（未被模块声明引用）",
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "fields": {
+    "判据": [
+     "源文件存在但未被任何模块声明（`mod`）/ 构建入口引用",
+     "`--dry-run` / 预览 / 二次确认界面展示的**对比基准**，"
+    ],
+    "确认": [
+     "动态引用、待启用备份除外",
+     "分别打印「预览的基准」与「执行的基准」，看是否指向同一版本/同一分支/同一快照"
+    ],
+    "定级": [
+     "**两份内容近似但已分叉的重复文件最危险**（改了不生效）→ 升 P1",
+     "用户据此做**不可逆决定**（覆盖、删除、覆盖他人改动）→ **P0**；否则 P1"
+    ],
+    "典型": [
+     "`src/af.rs` 与 `src/fpx/af_flow.rs` 内容近似，`fpx/` 那份是死代码副本",
+     "预览跑 `git diff HEAD`（本地快照），推送却以 `base_tree=远端最新` 为底 ——"
+    ],
+    "同类形态": [
+     "预览按本地时间算、执行按服务端时间算；"
+    ],
+    "修法": [
+     "预览必须与执行共用同一个基准对象；做不到就在预览里**显式标注基准是什么**"
+    ],
+    "为什么易漏": [
+     "两边都「看起来合理」，只有把两个基准并排写出来才看得出分叉"
+    ]
+   },
+   "keywords": [
+    "HEAD",
+    "af_flow",
+    "base_tree",
+    "diff",
+    "dry",
+    "fpx",
+    "git",
+    "mod",
+    "run",
+    "src",
+    "引用",
+    "未被模块声明",
+    "死代码",
+    "重复实现"
+   ],
+   "body": "- **判据**：源文件存在但未被任何模块声明（`mod`）/ 构建入口引用\n- **确认**：动态引用、待启用备份除外\n- **定级**：**两份内容近似但已分叉的重复文件最危险**（改了不生效）→ 升 P1\n- **典型**：`src/af.rs` 与 `src/fpx/af_flow.rs` 内容近似，`fpx/` 那份是死代码副本\n\n### C-14 (P1/P0) 预览所见 ≠ 实际所执行（确认的是另一件事）\n- **判据**：`--dry-run` / 预览 / 二次确认界面展示的**对比基准**，\n  与真正执行时用的基准不是同一个对象\n- **确认**：分别打印「预览的基准」与「执行的基准」，看是否指向同一版本/同一分支/同一快照\n- **典型**：预览跑 `git diff HEAD`（本地快照），推送却以 `base_tree=远端最新` 为底 ——\n  远端比本地新时，**用户确认的内容和他推上去的内容不是一回事**\n- **同类形态**：预览按本地时间算、执行按服务端时间算；\n  预览读缓存、执行读实时；预览单条、执行批量\n- **修法**：预览必须与执行共用同一个基准对象；做不到就在预览里**显式标注基准是什么**\n- **定级**：用户据此做**不可逆决定**（覆盖、删除、覆盖他人改动）→ **P0**；否则 P1\n- **为什么易漏**：两边都「看起来合理」，只有把两个基准并排写出来才看得出分叉\n\n---",
+   "tokens": 576,
+   "xrefs": [
+    "C-14"
+   ]
+  },
+  {
+   "id": "L-01",
+   "level": "P0",
+   "name": "事件订阅无注销",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "注册与注销必须在同一生命周期层级对称出现"
+    ],
+    "特征": [
+     "有 `.on(` / `addEventListener(` / `subscribe(`，全文无"
+    ],
+    "确认": [
+     "注销是否可能在基类或其他文件（是 → 降级，但仍需确认）"
+    ],
+    "降级": [
+     "生命周期与页面/应用等长（如主窗口 keydown）→ P2 或忽略"
+    ]
+   },
+   "keywords": [
+    "addEventListener",
+    "subscribe",
+    "事件订阅无注"
+   ],
+   "body": "- **正确**：注册与注销必须在同一生命周期层级对称出现\n  （`onLoad`↔`onDestroy`，`onEnable`↔`onDisable`）\n- **特征**：有 `.on(` / `addEventListener(` / `subscribe(`，全文无\n  `off` / `removeEventListener` / `unsubscribe`\n- **确认**：注销是否可能在基类或其他文件（是 → 降级，但仍需确认）\n- **降级**：生命周期与页面/应用等长（如主窗口 keydown）→ P2 或忽略",
+   "tokens": 156,
+   "xrefs": []
+  },
+  {
+   "id": "L-02",
+   "level": "P0",
+   "name": "定时器无清理",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "三套机制**各自配对，不能互相替代**："
+    ],
+    "确认": [
+     "是否为全局单例（是 → 标「待确认：生命周期长于页面」）"
+    ]
+   },
+   "keywords": [
+    "定时器无清理"
+   ],
+   "body": "- **正确**：三套机制**各自配对，不能互相替代**：\n  `schedule`↔`unschedule`、`setInterval`↔`clearInterval`、`setTimeout`↔`clearTimeout`\n- **确认**：是否为全局单例（是 → 标「待确认：生命周期长于页面」）",
+   "tokens": 85,
+   "xrefs": []
+  },
+  {
+   "id": "L-03",
+   "level": "P0",
+   "name": "资源/句柄无释放",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "load/open/acquire 后必须 decRef/release/close/dispose"
+    ],
+    "确认": [
+     "框架是否提供自动释放（**自动释放通常不覆盖动态加载的资源**，高频误区）"
+    ]
+   },
+   "keywords": [
+    "acquire",
+    "close",
+    "decRef",
+    "dispose",
+    "load",
+    "open",
+    "release",
+    "句柄无释放",
+    "资源"
+   ],
+   "body": "- **正确**：load/open/acquire 后必须 decRef/release/close/dispose\n- **确认**：框架是否提供自动释放（**自动释放通常不覆盖动态加载的资源**，高频误区）",
+   "tokens": 72,
+   "xrefs": []
+  },
+  {
+   "id": "L-04",
+   "level": "P0",
+   "name": "循环/常驻任务无停止",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "持有引用并在销毁时 `stop()` / `clear()`"
+    ],
+    "特征": [
+     "`repeatForever` / `setLoop(true)` / `loop: true` 无停止调用"
+    ],
+    "为什么": [
+     "这类任务**永远不会自己结束**，宿主销毁后仍驻留"
+    ]
+   },
+   "keywords": [
+    "clear",
+    "loop",
+    "repeatForever",
+    "setLoop",
+    "stop",
+    "true",
+    "常驻任务无停",
+    "循环"
+   ],
+   "body": "- **正确**：持有引用并在销毁时 `stop()` / `clear()`\n- **特征**：`repeatForever` / `setLoop(true)` / `loop: true` 无停止调用\n- **为什么**：这类任务**永远不会自己结束**，宿主销毁后仍驻留",
+   "tokens": 86,
+   "xrefs": []
+  },
+  {
+   "id": "L-05",
+   "level": "P1",
+   "name": "成对方法只出现一侧",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "`lock`↔`unlock`、`acquire`↔`release`、`open`↔`close`"
+    ],
+    "确认": [
+     "是否有兜底路径（如 try/finally 中的释放写成了别的名字）"
+    ]
+   },
+   "keywords": [
+    "acquire",
+    "close",
+    "finally",
+    "lock",
+    "open",
+    "release",
+    "try",
+    "unlock",
+    "成对方法只出",
+    "现一侧"
+   ],
+   "body": "- **正确**：`lock`↔`unlock`、`acquire`↔`release`、`open`↔`close`\n- **确认**：是否有兜底路径（如 try/finally 中的释放写成了别的名字）",
+   "tokens": 54,
+   "xrefs": []
+  },
+  {
+   "id": "L-06",
+   "level": "P1",
+   "name": "匿名回调注册（无法精确注销）",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "回调必须是**具名方法 / 持有引用**"
+    ],
+    "特征": [
+     "`on(ev, () => {...})` 或 `on(ev, function(){})`"
+    ],
+    "为什么": [
+     "`off` 需同一函数引用，匿名函数导致「写了 off 也 off 不掉」。"
+    ]
+   },
+   "keywords": [
+    "function",
+    "匿名回调注册",
+    "无法精确注销"
+   ],
+   "body": "- **正确**：回调必须是**具名方法 / 持有引用**\n- **特征**：`on(ev, () => {...})` 或 `on(ev, function(){})`\n- **为什么**：`off` 需同一函数引用，匿名函数导致「写了 off 也 off 不掉」。\n  与「忘了写 off」**成因不同、改法不同**，所以单列",
+   "tokens": 110,
+   "xrefs": []
+  },
+  {
+   "id": "L-07",
+   "level": "P1",
+   "name": "重挂载时监听器/定时器叠加",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "判据": [
+     "`addEventListener` / `setInterval` 在可能重复执行的初始化流程里"
+    ],
+    "确认": [
+     "是否有 generation 标记或先 remove 再 add"
+    ],
+    "典型": [
+     "插件重载一次，同一事件的 handler 多一个 → **按一次快捷键执行两次**"
+    ],
+    "期望形态": [
+     "（三选一）："
+    ],
+    "⚠「宿主引擎」类代码若三样都没有，几乎必然存在叠加缺陷": [
+     ""
+    ]
+   },
+   "keywords": [
+    "add",
+    "addEventListener",
+    "generation",
+    "handler",
+    "remove",
+    "setInterval",
+    "定时器叠加",
+    "重挂载时监听"
+   ],
+   "body": "- **判据**：`addEventListener` / `setInterval` 在可能重复执行的初始化流程里\n- **确认**：是否有 generation 标记或先 remove 再 add\n- **典型**：插件重载一次，同一事件的 handler 多一个 → **按一次快捷键执行两次**\n- **期望形态**（三选一）：\n  - **generation 令牌**：每次挂载 `++gen`，异步回来时 `gen` 变了就丢弃结果\n  - **先清理再施加**：施加滤镜/覆盖层之前先清一遍，保证幂等\n  - **卸载钩子兜底**：即使前两者漏了，卸载时也能清干净\n- **⚠「宿主引擎」类代码若三样都没有，几乎必然存在叠加缺陷**",
+   "tokens": 261,
+   "xrefs": []
+  },
+  {
+   "id": "L-08",
+   "level": "P0",
+   "name": "监听器遍历 + 回调内退订",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "`[...this._listeners].forEach(...)` 或倒序索引"
+    ],
+    "特征": [
+     "`_listeners` / `_handlers` / `_callbacks` + `.forEach`"
+    ],
+    "标准测法": [
+     "三个订阅者 A/B/C，A 在回调里退订，**执行序列必须包含 B**"
+    ]
+   },
+   "keywords": [
+    "_callbacks",
+    "_handlers",
+    "_listeners",
+    "forEach",
+    "this._listeners",
+    "回调内退订",
+    "监听器遍历"
+   ],
+   "body": "- **正确**：`[...this._listeners].forEach(...)` 或倒序索引\n- **特征**：`_listeners` / `_handlers` / `_callbacks` + `.forEach`\n- **标准测法**：三个订阅者 A/B/C，A 在回调里退订，**执行序列必须包含 B**",
+   "tokens": 80,
+   "xrefs": []
+  },
+  {
+   "id": "L-09",
+   "level": "P1",
+   "name": "取消订阅定位不精确",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "注册返回唯一句柄，按句柄取消"
+    ],
+    "特征": [
+     "Set 存监听器 + `filter` 按函数值重建"
+    ],
+    "失效": [
+     "同一函数注册多次时一次取消全删"
+    ]
+   },
+   "keywords": [
+    "Set",
+    "filter",
+    "不精确",
+    "取消订阅定位"
+   ],
+   "body": "- **正确**：注册返回唯一句柄，按句柄取消\n- **特征**：Set 存监听器 + `filter` 按函数值重建\n- **失效**：同一函数注册多次时一次取消全删",
+   "tokens": 76,
+   "xrefs": []
+  },
+  {
+   "id": "L-10",
+   "level": "P1",
+   "name": "状态字段只有置 true 没有复位 false",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "置 `true` 处配对置 `false`"
+    ],
+    "特征": [
+     "`this._flag = true` 存在但全文无 `= false`"
+    ]
+   },
+   "keywords": [
+    "false",
+    "this._flag",
+    "true",
+    "没有复位",
+    "状态字段只有"
+   ],
+   "body": "- **正确**：置 `true` 处配对置 `false`\n- **特征**：`this._flag = true` 存在但全文无 `= false`",
+   "tokens": 37,
+   "xrefs": []
+  },
+  {
+   "id": "L-11",
+   "level": "P1",
+   "name": "清理不彻底（clear/reset 遗漏部分容器）",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "`clear` / `reset` / `destroy` 覆盖全部内部容器"
+    ],
+    "特征": [
+     "清理了部分但同文件还有别的容器字段"
+    ],
+    "识别三种清理写法": [
+     "`.clear()` / `.length = 0` / `= []`"
+    ]
+   },
+   "keywords": [
+    "clear",
+    "destroy",
+    "reset",
+    "清理不彻底",
+    "遗漏部分容器"
+   ],
+   "body": "- **正确**：`clear` / `reset` / `destroy` 覆盖全部内部容器\n- **特征**：清理了部分但同文件还有别的容器字段\n- **识别三种清理写法**：`.clear()` / `.length = 0` / `= []`",
+   "tokens": 77,
+   "xrefs": []
+  },
+  {
+   "id": "L-12",
+   "level": "P1",
+   "name": "每帧回调内昂贵操作",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "把结果缓存到初始化阶段，回调内只做增量计算"
+    ],
+    "特征": [
+     "`update` / `tick` / `lateUpdate` 内出现 `find` / `getComponent` /"
+    ],
+    "确认": [
+     "该回调是否真的每帧执行（有些引擎的回调可能被降频或手动驱动）"
+    ],
+    "判据": [
+     "**每帧回调内的开销要乘 60 看**（60fps 下每秒执行 60 次）"
+    ]
+   },
+   "keywords": [
+    "find",
+    "fps",
+    "getComponent",
+    "lateUpdate",
+    "tick",
+    "update",
+    "每帧回调内昂",
+    "贵操作"
+   ],
+   "body": "- **正确**：把结果缓存到初始化阶段，回调内只做增量计算\n- **特征**：`update` / `tick` / `lateUpdate` 内出现 `find` / `getComponent` /\n  `instantiate` / `destroy` / `new X` / `JSON.parse` / `sort` / `Object.keys`\n- **确认**：该回调是否真的每帧执行（有些引擎的回调可能被降频或手动驱动）\n- **判据**：**每帧回调内的开销要乘 60 看**（60fps 下每秒执行 60 次）",
+   "tokens": 161,
+   "xrefs": []
+  },
+  {
+   "id": "L-13",
+   "level": "P1",
+   "name": "每帧回调内分配对象",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "正确": [
+     "复用对象或预分配"
+    ],
+    "特征": [
+     "`update` 内 `new` / 数组字面量 / 闭包"
+    ]
+   },
+   "keywords": [
+    "new",
+    "update",
+    "每帧回调内分",
+    "配对象"
+   ],
+   "body": "- **正确**：复用对象或预分配\n- **特征**：`update` 内 `new` / 数组字面量 / 闭包",
+   "tokens": 39,
+   "xrefs": []
+  },
+  {
+   "id": "L-14",
+   "level": "P1",
+   "name": "对象销毁后仍被外部持有并继续使用",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "判据": [
+     "销毁后无状态标记，外部仍持有引用"
+    ],
+    "定级": [
+     "**静默**产生错误结果 → P1；抛异常（能被发现） → P2"
+    ],
+    "加固": [
+     "加状态标记"
+    ]
+   },
+   "keywords": [
+    "对象销毁后仍",
+    "继续使用",
+    "被外部持有并"
+   ],
+   "body": "- **判据**：销毁后无状态标记，外部仍持有引用\n- **定级**：**静默**产生错误结果 → P1；抛异常（能被发现） → P2\n- **加固**：加状态标记",
+   "tokens": 71,
+   "xrefs": []
+  },
+  {
+   "id": "L-15",
+   "level": "P1",
+   "name": "缓存 Map 无上限增长",
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "fields": {
+    "判据": [
+     "`Map.set(k, v)` 无对应 `delete` 且 key 来自外部/递增序列"
+    ],
+    "确认": [
+     "key 是否有界（固定枚举 vs 用户输入 vs 时间戳）"
+    ],
+    "典型": [
+     "pending 请求表、进程注册表、监听器表"
+    ]
+   },
+   "keywords": [
+    "Map.set",
+    "delete",
+    "key",
+    "pending",
+    "无上限增长",
+    "缓存"
+   ],
+   "body": "- **判据**：`Map.set(k, v)` 无对应 `delete` 且 key 来自外部/递增序列\n- **确认**：key 是否有界（固定枚举 vs 用户输入 vs 时间戳）\n- **典型**：pending 请求表、进程注册表、监听器表\n\n---",
+   "tokens": 88,
+   "xrefs": []
+  },
+  {
+   "id": "N-01",
+   "level": "P0",
+   "name": "数值守卫挡不住 NaN",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`if (!(x > 0))` 或 `if (!Number.isFinite(x))`"
+    ],
+    "特征": [
+     "`if (x <= 0)` / `if (x < n)`"
+    ],
+    "确认": [
+     "变量是否可能来自外部输入；只可能是常量/枚举则忽略"
+    ],
+    "为什么": [
+     "所有比较对 NaN 恒 false → 校验分支永不触发"
+    ]
+   },
+   "keywords": [
+    "Number.isFinite",
+    "数值守卫挡不"
+   ],
+   "body": "- **正确**：`if (!(x > 0))` 或 `if (!Number.isFinite(x))`\n- **特征**：`if (x <= 0)` / `if (x < n)`\n- **确认**：变量是否可能来自外部输入；只可能是常量/枚举则忽略\n- **为什么**：所有比较对 NaN 恒 false → 校验分支永不触发",
+   "tokens": 100,
+   "xrefs": []
+  },
+  {
+   "id": "N-02",
+   "level": "P0",
+   "name": "配置默认值未收口",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`clampNum(opts.x, min, max, def)`"
+    ],
+    "特征": [
+     "`opts.x ?? d` 且附近无收口"
+    ],
+    "确认": [
+     "字段是否为数值型（非数值字段 → 忽略）"
+    ],
+    "注意": [
+     "命中数常常最多（常数百条），**按族批量修**，不逐条写报告"
+    ]
+   },
+   "keywords": [
+    "clampNum",
+    "def",
+    "max",
+    "min",
+    "opts",
+    "收口",
+    "配置默认值未"
+   ],
+   "body": "- **正确**：`clampNum(opts.x, min, max, def)`\n- **特征**：`opts.x ?? d` 且附近无收口\n- **确认**：字段是否为数值型（非数值字段 → 忽略）\n- **注意**：命中数常常最多（常数百条），**按族批量修**，不逐条写报告",
+   "tokens": 99,
+   "xrefs": []
+  },
+  {
+   "id": "N-03",
+   "level": "P0",
+   "name": "clamp 穿透",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "入参来自外部时先 `Number.isFinite`"
+    ],
+    "特征": [
+     "`clamp*(opts.x, ...)` 附近无 `isFinite`"
+    ],
+    "降级": [
+     "**`clampNum` / `numOr` 不算问题**——它们内部走 `numOr(v,NaN)` + `isNaN→fallback`，"
+    ],
+    "确认": [
+     "调用方有没有兜住"
+    ]
+   },
+   "keywords": [
+    "Number.isFinite",
+    "clamp",
+    "isFinite",
+    "opts",
+    "穿透"
+   ],
+   "body": "- **正确**：入参来自外部时先 `Number.isFinite`\n- **特征**：`clamp*(opts.x, ...)` 附近无 `isFinite`\n- **降级**：**`clampNum` / `numOr` 不算问题**——它们内部走 `numOr(v,NaN)` + `isNaN→fallback`，\n  非有限值有兜底，不穿透。只有裸 `clamp` / `clamp01` 才是\n- **确认**：调用方有没有兜住",
+   "tokens": 119,
+   "xrefs": []
+  },
+  {
+   "id": "N-04",
+   "level": "P0",
+   "name": "累加 / EMA 不可逆污染",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "脏样本**丢弃**（`if (!Number.isFinite(s)) return;`），不是兜底 0"
+    ],
+    "特征": [
+     "`this._x +=` / `lerp(this._x, ...)` 无 `isFinite`"
+    ],
+    "确认": [
+     "是否参与后续所有帧（是 → 污染不可逆）"
+    ],
+    "为什么": [
+     "用兜底值会把「数据坏了」伪装成正常值"
+    ]
+   },
+   "keywords": [
+    "Number.isFinite",
+    "isFinite",
+    "lerp",
+    "return",
+    "this",
+    "不可逆污染",
+    "累加"
+   ],
+   "body": "- **正确**：脏样本**丢弃**（`if (!Number.isFinite(s)) return;`），不是兜底 0\n- **特征**：`this._x +=` / `lerp(this._x, ...)` 无 `isFinite`\n- **确认**：是否参与后续所有帧（是 → 污染不可逆）\n- **为什么**：用兜底值会把「数据坏了」伪装成正常值",
+   "tokens": 107,
+   "xrefs": []
+  },
+  {
+   "id": "N-05",
+   "level": "P1",
+   "name": "位运算把 NaN 静默归零",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`Number.isFinite(o.seed) ? o.seed >>> 0 : defaultSeed`"
+    ],
+    "特征": [
+     "`>>> 0` / `| 0`"
+    ],
+    "确认": [
+     "种子类参数是高危"
+    ]
+   },
+   "keywords": [
+    "Number.isFinite",
+    "defaultSeed",
+    "seed",
+    "位运算把",
+    "静默归零"
+   ],
+   "body": "- **正确**：`Number.isFinite(o.seed) ? o.seed >>> 0 : defaultSeed`\n- **特征**：`>>> 0` / `| 0`\n- **确认**：种子类参数是高危",
+   "tokens": 44,
+   "xrefs": []
+  },
+  {
+   "id": "N-06",
+   "level": "P0",
+   "name": "循环上界来自入参且未收口",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`clampNum(opts.n ?? 4, 1, 64)`"
+    ],
+    "特征": [
+     "`for (let i = 0; i < <标识符>; i++)` 非字面量且附近无 clamp"
+    ],
+    "确认": [
+     "是否来自配置/入参"
+    ]
+   },
+   "keywords": [
+    "clamp",
+    "clampNum",
+    "for",
+    "let",
+    "opts",
+    "入参且未收口",
+    "循环上界来自"
+   ],
+   "body": "- **正确**：`clampNum(opts.n ?? 4, 1, 64)`\n- **特征**：`for (let i = 0; i < <标识符>; i++)` 非字面量且附近无 clamp\n- **确认**：是否来自配置/入参",
+   "tokens": 60,
+   "xrefs": []
+  },
+  {
+   "id": "N-07",
+   "level": "P0",
+   "name": "while 退出条件可被绕过",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "有限上界 + guard 计数器"
+    ],
+    "特征": [
+     "`while` 体内 `*= 2` / `++` / `+=`，条件涉及 `Infinity` / `maxRadius` / `limit`"
+    ]
+   },
+   "keywords": [
+    "Infinity",
+    "guard",
+    "limit",
+    "maxRadius",
+    "while",
+    "绕过",
+    "退出条件可被"
+   ],
+   "body": "- **正确**：有限上界 + guard 计数器\n- **特征**：`while` 体内 `*= 2` / `++` / `+=`，条件涉及 `Infinity` / `maxRadius` / `limit`",
+   "tokens": 47,
+   "xrefs": []
+  },
+  {
+   "id": "N-08",
+   "level": "P0",
+   "name": "while 做角度 / 周期归一化",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "**常数时间取模**并先拒非有限值"
+    ],
+    "特征": [
+     "`while` 体内 `- 360` / `- 2*Math.PI`（单语句与带大括号两种形态都检）"
+    ],
+    "失效": [
+     "`diff` 为 `Infinity` 时减 360 后仍为 `Infinity` → **永不退出**"
+    ]
+   },
+   "keywords": [
+    "Math",
+    "while",
+    "做角度",
+    "周期归一化"
+   ],
+   "body": "- **正确**：**常数时间取模**并先拒非有限值\n  ```typescript\n  const norm = (a: number) => { const r = a % (Math.PI * 2); return r < 0 ? r + Math.PI * 2 : r; };\n  ```\n- **特征**：`while` 体内 `- 360` / `- 2*Math.PI`（单语句与带大括号两种形态都检）\n- **失效**：`diff` 为 `Infinity` 时减 360 后仍为 `Infinity` → **永不退出**",
+   "tokens": 123,
+   "xrefs": []
+  },
+  {
+   "id": "N-09",
+   "level": "P0",
+   "name": "循环变量可为 ±Infinity",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "上下界都收口为有限值"
+    ],
+    "特征": [
+     "`for (let i = <非字面量>; i < <非字面量>; ...)` 附近无收口"
+    ],
+    "失效": [
+     "`-Infinity + 1` 仍为 `-Infinity`"
+    ],
+    "与 N-06 区别": [
+     "N-06 看上界，N-09 **同时看起始值**"
+    ]
+   },
+   "keywords": [
+    "for",
+    "let",
+    "循环变量可为"
+   ],
+   "body": "- **正确**：上下界都收口为有限值\n- **特征**：`for (let i = <非字面量>; i < <非字面量>; ...)` 附近无收口\n- **失效**：`-Infinity + 1` 仍为 `-Infinity`\n- **与 N-06 区别**：N-06 看上界，N-09 **同时看起始值**",
+   "tokens": 92,
+   "xrefs": [
+    "N-06"
+   ]
+  },
+  {
+   "id": "N-10",
+   "level": "P0",
+   "name": "收口函数缺 typeof 校验",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`typeof v === 'number' ? ... : def`"
+    ],
+    "特征": [
+     "`clampNum`/`numOr`/`needCount` 体内无 `typeof ... === 'number'`"
+    ],
+    "为什么": [
+     "`Number(null)` → 0，缺失配置会**静默变成合法的 0 或下界**，"
+    ],
+    "确认": [
+     "先判类型再判有限性；若在 `Number.isFinite` 之前已做了 `Number(v)` 转换则无效"
+    ]
+   },
+   "keywords": [
+    "Number",
+    "Number.isFinite",
+    "clampNum",
+    "def",
+    "needCount",
+    "numOr",
+    "number",
+    "typeof",
+    "收口函数缺",
+    "校验"
+   ],
+   "body": "- **正确**：`typeof v === 'number' ? ... : def`\n- **特征**：`clampNum`/`numOr`/`needCount` 体内无 `typeof ... === 'number'`\n- **为什么**：`Number(null)` → 0，缺失配置会**静默变成合法的 0 或下界**，\n  改变超时/容量/速度语义且不报错\n- **确认**：先判类型再判有限性；若在 `Number.isFinite` 之前已做了 `Number(v)` 转换则无效",
+   "tokens": 140,
+   "xrefs": []
+  },
+  {
+   "id": "N-11",
+   "level": "P0",
+   "name": "Infinity 当哨兵",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "空集用 `length === 0` 或 `null`"
+    ],
+    "特征": [
+     "`= -Infinity` / `=== Infinity`"
+    ],
+    "为什么": [
+     "±Infinity 是**合法数值**，当哨兵会把含合法极值的集合静默替换为 fallback"
+    ]
+   },
+   "keywords": [
+    "Infinity",
+    "length",
+    "null",
+    "当哨兵"
+   ],
+   "body": "- **正确**：空集用 `length === 0` 或 `null`\n- **特征**：`= -Infinity` / `=== Infinity`\n- **为什么**：±Infinity 是**合法数值**，当哨兵会把含合法极值的集合静默替换为 fallback",
+   "tokens": 76,
+   "xrefs": []
+  },
+  {
+   "id": "N-12",
+   "level": "P0",
+   "name": "Math.max/min 当守卫",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`clampNum` 或先 `Number.isFinite`"
+    ],
+    "特征": [
+     "`Math.max(数字, 变量)`"
+    ],
+    "失效矩阵": [
+     ""
+    ]
+   },
+   "keywords": [
+    "Math.max",
+    "Number.isFinite",
+    "clampNum",
+    "当守卫"
+   ],
+   "body": "- **正确**：`clampNum` 或先 `Number.isFinite`\n- **特征**：`Math.max(数字, 变量)`\n- **失效矩阵**：\n  ```\n  Math.max(1, NaN)       → NaN        （守卫失效）\n  Math.max(1, Infinity)  → Infinity   （当数组尺寸会崩）\n  Math.max(1, -5)        → 1          （只有这个符合预期）\n  ```",
+   "tokens": 99,
+   "xrefs": []
+  },
+  {
+   "id": "N-13",
+   "level": "P1",
+   "name": "slice / splice 负数参数",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "数量参数先转有限非负整数"
+    ],
+    "特征": [
+     "`.slice(` / `.splice(` 参数含变量"
+    ],
+    "失效": [
+     "`slice(0, -1)` 不是「取 0 个」而是「去掉最后 1 个」，负数配置会反转语义"
+    ],
+    "降级": [
+     "参数已在上游夹紧为非负 → 忽略"
+    ]
+   },
+   "keywords": [
+    "slice",
+    "splice",
+    "负数参数"
+   ],
+   "body": "- **正确**：数量参数先转有限非负整数\n- **特征**：`.slice(` / `.splice(` 参数含变量\n- **失效**：`slice(0, -1)` 不是「取 0 个」而是「去掉最后 1 个」，负数配置会反转语义\n- **降级**：参数已在上游夹紧为非负 → 忽略",
+   "tokens": 107,
+   "xrefs": []
+  },
+  {
+   "id": "N-14",
+   "level": "P0",
+   "name": "数值 op 未校验操作数类型",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "两个操作数都校验为有限 number"
+    ],
+    "特征": [
+     "`case 'add'` / `case 'mul'` 内用 `+` / `*=` 无类型校验"
+    ],
+    "失效": [
+     "`10 + '5'` → `'105'`（拼接）。`add` 是重灾区"
+    ]
+   },
+   "keywords": [
+    "add",
+    "case",
+    "mul",
+    "number",
+    "数值",
+    "未校验操作数",
+    "类型"
+   ],
+   "body": "- **正确**：两个操作数都校验为有限 number\n- **特征**：`case 'add'` / `case 'mul'` 内用 `+` / `*=` 无类型校验\n- **失效**：`10 + '5'` → `'105'`（拼接）。`add` 是重灾区",
+   "tokens": 69,
+   "xrefs": []
+  },
+  {
+   "id": "N-15",
+   "level": "P1",
+   "name": "展示层掩盖非有限值",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "不得用 `|| 0` / `?? 0` 掩盖 NaN，应显式标注或抛错"
+    ],
+    "特征": [
+     "`display` / `format` / `render` 体内有 `|| 0` / `?? 0`"
+    ],
+    "为什么有害": [
+     "一次坏输入永久污染该维度，而 UI 显示正常的 0，**故障被完全隐藏**"
+    ]
+   },
+   "keywords": [
+    "NaN",
+    "display",
+    "format",
+    "render",
+    "展示层掩盖非",
+    "有限值"
+   ],
+   "body": "- **正确**：不得用 `|| 0` / `?? 0` 掩盖 NaN，应显式标注或抛错\n- **特征**：`display` / `format` / `render` 体内有 `|| 0` / `?? 0`\n- **为什么有害**：一次坏输入永久污染该维度，而 UI 显示正常的 0，**故障被完全隐藏**",
+   "tokens": 101,
+   "xrefs": []
+  },
+  {
+   "id": "N-16",
+   "level": "P0",
+   "name": "交易 / 批量数量未校验有限正整数",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`Number.isInteger(n) && n > 0 && Number.isFinite(n)`"
+    ],
+    "特征": [
+     "`buy` / `sell` / `craft` / `pullN` / `roll` / `simulate` / `prewarm` 的数量参数无双重校验"
+    ],
+    "失效": [
+     "购买 `-2` 件 → `total = -20` → **钱包凭空增加 20、库存增加 2**，日志却记为成功"
+    ],
+    "注意": [
+     "`<= 0` 挡不住 NaN，且必须**同时查整数性**"
+    ]
+   },
+   "keywords": [
+    "Number.isFinite",
+    "Number.isInteger",
+    "buy",
+    "craft",
+    "prewarm",
+    "pullN",
+    "roll",
+    "sell",
+    "simulate",
+    "交易",
+    "批量数量未校",
+    "验有限正整数"
+   ],
+   "body": "- **正确**：`Number.isInteger(n) && n > 0 && Number.isFinite(n)`\n- **特征**：`buy` / `sell` / `craft` / `pullN` / `roll` / `simulate` / `prewarm` 的数量参数无双重校验\n- **失效**：购买 `-2` 件 → `total = -20` → **钱包凭空增加 20、库存增加 2**，日志却记为成功\n- **注意**：`<= 0` 挡不住 NaN，且必须**同时查整数性**",
+   "tokens": 126,
+   "xrefs": []
+  },
+  {
+   "id": "N-17",
+   "level": "P1",
+   "name": "位宽计算溢出",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`Math.pow(2, n) - 1`"
+    ],
+    "特征": [
+     "`1 << n` 且 `n >= 31`"
+    ]
+   },
+   "keywords": [
+    "Math.pow",
+    "位宽计算溢出"
+   ],
+   "body": "- **正确**：`Math.pow(2, n) - 1`\n- **特征**：`1 << n` 且 `n >= 31`",
+   "tokens": 21,
+   "xrefs": []
+  },
+  {
+   "id": "N-18",
+   "level": "P1",
+   "name": "除法分母无零 / NaN 防护",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`total > 0 ? v / total : 0`"
+    ],
+    "特征": [
+     "`/ scale` 等且无零判定"
+    ]
+   },
+   "keywords": [
+    "scale",
+    "total",
+    "防护",
+    "除法分母无零"
+   ],
+   "body": "- **正确**：`total > 0 ? v / total : 0`\n- **特征**：`/ scale` 等且无零判定",
+   "tokens": 28,
+   "xrefs": []
+  },
+  {
+   "id": "N-19",
+   "level": "P1",
+   "name": "硬编码时间源 / 随机源（确定性）",
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "fields": {
+    "正确": [
+     "`interface Options { readonly now?: () => number; }`；随机源构造注入 `IRandomSource`"
+    ],
+    "特征": [
+     "`Date.now()` / `performance.now()` / 裸 `Math.random()`"
+    ],
+    "降级": [
+     "已有 `now?` 注入口 → 忽略"
+    ],
+    "升级": [
+     "注释声称「只影响观感」但实际参与逻辑累积 → **P0**（错误注释会阻止修复）"
+    ],
+    "注意": [
+     "只在确实是注入口（箭头函数/函数类型声明）时才跳过，"
+    ]
+   },
+   "keywords": [
+    "Date.now",
+    "IRandomSource",
+    "Math.random",
+    "Options",
+    "interface",
+    "now",
+    "number",
+    "performance.now",
+    "readonly",
+    "硬编码时间源",
+    "确定性",
+    "随机源"
+   ],
+   "body": "- **正确**：`interface Options { readonly now?: () => number; }`；随机源构造注入 `IRandomSource`\n- **特征**：`Date.now()` / `performance.now()` / 裸 `Math.random()`\n- **降级**：已有 `now?` 注入口 → 忽略\n- **升级**：注释声称「只影响观感」但实际参与逻辑累积 → **P0**（错误注释会阻止修复）\n- **注意**：只在确实是注入口（箭头函数/函数类型声明）时才跳过，\n  `const now = Date.now();` 是硬编码取值，不算\n\n---",
+   "tokens": 179,
+   "xrefs": []
+  },
+  {
+   "id": "S-01",
+   "level": "P0",
+   "name": "隔离后能力静默失效",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "扩展层**绕过宿主上下文**直连底层 API（`@tauri-apps/api`、"
+    ],
+    "确认": [
+     "开启严格沙箱/隔离 → 该能力是否**静默**失效（无报错、无提示）"
+    ],
+    "典型": [
+     "插件直连 `@tauri-apps/api/core` 的 invoke/listen，"
+    ],
+    "定级": [
+     "P0。文档承诺「隔离切断的是直连通道，不是能力」，实际两者都被切断"
+    ]
+   },
+   "keywords": [
+    "API",
+    "api",
+    "apps",
+    "core",
+    "invoke",
+    "listen",
+    "tauri",
+    "隔离后能力静",
+    "默失效"
+   ],
+   "body": "- **判据**：扩展层**绕过宿主上下文**直连底层 API（`@tauri-apps/api`、\n  `window.parent`、`__TAURI_INTERNALS__`），而宿主提供的是 `ctx.invoke` / 桥接\n- **确认**：开启严格沙箱/隔离 → 该能力是否**静默**失效（无报错、无提示）\n- **典型**：插件直连 `@tauri-apps/api/core` 的 invoke/listen，\n  开启严格沙箱后 run_node / watch / webhook / fs_op / 读图全部失效且不提示\n- **定级**：P0。文档承诺「隔离切断的是直连通道，不是能力」，实际两者都被切断",
+   "tokens": 206,
+   "xrefs": []
+  },
+  {
+   "id": "S-02",
+   "level": "P0",
+   "name": "桥接无白名单 / 被隔离方可自授权",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "`ns[method](...args)` 动态取成员后调用，无允许列表；"
+    ],
+    "确认": [
+     "枚举该模块全部导出，找出能改写安全策略/配置的那几个（如 `savePolicy`）"
+    ],
+    "典型": [
+     "隔离插件可调用 `pluginConfig` 与 `external` 模块的任意导出 →"
+    ],
+    "修法": [
+     "方法白名单 + `hasOwnProperty` 拦原型链"
+    ],
+    "定级": [
+     "P0（权限链路的放行）"
+    ]
+   },
+   "keywords": [
+    "args",
+    "external",
+    "method",
+    "pluginConfig",
+    "savePolicy",
+    "授权",
+    "桥接无白名单",
+    "被隔离方可自"
+   ],
+   "body": "- **判据**：`ns[method](...args)` 动态取成员后调用，无允许列表；\n  或白名单里含**改写自身权限策略**的方法\n- **确认**：枚举该模块全部导出，找出能改写安全策略/配置的那几个（如 `savePolicy`）\n- **典型**：隔离插件可调用 `pluginConfig` 与 `external` 模块的任意导出 →\n  自己把外链策略改成 allow-all、把域名标成 trusted，整个外链治理形同虚设\n- **修法**：方法白名单 + `hasOwnProperty` 拦原型链\n- **定级**：P0（权限链路的放行）",
+   "tokens": 221,
+   "xrefs": []
+  },
+  {
+   "id": "S-03",
+   "level": "P1",
+   "name": "扩展读取宿主全局单例",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "插件里直接读 `window.__XXX__`（挂在**主窗口**上的运行时对象）"
+    ],
+    "确认": [
+     "该插件是同页挂载还是 iframe 沙箱。iframe → 取不到 → **静默空**"
+    ],
+    "典型": [
+     "概览页「插件总数 0」、移除按钮点了没反应（可选链不报错）"
+    ],
+    "修法": [
+     "宿主在桥接里提供 `plugins.list` / `plugins.remove`，扩展优先走桥接、"
+    ],
+    "降级": [
+     "插件是同页挂载（非 iframe）→ 忽略"
+    ]
+   },
+   "keywords": [
+    "iframe",
+    "window.__XXX__",
+    "全局单例",
+    "扩展读取宿主"
+   ],
+   "body": "- **判据**：插件里直接读 `window.__XXX__`（挂在**主窗口**上的运行时对象）\n- **确认**：该插件是同页挂载还是 iframe 沙箱。iframe → 取不到 → **静默空**\n- **典型**：概览页「插件总数 0」、移除按钮点了没反应（可选链不报错）\n- **修法**：宿主在桥接里提供 `plugins.list` / `plugins.remove`，扩展优先走桥接、\n  失败再降级直连：\n  ```js\n  if (bridge && typeof bridge.list === 'function') {\n    try { return await bridge.list(); } catch {}\n  }\n  return window.__NEXUS__?.getPlugins?.() ?? [];\n  ```\n- **降级**：插件是同页挂载（非 iframe）→ 忽略",
+   "tokens": 228,
+   "xrefs": []
+  },
+  {
+   "id": "S-04",
+   "level": "P0",
+   "name": "安全策略缺失或只覆盖部分入口",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "有多个入口（多份 HTML / 多套构建配置）但 CSP / 权限配置只写在其中一份"
+    ],
+    "确认": [
+     "逐个入口查。**注意构建工具的配置是按 JSON Merge Patch 合并而非替换**——"
+    ],
+    "典型": [
+     "主配置 `csp: null`，只有无构建入口的 HTML 里有 CSP meta → Vite 模式裸奔"
+    ]
+   },
+   "keywords": [
+    "CSP",
+    "HTML",
+    "JSON",
+    "Merge",
+    "Patch",
+    "Vite",
+    "csp",
+    "meta",
+    "null",
+    "入口",
+    "安全策略缺失",
+    "或只覆盖部分"
+   ],
+   "body": "- **判据**：有多个入口（多份 HTML / 多套构建配置）但 CSP / 权限配置只写在其中一份\n- **确认**：逐个入口查。**注意构建工具的配置是按 JSON Merge Patch 合并而非替换**——\n  主配置里的安全项在另一套配置下依然生效，反之要看清谁覆盖谁\n- **典型**：主配置 `csp: null`，只有无构建入口的 HTML 里有 CSP meta → Vite 模式裸奔",
+   "tokens": 173,
+   "xrefs": []
+  },
+  {
+   "id": "S-05",
+   "level": "P1",
+   "name": "路径黑名单未规范化",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "危险路径用**字符串比较**（小写化 + 去尾斜杠 + `==` / `starts_with`），"
+    ],
+    "确认": [
+     "构造 `/etc/..`、`C:\\Windows\\..`、含 `./` 的变体，看是否绕过"
+    ],
+    "定级": [
+     "保护的是删除/写入这类不可逆操作 → **P0**"
+    ],
+    "降级": [
+     "保护的是可逆操作 → P2"
+    ]
+   },
+   "keywords": [
+    "Windows",
+    "etc",
+    "starts_with",
+    "规范化",
+    "路径黑名单未"
+   ],
+   "body": "- **判据**：危险路径用**字符串比较**（小写化 + 去尾斜杠 + `==` / `starts_with`），\n  未做 `canonicalize` / 路径归一\n- **确认**：构造 `/etc/..`、`C:\\Windows\\..`、含 `./` 的变体，看是否绕过\n- **定级**：保护的是删除/写入这类不可逆操作 → **P0**\n- **降级**：保护的是可逆操作 → P2",
+   "tokens": 131,
+   "xrefs": []
+  },
+  {
+   "id": "S-06",
+   "level": "P0",
+   "name": "命令字符串拼接 / 可执行文件无白名单",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "`Command::new(\"cmd\").args([\"/c\", \"start\", \"\", url])` 把外部输入喂给 shell；"
+    ],
+    "确认": [
+     "外部输入含 `&` / `|` 时是否被 shell 二次解析"
+    ],
+    "修法": [
+     "改用官方 opener / 直接 spawn 并传参数数组；路径白名单 + 用户确认"
+    ]
+   },
+   "keywords": [
+    "Command",
+    "args",
+    "cmd",
+    "new",
+    "shell",
+    "start",
+    "url",
+    "可执行文件无",
+    "命令字符串拼",
+    "白名单"
+   ],
+   "body": "- **判据**：`Command::new(\"cmd\").args([\"/c\", \"start\", \"\", url])` 把外部输入喂给 shell；\n  或可执行文件完整路径来自用户配置且无白名单\n- **确认**：外部输入含 `&` / `|` 时是否被 shell 二次解析\n- **修法**：改用官方 opener / 直接 spawn 并传参数数组；路径白名单 + 用户确认",
+   "tokens": 133,
+   "xrefs": []
+  },
+  {
+   "id": "S-07",
+   "level": "P1",
+   "name": "URL / 协议未校验",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "外部传入的 URL 直接用于导航、iframe src、插件入口"
+    ],
+    "确认": [
+     "是否校验协议白名单（http/https/mailto）。`javascript:` / `file:` 是否可达"
+    ],
+    "典型": [
+     "插件入口填外域地址 → 代码来自网络，且能访问宿主数据"
+    ]
+   },
+   "keywords": [
+    "URL",
+    "file",
+    "http",
+    "https",
+    "iframe",
+    "javascript",
+    "mailto",
+    "src",
+    "协议未校验"
+   ],
+   "body": "- **判据**：外部传入的 URL 直接用于导航、iframe src、插件入口\n- **确认**：是否校验协议白名单（http/https/mailto）。`javascript:` / `file:` 是否可达\n- **典型**：插件入口填外域地址 → 代码来自网络，且能访问宿主数据",
+   "tokens": 107,
+   "xrefs": []
+  },
+  {
+   "id": "S-08",
+   "level": "P1",
+   "name": "凭据加密密钥可由同存储推导",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "「免口令」模式的密钥素材（设备特征、随机盐）**全部**存在同一个可被读出的存储里"
+    ],
+    "确认": [
+     "攻击者拿到存储文件后能否离线复现密钥。能 → 加密只防「随手打开 DevTools 看一眼」"
+    ],
+    "典型": [
+     "`deviceSalt` 也存在 localStorage → 整条链可离线复现"
+    ],
+    "修法": [
+     "盐由原生侧生成并存在应用数据目录；或首次使用时引导选口令模式"
+    ],
+    "降级": [
+     "文档已明确说明该模式的防护边界 → P2"
+    ]
+   },
+   "keywords": [
+    "DevTools",
+    "deviceSalt",
+    "localStorage",
+    "凭据加密密钥",
+    "可由同存储推"
+   ],
+   "body": "- **判据**：「免口令」模式的密钥素材（设备特征、随机盐）**全部**存在同一个可被读出的存储里\n- **确认**：攻击者拿到存储文件后能否离线复现密钥。能 → 加密只防「随手打开 DevTools 看一眼」\n- **典型**：`deviceSalt` 也存在 localStorage → 整条链可离线复现\n- **修法**：盐由原生侧生成并存在应用数据目录；或首次使用时引导选口令模式\n- **降级**：文档已明确说明该模式的防护边界 → P2",
+   "tokens": 215,
+   "xrefs": []
+  },
+  {
+   "id": "S-10",
+   "level": "P0",
+   "name": "敏感数据进日志 / 遥测",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "日志、埋点、错误上报的字段里出现凭据或 PII ——"
+    ],
+    "确认": [
+     "该日志是否落盘或上报到第三方。**落盘即长期泄露**，"
+    ],
+    "典型": [
+     "`logger.info(\"user login\", extra={\"password\": pw})` ——"
+    ],
+    "修法": [
+     "脱敏（只留前 4 位 / 哈希）、或整个字段移出日志"
+    ],
+    "注意": [
+     "**关键字名本身也要查**。`logger.info(\"login\", password=pw)` 里"
+    ],
+    "各语言形态": [
+     "Python 见 `p-python` PY-06"
+    ]
+   },
+   "keywords": [
+    "PII",
+    "Python",
+    "extra",
+    "logger.info",
+    "login",
+    "password",
+    "python",
+    "user",
+    "敏感数据进日",
+    "遥测"
+   ],
+   "body": "- **判据**：日志、埋点、错误上报的字段里出现凭据或 PII ——\n  `password` / `token` / `secret` / `api_key` / `authorization` / `session_id` /\n  `身份证` / `手机号` / `邮箱`\n- **确认**：该日志是否落盘或上报到第三方。**落盘即长期泄露**，\n  比内存泄露更严重——日志会被采集、备份、同步到日志平台，删除成本极高\n- **典型**：`logger.info(\"user login\", extra={\"password\": pw})` ——\n  排障时确实方便，但整条凭据进了日志系统\n- **修法**：脱敏（只留前 4 位 / 哈希）、或整个字段移出日志\n- **注意**：**关键字名本身也要查**。`logger.info(\"login\", password=pw)` 里\n  敏感信息在 **arg** 上而不在 value 上，只看变量名的扫描器会漏\n- **各语言形态**：Python 见 `p-python` PY-06",
+   "tokens": 315,
+   "xrefs": [
+    "PY-06"
+   ]
+  },
+  {
+   "id": "S-11",
+   "level": "P0",
+   "name": "行级 / 对象级授权缺失（越权访问）",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "数据访问路径只在入口做一次身份校验，**后续每次取数不重复执行**"
+    ],
+    "确认": [
+     "把 URL 里的资源 id 换成别人的，看能否读到。能 → 水平越权"
+    ],
+    "典型": [
+     "`GET /api/orders/{id}` 只校验\"已登录\"，没校验\"这个订单属于当前用户\" →"
+    ],
+    "修法": [
+     "在数据访问层统一加租户/归属过滤，而不是在每个 handler 里各写一遍"
+    ],
+    "为什么易漏": [
+     "入口鉴权确实存在，测试也通过——没人会想到换 id"
+    ]
+   },
+   "keywords": [
+    "GET",
+    "URL",
+    "api",
+    "orders",
+    "对象级授权缺",
+    "行级",
+    "越权访问"
+   ],
+   "body": "- **判据**：数据访问路径只在入口做一次身份校验，**后续每次取数不重复执行**\n  tenant / owner 过滤\n- **确认**：把 URL 里的资源 id 换成别人的，看能否读到。能 → 水平越权\n- **典型**：`GET /api/orders/{id}` 只校验\"已登录\"，没校验\"这个订单属于当前用户\" →\n  改个 id 就能看别人的订单\n- **修法**：在数据访问层统一加租户/归属过滤，而不是在每个 handler 里各写一遍\n- **为什么易漏**：入口鉴权确实存在，测试也通过——没人会想到换 id",
+   "tokens": 238,
+   "xrefs": []
+  },
+  {
+   "id": "S-12",
+   "level": "P1",
+   "name": "密钥无轮换 / 撤销能力",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "密钥写死在配置或代码里，没有版本号、没有轮换入口、没有吊销机制"
+    ],
+    "确认": [
+     "密钥泄露后，能否在不发版的情况下让它失效。不能 → 事故响应时间以\"天\"计"
+    ],
+    "降级": [
+     "文档已明确说明该模式的防护边界与轮换流程 → P2"
+    ]
+   },
+   "keywords": [
+    "密钥无轮换",
+    "撤销能力"
+   ],
+   "body": "- **判据**：密钥写死在配置或代码里，没有版本号、没有轮换入口、没有吊销机制\n- **确认**：密钥泄露后，能否在不发版的情况下让它失效。不能 → 事故响应时间以\"天\"计\n- **降级**：文档已明确说明该模式的防护边界与轮换流程 → P2",
+   "tokens": 135,
+   "xrefs": []
+  },
+  {
+   "id": "S-09",
+   "level": "P1",
+   "name": "隔离态自报数据未被接上",
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "fields": {
+    "判据": [
+     "宿主在隔离态下采样不到子文档，设计了「子方自报 X」机制，"
+    ],
+    "确认": [
+     "从自报消息的接收处一路跟到消费处，看字段是否传到底"
+    ],
+    "典型": [
+     "`reportedBase` 自报了，但 `adaptInput` 构造时没写进去 →"
+    ],
+    "定级": [
+     "P0（静默且对外承诺失效）"
+    ]
+   },
+   "keywords": [
+    "adaptInput",
+    "reportedBase",
+    "据未被接上",
+    "隔离态自报数"
+   ],
+   "body": "- **判据**：宿主在隔离态下采样不到子文档，设计了「子方自报 X」机制，\n  但宿主构造下游入参时**没有带上 X 字段**\n- **确认**：从自报消息的接收处一路跟到消费处，看字段是否传到底\n- **典型**：`reportedBase` 自报了，但 `adaptInput` 构造时没写进去 →\n  判定基调一致 → 不反转 → 深色面板上一块刺眼的白，**且不报错**\n- **定级**：P0（静默且对外承诺失效）\n\n---",
+   "tokens": 198,
+   "xrefs": []
+  },
+  {
+   "id": "T-02",
+   "level": "P2",
+   "name": "变更监听器解绑失效",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "注册时包了箭头函数 `addEventListener(E, e => fn(...))`，",
+     "能力探测失败后把 `null` 写进「已缓存」标志，后续永不重试"
+    ],
+    "确认": [
+     "看 `onXxxChange` 的返回值是否真能停止回调",
+     "该能力是否可能在初始化之后才就绪（异步注入、延迟加载）。是 → **P1**"
+    ],
+    "定级": [
+     "每次调用累积一个监听器，且回调里有重活 → **P1**"
+    ],
+    "典型": [
+     "`if (_cache !== undefined) return _cache;` 且 `_cache` 被赋过 null"
+    ]
+   },
+   "keywords": [
+    "_cache",
+    "addEventListener",
+    "null",
+    "onXxxChange",
+    "return",
+    "undefined",
+    "变更监听器解",
+    "绑失效"
+   ],
+   "body": "- **判据**：注册时包了箭头函数 `addEventListener(E, e => fn(...))`，\n  解绑时却传原始 `fn` → 永远摘不掉\n- **确认**：看 `onXxxChange` 的返回值是否真能停止回调\n- **定级**：每次调用累积一个监听器，且回调里有重活 → **P1**\n\n### T-03 (P2/P1) 降级后不重试\n- **判据**：能力探测失败后把 `null` 写进「已缓存」标志，后续永不重试\n- **确认**：该能力是否可能在初始化之后才就绪（异步注入、延迟加载）。是 → **P1**\n- **典型**：`if (_cache !== undefined) return _cache;` 且 `_cache` 被赋过 null",
+   "tokens": 235,
+   "xrefs": [
+    "T-03"
+   ]
+  },
+  {
+   "id": "T-04",
+   "level": "P2",
+   "name": "快照不随状态更新",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "上下文对象在挂载时拷贝一份状态快照（如 `theme`），状态变更后不更新"
+    ],
+    "确认": [
+     "看消费方是否**被迫自己另开监听器绕过**（**这是强信号**）"
+    ],
+    "典型": [
+     "插件为了拿主题变更自己再注册一个 message 监听器，与 SDK 内置监听器并存"
+    ]
+   },
+   "keywords": [
+    "SDK",
+    "message",
+    "theme",
+    "快照不随状态",
+    "更新"
+   ],
+   "body": "- **判据**：上下文对象在挂载时拷贝一份状态快照（如 `theme`），状态变更后不更新\n- **确认**：看消费方是否**被迫自己另开监听器绕过**（**这是强信号**）\n- **典型**：插件为了拿主题变更自己再注册一个 message 监听器，与 SDK 内置监听器并存",
+   "tokens": 136,
+   "xrefs": []
+  },
+  {
+   "id": "T-05",
+   "level": "P2",
+   "name": "内联样式压过后续动态注入",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "首屏/兜底逻辑用 `element.style.xxx = v` 而非注入 `<style>`"
+    ],
+    "确认": [
+     "内联样式优先级最高，后续主题系统写 CSS 变量覆盖不住"
+    ],
+    "典型": [
+     "首屏防闪用内联 `background` → 切到浅色主题后底色卡在深色那一版"
+    ],
+    "降级": [
+     "该值后续不会再变 → 忽略"
+    ]
+   },
+   "keywords": [
+    "CSS",
+    "background",
+    "element.style.xxx",
+    "style",
+    "内联样式压过",
+    "后续动态注入"
+   ],
+   "body": "- **判据**：首屏/兜底逻辑用 `element.style.xxx = v` 而非注入 `<style>`\n- **确认**：内联样式优先级最高，后续主题系统写 CSS 变量覆盖不住\n- **典型**：首屏防闪用内联 `background` → 切到浅色主题后底色卡在深色那一版\n- **降级**：该值后续不会再变 → 忽略",
+   "tokens": 134,
+   "xrefs": []
+  },
+  {
+   "id": "T-06",
+   "level": "P1",
+   "name": "状态字段只有置 true 没有复位",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {},
+   "keywords": [
+    "没有复位",
+    "状态字段只有"
+   ],
+   "body": "（与 `s-lifecycle` L-10 同源，此处从「状态机是否正确」角度记一次；\n按实际影响定级，不要两边都报。）",
+   "tokens": 53,
+   "xrefs": [
+    "L-10"
+   ]
+  },
+  {
+   "id": "T-07",
+   "level": "P2",
+   "name": "配置项默认值与文档不符",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {},
+   "keywords": [
+    "与文档不符",
+    "配置项默认值"
+   ],
+   "body": "（与 `s-contracts` C-03 同源。若已按 C-03 报，此处不重复。）",
+   "tokens": 25,
+   "xrefs": [
+    "C-03"
+   ]
+  },
+  {
+   "id": "T-08",
+   "level": "P1",
+   "name": "配置迁移 / 版本兼容缺失",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "持久化结构变更但无 version 字段、无迁移路径"
+    ],
+    "确认": [
+     "老版本数据加载后是否静默产生错误结构（而非报错）"
+    ],
+    "定级": [
+     "静默损坏 → P0；报错（能被发现） → P1"
+    ]
+   },
+   "keywords": [
+    "version",
+    "版本兼容缺失",
+    "配置迁移"
+   ],
+   "body": "- **判据**：持久化结构变更但无 version 字段、无迁移路径\n- **确认**：老版本数据加载后是否静默产生错误结构（而非报错）\n- **定级**：静默损坏 → P0；报错（能被发现） → P1",
+   "tokens": 93,
+   "xrefs": []
+  },
+  {
+   "id": "T-09",
+   "level": "P2",
+   "name": "状态写入非原子（部分成功）",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {},
+   "keywords": [
+    "状态写入非原",
+    "部分成功"
+   ],
+   "body": "（与 `s-atomicity` A-01 同源。状态机跨多个字段时优先归 `s-atomicity`。）",
+   "tokens": 32,
+   "xrefs": [
+    "A-01"
+   ]
+  },
+  {
+   "id": "T-10",
+   "level": "P1",
+   "name": "主题/配置快照缺项导致能力失效",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "快照清单遗漏了实际使用的变量/字段（同 `s-contracts` C-10）"
+    ],
+    "后果": [
+     "该变量无法被覆盖 + 切换时不会被清理（残留旧值）"
+    ],
+    "典型": [
+     "`THEME_VARS` 两份清单已分叉 → 插件拿到的主题快照缺一大半变量"
+    ]
+   },
+   "keywords": [
+    "THEME_VARS",
+    "contracts",
+    "主题",
+    "导致能力失效",
+    "配置快照缺项"
+   ],
+   "body": "- **判据**：快照清单遗漏了实际使用的变量/字段（同 `s-contracts` C-10）\n- **后果**：该变量无法被覆盖 + 切换时不会被清理（残留旧值）\n- **典型**：`THEME_VARS` 两份清单已分叉 → 插件拿到的主题快照缺一大半变量",
+   "tokens": 114,
+   "xrefs": [
+    "C-10"
+   ]
+  },
+  {
+   "id": "T-11",
+   "level": "P1",
+   "name": "基线快照维度不全（只记内容不记元数据）",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "比对基线只存内容哈希（blob sha / 内容 md5），不存 mode、类型、时间戳"
+    ],
+    "确认": [
+     "**只改元数据、不改内容**（如 `chmod +x`）时，比对判为「一致」→ 跳过"
+    ],
+    "典型": [
+     "`if lsha == rsha: continue  # 内容已一致，跳过` ——"
+    ],
+    "修法": [
+     "比对改用元组 `(mode, sha)`；基线结构变更时加 `version` 字段并留迁移路径"
+    ],
+    "定级": [
+     "变更静默丢失 → P1；若丢的是权限/可执行性这类安全相关属性 → **P0**"
+    ]
+   },
+   "keywords": [
+    "blob",
+    "chmod",
+    "continue",
+    "lsha",
+    "md5",
+    "mode",
+    "rsha",
+    "sha",
+    "不全",
+    "元数据",
+    "只记内容不记",
+    "基线快照维度"
+   ],
+   "body": "- **判据**：比对基线只存内容哈希（blob sha / 内容 md5），不存 mode、类型、时间戳\n- **确认**：**只改元数据、不改内容**（如 `chmod +x`）时，比对判为「一致」→ 跳过\n  → 该变更永远推不上去**且不报错**\n- **典型**：`if lsha == rsha: continue  # 内容已一致，跳过` ——\n  用户改了可执行位，脚本说「已一致」，远端 mode 始终不变\n- **修法**：比对改用元组 `(mode, sha)`；基线结构变更时加 `version` 字段并留迁移路径\n- **定级**：变更静默丢失 → P1；若丢的是权限/可执行性这类安全相关属性 → **P0**",
+   "tokens": 247,
+   "xrefs": []
+  },
+  {
+   "id": "T-12",
+   "level": "P1",
+   "name": "自污染输入（回读自身上一次的产出作默认值）",
+   "scene": "s-state",
+   "file": "s-state.md",
+   "fields": {
+    "判据": [
+     "程序把「自己上一次写入的值」读回来当默认输入，形成闭环"
+    ],
+    "确认": [
+     "连跑两轮，看第二轮的输入是否等于第一轮的输出。是 → 值被固化"
+    ],
+    "典型": [
+     "推送脚本用 `git log -1 --format=%B` 取提交信息，"
+    ],
+    "修法": [
+     "优先级必须是「显式入参 > 交互输入 > 自动生成」，"
+    ],
+    "注意": [
+     "这类缺陷**第一轮表现正常**，只在第二次起暴露，手工测试极易漏"
+    ]
+   },
+   "keywords": [
+    "format",
+    "git",
+    "log",
+    "回读自身上一",
+    "次的产出作默",
+    "自污染输入",
+    "认值"
+   ],
+   "body": "- **判据**：程序把「自己上一次写入的值」读回来当默认输入，形成闭环\n- **确认**：连跑两轮，看第二轮的输入是否等于第一轮的输出。是 → 值被固化\n- **典型**：推送脚本用 `git log -1 --format=%B` 取提交信息，\n  而它自己在推送成功后会补一个同信息的 commit →\n  **从第二次起所有提交信息完全相同**，且没人报错\n- **修法**：优先级必须是「显式入参 > 交互输入 > 自动生成」，\n  且自动生成**不得回读自身产出**（用文件清单等外部事实兜底）\n- **注意**：这类缺陷**第一轮表现正常**，只在第二次起暴露，手工测试极易漏\n\n---",
+   "tokens": 296,
+   "xrefs": []
+  },
+  {
+   "id": "D-01",
+   "level": "P0",
+   "name": "外部键查表命中 `Object.prototype`",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "`new Map()` / `Object.create(null)` / `Object.hasOwn(T, k)`"
+    ],
+    "特征": [
+     "`TABLE[k]` 或 `k in TABLE`"
+    ],
+    "危险键": [
+     "`toString` / `constructor` / `__proto__` / `valueOf` / `hasOwnProperty`"
+    ],
+    "确认": [
+     "key 是否可能来自外部输入（存档、网络、配置）"
+    ]
+   },
+   "keywords": [
+    "Map",
+    "Object.create",
+    "Object.hasOwn",
+    "TABLE",
+    "key",
+    "new",
+    "null",
+    "外部键查表命"
+   ],
+   "body": "- **正确**：`new Map()` / `Object.create(null)` / `Object.hasOwn(T, k)`\n- **特征**：`TABLE[k]` 或 `k in TABLE`\n- **危险键**：`toString` / `constructor` / `__proto__` / `valueOf` / `hasOwnProperty`\n- **确认**：key 是否可能来自外部输入（存档、网络、配置）",
+   "tokens": 87,
+   "xrefs": []
+  },
+  {
+   "id": "D-02",
+   "level": "P1",
+   "name": "用 `{}` 字面量累加计数",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "`new Map<string, number>()`"
+    ],
+    "特征": [
+     "`const x = {}` 后 `x[key] +=`"
+    ],
+    "失效": [
+     "key 为 `__proto__` 时丢失"
+    ]
+   },
+   "keywords": [
+    "Map",
+    "const",
+    "key",
+    "new",
+    "number",
+    "string",
+    "字面量累加计"
+   ],
+   "body": "- **正确**：`new Map<string, number>()`\n- **特征**：`const x = {}` 后 `x[key] +=`\n- **失效**：key 为 `__proto__` 时丢失",
+   "tokens": 40,
+   "xrefs": []
+  },
+  {
+   "id": "D-03",
+   "level": "P1",
+   "name": "合并外部对象触发 `__proto__` setter",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "过滤 `__proto__` / `constructor` / `prototype` 后再合并"
+    ],
+    "特征": [
+     "`Object.assign(` / `...spread` 涉及 JSON / import / state"
+    ]
+   },
+   "keywords": [
+    "JSON",
+    "Object.assign",
+    "__proto__",
+    "constructor",
+    "import",
+    "prototype",
+    "spread",
+    "state",
+    "合并外部对象",
+    "触发"
+   ],
+   "body": "- **正确**：过滤 `__proto__` / `constructor` / `prototype` 后再合并\n- **特征**：`Object.assign(` / `...spread` 涉及 JSON / import / state",
+   "tokens": 45,
+   "xrefs": []
+  },
+  {
+   "id": "D-04",
+   "level": "P0",
+   "name": "路径写入未过滤危险段（原型污染）",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "解析后拒绝 `__proto__` / `prototype` / `constructor` 段，只在自有容器写入"
+    ],
+    "特征": [
+     "（三种写法都要覆盖）："
+    ],
+    "为什么": [
+     "不可信存档/网络差量可**改写进程级对象行为**"
+    ],
+    "注意": [
+     "只扫 split 会漏掉正则实现"
+    ]
+   },
+   "keywords": [
+    "__proto__",
+    "constructor",
+    "prototype",
+    "原型污染",
+    "滤危险段",
+    "路径写入未过"
+   ],
+   "body": "- **正确**：解析后拒绝 `__proto__` / `prototype` / `constructor` 段，只在自有容器写入\n- **特征**（三种写法都要覆盖）：\n  ① `str.split('.')` ② 正则 `/([^.[\\]]+)|\\[(\\d+)\\]/g` ③ `parsePath` 类函数\n- **为什么**：不可信存档/网络差量可**改写进程级对象行为**\n- **注意**：只扫 split 会漏掉正则实现",
+   "tokens": 134,
+   "xrefs": []
+  },
+  {
+   "id": "D-05",
+   "level": "P0",
+   "name": "批量删除未降序",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "同一父数组多个索引必须**按索引降序** splice"
+    ],
+    "特征": [
+     "循环内 `splice` 且上下文无 `sort` / `reverse`"
+    ],
+    "失效": [
+     "`['a','b','c']` 删 [1] 与 [2]，先删 1 后原 [2] 移到 [1]，"
+    ],
+    "注意": [
+     "**按路径深度排序不足以处理同层多删**"
+    ]
+   },
+   "keywords": [
+    "reverse",
+    "sort",
+    "splice",
+    "批量删除未降"
+   ],
+   "body": "- **正确**：同一父数组多个索引必须**按索引降序** splice\n- **特征**：循环内 `splice` 且上下文无 `sort` / `reverse`\n- **失效**：`['a','b','c']` 删 [1] 与 [2]，先删 1 后原 [2] 移到 [1]，\n  结果 `['a','c']` 而非 `['a']`\n- **注意**：**按路径深度排序不足以处理同层多删**",
+   "tokens": 124,
+   "xrefs": []
+  },
+  {
+   "id": "D-06",
+   "level": "P0",
+   "name": "路径协议不可逆",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "JSON Pointer（RFC 6901）或带转义 token 数组"
+    ],
+    "特征": [
+     "路径解析 + patch 应用同时存在"
+    ],
+    "失效": [
+     "`{'a.b':1}` 往返一次变成 `{'a.b':1, a:{b:2}}`，"
+    ]
+   },
+   "keywords": [
+    "JSON",
+    "Pointer",
+    "RFC",
+    "patch",
+    "token",
+    "路径协议不可"
+   ],
+   "body": "- **正确**：JSON Pointer（RFC 6901）或带转义 token 数组\n- **特征**：路径解析 + patch 应用同时存在\n- **失效**：`{'a.b':1}` 往返一次变成 `{'a.b':1, a:{b:2}}`，\n  合法 JSON 键被静默改造成另一棵树",
+   "tokens": 87,
+   "xrefs": []
+  },
+  {
+   "id": "D-07",
+   "level": "P0",
+   "name": "复合 key 未编码",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "长度前缀编码/转义，或结构化 tuple / 嵌套 Map"
+    ],
+    "特征": [
+     "`join('|')` 拼 key 或模板字符串 `${a},${b}`"
+    ],
+    "失效": [
+     "`{a:'1,b=2'}` 与 `{a:'1', b:'2'}` 生成同一 key →"
+    ]
+   },
+   "keywords": [
+    "Map",
+    "join",
+    "key",
+    "tuple",
+    "复合",
+    "未编码"
+   ],
+   "body": "- **正确**：长度前缀编码/转义，或结构化 tuple / 嵌套 Map\n- **特征**：`join('|')` 拼 key 或模板字符串 `${a},${b}`\n- **失效**：`{a:'1,b=2'}` 与 `{a:'1', b:'2'}` 生成同一 key →\n  两个维度写入同一项，数值静默合并",
+   "tokens": 97,
+   "xrefs": []
+  },
+  {
+   "id": "D-08",
+   "level": "P0",
+   "name": "TypedArray / 大数组尺寸未收口",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "有限正整数 + **总元素量上限**"
+    ],
+    "特征": [
+     "`new Array(x)` / `new Float32Array(x)`，x 非字面量且附近无 clamp"
+    ],
+    "为什么 P0": [
+     "错误不在 API 边界报出，而是传导到底层 `RangeError` 或瞬时 OOM，"
+    ],
+    "特别检查": [
+     "宽高相乘（两个都合法但乘积极大）"
+    ]
+   },
+   "keywords": [
+    "Array",
+    "Float32Array",
+    "clamp",
+    "new",
+    "大数组尺寸未",
+    "收口"
+   ],
+   "body": "- **正确**：有限正整数 + **总元素量上限**\n- **特征**：`new Array(x)` / `new Float32Array(x)`，x 非字面量且附近无 clamp\n- **为什么 P0**：错误不在 API 边界报出，而是传导到底层 `RangeError` 或瞬时 OOM，\n  **诊断信息完全指向不了配置字段**\n- **特别检查**：宽高相乘（两个都合法但乘积极大）",
+   "tokens": 144,
+   "xrefs": []
+  },
+  {
+   "id": "D-09",
+   "level": "P1",
+   "name": "惰性删除 size 语义不一致",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "维护有效计数，`remove` 幂等"
+    ],
+    "特征": [
+     "`LazyHeap` / tombstone + `get size` / `get isEmpty`"
+    ],
+    "失效": [
+     "`size` 返回物理条目数但 `pop()` 返回 undefined →"
+    ]
+   },
+   "keywords": [
+    "LazyHeap",
+    "get",
+    "isEmpty",
+    "remove",
+    "size",
+    "tombstone",
+    "惰性删除",
+    "语义不一致"
+   ],
+   "body": "- **正确**：维护有效计数，`remove` 幂等\n- **特征**：`LazyHeap` / tombstone + `get size` / `get isEmpty`\n- **失效**：`size` 返回物理条目数但 `pop()` 返回 undefined →\n  以 isEmpty 驱动的循环与 pop 不一致",
+   "tokens": 83,
+   "xrefs": []
+  },
+  {
+   "id": "D-10",
+   "level": "P0",
+   "name": "分桶不回收空桶",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "删除元素后若 `bucket.size === 0` 同步删 Map key"
+    ],
+    "特征": [
+     "`new Map()` 分桶字段有 `.delete(` 但全文无 `.size === 0`"
+    ],
+    "为什么 P0": [
+     "开放世界持续移动会**长期积累空桶**，难以察觉的内存泄漏"
+    ],
+    "注意与 D-11 是反向同类": [
+     "D-10 删元素不删空桶，D-11 删桶不清内容"
+    ]
+   },
+   "keywords": [
+    "Map",
+    "bucket.size",
+    "delete",
+    "key",
+    "new",
+    "size",
+    "分桶不回收空"
+   ],
+   "body": "- **正确**：删除元素后若 `bucket.size === 0` 同步删 Map key\n- **特征**：`new Map()` 分桶字段有 `.delete(` 但全文无 `.size === 0`\n- **为什么 P0**：开放世界持续移动会**长期积累空桶**，难以察觉的内存泄漏\n- **注意与 D-11 是反向同类**：D-10 删元素不删空桶，D-11 删桶不清内容",
+   "tokens": 135,
+   "xrefs": [
+    "D-11"
+   ]
+  },
+  {
+   "id": "D-11",
+   "level": "P1",
+   "name": "容器摘除未清内容",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "删除 `Map<K, Set<V>>` 条目时先 `set.clear()`；"
+    ],
+    "特征": [
+     "`_map.delete(k)` / `map.clear()` 附近无 `clear()`"
+    ],
+    "确认": [
+     "**是否存在闭包持有容器内条目**（`on()` 返回的取消函数、"
+    ],
+    "降级": [
+     "摘除时容器已空（同行有 `.size === 0` 判断）→ 忽略"
+    ]
+   },
+   "keywords": [
+    "Map",
+    "Set",
+    "_map.delete",
+    "clear",
+    "map.clear",
+    "set.clear",
+    "内容",
+    "容器摘除未清"
+   ],
+   "body": "- **正确**：删除 `Map<K, Set<V>>` 条目时先 `set.clear()`；\n  `map.clear()` 前先遍历 clear 各内部容器\n- **特征**：`_map.delete(k)` / `map.clear()` 附近无 `clear()`\n- **确认**：**是否存在闭包持有容器内条目**（`on()` 返回的取消函数、\n  暴露迭代器、直接返回容器）—— 无持有途径则 delete 后可 GC，是误报\n- **降级**：摘除时容器已空（同行有 `.size === 0` 判断）→ 忽略",
+   "tokens": 168,
+   "xrefs": []
+  },
+  {
+   "id": "D-12",
+   "level": "P0",
+   "name": "对象池三类缺陷",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     ""
+    ],
+    "特征": [
+     "`prewarm()` 无上界收口 / `active--` 无 `Math.max(0,...)` /"
+    ],
+    "确认": [
+     "实测 `get 3 个 → put 5 个外部对象 → active 被刷成 0`"
+    ],
+    "⚠ 注意": [
+     "不能用「有没有 `has()`」判归属——重复归还拦截也用 `has()`，"
+    ]
+   },
+   "keywords": [
+    "Math.max",
+    "active",
+    "get",
+    "prewarm",
+    "put",
+    "对象池三类缺"
+   ],
+   "body": "- **正确**：\n  1. `put()` 拒绝非本池借出的对象（扣减 active 必须以归属为前提）\n  2. `active` 不得为负\n  3. `prewarm` 必须有限整数上限\n- **特征**：`prewarm()` 无上界收口 / `active--` 无 `Math.max(0,...)` /\n  `put()` 里 active 扣减**直接写在方法体**（花括号深度 1，不在任何 if 内）\n- **确认**：实测 `get 3 个 → put 5 个外部对象 → active 被刷成 0`\n- **⚠ 注意**：不能用「有没有 `has()`」判归属——重复归还拦截也用 `has()`，\n  但它查的是「是否已空闲」，方向与归属相反（**实测会漏掉只有重复拦截的池**）",
+   "tokens": 243,
+   "xrefs": []
+  },
+  {
+   "id": "D-13",
+   "level": "P1",
+   "name": "spread 展开不定参数",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "循环归约"
+    ],
+    "特征": [
+     "`Math.max(...arr)`"
+    ],
+    "失效": [
+     "参数量大时 `RangeError`。**AST 深度限制挡不住**——深度很浅但参数很多"
+    ]
+   },
+   "keywords": [
+    "Math.max",
+    "arr",
+    "展开不定参数"
+   ],
+   "body": "- **正确**：循环归约\n- **特征**：`Math.max(...arr)`\n- **失效**：参数量大时 `RangeError`。**AST 深度限制挡不住**——深度很浅但参数很多",
+   "tokens": 62,
+   "xrefs": []
+  },
+  {
+   "id": "D-14",
+   "level": "P1",
+   "name": "容量类字段无上限",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "`clampNum` 收口 + 超限裁剪"
+    ],
+    "特征": [
+     "`_log` / `_history` / `_seen` / `_cache` 容器全文无 `shift` / `splice` / `clear`"
+    ]
+   },
+   "keywords": [
+    "_cache",
+    "_history",
+    "_log",
+    "_seen",
+    "clampNum",
+    "clear",
+    "shift",
+    "splice",
+    "上限",
+    "容量类字段无"
+   ],
+   "body": "- **正确**：`clampNum` 收口 + 超限裁剪\n- **特征**：`_log` / `_history` / `_seen` / `_cache` 容器全文无 `shift` / `splice` / `clear`",
+   "tokens": 47,
+   "xrefs": []
+  },
+  {
+   "id": "D-15",
+   "level": "P1",
+   "name": "嵌套全量扫描 O(n²)",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "预建索引"
+    ],
+    "特征": [
+     "`filter` / `map` 回调内调用 `this.get()` / `indexOf` / `includes`"
+    ]
+   },
+   "keywords": [
+    "filter",
+    "includes",
+    "indexOf",
+    "map",
+    "this.get",
+    "嵌套全量扫描"
+   ],
+   "body": "- **正确**：预建索引\n- **特征**：`filter` / `map` 回调内调用 `this.get()` / `indexOf` / `includes`",
+   "tokens": 37,
+   "xrefs": []
+  },
+  {
+   "id": "D-16",
+   "level": "P1",
+   "name": "返回内部可变引用",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "返回副本 `[...arr]`，或文档明确标注"
+    ],
+    "特征": [
+     "`return this._x;` 无 `.slice()`"
+    ],
+    "降级": [
+     "文档已明确标注「返回内部引用，勿持有」→ P2"
+    ]
+   },
+   "keywords": [
+    "arr",
+    "return",
+    "slice",
+    "this",
+    "引用",
+    "返回内部可变"
+   ],
+   "body": "- **正确**：返回副本 `[...arr]`，或文档明确标注\n- **特征**：`return this._x;` 无 `.slice()`\n- **降级**：文档已明确标注「返回内部引用，勿持有」→ P2",
+   "tokens": 68,
+   "xrefs": []
+  },
+  {
+   "id": "D-17",
+   "level": "P0",
+   "name": "递归无访问集 / 深度上限",
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "fields": {
+    "正确": [
+     "传访问集或深度上限"
+    ],
+    "特征": [
+     "**普通函数自递归**与**方法自递归**两种形态都要检"
+    ],
+    "确认": [
+     "深度是否由数据决定（子表互引用、嵌套树）→ 是则必改"
+    ],
+    "失效": [
+     "互相引用 → 栈溢出"
+    ]
+   },
+   "keywords": [
+    "深度上限",
+    "递归无访问集"
+   ],
+   "body": "- **正确**：传访问集或深度上限\n- **特征**：**普通函数自递归**与**方法自递归**两种形态都要检\n- **确认**：深度是否由数据决定（子表互引用、嵌套树）→ 是则必改\n- **失效**：互相引用 → 栈溢出\n\n---",
+   "tokens": 110,
+   "xrefs": []
+  }
+ ],
+ "sections": [
+  {
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "title": "核心判据：C/C++ 的问题大多不是\"慢\"，是\"未定义行为\"",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 166,
+   "body": "| 形态 | 后果 |\n|---|---|\n| `new` 后异常路径无 `delete` | 泄漏，且只在出错时发生——正常测试永远测不到 |\n| `memcpy` 长度来自外部 | 缓冲区溢出，可被利用执行任意代码 |\n| 条件变量用 `if` 而非 `while` | 虚假唤醒 → 状态错乱，偶发且难复现 |\n| 返回局部变量引用 | 悬垂引用，读到的值取决于栈上残留 |\n\n---"
+  },
+  {
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 181,
+   "body": "```\n□ 每个 new/malloc 在异常路径上也有释放吗？（泄漏）\n□ 内存函数的长度参数来自哪？能被外部控制吗？（溢出）\n□ 条件变量是 while 还是 if？（虚假唤醒）\n□ 跨线程写的变量是 atomic 还是有锁？（数据竞争）\n□ 有没有返回局部变量引用？（悬垂）\n□ 无符号数参与减法/比较了吗？（回绕/恒真）\n□ 项目禁用的特性有没有混进来？（策略）\n```"
+  },
+  {
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "title": "与 clang-tidy / ASan 的分工",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 237,
+   "body": "| 工具 | 管什么 |\n|---|---|\n| `clang-tidy` | 大量现代化与正确性检查（可替代本包多条） |\n| ASan / UBSan | **运行时**捕获越界、UAF、未定义行为 |\n| TSan | 运行时数据竞争 |\n| Valgrind | 泄漏（慢但全） |\n| **本包** | 业务语义：所有权设计、异常路径、策略符合性、跨函数生命周期 |\n\n**ASan/TSan 才是证明**。本包报的越界与竞争候选，要用 sanitizer 复现后才算确认。\nclang-tidy 已覆盖的规则本包不重复主张——本包价值在于**跨函数的所有权与生命周期推理**。"
+  },
+  {
+   "scene": "p-cpp",
+   "file": "p-cpp.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "CPP-01"
+   ],
+   "tokens": 152,
+   "body": "- **智能指针管理的资源** —— 无裸 `delete` 是正确的，不报\n- **长度是 `sizeof` 的 memcpy** —— 安全，不报\n- **单线程代码的全局变量** —— 无竞争\n- **单元测试里的裸指针** —— 短生命周期，降 P3\n- **C 风格项目用 `malloc/free` 是常态** —— 确认后按 CPP-01 的\"异常路径\"维度判，\n  不要因为\"没用 RAII\"就报"
+  },
+  {
+   "scene": "p-go",
+   "file": "p-go.md",
+   "title": "核心判据：Go 的并发静默性来自「不报错地挂着」",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 189,
+   "body": "Go 让并发变得容易，也让**泄漏变得无声**：goroutine 挂住不会报错、不占 CPU、\n只在内存曲线上缓慢上涨。等发现时通常已经 OOM。\n\n| 形态 | 为什么静默 |\n|---|---|\n| goroutine 等一个永远不会来的 channel | 不报错、不退出、不占 CPU，只占内存 |\n| `ctx` 没往下传 | 上游超时了，下游继续跑，业务看不出来 |\n| `err` 用 `_` 丢掉 | 编译通过、逻辑继续，失败被吞 |\n\n---"
+  },
+  {
+   "scene": "p-go",
+   "file": "p-go.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "p-go",
+   "file": "p-go.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 125,
+   "body": "```\n□ go func 有几个？谁负责让它退出？（泄漏）\n□ ctx 有没有传到每一个阻塞调用？（取消传播）\n□ channel 谁关？发送方还是接收方？（死锁/panic）\n□ map 被几个 goroutine 写？（崩溃）\n□ err 去哪了？用 _ 丢了几个？（静默失败）\n□ 循环里有 defer 吗？（句柄累积）\n```"
+  },
+  {
+   "scene": "p-go",
+   "file": "p-go.md",
+   "title": "与 go vet / staticcheck 的分工",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 161,
+   "body": "| 工具 | 管什么 |\n|---|---|\n| `go vet` | 锁拷贝、printf 格式、struct tag |\n| `staticcheck` | 未用代码、简化建议、部分并发 |\n| `go test -race` | **实际竞态**（本包只能发现线索，证明要靠它） |\n| **本包** | 业务语义：泄漏路径、取消传播、错误丢弃、循环 defer |\n\n**`-race` 才是证明**。本包报的竞态候选，都要用 `go test -race` 复现后才算确认。"
+  },
+  {
+   "scene": "p-go",
+   "file": "p-go.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [],
+   "tokens": 146,
+   "body": "- **`main` 里起的 goroutine** —— 生命周期等同进程，不是泄漏\n- **只读的 map** —— 并发读安全，不报\n- **`_` 接收的确实是无关返回值**（如 `_, _ = f.Read()` 的 n）→ 确认后忽略\n- **测试文件的 `go func`** —— 短生命周期，降 P3\n- **已有 `go vet` 覆盖的锁拷贝** —— 本包与它重叠，重复报可接受（保险）"
+  },
+  {
+   "scene": "p-java",
+   "file": "p-java.md",
+   "title": "核心判据：Java 的静默失败常藏在中立的 API 名字后面",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 125,
+   "body": "| 形态 | 为什么静默 |\n|---|---|\n| `ExecutorService` 不 shutdown | JVM 不退出，但看不出是谁在撑着 |\n| catch `InterruptedException` 后什么都不做 | 中断标志被清掉，上层永远等不到 |\n| 异常被 catch 后只打日志 | 调用方拿到正常返回值，按成功继续走 |\n\n---"
+  },
+  {
+   "scene": "p-java",
+   "file": "p-java.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "p-java",
+   "file": "p-java.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 162,
+   "body": "```\n□ Closeable 是 try-with-resources 还是裸 new？（异常路径泄漏）\n□ 线程池是全局共享还是每次新建？谁 shutdown？（线程累积）\n□ catch InterruptedException 后恢复中断标志了吗？（取消失效）\n□ 跨线程写的集合是 HashMap 还是 ConcurrentHashMap？（死循环/丢数据）\n□ ThreadLocal remove 了吗？（跨请求串扰）\n□ 锁对象是不是字符串常量/Integer？（意外互斥）\n```"
+  },
+  {
+   "scene": "p-java",
+   "file": "p-java.md",
+   "title": "与 SpotBugs / Error Prone 的分工",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 112,
+   "body": "| 工具 | 管什么 |\n|---|---|\n| SpotBugs | 空指针、资源泄漏（部分）、并发 bug 模式 |\n| Error Prone | 编译期错误模式、集合误用 |\n| Checkstyle | 风格、命名 |\n| **本包** | 业务语义：线程池生命周期、中断语义、跨请求串扰、取消传播 |"
+  },
+  {
+   "scene": "p-java",
+   "file": "p-java.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [],
+   "tokens": 156,
+   "body": "- **成员变量形式的资源** —— 生命周期由容器管理，`@PreDestroy` 里会关 → 确认后忽略\n- **全局单例线程池** —— 生命周期等同应用，不 shutdown 可接受 → P2\n- **单线程上下文里的 HashMap** —— 无并发即无问题\n- **确实可忽略的异常**（如关闭时的 IOException）→ 加注释说明后忽略\n- **测试代码** —— 降 P3"
+  },
+  {
+   "scene": "p-python",
+   "file": "p-python.md",
+   "title": "核心判据：Python 的静默失败有四种独有形态",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 171,
+   "body": "| 形态 | 为什么静默 |\n|---|---|\n| 可变默认参数 | 默认值在**模块加载时求值一次**，跨调用累积，只有运行一段才看得出 |\n| `except Exception: pass` | 异常被吞，调用方拿到的是正常返回值 |\n| `assert` 做校验 | `python -O` 下 assert 被整体移除，校验凭空消失 |\n| `__del__` 里做清理 | 解释器退出期不保证执行，资源静默泄漏 |\n\n---"
+  },
+  {
+   "scene": "p-python",
+   "file": "p-python.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "p-python",
+   "file": "p-python.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 165,
+   "body": "```\n□ 默认值里有没有可变对象？（跨调用累积）\n□ except 之后是 raise 还是 pass？（静默失败）\n□ 资源是 with 还是裸赋值？（异常路径泄漏）\n□ 有没有 assert 在守大门？（-O 下失效）\n□ 起线程的地方，共享状态靠什么保护？（竞态）\n□ 反序列化的输入谁可控？（任意代码执行）\n□ 日志里有没有凭据/PII？（落盘即泄露）\n```"
+  },
+  {
+   "scene": "p-python",
+   "file": "p-python.md",
+   "title": "与其它工具的分工",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 152,
+   "body": "| 工具 | 管什么 |\n|---|---|\n| Flake8 / Ruff | 风格、未用变量、基础质量 |\n| Bandit | 已知安全 CVE 模式（硬编码密钥、`eval` 等） |\n| **本包** | **业务风险**：跨调用累积、静默失败、资源生命周期、并发、测试证据 |\n\n**不重复造轮子**：已有工具能查的不重复报。本包只管它们管不到的业务语义。"
+  },
+  {
+   "scene": "p-python",
+   "file": "p-python.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [],
+   "tokens": 173,
+   "body": "- **只读常量被判为可变全局** —— 已加降级（无 mutate 即跳过）\n- **`except Exception: pass` 在清理路径** —— 确认后降 P2，建议加注释说明为什么可以忽略\n- **`shell=True` 但命令是字面量常量** —— 无外部输入拼接 → 降 P2\n- **测试文件里的 assert** —— pytest 依赖 assert，不报\n- **脚本类文件的模块级全局** —— 单进程短生命周期，无并发 → 降 P2"
+  },
+  {
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "title": "核心判据：放行一律从严",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 55,
+   "body": "**安全 / 经济 / 权限链路的「放行」一律按 P0 处理** ——\n放行意味着白给钱、放过作弊、绕过权限。\n\n---"
+  },
+  {
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 152,
+   "body": "**列出所有返回 boolean 的判定函数，逐个问**：\n\n```\n□ 输入非法时是放行还是拒绝？（fail-open → P0）\n□ 输入缺失时是放行还是拒绝？（空 token / 空配置 → P0）\n□ 依赖的数值有限吗？（NaN 参与比较 → P0）\n□ 这个判定保护的是什么？（货币/权限/封禁 → 从严）\n□ 多步写中间抛错会怎样？（不回滚 → P0）\n```"
+  },
+  {
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "A-02",
+    "A-03",
+    "A-09"
+   ],
+   "tokens": 143,
+   "body": "- **A-03 判定的是纯展示逻辑**（如「是否显示某按钮」）→ P2\n- **A-02 catch 里确实不需要处理**（如清理失败无碍）→ P2，但建议至少注释说明\n- **A-09 应用代码（非库）用 console** —— 可接受 → P3\n- **注释解释了为什么默认 true**（如「本地工具无需鉴权」）→ 确认文档写明后降级\n\n---"
+  },
+  {
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "title": "四个必须",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 114,
+   "body": "1. **必须校验来源** —— 接收侧 `e.source !== expected.contentWindow` 直接 return\n2. **必须有去重/去重标记** —— 握手类消息只处理一次\n3. **必须有超时兜底** —— 不能无限等响应\n4. **必须有精确退订** —— 按订阅 id 而非事件名\n\n---"
+  },
+  {
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 95,
+   "body": "对每个通道画一张表：\n\n| 通道 | 发起方 | 接收方 | 是否校验来源 | 是否超时 | 是否可退订 | 载荷含敏感? |\n|---|---|---|---|---|---|---|\n\n**握手类消息单独画时序图**，确认没有环。"
+  },
+  {
+   "scene": "s-boundary",
+   "file": "s-boundary.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "B-01",
+    "B-05"
+   ],
+   "tokens": 94,
+   "body": "- **B-01 同文档内无第三方内容** —— 降级 P2\n- **B-05 载荷是公开常量** —— 降级\n- **注释解释了为什么用 `'*'`**（如跨 origin 且 origin 动态）→ 确认后降级，\n  但应改为动态传入具体 origin"
+  },
+  {
+   "scene": "s-build",
+   "file": "s-build.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-build",
+   "file": "s-build.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 225,
+   "body": "```\n□ 忽略清单覆盖了 node_modules / dist / target / __pycache__ / .DS_Store\n□ 打包清单是自动扫描还是硬编码数组\n□ 每个入口（HTML / 插件 / 子包）都进了构建输入\n□ 产物路径与运行期加载路径一致\n□ CI 引用了全部 typecheck / test / lint 脚本\n□ 这些脚本现在还能跑通\n□ lock 文件完整；可选依赖在文档说明\n□ 图标 / identifier / 样例配置已替换\n□ 多份构建配置的合并语义已确认（尤其是安全项）\n□ 交付前清理 __pycache__ / .DS_Store / 临时探针\n```"
+  },
+  {
+   "scene": "s-build",
+   "file": "s-build.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "G-01",
+    "G-02",
+    "G-03",
+    "G-05"
+   ],
+   "tokens": 111,
+   "body": "- **G-01 项目结构就是扁平的** —— 打包根合理 → 忽略\n- **G-02 硬编码清单旁有校验**（构建时检查成员存在）→ 降级\n- **G-03 项目用外部 CI**（非 GitHub Actions）→ 确认后忽略\n- **G-05 内部工具无需替换图标** → P3 或忽略"
+  },
+  {
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "title": "核心判据：并发问题要回答五个问题",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 197,
+   "body": "静态规则只能发现线索。每条候选必须回答：\n\n```\n□ 哪个状态被共享？（不共享就没有竞态）\n□ 哪个执行流负责清理？（没人负责 = 泄漏）\n□ 取消/超时如何传播到子任务？（不传播 = 挂死）\n□ 超时或出错后状态回滚到哪？（不回滚 = 部分成功）\n□ 有什么测试或运行证据能证明上面几条？（没证据 = unverified）\n```\n\n**答不上来的按 P0**——说明没人想清楚过。\n\n---"
+  },
+  {
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "title": "各语言的判据绑定",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "PY-04",
+    "PY-07"
+   ],
+   "tokens": 258,
+   "body": "| 语言 | 关键形态 |\n|---|---|\n| **Go** | context 未取消 · `WaitGroup` 计数不匹配 · 无缓冲 channel 阻塞 · 重复 close · map 并发写 · mutex 值拷贝 |\n| **Java** | `ExecutorService` 未 shutdown · `ThreadLocal` 在线程池串数据 · `InterruptedException` 被吞 · `HashMap` 并发写 · synchronized 粒度过粗 |\n| **C/C++** | 数据竞争 · 锁序 · 条件变量缺谓词（`while` 而非 `if`）· 析构期访问 · RAII 未覆盖异常路径 |\n| **Python** | `Thread`/`Executor` 无 Lock（PY-04）· `__del__` 加锁（PY-07）· GIL 误当成线程安全 |\n\n**GIL 不是同步**：`x += 1` 在 CPython 里也不是原子的（LOAD / ADD / STORE 三步），\n不要因为\"有 GIL\"就认为不需要锁。\n\n---"
+  },
+  {
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "B-03"
+   ],
+   "tokens": 110,
+   "body": "**逐个执行流画一张表**：\n\n| 任务 | 谁启动 | 共享状态 | 同步方式 | 取消方式 | 谁清理 | 超时后回滚 | 退出证据 |\n|---|---|---|---|---|---|---|---|\n\n**握手与取消类消息单独画时序图**，确认没有环（同 `s-boundary` B-03）。"
+  },
+  {
+   "scene": "s-concurrency",
+   "file": "s-concurrency.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [],
+   "tokens": 164,
+   "body": "- **任务间确实无共享状态**（纯计算、参数传入）→ 不是竞态，降 P2\n- **只读共享**（不可变对象、初始化后不再写）→ 无需同步\n- **`asyncio` 单线程协程且无 `await` 让出点** → 实际串行\n- **注释说明了为什么不用锁**（如「此处由上游串行化」）→ 先读注释再报\n- **测试代码里起线程** → 短生命周期，降 P3"
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "核心原则：把文档当需求文档",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 91,
+   "body": "**整机/库审查中占比最高、用户最能感知的一类。**\n下一个接手的人（包括下一个 AI）是靠 README 认识这个项目的——\n文档说错了，他从第一条理解就是错的。\n\n---"
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "文档一致性扫描",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 270,
+   "body": "```bash\npython3 scripts/doc-promise.py --src=<根>                 # 承诺 vs 实现\npython3 scripts/doc-promise.py --src=<根> --commands-only # 只查命令是否存在\npython3 scripts/doc-deliverable.py --src=<根> --missing-only  # 单元三件套是否齐全\n```\n\n三类候选**全部需人工核对**：\n\n1. **命令不存在** —— README 写 `npm run xxx`，package.json 里没有 → 文档说谎\n2. **引用文件不存在** —— README 目录树写了某路径，实际没有 → 断链\n   （文档常只写文件名不写完整路径，扫描器会按 basename 全仓库兜底找）\n3. **数量声明待核对** —— README 说「22 套」，代码里数出 23 → 口径不一致\n\n第 3 类最容易被忽略但最伤人。"
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "双实现比对（高产区，C-02 的展开）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "C-02"
+   ],
+   "tokens": 256,
+   "body": "存在两套实现时**必须做差异比对**，不能只看其中一条。比对清单：\n\n```\n□ 入口文件各自加载了什么\n□ 宿主的回调/hooks 各实现了哪些（逐个列，不要凭印象）\n□ 扩展的可用能力集合是否一致\n□ 配置项是否一致（一套有的设置项另一套没有）\n□ 快捷键/命令注册是否一致\n□ 状态持久化是否共用同一份存储\n□ 构建产物里是否都带上了（硬编码清单最常在这里出问题）\n```\n\n**最快的方法**：把两套的钩子实现名单列成两列，逐个 grep 确认。"
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "「扩展取不到宿主状态」的三类根因",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 193,
+   "body": "| 根因 | 判据 | 症状 |\n|---|---|---|\n| 宿主状态挂在**主窗口**全局对象上 | `window.__XXX__` | 沙箱里取不到 → **静默空** |\n| 宿主没在桥接里暴露该能力 | 桥接方法表里没有 | 隔离态下取不到 |\n| 上下文快照在挂载时拷贝，之后不更新 | `theme: readTheme()` | 状态变更后读到旧值 |\n\n**「扩展自己另开监听器绕过」是强信号** —— 说明官方通道缺失，看到就该报。"
+  },
+  {
+   "scene": "s-contracts",
+   "file": "s-contracts.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "C-09"
+   ],
+   "tokens": 131,
+   "body": "- **动态引用** —— 注册表、构建配置自动扫描会让静态分析误判为孤儿\n- **不同插件各自定义同名常量** —— 见 C-09 降级条件\n- **注释解释了为什么那样写** —— 先读注释\n- **按栈分流的隐藏** —— 某些条目在特定模式下故意隐藏"
+  },
+  {
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "title": "核心判据：成对契约缺一侧 = P0",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 348,
+   "body": "**为什么**：随运行时长累积，测试期看不出，上线后 OOM，\n**定位成本远高于修复成本**。\n\n| 成对项 | 常见缺失 |\n|---|---|\n| `addEventListener` ↔ `removeEventListener` | 卸载时未摘 |\n| 订阅 ↔ 退订 | 只按事件名匹配，摘错 |\n| `setInterval` / `setTimeout` ↔ clear | 重挂载时叠加 |\n| `createObjectURL` ↔ `revokeObjectURL` | 预览关闭时未释放 |\n| 子进程 start ↔ kill | 注册表无清理 |\n| 快捷键 register ↔ unregister | 插件卸载时残留 |\n| 侧边栏/UI 注入 add ↔ remove | 卸载时残留 |\n| 监听器 start ↔ stop（watch / webhook） | 无 stop 命令 |\n| `schedule` ↔ `unschedule` | 切场景后驻留 |\n| `repeatForever` / `loop: true` ↔ `stop()` | 常驻任务永不结束 |\n| `lock` / `acquire` / `open` ↔ 对应反向 | 有前半无后半 |\n\n**检查方法**：列出模块创建的**全部外部资源**，逐个对照卸载钩子里的清理项。\n\n---"
+  },
+  {
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "title": "卸载钩子检查表",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 167,
+   "body": "对每个模块，列出它创建的**全部外部资源**，逐个对照：\n\n```\n□ 事件监听（DOM / 事件总线 / IPC）\n□ 定时器（interval / timeout / schedule）\n□ 请求（fetch / invoke 的 pending）\n□ 句柄（objectURL / 文件 / socket / 子进程）\n□ UI 注入（侧边栏 / 菜单 / 快捷键 / 覆盖层）\n□ 全局引用（window.__X / 注册表 / 单例）\n□ 观察者（MutationObserver / ResizeObserver / IntersectionObserver）\n□ 动画帧（requestAnimationFrame）\n```"
+  },
+  {
+   "scene": "s-lifecycle",
+   "file": "s-lifecycle.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "L-01",
+    "L-02",
+    "L-11",
+    "L-12"
+   ],
+   "tokens": 168,
+   "body": "- **L-01 生命周期与页面等长** —— 主窗口 keydown 不摘也没事 → P2 或忽略\n- **L-02 卸载钩子里有 clear，但写法是间接引用** —— 静态分析看不到 → 忽略\n- **L-11 该容器本就不需要清** —— 与模块同生命周期 → 忽略\n- **L-12 回调被降频或手动驱动** —— 不是每帧 → 降级\n- **注释解释了为什么不能那样写** —— 先读注释"
+  },
+  {
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "title": "前置：NaN 的三副面孔（必读）",
+   "is_fp": false,
+   "is_required": true,
+   "refs": [],
+   "tokens": 354,
+   "body": "同一个 `NaN` 有三种完全不同的失效路径，**不区分就会误判**：\n\n| 方式 | 机制 | 典型形态 |\n|---|---|---|\n| **穿透** | `clamp(NaN)` 用比较实现，两条分支都 false → 原样返回 | `clamp(opts.x, 0, 1)` |\n| **绕过守卫** | `x <= 0` / `x < 5` 恒 false → 校验不触发 | `if (interval <= 0) throw` |\n| **静默归零** | `x >>> 0` / `| 0` 得 0 | `const seed = opts.seed >>> 0` |\n\n**关键推论**：`historyLimit` 传 **0 和负数往往安全**（`length > 0` 为真会走裁剪），\n**唯独 NaN 失效**。只测 0 / 负数 / 正常值**测不出这类缺陷**。\n\n**两个反直觉陷阱**：\n\n- `Math.max(1, NaN)` → `NaN`；`Math.max(1, Infinity)` → `Infinity`。\n  **Math.max 不是有效守卫。**\n- `Number.isFinite(null)` → `false`，能挡住 null；但 `Number(x)` 强制转换会把 null 变成 0。\n\n**必测对抗性输入**：`NaN` / `Infinity` / `-Infinity` / `undefined` / `null` / `-0` /\n`Number.MAX_SAFE_INTEGER` / 极大值 / 极小值。详见 `s-numerics-adversarial.md`。\n\n---"
+  },
+  {
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "title": "验证方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 301,
+   "body": "**写探针实测，不靠推理**。最小模板：\n\n```bash\ncp scripts/probe-template.ts audit/probe_<单元>.ts\nnpx tsc --outDir build --module commonjs --target ES2019 \\\n        --skipLibCheck --lib ES2019,DOM audit/probe_<单元>.ts\nnode build/audit/probe_<单元>.js\n```\n\n**每个数值入口至少喂这 9 个值**（速查卡：`assets/adversarial-inputs-card.md`）：\n\n```\n正常值 · 0 · 负数 · NaN · Infinity · -Infinity · undefined · null · 极大值\n```\n\n**NaN 与 Infinity 必须单独测** —— 只测 0 / 负数 / 正常值测不出这两类缺陷，\n很多守卫对 0 和负数有效，唯独 NaN 绕过。\n\n**探针得出反直觉结论时先修探针**：被测单元内部可能 clamp 了 dt；\n注册顺序影响回调顺序。打印累计时间核对；显式控制注册顺序；每组用 `{}` 独立作用域。"
+  },
+  {
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "title": "修法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "N-01",
+    "N-06"
+   ],
+   "tokens": 85,
+   "body": "按族分文件，改哪个族读哪个：\n\n| 族 | 文件 |\n|---|---|\n| 收口与守卫（N-01~05, 10~14, 16~18） | `s-numerics-fix.md` |\n| 深层值域（N-06~09, 15, 19） | `s-numerics-fix-adv.md` |\n| 对抗性输入详解 | `s-numerics-adversarial.md` |"
+  },
+  {
+   "scene": "s-numerics",
+   "file": "s-numerics.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "N-01",
+    "N-02",
+    "N-03",
+    "N-06",
+    "N-13",
+    "N-19"
+   ],
+   "tokens": 158,
+   "body": "- **用了 `clampNum` / `numOr`** —— 内部有兜底，不穿透（N-03 明确降级）\n- **该参数是常量 / 枚举** —— 不可能为 NaN，忽略（N-01）\n- **字段非数值型** —— N-02 不适用\n- **已有 `now?` 注入口** —— N-19 不适用\n- **参数已在上游夹紧** —— N-13 / N-06 不适用\n- **代码上有长注释解释为什么这么写** —— 先读注释（最高频误报来源）"
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "核心判据：隔离切断的是「通道」还是「能力」？",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 259,
+   "body": "文档通常承诺「隔离 ≠ 断能力」。验证方法：\n**在隔离/严格模式下把能力清单逐个跑一遍**，看哪些**静默**失效。\n\n| 能力 | 直连通道 | 桥接通道 |\n|---|---|---|\n| 调后端命令 | 依赖全局注入 | 应由宿主代执行 |\n| 持久化 | 依赖 localStorage | 应存在宿主侧 |\n| 事件 | 依赖同文档 | 应由宿主总线中转 |\n| UI 通知（标题/角标/提示） | 依赖 DOM | 应由宿主执行 |\n| 状态查询（如是否隔离） | 依赖父窗口 | 应由宿主回答 |\n\n**任何一项在隔离后静默失效 = P0**（承诺失效 + 静默）。\n\n---"
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "静默失败清单（整机审查最易漏）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 188,
+   "body": "以下写法让缺陷不报错，用户侧只表现为「点了没反应」。\n**审查时把它们全列出来逐个问一句：有值时才执行，没值时会发生什么？**\n\n- 可选链兜底：`window.__X__?.method?.()` —— 取不到就不执行\n- 空 catch：`catch {}` / `catch { /* ignore */ }`\n- 降级返回 null 后调用方不再检查\n- 能力探测失败后不再重试（`_cached = null` 后永不重试）\n- 采样失败后按「默认一致」处理"
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "桥接服务端五查",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 197,
+   "body": "桥接服务端跑在**宿主侧**，是权限的关键收口点：\n\n1. **方法白名单** —— 动态派发必须配允许列表 + `hasOwnProperty` 拦原型链\n2. **能否自授权** —— 白名单里是否含策略写入方法\n3. **参数校验** —— 命名空间、方法名、参数类型\n4. **返回值过滤** —— 函数/Symbol 等不可结构化克隆的字段（否则整条响应抛错）\n5. **错误不泄密** —— 异常信息是否回显路径/堆栈"
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "诚实边界",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 102,
+   "body": "**JS 层做不了真正的拦截**（拦不住 `<img>` / `<video>` 发起的请求）。\n看到代码声称「在 JS 层拦截外链」→ 报**虚假安全感**（P1）。\n正确形态是「看得见、管得了、记得住」+ 生成建议 CSP 由用户落盘。"
+  },
+  {
+   "scene": "s-sandbox",
+   "file": "s-sandbox.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [],
+   "tokens": 180,
+   "body": "- **注释解释了为什么不能那样写** —— 如「这里不能回发 ready，会互等死锁」\n- **动态引用** —— 注册表、构建配置的自动扫描会让静态分析误判为「孤儿文件」\n- **按栈分流的隐藏** —— 某些条目在特定模式下**故意**隐藏（如无构建模式隐藏 React 插件）\n- **本地工具的路径穿越不做限制** —— 可免责，但需确认文档写明"
+  },
+  {
+   "scene": "s-state",
+   "file": "s-state.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "T-01"
+   ],
+   "tokens": 130,
+   "body": "### T-01 (P2/P1) 存储反序列化无兜底\n- **正确**：`try { return JSON.parse(raw) } catch { return defaultValue }`\n- **特征**：`JSON.parse(localStorage.getItem(...))` 无 try/catch\n- **确认**：一条脏数据（历史版本写入、手工改过）是否让**整个** store 不可用\n- **定级**：影响范围是「该模块全部持久化数据」→ **P1**"
+  },
+  {
+   "scene": "s-state",
+   "file": "s-state.md",
+   "title": "检查方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 188,
+   "body": "**逐个问「这个值在什么时刻被读、什么时候会变」**：\n\n```\n□ 初始值从哪来（默认 / 存储 / 探测）\n□ 会在什么时机变（用户操作 / 外部事件 / 异步就绪）\n□ 变更后谁会被通知（监听器 / 快照 / 重新读取）\n□ 读失败会怎样（兜底 / 抛错 / 静默空）\n□ 写入失败会怎样（回滚 / 部分成功 / 静默丢）\n□ 结构变了老数据怎么办（迁移 / 兜底 / 损坏）\n```"
+  },
+  {
+   "scene": "s-state",
+   "file": "s-state.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "T-01",
+    "T-03",
+    "T-04",
+    "T-05"
+   ],
+   "tokens": 119,
+   "body": "- **T-01 存储内容由本模块自己写入且格式受控** —— 脏数据概率低 → P2\n- **T-04 快照本来就是设计成不可变的** —— 有注释说明 → 忽略\n- **T-05 该值后续不会再变** —— 忽略\n- **T-03 能力探测确实只可能成功一次** —— 忽略"
+  },
+  {
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "title": "模式清单",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "title": "验证方法",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "D-01",
+    "D-05",
+    "D-06",
+    "D-07",
+    "D-08",
+    "D-10",
+    "D-12",
+    "D-13"
+   ],
+   "tokens": 199,
+   "body": "| 模式 | 最小复现 |\n|---|---|\n| D-01~04 | 喂 `toString` / `__proto__` / `constructor` 作为 key 或路径段 |\n| D-05 | `['a','b','c']` 删索引 [1,2]，看结果 |\n| D-06 | `{'a.b':1}` 序列化往返一次，比对前后 |\n| D-07 | 构造两个不同对象生成同一 key，看是否静默合并 |\n| D-08 | 传 `1e9` 或宽高各 `1e5` |\n| D-10 | 持续增删 1e5 次，观察 Map.size 是否单调增长 |\n| D-12 | `get 3 → put 5 个外部对象 → active 应仍为 3 而非 0` |\n| D-13 | 构造 1e6 长度数组传给 `Math.max(...arr)` |"
+  },
+  {
+   "scene": "s-structures",
+   "file": "s-structures.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "D-01",
+    "D-11",
+    "D-15",
+    "D-16"
+   ],
+   "tokens": 112,
+   "body": "- **D-11 无闭包持有途径** —— delete 后可 GC，是误报\n- **D-11 摘除时容器已空** —— 同行有 `.size === 0` → 忽略\n- **D-16 文档已标注** —— 降级 P2\n- **D-15 n 有上限（几十）** —— 降级 P2（见 `common-severity.md` 性能判据）\n- **D-01 key 来自固定枚举** —— 忽略"
+  }
+ ]
+}
