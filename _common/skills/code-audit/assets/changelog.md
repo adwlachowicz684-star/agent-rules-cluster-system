@@ -125,3 +125,5 @@
 | 2026-09-15 | fixture 项目树形态 | 新增 | J13/P01~P05/R08 判的是整棵工程（忽略清单、CI 配置、多入口 CSP 覆盖、孤儿文件），单文件表达不了。新增 tp.d/ / fp.d/ 整树模式，内容原样铺到扫描根 |
 | 2026-09-15 | fixture 全覆盖 | 新增 | 补 7 组项目级 + 补 APP-R11 的 fp。TP fixture 124/131 → 131/131；fixture 实测 264 → 265 通过 0 失败；eval 131 条全部 recall+precision 双 pass（原 131 条全 unverified） |
 | 2026-09-15 | common-maintenance | 修正 | 自检段仍指向已重命名的 scripts/tool-scan.py（现 scan-app.py），是死链。改为遍历六个扫描器 --self-test；新增「加模式必须配 fixture」段，写明 fp 不是可选项 |
+| 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
+| 2026-09-15 | cocos_audit.py 去重复 | 修正 | self-evolving 下的 cocos_audit.py 与 code-audit 的 cocos-audit.py md5 完全相同 → 修 bug 只改一处、另一处静默过期。改为转发壳（不删是因为 SKILLS/_commands.md 的 C060~C067 仍引用它）。已验证 --rules/--help 与 P0 退出码 1 均原样透传 |

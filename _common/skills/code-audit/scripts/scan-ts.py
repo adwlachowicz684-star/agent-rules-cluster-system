@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-pattern-scan.py —— TypeScript / JavaScript 库缺陷模式自动扫描
+scan-ts.py —— TypeScript / JavaScript 库缺陷模式自动扫描
 
 模式库来源：对 240+ 条真实 P0/P1 缺陷（多轮人工审核，覆盖 119 个单元）聚类所得。
 目的：把历史教训变成可执行的检查，在人工精审前先机器过一遍。
 
 用法：
-    python3 pattern-scan.py --src=<源码根>                  # 扫全部模块
-    python3 pattern-scan.py --src=<根> moduleA moduleB      # 只扫指定模块
-    python3 pattern-scan.py --src=<根> --p0                 # 只显示致命级
-    python3 pattern-scan.py --src=<根> --pattern=A01        # 只扫某条模式
-    python3 pattern-scan.py --src=<根> --json               # 机器可读
-    python3 pattern-scan.py --src=<根> --flat               # 扁平结构
-    python3 pattern-scan.py --self-test                     # 注入故障自检
+    python3 scan-ts.py --src=<源码根>                  # 扫全部模块
+    python3 scan-ts.py --src=<根> moduleA moduleB      # 只扫指定模块
+    python3 scan-ts.py --src=<根> --p0                 # 只显示致命级
+    python3 scan-ts.py --src=<根> --pattern=A01        # 只扫某条模式
+    python3 scan-ts.py --src=<根> --json               # 机器可读
+    python3 scan-ts.py --src=<根> --flat               # 扁平结构
+    python3 scan-ts.py --self-test                     # 注入故障自检
 
 --src 指向「模块根目录」：其下每个一级子目录视为一个模块。
 若源码是扁平结构（根下直接是文件），用 --flat。

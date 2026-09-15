@@ -95,7 +95,7 @@ def scan():
 def main():
     all_modules, deps, detail = scan()
     if not all_modules:
-        print('未找到模块目录（SRC=%s）。扁平结构请改用 pattern-scan.py --flat' % SRC)
+        print('未找到模块目录（SRC=%s）。扁平结构请改用 scan-ts.py --flat' % SRC)
         return
 
     violations, zero_dep, infra_users = [], [], 0
