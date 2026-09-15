@@ -25,6 +25,8 @@
 | **K-30** 元数据推断 | mode / 类型是否取自版本库索引，而非 `os.access` / `os.stat` 现算 | **P1** |
 | **K-31** 子进程返回码 | 包装函数是否丢弃 `returncode` 只看 stdout | **P1** |
 | **K-32** 不安全反序列化 | `pickle.loads` / `yaml.load`（无 SafeLoader）/ `ObjectInputStream` / 无 allowlist 的 JSON 转对象。Python 形态见 `p-python` PY-05 | **P0** |
+| **K-33** 环境能力探测样本不足 | 用**单个**样本推断整个环境的能力（是否区分权限位 / 是否支持某特性 / 编码是什么） | P2 |
+| **K-34** 对可能不存在的路径 `stat` | `os.path.getsize` / `os.stat` / `File::metadata` 用在路径列表上且无 `try`。悬空 symlink、并发删除、权限变更都会抛 | P2 |
 
 **典型缺陷**（K-01）：
 ```rust
@@ -80,6 +82,35 @@ config = yaml.load(f)                      # 无 SafeLoader，同样可达
 **修法**：改 JSON / `yaml.safe_load`；必须反序列化原生对象则加类型 allowlist + 验签。
 **降级**：数据完全由本进程产生且不可被替换（如本地临时文件）→ P2。
 **为什么易漏**：代码看起来只是"读个配置"，没有 `eval` / `exec` 那么显眼。
+
+**典型缺陷**（K-33，一个样本代表整个文件系统）：
+```python
+for line in git("ls-files").splitlines():
+    if not line.endswith((".md", ".txt", ".json")):
+        continue
+    probe = os.path.join(ROOT, line)
+    if _file_is_executable(probe):
+        _EXEC_RELIABLE = False        # 这一个文件带执行位 → 判整个环境不可靠
+    break                             # ← 只探一次就下结论
+```
+被探到的文件若恰好被 `chmod +x`（合法但少见），整个环境被判为「不区分权限」，
+于是**所有**新文件按 `100644` 落盘，可执行位静默丢失。
+**判据**：环境能力探测必须**多样本**（≥5）或**可显式覆盖**（配置项 / 命令行开关）。
+**确认**：把被探样本改成反例，看结论是否整个翻转。翻转 → 判据过脆。
+**定级**：推断错了只是丢元数据 → P2；推断错了导致**放行或拒绝**判定反转 → **P0**。
+
+**典型缺陷**（K-34，悬空 symlink 让预检崩栈）：
+```python
+for rel in todo:
+    size = os.path.getsize(os.path.join(ROOT, rel))   # 无 try
+```
+git 允许提交指向不存在目标的符号链接。此时 `os.path.getsize` 抛
+`FileNotFoundError`，崩在「大文件预检」这种附属步骤上——
+而此时远端对象可能已建、分支已开，状态文件未落盘，留下脏远端状态。
+**判据**：对外部路径列表做 `stat` / `getsize` / `open` 必须兜 `OSError`；
+symlink 用 `os.lstat` 取长度更符合语义（不跟随链接）。
+**确认**：`ln -s no-such-target dangling` 后跑一遍主流程。
+**同类**：TOCTOU（stat 之后文件被删）—— 兜底后按「取不到记 0」降级处理即可。
 
 ---
 

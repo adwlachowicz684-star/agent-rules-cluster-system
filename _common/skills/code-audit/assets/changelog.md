@@ -128,3 +128,12 @@
 | 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
 | 2026-09-15 | cocos_audit.py 去重复 | 修正 | self-evolving 下的 cocos_audit.py 与 code-audit 的 cocos-audit.py md5 完全相同 → 修 bug 只改一处、另一处静默过期。改为转发壳（不删是因为 SKILLS/_commands.md 的 C060~C067 仍引用它）。已验证 --rules/--help 与 P0 退出码 1 均原样透传 |
 | 2026-09-15 | 经验回哺引擎 | 新增 | 本轮改造提炼的通用机制（双样本 / 三态返回值 / 扫描范围自报 / 标注自动回填 / 检查项必须能红）已入库为 skill-evolution 的 reference/self-verification.md，并在 lint.py 落地为 4 个自动检查项。本技能的 common-maintenance.md 反向引用该协议，形成闭环 |
+| 2026-09-15 | A-15 | 新增 | 放行粒度与放行承诺不一致：点名级参数被合并进全局 bypass 布尔  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | A-16 | 新增 | fail-closed 无出口：拦截提示给出的出路在该状态下无效，或只有关闭防护  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | A-17 | 新增 | 复用既有对象未校验生命周期状态（终态 PR/会话/连接被复用）  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | T-13 | 新增 | 状态更新被提前 return 跳过（分支工作流不落盘主状态）  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | K-33 | 新增 | 环境能力探测样本不足：单样本推断整个环境  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | K-34 | 新增 | 对可能不存在的路径 stat 无兜底（悬空 symlink 崩预检）  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | B-10 | 补充 | 条件写（PATCH force=False / If-Match）重试会撞 422 并被上层误报成并发提交  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | common-manual-review.md | 补充 | 新增第 8 项「防护的组合与出口」：放行参数组合/被拦后能否走出来/终态对象复用。7 项→8 项，SKILL.md 引用同步  （来源：push_api.py 审查 2026-09-15） |
+| 2026-09-15 | common.md | 补充 | 流程表下加「防护型代码额外必查」，指向 manual-review 第 8 项  （来源：push_api.py 审查 2026-09-15） |
