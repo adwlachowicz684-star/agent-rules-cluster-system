@@ -55,6 +55,60 @@ def token_estimate(text):
     return int(cjk * 1.5 + (len(text) - cjk) / 4)
 
 
+# ---- SY001：体积阈值与 skill-evolution 的 config.yaml 一致性 ----
+#
+# 为什么不是「直接读 config.yaml」：两个 skill 是独立可分发的单元。
+# 把 code-audit 单独拷到别的项目，进化侧路径就不存在了——
+# 运行时依赖会让自检在这里崩，或更糟：静默降级成默认值。
+# 硬编码 + 注释溯源，代价是数字可能漂移；运行时依赖，代价是换环境就失效。
+# 前者是慢性病，后者是急性的，所以选前者。
+#
+# 但「漂移没人知道」这半个风险必须堵掉：找到 config 就比对，找不到就跳过。
+# 这样口头约定变成了可验证的，同时保留了独立分发能力。
+EV_CONFIG_REL = ('..', '..', '..', '..',
+                 'self-evolving_skill_mechanism', 'skills', 'config.yaml')
+
+
+def evolution_skill_limit():
+    """返回进化侧 config.yaml 里的 SKILL.md 上限；拿不到则返回 None。
+
+    None 一律按「跳过」处理——不因为环境缺失而误报，
+    否则单独分发时会冒出一条无法解释的告警。
+    """
+    p = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), *EV_CONFIG_REL))
+    if not os.path.isfile(p):
+        return None
+    # 只取 size_limits 块下的 SKILL.md，手撕而不引入 yaml 依赖：
+    # 本脚本要求零第三方依赖（CI 里可能没装 pyyaml）。
+    try:
+        txt = open(p, encoding='utf-8').read()
+    except OSError:
+        return None
+    m = re.search(r'^size_limits:\s*$', txt, re.M)
+    if not m:
+        return None
+    block = txt[m.end():]
+    nxt = re.search(r'^\S', block, re.M)
+    if nxt:
+        block = block[:nxt.start()]
+    kv = re.search(r'^\s+SKILL\.md:\s*(\d+)\s*$', block, re.M)
+    return int(kv.group(1)) if kv else None
+
+
+def check_threshold_drift():
+    """本文件的硬编码上限 vs 进化侧 config，不一致就报。"""
+    want = evolution_skill_limit()
+    if want is None:
+        # 独立分发场景：进化侧不在，跳过（不误报）
+        return []
+    if want == MAX_SKILL_SOFT:
+        return []
+    return [{'level': 'warn', 'code': 'SY001',
+             'msg': ('SKILL.md 建议上限 %d 与 skill-evolution config.yaml 的 %d 不一致；'
+                     '本文件注释已失真，两侧标准会各说各话' % (MAX_SKILL_SOFT, want))}]
+
+
 def main():
     skill_md = os.path.join(SKILL_DIR, 'SKILL.md')
     if not os.path.isfile(skill_md):
@@ -97,6 +151,9 @@ def main():
         add('warn', 'SK006', 'SKILL.md %d 行，超过建议上限 %d 行'
             '（依据 skill-evolution config.yaml 的 size_limits；细节应下沉 reference/）'
             % (len(lines), MAX_SKILL_SOFT))
+    # 阈值本身是否还对齐进化侧 config（独立分发时自动跳过）
+    for issue in check_threshold_drift():
+        add(issue['level'], issue['code'], issue['msg'])
     if len(lines) > MAX_SKILL_LINES:
         add('error', 'SK006', 'SKILL.md %d 行，超过绝对上限 %d 行（必须拆）'
             % (len(lines), MAX_SKILL_LINES))

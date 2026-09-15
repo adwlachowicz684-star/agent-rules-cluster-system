@@ -110,8 +110,12 @@ python3 scripts/note.py --show                    查看记录（**改旧规则�
 
 `lint.py` 会预警（不硬报错）。最要紧两条：**`rules/*.md` 50 行**（每次必读，
 混进流程就等于没约束）· **`skills/*.md` 500 行**（超了拆包互链）。
-**超限但有理由** → 文件头写 `<!-- oversize-exempt: 理由 -->`，降为提示
-（防止为消预警砍内容，违反「宁可写全」）。其余见 `reference/writing-rules.md`。
+
+**超限但有理由** → 按需层（`reference/` · `skills/`）写
+`<!-- oversize-exempt: 理由 -->` 降为提示。
+**常驻层（`SKILL.md` · `rules/`）不能豁免**——它每次都付这段上下文，
+再充分的理由也不能让它不占，超限只能下沉内容。
+其余见 `reference/writing-rules.md`。
 
 ## `verified` 字段：只标注，不校验
 
