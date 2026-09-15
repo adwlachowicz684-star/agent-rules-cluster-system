@@ -33,6 +33,12 @@ except ImportError:
 
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
+INCLUDE_TESTS = '--include-tests' in _flags
+# --include-tests 同时放开**目录级**排除：否则开关只影响文件名匹配，
+# fixtures/ 目录仍被跳过，开关看着像失灵。
+TEST_SKIP_DIRS = {'fixtures', '__fixtures__', 'tests', 'test', '__tests__', 'testdata'}
+
+
 
 SRC = None
 for f in _flags:
@@ -61,9 +67,20 @@ for _f in _flags:
     if _f.startswith('--sarif='):
         SARIF_OUT = _f.split('=', 1)[1]
 
+# 测试与 fixture 样本默认排除：它们是**缺陷的示范代码**，扫进去只会污染结果
+# （实测：扫本仓库时 5 条候选全部来自 rules/fixtures/*/tp.*）。
+# 要连测试一起审时显式加 --include-tests。
+TEST_FILE = re.compile(
+    r'(?:^|/)(?:test_|.+[._](?:test|spec|fixture)|.+_test)\.[A-Za-z]+$|'
+    r'(?:^|/)conftest\.py$')
+
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
-             'docs', 'examples', 'bin', 'obj', '.next', '.cache'}
+             'docs', 'examples', 'bin', 'obj', '.next', '.cache',
+             'fixtures', '__fixtures__'}
+
+if INCLUDE_TESTS:
+    SKIP_DIRS = SKIP_DIRS - TEST_SKIP_DIRS
 SKIP_SUFFIX = ('.min.js', '.bundle.js', '.map', '.lock')
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.html')
 MAX_FILE_BYTES = 600 * 1024

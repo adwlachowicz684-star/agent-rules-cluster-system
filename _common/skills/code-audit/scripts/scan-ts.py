@@ -31,6 +31,12 @@ import tempfile
 
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
+INCLUDE_TESTS = '--include-tests' in _flags
+# --include-tests 同时放开**目录级**排除：否则开关只影响文件名匹配，
+# fixtures/ 目录仍被跳过，开关看着像失灵。
+TEST_SKIP_DIRS = {'fixtures', '__fixtures__', 'tests', 'test', '__tests__', 'testdata'}
+
+
 
 try:
     from sarif import build_sarif, write_sarif
@@ -57,9 +63,20 @@ if '--self-test' not in _flags:
         sys.exit(1)
 
 FLAT = '--flat' in _flags
+# 测试与 fixture 样本默认排除：它们是**缺陷的示范代码**，扫进去只会污染结果
+# （实测：扫本仓库时 5 条候选全部来自 rules/fixtures/*/tp.*）。
+# 要连测试一起审时显式加 --include-tests。
+TEST_FILE = re.compile(
+    r'(?:^|/)(?:test_|.+[._](?:test|spec|fixture)|.+_test)\.[A-Za-z]+$|'
+    r'(?:^|/)conftest\.py$')
+
 SKIP_DIRS = {'tests', 'test', 'examples', 'example', 'scripts', 'typings',
              'node_modules', '.build', 'build', 'dist', 'audit', 'docs',
-             '__tests__', '__pycache__', '.git'}
+             '__tests__', '__pycache__', '.git',
+             'fixtures', '__fixtures__'}
+
+if INCLUDE_TESTS:
+    SKIP_DIRS = SKIP_DIRS - TEST_SKIP_DIRS
 SKIP_PREFIX = ('.', '_')
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs')
 
@@ -119,7 +136,7 @@ def strip_comments(src):
 def _read_files(dirpath):
     files = {}
     for fn in sorted(os.listdir(dirpath)):
-        if fn.endswith(SOURCE_EXT):
+        if fn.endswith(SOURCE_EXT) and (INCLUDE_TESTS or not TEST_FILE.search(fn)):
             files[fn] = strip_comments(
                 open(os.path.join(dirpath, fn), encoding='utf-8',
                      errors='ignore').read())
@@ -998,7 +1015,7 @@ def p01(module, files):
     for fn, src in files.items():
         for m in re.finditer(r'\bfunction\s+(' + NAMES + r')\s*\(', src):
             body = _body_of(src, m)
-            if not re.search(r"typeof\s+\w+\s*===?\s*['\"]number['\"]", body):
+            if not re.search(r"typeof\s+\w+\s*!?==?\s*['\"]number['\"]", body):
                 line = src[:m.start()].count('\n') + 1
                 hits.append((fn, line, '%s() 内无 typeof === "number" 校验' % m.group(1)))
     return hits
@@ -1028,7 +1045,7 @@ def p03(module, files):
         if re.search(r'(?:isNaN|Number\.isFinite|isFinite)\s*\(', ln):
             continue
         # 降级：同一行有 typeof 数值校验
-        if re.search(r"typeof\s+\w+\s*===?", ln) and 'number' in ln:
+        if re.search(r"typeof\s+\w+\s*!?==?", ln) and 'number' in ln:
             continue
         hits.append((fn, i, ln.strip()[:90]))
     return hits
@@ -1053,7 +1070,7 @@ def p05(module, files):
             line = src[:m.start()].count('\n') + 1
             seg = '\n'.join(src.split('\n')[line - 1:line + 6])
             if re.search(r'value\s*\)|\+\s*(?:p\.)?value|\*=\s*(?:p\.)?value', seg):
-                if not re.search(r"typeof\s+\S+\s*===?\s*['\"]number['\"]|Number\.isFinite", seg):
+                if not re.search(r"typeof\s+\S+\s*!?==?\s*['\"]number['\"]|Number\.isFinite", seg):
                     hits.append((fn, line, "case '%s' 的操作数无类型校验" % m.group(1)))
     return hits
 
@@ -1527,7 +1544,7 @@ def x04(module, files):
     hits = []
     REG = (r'\brepeatForever\s*\(|\bsetLoop\s*\(\s*true|\bloop\s*[:=]\s*true|'
            r'\bplayForever\s*\(')
-    CLEAN = (r'(?:\.\s*|\b)(?:stop|clear|pause|cancel)\s*\(|'
+    CLEAN = (r'(?:\.\s*|\b)(?:stop|clear|pause|cancel)\w*\s*\(|'
              r'\bstopAll(?:ByTarget|ByTag)?\s*\(|\bcancelAnimationFrame\s*\(')
     for fn, src in files.items():
         regs = list(re.finditer(REG, src))

@@ -356,7 +356,7 @@ def cmd_check():
 
 
 def _run_scanner(scanner, src_root, native_id):
-    """在临时模块结构上跑扫描器，返回 (ok, hits, err)。
+    """在临时模块结构上跑扫描器，返回 (ok, hits, err)；hits 只计**本规则**的命中。
 
     ok=False 表示扫描器**没跑起来**（超时 / 崩溃 / 无输出 / 输出非 JSON），
     hits 为 None。
@@ -365,10 +365,16 @@ def _run_scanner(scanner, src_root, native_id):
     「无有效输出」跳过 —— 于是「规则失效」「扫描器坏了」「fixture 没写」
     三种情况被压成同一个数。这正是本技能最痛恨的静默失败，却出现在
     统计自身健康度的路径上（未覆盖 72 条里可能混着跑挂的）。
+
+    为什么不再传 --pattern=：六个扫描器里只有 scan-ts 认这个参数，
+    其余五个当未知 flag 忽略 → 实际跑的是全量扫描，只要**任何一条**
+    规则命中就算通过。于是「TP 已验证」里混着从未被自己规则命中的假通过，
+    FP 侧则被反过来要求全库零命中。改为跑全量后按 id 自行过滤，
+    六个扫描器行为一致。
     """
     import subprocess
     cmd = [sys.executable, os.path.join(HERE, scanner),
-           '--src=' + src_root, '--pattern=' + native_id, '--json']
+           '--src=' + src_root, '--json']
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except Exception as e:
@@ -381,9 +387,16 @@ def _run_scanner(scanner, src_root, native_id):
         d = json.loads(out)
     except ValueError:
         return False, None, '输出非 JSON：%s' % out[:160]
-    if isinstance(d, dict):
-        return True, len(d.get('items', [])), ''
-    return True, (len(d) if isinstance(d, list) else 0), ''
+    items = d.get('items', []) if isinstance(d, dict) else (
+        d if isinstance(d, list) else [])
+    hits = 0
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        rid = it.get('id') or it.get('pattern') or it.get('rule_id')
+        if rid == native_id:
+            hits += 1
+    return True, hits, ''
 
 
 def run_all_fixtures(reg, verbose=True):

@@ -1,0 +1,87 @@
+# 为什么需要：本仓库提供 SARIF 导出与「P0 退出码 1 可接 CI」，自己却没用上。
+# 这条流水线让审查技能**自己成为自己的第一个用户**：
+#   ① 每次改动跑 fixture 实测（规则失效/FP 误报会当场红）
+#   ② 结果导出 SARIF 上传 Code Scanning（PR 里内联显示）
+#   ③ 顺带跑引擎自检（路由用例 + 结构规范）
+name: self-audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 规则注册表漂移检查
+        working-directory: _common/skills/code-audit
+        run: python3 scripts/rule-registry.py --check
+
+      - name: fixture 实测（TP 必须命中 / FP 必须不命中）
+        working-directory: _common/skills/code-audit
+        run: python3 scripts/rule-registry.py --test
+
+      - name: 扫描器自检
+        working-directory: _common/skills/code-audit
+        run: |
+          for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp; do
+            python3 scripts/$s.py --self-test
+          done
+
+      - name: skill 结构检查
+        working-directory: _common/skills/code-audit
+        run: python3 scripts/check-skill.py
+
+      - name: 扫自身并导出 SARIF
+        working-directory: _common/skills/code-audit
+        run: |
+          python3 scripts/scan-ts.py  --src=. --sarif=ts.sarif  || true
+          python3 scripts/scan-app.py --src=. --sarif=app.sarif || true
+          python3 scripts/scan-py.py  --src=. --sarif=py.sarif  || true
+          python3 scripts/sarif.py ts.sarif app.sarif py.sarif --root=. --out=all.sarif || true
+        continue-on-error: true
+
+      - name: 上传 SARIF 到 Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: _common/skills/code-audit/all.sarif
+          category: code-audit
+
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 大类路由自检（keywords 退化会让归属静默失真）
+        working-directory: self-evolving_skill_mechanism/skills
+        run: python3 scripts/structure.py --self-test
+
+      - name: 配置解析自检
+        working-directory: self-evolving_skill_mechanism/skills
+        run: |
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          from pathlib import Path
+          from domain import load_config
+          cfg = load_config(Path('config.yaml'))
+          for k, m in cfg['domains'].items():
+              assert isinstance(m.get('keywords'), list), k
+          print('配置解析正常：%d 个大类的 keywords 均为列表' % len(cfg['domains']))
+          PY

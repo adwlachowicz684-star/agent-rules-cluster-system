@@ -111,3 +111,11 @@
 | 2026-09-15 | rule-registry 三态 | 修正 | _run_scanner 失败与「真的 0 命中」原来都返回 None，被上层当「无有效输出」跳过 → 规则失效/扫描器跑挂/没写 fixture 混成一个数。改为 (ok, hits, err) 三态，执行失败单独计数并在 --test 里报出 |
 | 2026-09-15 | rule-registry eval 继承 | 新增 | --sync 按规则签名（native_id+level+title）继承上次实测结论，判据变了才重置为 unverified。不带 sig 的历史 eval 一律不继承 |
 | 2026-09-15 | check-skill 阈值对齐 | 修正 | SKILL.md 上限自检用 500、config.yaml 用 200，两边不统一 → 238 行却报「警告 0」。改为 200 报 warn、500 报 error，阈值注明依据 |
+| 2026-09-15 | fixture 补录 P0 | 新增 | 30 组 TP/FP（27 条 TS + 3 条 APP）。已验证规则 55 → 85 条，未覆盖 72 → 42 |
+| 2026-09-15 | --test 按 id 过滤 | 修正 | 六个扫描器里只有 scan-ts 认 --pattern=，其余当未知 flag 忽略 → 实际跑全量，只要**任何**规则命中就算通过。「TP 已验证」里混着从未被自己规则命中的假通过。改为跑全量后按规则 id 自行过滤 |
+| 2026-09-15 | _run_scanner 三态 | 修正 | 扫描器执行失败与「真的 0 命中」原来都返回 None → 合并成同一个数。改 (ok, hits, err)，失败单独报出。上线当天就抓到一次 scan-ts 崩溃（此前会被算作通过） |
+| 2026-09-15 | 扫描器精度：typeof | 修正 | 只认 `typeof x === 'number'`，而 `!==` 早返回是最常见写法 → 正确守卫过的收口函数被判缺校验（误报）。改 `!?==?` |
+| 2026-09-15 | 扫描器精度：清理 API | 修正 | x04 的 CLEAN 只认 `stop(`，引擎里标准的 `stopAllActions()` 匹配不到 → 已正确清理的代码被判泄漏。改 `(?:stop|clear|pause|cancel)\w*\(` |
+| 2026-09-15 | 扫描器默认排除 | 新增 | 测试与 fixture 样本默认跳过（扫描**缺陷示范代码**只会污染结果：扫本仓库时候选 100% 来自 rules/fixtures/*/tp.*）。--include-tests 可放开，且同时解除目录级排除 |
+| 2026-09-15 | CI self-audit | 新增 | 本仓库提供 SARIF 与「P0 退出码 1 可接 CI」却自己没用。新流水线跑 fixture 实测 + 六扫描器自检 + 配置解析自检，并上传 SARIF 到 Code Scanning |
+| 2026-09-15 | README | 新增 | 仓库此前无 README，用法只能进代码看 |

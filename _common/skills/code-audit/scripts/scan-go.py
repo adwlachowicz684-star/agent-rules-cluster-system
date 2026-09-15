@@ -25,8 +25,22 @@ import json
 import argparse
 
 SRC = "."
+# 测试与 fixture 样本默认排除：它们是**缺陷的示范代码**，扫进去只会污染结果
+# （实测：扫本仓库时 5 条候选全部来自 rules/fixtures/*/tp.*）。
+# 要连测试一起审时显式加 --include-tests。
+TEST_FILE = re.compile(
+    r'(?:^|/)(?:test_|.+[._](?:test|spec|fixture)|.+_test)\.[A-Za-z]+$|'
+    r'(?:^|/)conftest\.py$')
+INCLUDE_TESTS = False  # 由 --include-tests 打开
+
+# --include-tests 同时放开**目录级**排除：否则开关只影响文件名匹配，
+# fixtures/ 目录仍被跳过，开关看着像失灵。
+TEST_SKIP_DIRS = {'fixtures', '__fixtures__', 'tests', 'test', '__tests__', 'testdata'}
+
+
 SKIP_DIRS = {".git", "node_modules", "vendor", "dist", "build", "testdata",
-             ".idea", "third_party", "Godeps"}
+             ".idea", "third_party", "Godeps",
+             "fixtures", "__fixtures__"}
 MAX_FILE_BYTES = 2 * 1024 * 1024
 GO_EXT = (".go",)
 
@@ -62,7 +76,7 @@ def iter_go(root):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for fn in sorted(filenames):
-            if fn.endswith(GO_EXT) and not fn.endswith("_test.go"):
+            if fn.endswith(GO_EXT) and not fn.endswith("_test.go") and (INCLUDE_TESTS or not TEST_FILE.search(fn)):
                 p = os.path.join(dirpath, fn)
                 try:
                     if os.path.getsize(p) > MAX_FILE_BYTES:
@@ -408,12 +422,20 @@ def main():
     ap.add_argument("--src", default=".")
     ap.add_argument("--p0", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--include-tests", action="store_true",
+                    help="连测试与 fixture 样本一起扫（默认排除）")
     ap.add_argument("--sarif", default="")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--pattern", default="")
     ap.add_argument("--exclude", action="append", default=[],
                     help="排除路径（可重复/逗号分隔），跳过 fixtures 与生成代码")
     args = ap.parse_args()
+    global INCLUDE_TESTS
+    INCLUDE_TESTS = args.include_tests
+    if INCLUDE_TESTS:
+        global SKIP_DIRS
+        SKIP_DIRS = SKIP_DIRS - TEST_SKIP_DIRS
+
     if args.self_test:
         sys.exit(self_test())
 
