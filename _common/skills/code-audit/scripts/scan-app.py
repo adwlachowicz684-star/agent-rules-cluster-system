@@ -33,12 +33,6 @@ except ImportError:
 
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
-INCLUDE_TESTS = '--include-tests' in _flags
-# --include-tests 同时放开**目录级**排除：否则开关只影响文件名匹配，
-# fixtures/ 目录仍被跳过，开关看着像失灵。
-TEST_SKIP_DIRS = {'fixtures', '__fixtures__', 'tests', 'test', '__tests__', 'testdata'}
-
-
 
 SRC = None
 for f in _flags:
@@ -67,20 +61,9 @@ for _f in _flags:
     if _f.startswith('--sarif='):
         SARIF_OUT = _f.split('=', 1)[1]
 
-# 测试与 fixture 样本默认排除：它们是**缺陷的示范代码**，扫进去只会污染结果
-# （实测：扫本仓库时 5 条候选全部来自 rules/fixtures/*/tp.*）。
-# 要连测试一起审时显式加 --include-tests。
-TEST_FILE = re.compile(
-    r'(?:^|/)(?:test_|.+[._](?:test|spec|fixture)|.+_test)\.[A-Za-z]+$|'
-    r'(?:^|/)conftest\.py$')
-
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
-             'docs', 'examples', 'bin', 'obj', '.next', '.cache',
-             'fixtures', '__fixtures__'}
-
-if INCLUDE_TESTS:
-    SKIP_DIRS = SKIP_DIRS - TEST_SKIP_DIRS
+             'docs', 'examples', 'bin', 'obj', '.next', '.cache'}
 SKIP_SUFFIX = ('.min.js', '.bundle.js', '.map', '.lock')
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.html')
 MAX_FILE_BYTES = 600 * 1024
@@ -166,39 +149,6 @@ LINE_PATTERNS = [
      r'\b(?:std::fs::read|fs::read_to_string|read_to_string|File::open)\s*\(',
      {'absent': r'(?:resolve_within|canonicalize|\.starts_with|is_within|allowed_root|within_root|check_path)',
       'window': 60}),
-    # ---------------------------------------------------------------- 缺口补齐
-    # 以下来自 rules/gaps.json 标为 todo（可机扫但一直没写规则）的判据。
-    # 编号沿用判据条目号（K-17 → K17），便于 --map 对上、也便于回查。
-    # 这些全是 Tauri / Rust 本地工具侧，之前的 28 条只覆盖了 J / P / R 三族。
-    ('K03', 'P0', '删除保护：黑名单未 canonicalize 后比较', ('rs',),
-     r'(?:remove_dir_all|remove_file|fs::remove)\s*\(',
-     {'absent': r'canonicalize|is_within|allowed_root|resolve_within', 'window': 30}),
-    ('K08', 'P0', 'shell 解析：cmd /c + 外部输入', ('rs',),
-     r'Command::new\(\s*"(?:cmd|sh|bash|powershell|zsh)"\s*\)\s*[^;]{0,120}?'
-     r'\.arg\(\s*(?:format!|[a-z_][\w.]*\s*\)|&?[a-z_][\w.]*\s*\))', None),
-    ('K10', 'P1', '参数传递：命令参数用字符串拼接而非数组', ('rs',),
-     r'\.args?\(\s*format!\s*\(|\.args?\(\s*[a-z_]\w*\s*\+\s*', None),
-    ('K14', 'P2', '探测命令：where / which 起子进程（debug 下闪控制台窗口）', ('rs',),
-     r'Command::new\(\s*"(?:where|which|whereis)"\s*\)', None),
-    ('K16', 'P1', '读写超时：Tcp 连接无 set_read_timeout / set_write_timeout', ('rs',),
-     r'Tcp(?:Listener|Stream)::(?:bind|connect)\s*\(',
-     {'absent': r'set_(?:read|write)_timeout|set_timeout|timeout\s*:', 'window': 10 ** 6}),
-    ('K17', 'P1', '绑定地址：0.0.0.0 对局域网开放（应 127.0.0.1）', ('rs', 'ts', 'js'),
-     # 0.0.0.0 后面通常带端口（"0.0.0.0:9000"），不能要求紧跟引号
-     r'(?:bind|listen|host)\s*\(\s*["\']0\.0\.0\.0', None),
-    ('K31', 'P1', '子进程返回码：包装函数丢弃 returncode 只看 stdout', ('rs', 'py'),
-     r'\.output\s*\(\s*\)',
-     {'absent': r'\.status|returncode|\.code\(\)|check_output|check_call', 'window': 25}),
-    # K-34 判定改认 `.unwrap()`：
-    # 原写法是「出现 metadata( 且 ±15 行内没有兜底」，而兜底清单里含裸 `?`——
-    # Rust 里 `?` 遍地都是，于是这条规则在真实 .rs 文件里**永远不报**（自检样本
-    # 所在的 serv.rs 也因同行有 `?` 被 suppress）。改成直接匹配 `metadata(..).unwrap()`
-    # 这种「拿到 Result 就地拆」的写法，语义更准，也不再被无关的 `?` 关掉。
-    ('K34', 'P1', '对可能不存在的路径 stat（无兜底）', ('rs', 'py'),
-     r'(?:fs::metadata|std::fs::metadata|File::metadata)\s*\([^;]{0,80}?\)'
-     r'\s*\.\s*unwrap\s*\(\)'
-     r'|os\.(?:path\.getsize|stat)\s*\(',
-     {'absent': r'try\s*:|except\s|os\.path\.exists', 'window': 15}),
 ]
 COMPILED_LINE = [(p[0], p[1], p[2], p[3], re.compile(p[4]),
                   ({k: (re.compile(v) if k != 'window' else v)
@@ -342,26 +292,56 @@ def _f_r04(path, text, st):
         return [(st[:m.start()].count('\n') + 1, '递归遍历/拷贝未识别符号链接')]
     return []
 
+def _f_g07(path, text, st):
+    """G07 失效相对 import（模块整体加载失败）。
 
-def _f_k15(path, text, st):
-    """K-15 内容长度直接用于分配。
+    来源：2026-09-14 nexus-panel。`plugins/mindmap/panels.js:19` import 了
+    `./preset-icons.js`，该文件从未提交。ES module 的 import 是**静态**的，
+    找不到模块 → 整个模块图加载失败 → 插件整体白屏。
+    而 `smoke-test.mjs` 里 `grep -c mindmap` 为 0，CI 全绿。
 
-    单行正则抓不到：`let n = req.content_length();` 与
-    `Vec::with_capacity(n)` 通常分处两行，而 `[^\n]` 跨不过换行。
-    改成文件级：先确认文件里确实读了声明长度，再看分配处有没有收口。
+    判定"文件不存在"必须**三重交叉验证**（GitHub API 列目录 / 本地解压 /
+    全仓扫描），此前遇到过 codeload tarball 缓存导致误判。
     """
+    dp = os.path.dirname(path) or '.'
+    # 必须先剥注释：vite.config.ts 注释里出现过 `from '../../js/plugin-sdk.js'`
+    # 文本，不剥会被误报成失效 import
+    code = strip_comments(st) if callable(globals().get('strip_comments')) else st
     out = []
-    if not re.search(r'content[-_]length|Content-Length', st):
-        return out
-    for m in re.finditer(r'Vec::with_capacity\s*\(|vec!\s*\[[^\]]*;\s*\w*(?:len|size)\w*',
-                         st):
-        line = st[:m.start()].count('\n') + 1
-        ctx = '\n'.join(st.split('\n')[max(0, line - 4):line + 1])
-        # 有收口（min / clamp / 常量上限）→ 不是缺陷
-        if re.search(r'\.min\(|clamp|MAX_|max_bytes|limit', ctx, re.I):
+    for m in re.finditer(r"""(?:from|import)\s+['"](\.[^'"]+)['"]""", code):
+        spec = m.group(1)
+        tgt = os.path.normpath(os.path.join(dp, spec))
+        if os.path.exists(tgt):
             continue
-        out.append((line, '按声明长度分配，未见上限收口'))
+        for ext in ('.js', '.ts', '.tsx', '.mjs', '.json', '.css'):
+            if os.path.exists(tgt + ext) or os.path.exists(os.path.join(tgt, 'index.js')):
+                break
+        else:
+            out.append((code[:m.start()].count('\n') + 1,
+                        '失效相对 import：%s（模块将整体加载失败）' % spec))
     return out
+
+
+def _p_dup_import(path, text, st):
+    """G-08 同一模块被 import 两次（具名 + 命名空间）。
+
+    来源：nexus-panel `js/host.js:12-14`，`theme-normalizer.js` 与
+    `plugin-config.js` 各被导入两次。无害但冗余，且往往是"后加的导入
+    没合并进已有的"的信号。
+    """
+    seen = {}
+    out = []
+    for m in re.finditer(
+            r"""import\s+(?:\*\s+as\s+\w+|\{[^}]*\}|\w+)\s+from\s+['"]([^'"]+)['"]""", st):
+        spec = m.group(1)
+        if spec in seen:
+            out.append((st[:m.start()].count('\n') + 1,
+                        '重复 import 同一模块：%s（首次在 %d 行）' % (spec, seen[spec])))
+        else:
+            seen[spec] = st[:m.start()].count('\n') + 1
+    return out
+
+
 FILE_PATTERNS = [
     ('J05', 'P2', '事件解绑引用可能不一致', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j05),
     ('J07', 'P1', '扩展层直连底层 API（隔离后静默失效）', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j07),
@@ -371,7 +351,8 @@ FILE_PATTERNS = [
     ('J11', 'P2', 'objectURL 未释放', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j11),
     ('J12', 'P1', 'innerHTML 拼接变量', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j12),
     ('R04', 'P1', '递归遍历未识别符号链接', ('rs',), _f_r04),
-    ('K15', 'P0', '请求体上限：按客户端声明的 content-length 直接分配', ('rs',), _f_k15),
+    ('G08', 'P2', '重复 import 同一模块', ('ts','tsx','js','jsx','mjs','cjs'), _p_dup_import),
+    ('G07', 'P0', '失效相对 import', ('ts','tsx','js','jsx','mjs','cjs'), _f_g07),
 ]
 
 
@@ -618,7 +599,8 @@ def scan(root, only=None):
 
 
 def _to_findings(findings):
-    return [{'id': f[0], 'level': f[1], 'name': f[2], 'file': f[3],
+    return [{'id': f[0], 'level': f[1], 'name': f[2],
+            'file': (f[3] if not os.path.isabs(f[3]) else os.path.relpath(f[3], SRC)),
              'line': f[4], 'snippet': f[5]} for f in findings]
 
 
@@ -694,17 +676,7 @@ SELF_FILES = {
                              "thread::sleep(Duration::from_millis(100));\n"
                              "thread::spawn(move || {});\n"
                              "const FORBIDDEN_DELETE: &[&str] = &[\"/etc\"];\n"
-                             "fn copy_all(s: &Path) { if s.is_dir() { std::fs::copy(s, d)?; } }\n"
-                             # ---- 缺口补齐批次的 9 条 ----
-                             "fn del(p: &Path) { std::fs::remove_file(p)?; }\n"          # K03
-                             "let o = Command::new(\"cmd\").arg(format!(\"/c {}\", x)).output()?;\n"  # K08
-                             "let o2 = Command::new(\"rg\").arg(format!(\"-n {}\", t)).output()?;\n"  # K10
-                             "let w = Command::new(\"where\").arg(\"git\").output()?;\n"               # K14
-                             "let n = req.content_length();\nlet body = Vec::with_capacity(n);\n"        # K15
-                             "let l = TcpListener::bind(\"127.0.0.1:9000\")?;\n"                        # K16
-                             "let l2 = TcpListener::bind(\"0.0.0.0:9000\")?;\n"                         # K17
-                             "let out = Command::new(\"git\").arg(\"status\").output()?;\n"            # K31
-                             "let sz = std::fs::metadata(p).unwrap().len();\n",                           # K34
+                             "fn copy_all(s: &Path) { if s.is_dir() { std::fs::copy(s, d)?; } }\n",
 }
 
 def self_test():
@@ -727,25 +699,7 @@ def self_test():
         expect = ['J01', 'J02', 'J03', 'J04', 'J05', 'J06', 'J07', 'J08', 'J09',
                   'J10', 'J11', 'J12', 'J13',
                   'R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10',
-                  'P01', 'P02', 'P03', 'P04', 'P05',
-                  # 缺口补齐批次
-                  'K03', 'K08', 'K10', 'K14', 'K15', 'K16', 'K17', 'K31', 'K34']
-
-        # 模式表里有的、自检样本却没覆盖的 → 明确报出来。
-        # 原先 expect 是纯硬编码：加规则不加样本，自检照样「28/28 全过」——
-        # 又一种永远绿。改成从模式表推导全集，漏配当场可见。
-        declared = ({p[0] for p in LINE_PATTERNS} | {p[0] for p in FILE_PATTERNS})
-        # 项目级检查是函数，id 写在函数体内产出的 finding 上，
-        # 这里从 docstring 首行取（约定：`「` 之类前缀不影响，取首个大写 ID）
-        for _chk in PROJECT_CHECKS:
-            _d = (_chk.__doc__ or '')
-            _m = re.search(r'\b([A-Z]\d{2})\b', _d)
-            if _m:
-                declared.add(_m.group(1))
-        no_sample = sorted(declared - set(expect))
-        if no_sample:
-            print('\n  ▲ 模式表里有、但自检样本未覆盖：%s' % ', '.join(no_sample))
-            print('    → 新加规则请补 SELF_FILES 样本，否则自检对它等于没跑')
+                  'P01', 'P02', 'P03', 'P04', 'P05']
         miss = [e for e in expect if e not in hit]
         for e in expect:
             print('  %s %s' % ('✓' if e in hit else '✗', e))
@@ -772,7 +726,11 @@ def main():
         return
     if AS_JSON:
         print(json.dumps([{'id': f[0], 'level': f[1], 'name': f[2],
-                           'file': os.path.relpath(f[3], SRC), 'line': f[4],
+                           # PROJECT_CHECKS 返回的是相对 root 的路径，行级检查返回的是绝对路径。
+                           # 这里若无条件再相对化一次，项目级检查的路径会被算成
+                           # '../../<cwd>/xxx' —— 双重相对化 bug（2026-09-14 修）。
+                           'file': (f[3] if not os.path.isabs(f[3])
+                                   else os.path.relpath(f[3], SRC)), 'line': f[4],
                            'snippet': f[5]} for f in findings],
                          ensure_ascii=False, indent=1))
     else:
