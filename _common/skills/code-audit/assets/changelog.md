@@ -104,3 +104,6 @@
 | 2026-09-15 | 语言包候选丢失 | 修正 | registry 把 PY-05 标 s-backend、PY-06 标 s-sandbox，按 registry 分组导致这两条被分到路由未命中的场景、候选静默丢失。改为按 ID 前缀归语言包（判据就写在 p-python.md，审 Python 该在 p-python 看到） |
 | 2026-09-15 | audit 不跑语言扫描器 | 修正 | 主循环只跑 scan-ts/scan-app，四语言项目里 p-python/p-go/p-java/p-cpp 永远 0 候选。改为按命中场景挑扫描器 |
 | 2026-09-15 | s-backend 判据缺失 | 修正 | s-backend.md 用表格格式（| **K-01** … |），条目式解析器覆盖不到，32 条判据一条都没进索引。解析器加表格支持；另补 K-25~K-29 缺失的级别列 |
+| 2026-09-15 | audit.py gitignore | 新增 | 审查产物落在被审查项目里会弄脏对方 git status。检测 git 仓库自动追加两行 .gitignore（幂等、带来源注释、可删），--no-gitignore 可关 |
+| 2026-09-15 | gitignore 路径锚定 | 修正 | SRC 是仓库子目录时必须写 sub/.audit-items/。gitignore 含 / 时锚定到文件所在目录，不写前缀会完全失效 |
+| 2026-09-15 | audit 自检 | 补充 | gitignore 四种情形全覆盖：仓库根 / 子目录 / 非 git 目录 / --no-gitignore。初版 _mkgit 把 git init 放在 sub 里，子目录场景等于没测到，已修 |

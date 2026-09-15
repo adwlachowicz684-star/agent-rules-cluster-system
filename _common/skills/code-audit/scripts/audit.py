@@ -34,7 +34,14 @@ audit.py —— 审查编排器（预算控制 + 断点续跑 + 统一输出）
     python3 audit.py --resume                        # 从上次断点继续
     python3 audit.py --status                        # 查看进度
     python3 audit.py --src=<根> --items --item-level=P0   # 只要 P0 判据
+    python3 audit.py --src=<根> --no-gitignore       # 别动被审查项目的 .gitignore
     python3 audit.py --reset                         # 清断点重来
+
+关于 .gitignore：
+    审查产物（.audit-state.json / .audit-items/）落在**被审查项目里**，
+    会弄脏对方的 git status。所以检测到 git 仓库时会自动追加两行
+    .gitignore（幂等，带注释标注来源，可随时删）。
+    不想让它动就用 --no-gitignore；不是 git 仓库则什么都不做。
 
 退出码：
     0  全部完成
@@ -78,6 +85,8 @@ ITEMS = '--items' in _flags
 ITEM_ALL = '--items-all' in _flags
 ITEM_LEVEL = ''
 ITEM_LIMIT = 0
+# 默认开启：不往被审查项目写 .gitignore，审查产物会污染它的 git status
+NO_GITIGNORE = '--no-gitignore' in _flags
 for _f in _flags:
     if _f.startswith('--item-level='):
         ITEM_LEVEL = _f.split('=', 1)[1].strip()
@@ -202,6 +211,80 @@ def _write_items_md(II, d, scene, items, feats):
     body = II.render(items, II.related_sections(d, [i['id'] for i in items]))
     out.append(body)
     return '\n'.join(out)
+
+
+# ---- 产物不污染被审查项目 ----
+# 本脚本把 .audit-state.json / .audit-items/ 写在**被审查项目的根**里
+# （产物跟着项目走，便于查看与断点续跑）。副作用是这些文件会出现在
+# 对方的 `git status` 里——那是人家的仓库，不该被审查工具弄脏。
+#
+# 方案：检测到是 git 仓库就自动往 .gitignore 追加两行。
+# 为什么是追加而不是改产物位置：产物落在项目里更顺手（一眼能看到、
+# 换机器也能接着跑），而 .gitignore 追加两行是最小侵入。
+GITIGNORE_MARK = '# code-audit 审查产物（由 audit.py 自动追加，可删）'
+GITIGNORE_ENTRIES = ['.audit-state.json', '.audit-items/']
+
+
+def git_toplevel(path):
+    """返回 path 所属 git 仓库的根；不是 git 仓库则返回 None。"""
+    try:
+        r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                           cwd=path, capture_output=True, text=True, timeout=10)
+        if r.returncode == 0:
+            return os.path.abspath(r.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def ensure_gitignore(root, rel_entries):
+    """把审查产物加进被审查项目的 .gitignore（幂等）。
+
+    几个刻意的处理：
+      · **相对仓库根写路径**。SRC 可能是子目录，而 .gitignore 在仓库根，
+        直接写 `.audit-items/` 会失效（gitignore 含 `/` 时锚定到文件所在目录）
+      · **幂等**。按行精确比对，重复跑不会堆一坨
+      · **失败不致命**。只读仓库、无权限都只是 warning，不影响审查
+      · **可关**。--no-gitignore
+    """
+    if NO_GITIGNORE:
+        return None
+    top = git_toplevel(root)
+    if not top:
+        return None
+
+    # 产物相对仓库根的路径（SRC 可能就是根，也可能是子目录）
+    try:
+        rel = os.path.relpath(root, top)
+    except ValueError:
+        return None
+    prefix = '' if rel in ('.', '') else rel.replace(os.sep, '/').rstrip('/') + '/'
+    wanted = ['%s%s' % (prefix, e) for e in rel_entries]
+
+    gi = os.path.join(top, '.gitignore')
+    lines = []
+    if os.path.isfile(gi):
+        try:
+            lines = open(gi, encoding='utf-8').read().splitlines()
+        except (OSError, UnicodeDecodeError):
+            return None  # 读不了就别碰它
+
+    existing = {l.strip() for l in lines}
+    add = [w for w in wanted if w not in existing]
+    if not add:
+        return None  # 已经有了，什么都不做
+
+    try:
+        with open(gi, 'a', encoding='utf-8') as f:
+            if lines and lines[-1].strip():
+                f.write('\n')
+            f.write(GITIGNORE_MARK + '\n')
+            for w in add:
+                f.write(w + '\n')
+    except OSError as e:
+        print('  [warn] 写 .gitignore 失败（不影响审查）: %s' % e, file=sys.stderr)
+        return None
+    return wanted
 
 
 def state_path():
@@ -345,6 +428,48 @@ def cmd_self_test():
     chk('PY-01' in md and len(md) > 100,
         '渲染结果含条目正文（%d 字符）' % len(md))
 
+    # 6) .gitignore 自动追加：四种情形都不能出错
+    import tempfile
+    def _mkgit(sub=''):
+        """建一个 git 仓库；给了 sub 就**返回子目录**（仓库根是它的父目录）。
+
+        早先写成在 sub 里 git init，那 sub 自己就是根了，
+        子目录场景等于没测到。"
+        """
+        top = tempfile.mkdtemp()
+        subprocess.run(['git', 'init', '-q'], cwd=top, capture_output=True)
+        if sub:
+            d = os.path.join(top, sub)
+            os.makedirs(d)
+            return d
+        return top
+
+    saved_flag = globals().get('NO_GITIGNORE')
+    try:
+        globals()['NO_GITIGNORE'] = False
+        d1 = _mkgit()
+        a1 = ensure_gitignore(d1, GITIGNORE_ENTRIES)
+        chk(a1 == ['.audit-state.json', '.audit-items/'],
+            'git 仓库根：写入两条（%s）' % a1)
+        a2 = ensure_gitignore(d1, GITIGNORE_ENTRIES)
+        chk(a2 is None, '幂等：第二次不重复追加')
+
+        d2 = _mkgit('sub')
+        a3 = ensure_gitignore(d2, GITIGNORE_ENTRIES)
+        chk(a3 == ['sub/.audit-state.json', 'sub/.audit-items/'],
+            '子目录：路径相对仓库根（%s）' % a3)
+
+        d3 = tempfile.mkdtemp()   # 非 git 目录
+        chk(ensure_gitignore(d3, GITIGNORE_ENTRIES) is None,
+            '非 git 目录：不写、不崩')
+
+        globals()['NO_GITIGNORE'] = True
+        d4 = _mkgit()
+        chk(ensure_gitignore(d4, GITIGNORE_ENTRIES) is None,
+            '--no-gitignore：不写（产物仍可见，由用户自行处理）')
+    finally:
+        globals()['NO_GITIGNORE'] = saved_flag
+
     print()
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
@@ -375,8 +500,14 @@ def main():
         print('全部场景已完成。--reset 可重来。')
         return 0
 
+    # 产物会落在被审查项目里 → 先让它的 .gitignore 接住，
+    # 否则人家的 git status 里会冒出 .audit-state.json / .audit-items/
+    _added = ensure_gitignore(SRC, GITIGNORE_ENTRIES)
+
     print('audit · 审查编排')
     print('根: %s' % SRC)
+    if _added:
+        print('已把审查产物加入 .gitignore: %s' % ' · '.join(_added))
     print('场景 %d 个 · 已完成 %d · 本轮待审 %d · 预算 %d tokens'
           % (len(order), len(st['done']), len(todo), BUDGET))
     print()
