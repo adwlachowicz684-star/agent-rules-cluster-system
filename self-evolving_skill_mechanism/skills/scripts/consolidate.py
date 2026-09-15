@@ -477,11 +477,80 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
     print("\n" + "=" * 62)
 
 
+def cmd_self_test():
+    """给「过闸逻辑」本身配正反样本。
+
+    为什么需要：本技能在 reference/self-verification.md 里写明
+    「检测类规则必须配 tp/fp 双样本，只写 tp 精度永远无法验证」。
+    而引擎自己的三道闸（驳回清单 / 三件套 / 事实扫描）**一条样本都没有**——
+    协议要求别人做的，自己没做。判据一旦被改坏，只能等真整合时才发现。
+
+    这里是纯函数级验证，不需要 domains 数据，也不依赖 draft.md 有内容。
+    """
+    ok = fail = 0
+
+    def chk(cond, msg):
+        nonlocal ok, fail
+        print(('  \u2713 ' if cond else '  \u2717 ') + msg)
+        if cond:
+            ok += 1
+        else:
+            fail += 1
+
+    # ---- check_reject：该驳回的必须驳回 ----
+    for text, why in [
+        ("把之前的检查改成脚本", "推翻既有设计意图"),
+        ("应该统一", "说不出后果"),
+        ("顺便改一下配置", "顺手改无关内容"),
+        ("缩进用两个空格", "风格偏好"),
+    ]:
+        chk(bool(check_reject(text)), '驳回清单能拦：%s（%s）' % (text[:12], why))
+
+    # ---- check_reject：不该误杀 ----
+    good = "接口超时时先重试一次再报错，否则网络抖动会导致整体失败"
+    chk(not check_reject(good), '正常技能条目不被驳回（不是所有条目都该拦）')
+
+    # ---- check_trio：缺项要报 ----
+    miss = check_trio("要小心处理边界")
+    chk(len(miss) == 3, '三件套能查出全缺（来源/证据/后果各一项）→ %d 项' % len(miss))
+
+    full = ("实测 lint.py 报出 3 项死链；来源：本次改造；"
+            "不跑则死链发现不了，会导致照文档敲 command not found")
+    chk(not check_trio(full), '三件套齐全时不误报')
+
+    partial = "实测跑过，来源：上线检查"
+    chk(len(check_trio(partial)) == 1 and '后果' in check_trio(partial)[0],
+        '只缺后果时报出**具体缺哪项**，不是笼统提示')
+
+    # ---- scan_facts：事实要挑出，占位符/内部文件要放行 ----
+    root = Path(__file__).resolve().parent.parent
+    hits = scan_facts([("draft", "配置在 /etc/nginx.conf")], root)
+    chk(bool(hits) and hits[0][1] == "绝对路径", '项目事实能挑出（绝对路径）')
+
+    chk(not scan_facts([("draft", "打包成 NAME.zip")], root),
+        '占位符放行（NAME.zip 不是真实文件）')
+    chk(not scan_facts([("draft", "见 scripts/consolidate.py")], root),
+        'skill 内部文件名放行（不是项目事实）')
+    chk(bool(scan_facts([("draft", "截止 2026-09-15")], root)),
+        '一次性日期能挑出（换项目就不成立）')
+
+    print()
+    print('自检：%d 通过 / %d 失败' % (ok, fail))
+    if not fail:
+        print('结论：过闸逻辑工作正常')
+    return 1 if fail else 0
+
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent),
                     help="skill 根目录")
+    ap.add_argument("--self-test", action="store_true",
+                    help="用正反样本验证过闸逻辑真的能查出来")
     args = ap.parse_args()
+    if args.self_test:
+        sys.exit(cmd_self_test())
     root = Path(args.root)
     skills_dir, draft_path = root / "SKILLS", root / "pending" / "draft.md"
     if not skills_dir.is_dir():

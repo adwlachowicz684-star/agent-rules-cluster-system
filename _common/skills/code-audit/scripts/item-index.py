@@ -517,27 +517,35 @@ def cmd_scan(path, json_out=False):
     #   ② {'items':[...], 'by_pattern':{...}} —— scan-ts 的 --json（聚合版）
     #   ③ {'by_pattern': {'C01': N}} —— 只要键名也够用
     # 早先只处理 ①，遇到 ② 直接 AttributeError 崩栈。
+    id_names = {}
+
+    def _grab(rid, name=None):
+        rid = str(rid)
+        ids_set.add(rid)
+        if name and rid not in id_names:
+            id_names[rid] = str(name)
+
+    ids_set = set()
     if isinstance(rows, dict):
         raw = rows.get('items') or []
-        ids = set()
         if raw:
             for r in raw:
                 if isinstance(r, dict):
                     rid = r.get('rule_id') or r.get('id') or r.get('pattern')
                     if rid:
-                        ids.add(str(rid))
-        if not ids:
-            ids = {str(k) for k in (rows.get('by_pattern') or {})}
+                        _grab(rid, r.get('name'))
+        if not ids_set:
+            for k in (rows.get('by_pattern') or {}):
+                _grab(k)
     else:
-        ids = set()
         for r in rows:
             if isinstance(r, dict):
                 rid = r.get('rule_id') or r.get('id')
                 if rid:
-                    ids.add(str(rid))
+                    _grab(rid, r.get('name'))
             elif isinstance(r, str):
-                ids.add(r)
-    ids = sorted(ids)
+                _grab(r)
+    ids = sorted(ids_set)
     idx = {i['id']: i for i in d['items']}
 
     # 同一个判据在系统里有三种写法，必须先归一化再匹配：
@@ -549,16 +557,72 @@ def cmd_scan(path, json_out=False):
         if n:
             by_norm.setdefault(n, k)
 
-    mapped = {x: by_norm.get(norm_id(x) or '') for x in ids}
+    def _sim(a, b):
+        """中文按字、英文按词取集合的 Jaccard；用于判断两条判据是不是同一条。"""
+        sa = set(re.findall(r'[\u4e00-\u9fff]|[A-Za-z]{2,}', a or ''))
+        sb = set(re.findall(r'[\u4e00-\u9fff]|[A-Za-z]{2,}', b or ''))
+        if not sa or not sb:
+            return 0.0
+        return len(sa & sb) / len(sa | sb)
+
+    mapped = {}
+    for x in ids:
+        cand = by_norm.get(norm_id(x) or '')
+        # ID 归一化只是**格式**对齐，不代表语义是同一条：
+        # items.json 的 A-xx 是「s-atomicity 场景」编号，
+        # scan-ts 的 Axx 是「数值族」编号，两者只是恰好都用字母 A。
+        # 实测 41/131 条按 ID 取到的是**另一条完全无关的判据**——
+        # 而它看起来就是一条正常的判据，属于最危险的静默错误。
+        # 故必须再用名称校验一遍；对不上就按名称重找，找不到就报「未索引」，
+        # 宁可让人看到「没取到」，也不要给出错的判据。
+        nm = id_names.get(x)
+        if cand and nm:
+            if _sim(nm, idx[cand]['name']) >= 0.20:
+                mapped[x] = cand
+                continue
+        best, bs = None, 0.0
+        if nm:
+            for k, it in idx.items():
+                sc = _sim(nm, it['name'])
+                if sc > bs:
+                    best, bs = k, sc
+        mapped[x] = best if bs >= 0.45 else ''
     got = [idx[mapped[i]] for i in ids if mapped[i]]
     miss = [i for i in ids if not mapped[i]]
+
+    # 置信度：把 registry.json 里实测出来的 precision/recall 带到输出里。
+    # 为什么必须带上：eval 是「131 条双 pass」的唯一载体，但若没有任何下游读它，
+    # 这份数据就只让 --check 的终端输出好看——产出而不改变任何一步行为是纯负债。
+    # 带上之后，读判据的人能立刻知道「这条规则经实测」还是「没验证过」。
+    reg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            '..', 'rules', 'registry.json')
+    conf = {}
+    try:
+        with open(reg_path, encoding='utf-8') as fh:
+            reg = json.load(fh)
+        for r in reg.get('rules', []):
+            n = norm_id(r.get('rule_id', ''))
+            if not n:
+                continue
+            ev = r.get('eval') or {}
+            p_ = ev.get('precision', 'unverified')
+            rc = ev.get('recall', 'unverified')
+            conf[n] = '已实测' if (p_ == 'pass' and rc == 'pass') else '未验证'
+    except (OSError, ValueError):
+        conf = {}
+
+    def _conf(rid):
+        return conf.get(norm_id(rid) or '', '未验证')
+
     if json_out:
         print(json.dumps([{'id': i['id'], 'level': i['level'], 'name': i['name'],
-                           'scene': i['scene']} for i in got],
+                           'scene': i['scene'], 'confidence': _conf(i['id'])}
+                          for i in got],
                          ensure_ascii=False, indent=1))
         return 0
     for i in got:
-        print('  %-9s %-3s %-40s %s' % (i['id'], i['level'], i['name'][:40], i['scene']))
+        print('  %-9s %-3s %-38s %-10s [%s]'
+              % (i['id'], i['level'], i['name'][:38], i['scene'], _conf(i['id'])))
     if miss:
         print('\n扫描器报了但索引里没有（人工判据，需整场景读）：%s' % ' '.join(miss))
     print('\n%d 条可精确定位 · %d tokens（整场景读要 %d）'
@@ -601,6 +665,36 @@ def cmd_self_test():
             print('  ✗ %s' % msg)
 
     idx = {i['id']: i for i in d['items']}
+
+    # ID 撞号：scan-ts 的 A05 是「>>> 0 把 NaN 变 0」（数值族），
+    # items.json 的 A-05 是「调试/作弊/后门默认启用」（s-atomicity 场景），
+    # 归一化后都变成 A05 —— 按 ID 取会静默给出完全无关的判据。
+    # 这类错误最危险：它看起来是一条正常的判据，只是不是你要的那条。
+    import tempfile as _tf
+    _tmp = _tf.mkdtemp(prefix='idx-collide-')
+    try:
+        _f = os.path.join(_tmp, 'scan.json')
+        json.dump({'items': [{'pattern': 'A05',
+                              'name': '>>> 0 / |0 把 NaN 静默变成 0',
+                              'level': 'P1', 'file': 'x.ts', 'line': 1,
+                              'snippet': ''}]},
+                  open(_f, 'w', encoding='utf-8'), ensure_ascii=False)
+        _buf, sys.stdout = sys.stdout, _tf.NamedTemporaryFile(
+            'w+', encoding='utf-8', delete=False, suffix='.txt')
+        try:
+            cmd_scan(_f, json_out=False)
+        finally:
+            sys.stdout, _buf = _buf, sys.stdout
+            _buf.flush()
+            _out = open(_buf.name, encoding='utf-8').read()
+        chk('A05' in _out and '未索引' not in _out.replace('未索引，', ''),
+            'ID 撞号时不返回无关判据（A05 数值族 ≠ A-05 作弊后门）')
+        chk('可精确定位' in _out and _out.count('A-05') == 0,
+            '撞号条目 A-05 未被误取')
+    finally:
+        import shutil as _sh
+        _sh.rmtree(_tmp, ignore_errors=True)
+
     for ids, kw, why in SELF_TEST_CASES:
         miss = [i for i in ids if i not in idx]
         if miss:

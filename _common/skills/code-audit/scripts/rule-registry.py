@@ -24,6 +24,7 @@ rule-registry.py —— 规则注册表管理（rule_id / 漂移检查 / fixture
 """
 
 import os
+import glob
 import re
 import sys
 import json
@@ -286,6 +287,33 @@ def cmd_sync():
     return 0
 
 
+def check_dup_definitions():
+    """同一条规则在扫描器源码里被定义多次 → 前面的定义静默失效。
+
+    为什么必须查：scan-ts.py 装配时「按 id 去重，保留最后定义」（修正区
+    覆盖 core34 的失效实现）。于是**改前面的定义完全不生效**——
+    代码看起来改了、diff 也有，但行为纹丝不动，且不报任何错。
+
+    实测：I01 / K02 各有两个定义，我第一次改判据改的是第一个，
+    复测召回率仍是 0/8，白改。这是最难察觉的一类失效。
+    """
+    import re as _re
+    out = []
+    for scanner in sorted(glob.glob(os.path.join(HERE, 'scan-*.py'))):
+        src = open(scanner, encoding='utf-8').read()
+        m = _re.search(r'#\s*装配后处理：按 id 去重，保留最后定义', src)
+        if not m:
+            continue
+        ids = _re.findall(r"@pattern\('([A-Za-z0-9_]+)'", src)
+        for rid in sorted({i for i in ids if ids.count(i) > 1}):
+            pos = [k for k, x in enumerate(ids) if x == rid]
+            out.append('%s：%s 被定义 %d 次（行序 %s）→ 生效的是**最后**一个，'
+                       '改前面的不生效'
+                       % (os.path.basename(scanner), rid, len(pos),
+                          ', '.join(str(x) for x in pos)))
+    return out
+
+
 def cmd_check():
     reg = load()
     if reg is None:
@@ -307,6 +335,10 @@ def cmd_check():
         if r['rule_id'] in livemap and livemap[r['rule_id']]['level'] != r['level']:
             warns.append('%s 级别已从 %s 变为 %s' % (r['rule_id'], r['level'],
                                                 livemap[r['rule_id']]['level']))
+
+    # 重复定义：改前面的不生效，且没有任何报错
+    for msg in check_dup_definitions():
+        warns.append(msg)
 
     # CWE 映射完整性：未映射(null)与明确无([])是两回事，只报前者
     uncwe = [r['rule_id'] for r in reg['rules'] if r.get('cwe') is None]
@@ -416,7 +448,9 @@ def run_all_fixtures(reg, verbose=True):
         if not os.path.isdir(d):
             continue
         names = os.listdir(d)
-        files = [f for f in names if f.startswith(('tp.', 'fp.'))]
+        # 必须按「tp / tp2 / tp3 …」识别，不能只认 startswith('tp.')：
+        # 'tp2.ts' 不以 'tp.' 开头，用前缀判断会让第二组样本被静默跳过
+        files = [f for f in names if re.fullmatch(r'(?:tp|fp)\d*\.[A-Za-z0-9.]+', f)]
         # 项目级规则（J13 / P01~P05 / R08）判的是「整棵工程」——忽略清单、CI 配置、
         # 多入口 HTML 的安全策略覆盖。单文件 fixture 表达不了，故支持 tp.d/ / fp.d/
         # 整树模式：目录内容原样铺到临时根，扫描器按平时的方式扫整个根。
@@ -428,16 +462,43 @@ def run_all_fixtures(reg, verbose=True):
         native = (meta or {}).get('native_id', rid.split('-', 1)[-1])
         rec = {'tp': None, 'fp': None, 'errors': []}
         for kind in ('tp', 'fp'):
-            tree = kind + '.d'
-            tmp = tempfile.mkdtemp(prefix='fix-')
-            try:
-                if os.path.isdir(os.path.join(d, tree)):
-                    shutil.copytree(os.path.join(d, tree), tmp, dirs_exist_ok=True)
+            treedir = os.path.join(d, kind + '.d')
+            # 两种形态互斥：
+            #   ① 整树  tp.d/（目录）—— 项目级规则需要多文件工程
+            #   ② 多组单文件  tp.ts / tp2.ts … —— 同一规则的不同写法
+            if os.path.isdir(treedir):
+                tmp = tempfile.mkdtemp(prefix='fix-')
+                try:
+                    shutil.copytree(treedir, tmp, dirs_exist_ok=True)
                     ok, hits, err = _run_scanner(scanner, tmp, native)
+                finally:
+                    shutil.rmtree(tmp, ignore_errors=True)
+                if not ok:
+                    rec['errors'].append('%s：扫描器执行失败（%s）' % (kind, err))
+                    if verbose:
+                        print('  ! %s %s：扫描器执行失败（%s）'
+                              % (rid, kind, err[:110]))
+                    continue
+                if kind == 'tp':
+                    rec['tp'] = hits > 0
+                    if hits == 0 and verbose:
+                        print('  \u2717 %s TP 未命中（规则可能失效）' % rid)
                 else:
-                    src = next((f for f in files if f.startswith(kind + '.')), None)
-                    if not src:
-                        continue
+                    rec['fp'] = hits == 0
+                    if hits and verbose:
+                        print('  \u2717 %s FP 被命中（%d 处，规则可能过宽'
+                              ' → 误报源）' % (rid, hits))
+                continue
+
+            samples = sorted(f for f in files
+                             if re.fullmatch(kind + r'\d*\.[A-Za-z0-9.]+', f)
+                             and os.path.isfile(os.path.join(d, f)))
+            if not samples:
+                continue
+            results = []
+            for src in samples:
+                tmp = tempfile.mkdtemp(prefix='fix-')
+                try:
                     # 扫描器按「一级子目录 = 模块」切分，fixture 要放进一个模块目录
                     # 部分规则要求特定目录结构（如 J08 要求文件在 plugins/ 下），
                     # fixture 可用 .subdir 文件指定存放子目录
@@ -449,22 +510,28 @@ def run_all_fixtures(reg, verbose=True):
                     os.makedirs(mod, exist_ok=True)
                     shutil.copy(os.path.join(d, src), os.path.join(mod, src))
                     ok, hits, err = _run_scanner(scanner, tmp, native)
-            finally:
-                shutil.rmtree(tmp, ignore_errors=True)
-            if not ok:
-                rec['errors'].append('%s：扫描器执行失败（%s）' % (kind, err))
-                if verbose:
-                    print('  ! %s %s：扫描器执行失败（%s）' % (rid, kind, err[:120]))
+                finally:
+                    shutil.rmtree(tmp, ignore_errors=True)
+                if not ok:
+                    rec['errors'].append('%s(%s)：扫描器执行失败（%s）'
+                                         % (kind, src, err))
+                    if verbose:
+                        print('  ! %s %s(%s)：扫描器执行失败（%s）'
+                              % (rid, kind, src, err[:110]))
+                    continue
+                if kind == 'tp':
+                    results.append(hits > 0)
+                    if hits == 0 and verbose:
+                        print('  \u2717 %s TP 未命中（%s，规则可能失效）' % (rid, src))
+                else:
+                    results.append(hits == 0)
+                    if hits and verbose:
+                        print('  \u2717 %s FP 被命中（%s，%d 处，规则可能过宽'
+                              ' → 误报源）' % (rid, src, hits))
+            if not results:
                 continue
-            if kind == 'tp':
-                rec['tp'] = hits > 0
-                if hits == 0 and verbose:
-                    print('  ✗ %s TP 未命中（规则可能失效）' % rid)
-            else:
-                rec['fp'] = hits == 0
-                if hits and verbose:
-                    print('  ✗ %s FP 被命中（%d 处，规则可能过宽 → 误报源）'
-                          % (rid, hits))
+            # 多组样本：全部通过才算通过，不能「有一个命中就算过」
+            rec['tp' if kind == 'tp' else 'fp'] = all(results)
         res[rid] = rec
     return res
 

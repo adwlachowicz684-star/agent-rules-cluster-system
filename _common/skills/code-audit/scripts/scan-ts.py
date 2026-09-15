@@ -672,11 +672,22 @@ def k02(plugin, files):
             body = src[m.end():j]
             cleared = set(re.findall(r'this\.(_\w+)\.(?:clear|length\s*=\s*0)\s*\(\s*\)', body))
             cleared |= set(re.findall(r'this\.(_\w+)\.clear\s*\(', body))
-            allc = set(re.findall(r'private\s+(?:readonly\s+)?(_\w+)\s*(?::[^=;]+)?=', src))
-            allc |= set(re.findall(r'this\.(_\w+)\s*=\s*(?:new\s+(?:Map|Set|Array)|\[\]|\{\})', src))
+            # 容器判定改看**类型标注 / 初始化值**，不看名字。
+            # 白名单写法下，字段叫 _queue / _buffer / _pending 一律漏检：
+            # 实测白名单内 4/4 命中、白名单外 0/8 命中。
+            allc = set()
+            # ① 声明处带容器类型：private _queue: Map<K,V> = ...
+            for mm in re.finditer(
+                    r'private\s+(?:readonly\s+)?(_\w+)\s*(?::\s*([^=;]+?))?=',
+                    src):
+                f, ty = mm.group(1), (mm.group(2) or '')
+                if re.search(r'Map|Set|Array|Record|WeakMap|WeakSet|\[\]|\{\}', ty):
+                    allc.add(f)
+            # ② 初始化为容器：this._queue = new Map() / [] / {}
+            allc |= set(re.findall(
+                r'this\.(_\w+)\s*=\s*(?:new\s+(?:Map|Set|Array|WeakMap|WeakSet)'
+                r'|\[\]|\{\})', src))
             miss = allc - cleared
-            miss = {x for x in miss if re.search(r'map|set|arr|list|log|hist|cache|'
-                                                 r'record|entry|item|node|slot|bucket', x, re.I)}
             if miss and len(miss) < len(allc):
                 line = src[:m.start()].count('\n') + 1
                 hits.append((fn, line, f'{m.group(1)}() 未清理: {", ".join(sorted(miss))}'))
@@ -805,14 +816,19 @@ def o02(plugin, files):
     for fn, src in files.items():
         for m in re.finditer(r'/\s*([A-Za-z_$][\w.$]*)\s*[;),]', src):
             v = m.group(1)
-            if re.search(r'\b(scale|total|count|len|length|sum|weight|duration|'
-                         r'amount|divisor|n)\b', v):
-                line = src[:m.start()].count('\n') + 1
-                ctx = '\n'.join(src.split('\n')[max(0, line - 5):line + 1])
-                if re.search(r'===?\s*0|<\s*1e-|Math\.max\(|isFinite', ctx):
-                    continue
-                hits.append((fn, line, f'/ {v} 无零防护'))
-                break
+            # 判据从「变量名是否属于白名单」改为「分母是不是标识符」。
+            # 白名单写法下，分母叫 step / size / denom / qty 一律漏检：
+            # 实测白名单内 5/5 命中、白名单外 0/8 命中 —— 而 fixture 用的
+            # 恰好是白名单内的 count / n，于是「有 fixture 且全绿」掩盖了漏检。
+            # 全大写常量（MAX_X / SCALE_K）视为字面量，不是可变量。
+            if re.fullmatch(r'[A-Z][A-Z0-9_]*', v):
+                continue
+            line = src[:m.start()].count('\n') + 1
+            ctx = '\n'.join(src.split('\n')[max(0, line - 5):line + 1])
+            if re.search(r'===?\s*0|<\s*1e-|Math\.max\(|isFinite', ctx):
+                continue
+            hits.append((fn, line, f'/ {v} 无零防护'))
+            break
     return hits
 
 
@@ -944,9 +960,16 @@ def e02(plugin, files):
 def i01(plugin, files):
     hits = []
     for fn, src in files.items():
-        for m in re.finditer(r'this\.(_\w*(?:log|history|seen|cache|records|entries|samples)\w*)'
-                             r'\s*(?::[^=;]+)?=', src):
+        # 判据从「字段名是否含 log/history/cache 等白名单词」改为
+        # 「该字段被无界写入且全文无裁剪」：
+        # 白名单写法下 _queue / _buffer / _pending 一律漏检
+        # （实测白名单内 5/5 命中、白名单外 0/8 命中）。
+        for m in re.finditer(r'this\.(_\w+)\s*(?::[^=;]+)?=', src):
             f = m.group(1)
+            # 必须有写入动作（push/add/unshift/set）才是「会增长的容器」，
+            # 否则一次性填充的固定数组会大量误报
+            if not re.search(re.escape(f) + r'\.\s*(?:push|add|unshift|set)\s*\(', src):
+                continue
             line = src[:m.start()].count('\n') + 1
             if re.search(re.escape(f) + r'\.(?:shift|splice|length\s*=\s*0|clear)\s*\(', src):
                 continue
@@ -978,11 +1001,23 @@ def k02(plugin, files):
             cleared = set(re.findall(r'this\.(_\w+)\.clear\s*\(', body))
             cleared |= set(re.findall(r'this\.(_\w+)\.length\s*=\s*0', body))
             cleared |= set(re.findall(r'this\.(_\w+)\s*=\s*(?:\[\]|new\s+Map\s*\(|new\s+Set\s*\()', body))
-            allc = set(re.findall(r'private\s+(?:readonly\s+)?(_\w+)\s*(?::[^=;]+)?=', src))
-            allc |= set(re.findall(r'this\.(_\w+)\s*=\s*(?:new\s+(?:Map|Set|Array)|\[\]|\{\})', src))
+            # 容器判定改看**类型标注 / 初始化值**，不看名字。
+            # 白名单写法下，字段叫 _queue / _buffer / _pending 一律漏检：
+            # 实测白名单内 4/4 命中、白名单外 0/8 命中 —— 而 fixture 用的
+            # 恰好是白名单内的 _cache，于是「有 fixture 且全绿」掩盖了漏检。
+            allc = set()
+            # ① 声明处带容器类型：private _queue: Map<K,V> = ...
+            for mm in re.finditer(
+                    r'private\s+(?:readonly\s+)?(_\w+)\s*(?::\s*([^=;]+?))?=',
+                    src):
+                _f, ty = mm.group(1), (mm.group(2) or '')
+                if re.search(r'Map|Set|Array|Record|WeakMap|WeakSet|\[\]|\{\}', ty):
+                    allc.add(_f)
+            # ② 初始化为容器（含声明处直接初始化，不带类型标注的写法）
+            allc |= set(re.findall(
+                r'(?:this\.|private\s+(?:readonly\s+)?)(_\w+)\s*=\s*'
+                r'(?:new\s+(?:Map|Set|Array|WeakMap|WeakSet)|\[\]|\{\})', src))
             miss = allc - cleared
-            miss = {x for x in miss if re.search(r'map|set|arr|list|log|hist|cache|'
-                                                 r'record|entry|item|node|slot|bucket', x, re.I)}
             if miss and len(miss) < len(allc):
                 line = src[:m.start()].count('\n') + 1
                 hits.append((fn, line, f'{m.group(1)}() 未清理: {", ".join(sorted(miss))}'))

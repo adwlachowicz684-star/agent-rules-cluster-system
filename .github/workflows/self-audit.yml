@@ -68,6 +68,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 过闸逻辑自检（驳回清单 / 三件套 / 事实扫描）
+        working-directory: self-evolving_skill_mechanism/skills
+        run: python3 scripts/consolidate.py --self-test
+
       - name: 大类路由自检（keywords 退化会让归属静默失真）
         working-directory: self-evolving_skill_mechanism/skills
         run: python3 scripts/structure.py --self-test
