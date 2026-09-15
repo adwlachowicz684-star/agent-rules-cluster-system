@@ -17,13 +17,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "820f95a6"
    },
    "cwe": [
@@ -46,13 +46,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "d5eabfaa"
    },
    "cwe": [
@@ -104,13 +104,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "1737316d"
    },
    "cwe": [
@@ -133,13 +133,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "afcf75c6"
    },
    "cwe": [],
@@ -160,13 +160,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "10910104"
    },
    "cwe": [
@@ -247,13 +247,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "fd1d09ac"
    },
    "cwe": [
@@ -276,13 +276,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "9bd983eb"
    },
    "cwe": [
@@ -305,13 +305,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "f0dcd68a"
    },
    "cwe": [
@@ -504,13 +504,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.rs",
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "2ded838f"
    },
    "cwe": [
@@ -533,13 +533,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.rs",
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "ea301b07"
    },
    "cwe": [
@@ -620,13 +620,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.rs",
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "8d751d91"
    },
    "cwe": [
@@ -678,13 +678,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.rs",
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "a2e7b794"
    },
    "cwe": [
@@ -764,13 +764,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.rs",
+    "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "f7ff8e1e"
    },
    "cwe": [],
@@ -2084,13 +2084,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "a1b24be5"
    },
    "cwe": [
@@ -2239,13 +2239,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "f4cf652e"
    },
    "cwe": [
@@ -2270,13 +2270,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "5106e0da"
    },
    "cwe": [
@@ -2388,13 +2388,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "c52e918c"
    },
    "cwe": [],
@@ -2448,13 +2448,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "756d5967"
    },
    "cwe": [],
@@ -2477,13 +2477,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "1f7c34ca"
    },
    "cwe": [
@@ -2508,13 +2508,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "0f5a1fdf"
    },
    "cwe": [
@@ -2539,13 +2539,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "6939de7a"
    },
    "cwe": [],
@@ -2599,13 +2599,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "4fee35b4"
    },
    "cwe": [
@@ -2630,13 +2630,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "a83fd16f"
    },
    "cwe": [],
@@ -2659,13 +2659,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "f0789f82"
    },
    "cwe": [],
@@ -2719,13 +2719,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "a219e7ba"
    },
    "cwe": [
@@ -2842,13 +2842,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "1a271560"
    },
    "cwe": [],
@@ -2871,13 +2871,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "5c8fc79e"
    },
    "cwe": [
@@ -2902,13 +2902,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "a2c5d105"
    },
    "cwe": [
@@ -2933,13 +2933,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "1b720e60"
    },
    "cwe": [],
@@ -2962,13 +2962,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "ebe268ab"
    },
    "cwe": [
@@ -3086,13 +3086,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "bab1bcff"
    },
    "cwe": [
@@ -3179,13 +3179,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "2b020a8e"
    },
    "cwe": [],
@@ -3270,13 +3270,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "9c468004"
    },
    "cwe": [
@@ -3514,13 +3514,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "0a9d5fd3"
    },
    "cwe": [
@@ -3700,13 +3700,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "d6f06f42"
    },
    "cwe": [
@@ -3731,13 +3731,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "b6bbf368"
    },
    "cwe": [
@@ -3762,13 +3762,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "821cc958"
    },
    "cwe": [],
@@ -3791,13 +3791,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.ts",
+    "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
     "sig": "7ba499e8"
    },
    "cwe": [],

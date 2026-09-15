@@ -119,3 +119,9 @@
 | 2026-09-15 | 扫描器默认排除 | 新增 | 测试与 fixture 样本默认跳过（扫描**缺陷示范代码**只会污染结果：扫本仓库时候选 100% 来自 rules/fixtures/*/tp.*）。--include-tests 可放开，且同时解除目录级排除 |
 | 2026-09-15 | CI self-audit | 新增 | 本仓库提供 SARIF 与「P0 退出码 1 可接 CI」却自己没用。新流水线跑 fixture 实测 + 六扫描器自检 + 配置解析自检，并上传 SARIF 到 Code Scanning |
 | 2026-09-15 | README | 新增 | 仓库此前无 README，用法只能进代码看 |
+| 2026-09-15 | fixture 批量补齐 | 新增 | 新增 38 组 tp/fp（scan-ts 25 条 + scan-app 13 条）。TP fixture 覆盖率 56/131 → 124/131；fixture 实测 114 通过 → 250 通过 0 失败 |
+| 2026-09-15 | fixture 生成即验证 | 新增 | 新增的 tp/fp 全部实跑扫描器确认「tp 命中且 fp 不命中」再入库，不靠看起来对。TS-Q02 首版 remove(x: any) 带类型标注匹配不到判据，当场修正 |
+| 2026-09-15 | eval 刷新 | 更新 | 全部 fixture 跑完后重跑 --eval：123 条 recall/precision 双 pass（原 131 条全 unverified），仅 7 条项目级规则仍未覆盖 |
+| 2026-09-15 | fixture 批量补齐 | 新增 | 新增 38 组 tp/fp（scan-ts 25 条 + scan-app 13 条）。TP fixture 覆盖率 56/131 → 124/131；fixture 实测 114 通过 → 250 通过 0 失败 |
+| 2026-09-15 | fixture 生成即验证 | 新增 | 新增的 tp/fp 全部实跑扫描器确认「tp 命中且 fp 不命中」再入库，不靠看起来对。TS-Q02 首版 remove(x: any) 带类型标注匹配不到判据，当场修正 |
+| 2026-09-15 | eval 刷新 | 更新 | 全部 fixture 跑完后重跑 --eval：123 条 recall/precision 双 pass（原 131 条全 unverified），仅 7 条项目级规则仍未覆盖 |
