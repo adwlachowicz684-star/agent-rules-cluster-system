@@ -342,6 +342,62 @@ def _p_dup_import(path, text, st):
     return out
 
 
+def _p_ci_script(joined, root, _u=None):
+    """G10 CI 引用的 npm script 在 package.json 中不存在。
+
+    来源：2026-09-14 nexus-panel。`.github/workflows/ci.yml` 第一步
+    `npm run config:check`，而 package.json 没这条 script → 退出码 1 →
+    fail-fast → 后续 5 个 step（跨端契约、构建、3 个冒烟）**一次都没跑过**。
+
+    **CI 存在 ≠ CI 在起作用。** 成本极低的验证：把 CI 里的 run: 命令
+    在本地原样跑一遍看退出码。
+
+    加重信号（出现即基本确认）：① 脚本文件还在只是入口没了
+    ② README 也还在引用这个命令。
+    """
+    if not root:
+        return []
+    # 不能只查 root/package.json —— monorepo 里 package.json 在子目录，
+    # 而 .github 在根目录（这正是 H-12 的坑：两边分属不同层级）。
+    # 这里收集**所有** package.json 的 scripts 并集。
+    have = set()
+    for dp, dn, fns in os.walk(root):
+        dn[:] = [d for d in dn if d not in ('node_modules', 'target', '.git', 'dist')]
+        if 'package.json' not in fns:
+            continue
+        try:
+            have |= set(json.loads(
+                open(os.path.join(dp, 'package.json'), encoding='utf-8').read()
+            ).get('scripts', {}))
+        except Exception:
+            pass
+    if not have:
+        return []
+    out = []
+    for dp, dn, fns in os.walk(root):
+        dn[:] = [d for d in dn if d not in ('node_modules', 'target', '.git', 'dist')]
+        for f in fns:
+            if not (f.endswith('.yml') or f.endswith('.yaml')):
+                continue
+            p = os.path.join(dp, f)
+            if '.github' not in p.replace('\\', '/'):
+                continue
+            try:
+                raw = open(p, encoding='utf-8', errors='replace').read()
+            except OSError:
+                continue
+            for m in re.finditer(r'(?:npm\s+run|yarn)\s+([A-Za-z0-9:_.\-]+)', raw):
+                name = m.group(1)
+                if name in ('npm', 'run') or name in have:
+                    continue
+                out.append(('G10', 'P0',
+                            'CI 引用了不存在的 npm script：%s（该 step 退出码 1，'
+                            'fail-fast 下后续 step 全部跳过）' % name,
+                            os.path.relpath(p, root),
+                            raw[:m.start()].count('\n') + 1))
+    return out
+
+
 def _p_dead_export(joined, root, _unused_all_text=None):
     """G09 导出后零引用（**全项目**判定，逐文件会大量误报）。
 
@@ -573,7 +629,7 @@ def _p_multiconf(files_by_ext, root, all_text):
                  % ', '.join(sorted(set(hits))), pkg, 1)]
     return []
 
-PROJECT_CHECKS = [_p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
+PROJECT_CHECKS = [_p_ci_script, _p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
                   _p_ignore, _p_ci, _p_csp, _p_multiconf]
 
 
