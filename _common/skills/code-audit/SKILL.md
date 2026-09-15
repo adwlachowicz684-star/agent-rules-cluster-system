@@ -83,12 +83,13 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`p-go.md`** ⭐ | 仓库有 `.go` | goroutine 泄漏、context 未传播、channel 死锁、err 被丢 |
 | **`p-java.md`** ⭐ | 仓库有 `.java` | 资源未 try-with-resources、线程池不关、中断被吞 |
 | **`p-cpp.md`** ⭐ | 仓库有 `.c/.cpp/.h` | 所有权不清、异常路径泄漏、缓冲区溢出、虚假唤醒 |
+| **`p-rust.md`** ⭐ | 仓库有 `.rs`（`Cargo.toml` / `src-tauri/` 强信号） | panic 静默化、整数 release 回绕、unsafe 无契约、同步锁跨 await、Tauri 入参未校验 |
 | **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
 
-⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，
-对 Python / Go / Java / C++ 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。
-有多语言代码就必须跑对应扫描器；证明手段各不同：
-Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测与线程 dump。
+⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，对 Python / Go / Java /
+C++ / Rust 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。证明手段各不同：
+Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测与 dump、
+**Rust 靠 `cargo miri` + `-C overflow-checks=on` 重编译**。
 
 场景文件内自带「本场景模式清单 + 判据 + 确认方法 + 降级条件 + 修法」，
 **每个场景自成一体**，只看这一个文件就能干活。
