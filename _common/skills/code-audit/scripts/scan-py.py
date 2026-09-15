@@ -427,6 +427,60 @@ def py_bare_except_pass(tree, lines, path):
     return out
 
 
+# 清理 / 回滚动作的特征名：handler 体里出现这些调用，就认定这是清理代码。
+# 只看名字不看上下文，是候选不是结论 —— 报出来后仍要人工判断。
+_CLEANUP_CALLS = {
+    "close", "unlink", "remove", "rmtree", "rollback", "cleanup",
+    "delete", "restore", "release", "unlock", "abort", "teardown",
+}
+# 名字里含这些子串也算（如 delete_branch / _cleanup_failed_branch / rollback_tx）
+_CLEANUP_SUBSTR = ("cleanup", "clean_up", "rollback", "roll_back", "delete",
+                   "remove", "unlink", "restore", "release", "abort")
+
+
+def _is_cleanup(body):
+    for n in ast.walk(ast.Module(body=body, type_ignores=[])):
+        if not isinstance(n, ast.Call):
+            continue
+        nm = node_name(n.func)
+        if not nm:
+            continue
+        tail = nm.split(".")[-1].lower()
+        if tail in _CLEANUP_CALLS:
+            return True
+        low = nm.lower()
+        if any(s in low for s in _CLEANUP_SUBSTR):
+            return True
+    return False
+
+
+def py_cleanup_except_exception(tree, lines, path):
+    """PY-13 (P1) 清理/回滚用 except Exception —— 抓不到 KeyboardInterrupt
+
+    KeyboardInterrupt / SystemExit 是 BaseException 子类，
+    不走 except Exception。清理代码写在这里，用户 Ctrl-C 时就不执行，
+    留下远端/磁盘上的孤儿（s-atomicity A-18 / A-19）。
+
+    与 PY-11（裸 except）的区别：本条**指定了类型、看起来很规范**，
+    只是类型不对。finally 里的清理在中断时也会执行，不算。
+    """
+    out = []
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.ExceptHandler):
+            continue
+        if n.type is None:
+            continue                       # 裸 except 归 PY-11，不重复报
+        if node_name(n.type) != "Exception":
+            continue                       # 具体类型 / BaseException → 不算
+        if has_pragma(lines, n.lineno):
+            continue
+        if _is_cleanup(n.body):
+            out.append((n.lineno,
+                        "清理/回滚用 except Exception —— Ctrl-C 时不执行，"
+                        "改用 except BaseException（清理后 raise）或 finally"))
+    return out
+
+
 def py_naive_datetime(tree, lines, path):
     """PY-12 (P2) 无时区的 datetime.now() —— 跨时区/跨机器比较出错"""
     out = []
@@ -455,6 +509,8 @@ PATTERNS = [
     ("PY-10", "P0", "subprocess shell=True / os.system（命令注入）", py_shell_true),
     ("PY-11", "P0", "裸 except（吞掉 KeyboardInterrupt）", py_bare_except_pass),
     ("PY-12", "P2", "naive datetime（无时区）", py_naive_datetime),
+    ("PY-13", "P1", "清理/回滚用 except Exception（Ctrl-C 时不执行）",
+     py_cleanup_except_exception),
 ]
 
 SCENE = {
@@ -462,6 +518,7 @@ SCENE = {
     "PY-04": "s-concurrency", "PY-05": "s-backend", "PY-06": "s-sandbox",
     "PY-07": "s-concurrency", "PY-08": "p-python", "PY-09": "p-python",
     "PY-10": "s-backend", "PY-11": "p-python", "PY-12": "p-python",
+    "PY-13": "s-atomicity",
 }
 
 
@@ -505,6 +562,10 @@ SELF_TEST_CASES = [
     ("PY-10", "import subprocess\nsubprocess.run(cmd, shell=True)\n", True),
     ("PY-11", "try:\n    a()\nexcept:\n    pass\n", True),
     ("PY-12", "from datetime import datetime\nn = datetime.now()\n", True),
+    ("PY-13", "try:\n    commit()\nexcept Exception:\n    cleanup()\n    raise\n", True),
+    # cleanup 藏在自定义函数名里也要算（实测的正是这种形态）
+    ("PY-13", "try:\n    commit()\nexcept Exception:\n"
+              "    _cleanup_failed_branch(b)\n    raise\n", True),
     # 反向：不该命中的
     ("PY-01", "def f(x=None):\n    x = x or []\n    return x\n", False),
     ("PY-05", "import yaml\nd = yaml.load(f, Loader=yaml.SafeLoader)\n", False),
@@ -514,6 +575,12 @@ SELF_TEST_CASES = [
     ("PY-12", "from datetime import datetime, timezone\nn = datetime.now(tz=timezone.utc)\n", False),
     ("PY-08", "EXCLUDE_DIRS = ['a', 'b']\n", False),          # 常量约定
     ("PY-08", "LOOKUP = {'a': 1}\ndef get(k):\n    return LOOKUP.get(k)\n", False),  # 只读
+    ("PY-13", "try:\n    commit()\nfinally:\n    cleanup()\n", False),      # finally 不算
+    ("PY-13", "try:\n    commit()\nexcept BaseException:\n    cleanup()\n"
+              "    raise\n", False),                          # BaseException 正确
+    ("PY-13", "try:\n    commit()\nexcept TimeoutError:\n    cleanup()\n", False),  # 具体类型
+    ("PY-13", "try:\n    commit()\nexcept Exception:\n"
+              "    logger.error(e)\n", False),                # 只记日志不是清理
 ]
 
 

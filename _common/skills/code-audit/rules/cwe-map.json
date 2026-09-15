@@ -611,6 +611,12 @@
     "CWE-703"
    ],
    "fix": "对路径列表做 stat 时用 .ok() / filter_map 兜底；悬空 symlink 与并发删除都会抛"
+  },
+  "PY-13": {
+   "cwe": [
+    "CWE-460"
+   ],
+   "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）"
   }
  }
 }

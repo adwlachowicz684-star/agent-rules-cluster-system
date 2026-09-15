@@ -2233,6 +2233,34 @@
    "note": "PROJECT_CHECK 类，--sync 不会自动提取，手工维护。P1 条件：名字像机制/防护/订阅（onXxxChange/safe_/check_/fsXxx/canXxx）",
    "fixture": null,
    "source": "2026-09-14 nexus-panel：552 导出中 16 个零引用，含 onPluginConfigChange/onPolicyChange（事件发了没人听）、fs 授权 API 4 个、FS_FORBIDDEN"
+  },
+  {
+   "rule_id": "PY-13",
+   "native_id": "PY-13",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "清理/回滚用 except Exception（Ctrl-C 时不执行）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-15",
+    "sig": "0ca7ac2a"
+   },
+   "cwe": [
+    "CWE-460"
+   ],
+   "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）",
+   "item": "PY-13",
+   "item_src": "id"
   }
  ]
 }
