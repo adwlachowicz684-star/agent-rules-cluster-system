@@ -31,6 +31,33 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 GO_EXT = (".go",)
 
 
+EXCLUDES = []
+
+
+def _excluded(p, root):
+    """排除路径（--exclude）。
+
+    为什么需要：fixture 的 tp.* 是**故意写成有缺陷**的，扫它们必然命中，
+    属于预期噪声；生成代码、vendor 目录同理。
+
+    抑制必须**显式写在命令行上**（可见、可审计、可复现）。
+    藏在隐藏配置里的抑制等于没有抑制——没人看得见，也就没人复核。
+    """
+    if not EXCLUDES:
+        return False
+    try:
+        rp = os.path.relpath(p, root).replace(os.sep, '/')
+    except ValueError:
+        return False
+    for e in EXCLUDES:
+        e = (e or '').strip().rstrip('/')
+        if not e:
+            continue
+        if rp == e or rp.startswith(e + '/'):
+            return True
+    return False
+
+
 def iter_go(root):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
@@ -41,6 +68,8 @@ def iter_go(root):
                     if os.path.getsize(p) > MAX_FILE_BYTES:
                         continue
                 except OSError:
+                    continue
+                if _excluded(p, root):
                     continue
                 yield p
 
@@ -382,12 +411,15 @@ def main():
     ap.add_argument("--sarif", default="")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--pattern", default="")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="排除路径（可重复/逗号分隔），跳过 fixtures 与生成代码")
     args = ap.parse_args()
     if args.self_test:
         sys.exit(self_test())
 
-    global SRC
+    global SRC, EXCLUDES
     SRC = os.path.abspath(args.src)
+    EXCLUDES = [x.strip() for a in (args.exclude or []) for x in a.split(",") if x.strip()]
     rows = scan(SRC)
     if args.pattern:
         rows = [r for r in rows if r["id"] == args.pattern]
@@ -412,6 +444,8 @@ def main():
 
     print("scan-go · Go 缺陷模式扫描")
     print(f"源码根: {SRC}   Go 文件: {sum(1 for _ in iter_go(SRC))}   命中候选: {len(rows)}")
+    if EXCLUDES:
+        print("排除路径: " + ", ".join(EXCLUDES) + "（抑制已显式声明，可审计）")
     print()
     if not rows:
         print("（无命中）")

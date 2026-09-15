@@ -97,7 +97,8 @@ Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测
 
 整机审查产出**一个目录**：主窗口按子系统拆、插件一个一份 + `00-索引.md`，
 ≥5 个文件打包 zip。模板 `assets/report-template-split.md`。
-硬约束：只写问题不写过程、每条须有位置+后果、误报段必写、同类合并。
+硬约束：只写问题不写过程、每条须有位置+后果+**验证建议**、误报段必写、同类合并。
+**退出标准**（三类清单 + blocking 判定）见 `references/common-reporting.md`。
 
 ## 四个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制）
 
@@ -115,11 +116,10 @@ python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 
 | 文件 | 用途 |
 |---|---|
-| `assets/report-template.md` | 报告骨架，复制后填充 |
+| `assets/report-template.md` | 报告骨架（含三类清单与 blocking 判定） |
 | `assets/review-checklist.md` | 执行清单，逐模块打勾 |
 | `assets/adversarial-inputs-card.md` | 数值场景速查卡，写探针时对照 |
-| `assets/eval-cases.md` | 评测集，改 description 后回归 |
-| `assets/changelog.md` | 变更溯源（为什么改） |
+| `assets/eval-cases.md` | 评测集；`assets/changelog.md` 变更溯源 |
 
 ## 公共层（必读）
 
@@ -128,7 +128,7 @@ python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 | `references/common.md` | **必跑**：六步流程、三件套、定级、驳回清单、报告格式、增量路由 |
 | `references/common-workflow.md` | 六步展开、模块推进顺序、规模分档 |
 | `references/common-severity.md` | 三级定义、8 条升级规则、降级条件、驳回清单 |
-| `references/common-reporting.md` | 报告结构、修复清单格式、批次建议、复核 |
+| `references/common-reporting.md` | 报告结构、**退出标准（三类清单 + blocking）**、复核 |
 | `references/common-manual-review.md` | 人工精审 7 项清单 |
 | `references/common-global.md` | 跨单元一致性、地基优先 |
 | `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库 |
@@ -153,7 +153,7 @@ python3 scripts/scan-ts.py --self-test
 python3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=py.sarif]
 python3 scripts/scan-py.py --self-test
 
-# ⚠ 多语言仓库：按实际语言跑，scan-ts/scan-app 对这些一律 0 命中
+# ⚠ 多语言仓库按实际语言跑；四个扫描器都支持 --exclude（抑制须显式声明）
 python3 scripts/scan-go.py   --src=<根> [--p0]      # Go
 python3 scripts/scan-java.py --src=<根> [--p0]      # Java
 python3 scripts/scan-cpp.py  --src=<根> [--p0]      # C/C++

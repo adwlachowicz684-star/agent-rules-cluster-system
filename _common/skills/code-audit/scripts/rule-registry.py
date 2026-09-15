@@ -183,8 +183,33 @@ def load():
     return json.load(open(REG, encoding='utf-8'))
 
 
+def attach_fixtures(rules):
+    """把 rules/fixtures/<id>/ 下实际存在的 tp/fp 回填到注册表。
+
+    为什么需要：extract() 只从扫描器源码提取规则，不知道 fixture 目录里有什么。
+    不回填的话 `--check` 会把覆盖率报成 `0 / 131`——
+    测试其实跑过且全通过（--test 显示 114 通过 0 失败），
+    但覆盖率显示 0，既低估了可信度，也让「哪些规则还没验证」彻底不可见。
+    """
+    if not os.path.isdir(FIXDIR):
+        return rules
+    have = {}
+    for rid in os.listdir(FIXDIR):
+        d = os.path.join(FIXDIR, rid)
+        if not os.path.isdir(d):
+            continue
+        tp = next((f for f in os.listdir(d) if f.startswith('tp.')), None)
+        fp = next((f for f in os.listdir(d) if f.startswith('fp.')), None)
+        if tp or fp:
+            have[rid] = {'tp': tp, 'fp': fp}
+    for r in rules:
+        if r['rule_id'] in have:
+            r['fixtures'] = have[r['rule_id']]
+    return rules
+
+
 def cmd_sync():
-    rules = extract()
+    rules = attach_fixtures(extract())
     reg = {'version': '1.0.0',
            'note': '由 scripts/rule-registry.py --sync 从扫描器提取生成。'
                    '不要手改条目（会被 --check 判为漂移）；改扫描器后重新 sync。',
@@ -222,10 +247,14 @@ def cmd_check():
     verified = len(reg['rules']) - len(nofix)
 
     print('rule-registry · 检查')
-    print('规则总数: %d（scan-ts %d / scan-app %d）' % (
+    # 按扫描器分档统计：原来只写死了 scan-ts / scan-app 两个，
+    # 新增语言包后总数会对不上（131 条里只报 89），掩盖了新规则是否真的入表
+    from collections import Counter
+    per = Counter(r['scanner'] for r in reg['rules'])
+    print('规则总数: %d（%s）' % (
         len(reg['rules']),
-        sum(1 for r in reg['rules'] if r['scanner'] == 'scan-ts.py'),
-        sum(1 for r in reg['rules'] if r['scanner'] == 'scan-app.py')))
+        ' / '.join('%s %d' % (k.replace('.py', ''), v)
+                   for k, v in sorted(per.items()))))
     print('有 TP fixture: %d / %d' % (verified, len(reg['rules'])))
     for e in errs:
         print('  ✗ %s' % e)
