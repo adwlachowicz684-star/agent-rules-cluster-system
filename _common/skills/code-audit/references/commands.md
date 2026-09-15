@@ -107,3 +107,30 @@ python3 scripts/check-skill.py                     # 结构 / 断链 / 体积
 每个扫描器都有 `--self-test`。**改过模式逻辑后必须重跑**——
 自检全通过却在真实项目上 0 命中，只能说明两件事之一：
 项目确实没问题（罕见），或检查已经失效（常见）。
+
+## 变异测试（验证「测试有没有能力发现问题」）
+
+测试全绿只证明**代码与测试当前一致**，证明不了测试有能力发现问题。
+`mutate.py` 把**真实修过的缺陷**逐个注入回去，看测试会不会变红。
+
+```bash
+python3 scripts/mutate.py --mutations=<定义.json> --list                    # 列出变异
+python3 scripts/mutate.py --src=<目标源码> --mutations=<定义.json> --check    # 只校验锚点
+python3 scripts/mutate.py --src=<目标源码> --mutations=<定义.json>            # 跑
+python3 scripts/mutate.py --src=<目标源码> --mutations=<定义.json> --only=id1,id2
+```
+
+| 结果 | 含义 | 该做什么 |
+|---|---|---|
+| `KILLED` | 测试守住了 | ✅ |
+| `SURVIVED` | **真盲区** | 补测试 |
+| `NOT_APPLIED` | 变异没生效（`old` 串没对上） | 改定义，**不是代码问题** |
+
+**`SURVIVED` 与 `NOT_APPLIED` 必须分开** —— 空变异会让测试继续绿，
+被误判成盲区，于是去补不存在的测试。
+
+**改完目标代码要跑 `--check`**：锚点失效后变异不生效，
+「KILLED」可能只是假象。
+
+定义格式与示例见 `rules/mutations.example.md`；
+流程位置见 `common-maintenance.md` 的步骤 ⑤′。

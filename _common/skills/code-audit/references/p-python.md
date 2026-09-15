@@ -104,6 +104,26 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 - **判据**：`datetime.now()` / `utcnow()` / `fromtimestamp()` 不带 `tz`
 - **确认**：是否跨时区部署或与其它时间源比较。是 → 升 P1
 - **修法**：`datetime.now(timezone.utc)`
+- **注意**：本条在 **TZ=UTC 的机器上测不出来**（沙盒 / 容器默认常为 UTC）——
+  naive 与 aware 此时看不出差别。显式设 `TZ` 并**断言与 UTC 有差值**才有效。
+  另见 `s-backend` K-33 的「探测静默退化」（没装 tzdata 时 `TZ` 名会被静默回退）
+
+### PY-13 (P1) 清理 / 回滚用 `except Exception`（抓不到 `BaseException`）
+- **判据**：清理、回滚、状态恢复、资源释放代码被 `except Exception` 包裹
+- **后果**：`KeyboardInterrupt` 是 `BaseException` **子类**，不走 `except Exception`
+  → 用户 Ctrl-C 时清理**不执行** → 留下 `s-atomicity` **A-18 / A-19** 的残留
+- **与 PY-11 的分界**：PY-11 是**裸 `except:`**（连类型都不指定，直接吞）；
+  本条是**写了 `except Exception`，看起来很规范**，但做清理时同样漏
+- **修法**：`except BaseException:` 清理后 `raise`（**不要吞**），
+  或把清理放 `finally`（中断时**也会**执行）
+- **连带陷阱**：很多人以为 `except Exception` 能兜住清理，
+  于是把清理写在 `except` 里而非 `finally` 里 —— 后者在中断时照样执行
+- **确认**：搜 `except Exception` / `except:`，
+  逐个判断 handler 体里是不是清理 / 回滚代码（含
+  `close` / `unlink` / `remove` / `rollback` / `cleanup` / `delete` / `restore`）
+- **实测**：某推送工具把「建 tree / commit / PATCH / 本地 commit」包进
+  `try ... except BaseException: _cleanup_failed_branch(); raise` ——
+  修复前 PATCH 之后 Ctrl-C 会留下孤儿分支；改后无残留
 
 ---
 
@@ -117,6 +137,9 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 □ 起线程的地方，共享状态靠什么保护？（竞态）
 □ 反序列化的输入谁可控？（任意代码执行）
 □ 日志里有没有凭据/PII？（落盘即泄露）
+□ 清理/回滚用的是 except Exception 吗？Ctrl-C 时还执行吗？（PY-13 → P1）
+□ 报错里有没有凭据原文？（S-10）
+□ 写进磁盘的凭据/状态文件是 0600 吗？（S-10）
 ```
 
 ## 与其它工具的分工

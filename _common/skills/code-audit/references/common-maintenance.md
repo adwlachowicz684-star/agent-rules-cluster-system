@@ -1,3 +1,4 @@
+<!-- oversize-exempt: 维护流程与回填步骤的操作手册，含七步流程、fixture 规范与变异验证，按步骤执行时需整体查阅 -->
 # 维护本技能
 
 本技能来自对真实项目的审查聚类，**每次审查完都要回填**。
@@ -21,9 +22,53 @@
 ④ 若能正则检出 → 加进对应扫描器的 PATTERNS（应用级 → scripts/scan-app.py，
    TS/JS → scripts/scan-ts.py，Python/Go/Java/C++ → scripts/scan-<lang>.py），并补 --self-test 用例
 ⑤ rules/fixtures/<ID>/ 下补 tp / fp 样本（见下方「加模式必须配 fixture」）
+⑤′【若有对应测试】用 mutate.py 证明「退回旧代码后测试会变红」（见下方）
 ⑥ python3 scripts/note.py "<ID>" 新增 "<一句话来源>"
 ⑦ python3 scripts/check-skill.py  确认体积与断链
 ```
+
+### ⑤′ 变异验证：证明规则**能抓到回归**
+
+`--self-test` 证明规则**能命中**（TP 命中 / FP 不命中）；
+变异测试证明规则**能抓到回归** —— 两条是**对偶命题**，只做前一半不够。
+
+> **只是入库而测试抓不到 = 规则形同虚设。**
+> 「永远 0 命中的检查等于没有检查」；
+> 同理，**永远抓不到回归的规则也等于没有规则**。
+
+```bash
+# 给被审项目写变异定义（格式见 rules/mutations.example.md）
+python3 scripts/mutate.py --src=<目标源码> --mutations=mutations.json --check  # 先查锚点
+python3 scripts/mutate.py --src=<目标源码> --mutations=mutations.json           # 再跑
+```
+
+**三种结果的处理**：
+
+| 结果 | 含义 | 该做什么 |
+|---|---|---|
+| `KILLED` | 测试守住了 | ✅ 验收通过 |
+| `SURVIVED` | **真盲区** | 补测试，直到变 KILLED |
+| `NOT_APPLIED` | **变异没生效**，是 mutate 定义的问题 | 改 `old` 串，**不要去补测试** |
+
+**`SURVIVED` 与 `NOT_APPLIED` 必须分开** —— 混在一起会产出假信号：
+空变异让测试继续绿，被误判成「测试有盲区」，
+于是去补**不存在的测试**。假信号比没信号更糟。
+
+**反向验证的实例**（可作为流程范例）：
+
+| 回退的修复 | 测试结果 |
+|---|---|
+| 白名单放宽回「可打印 ASCII」 | ✓ 变红（放行 5 个危险字符） |
+| 补偿式清理不覆盖 PATCH | ✓ 变红（PATCH 后残留孤儿分支） |
+| 报错不加上下文 | ✓ 变红 |
+| `safe_rel` 去掉 realpath | ✓ 变红 |
+| 大文件阈值放大到 1GB | ✓ 变红 |
+
+**反面教训（必读）**：测错误路径时，要确认错误是**从被测代码内部抛出的**，
+不是在它外面伪造的。实测：替换 `mod.save_state` 来注入失败 →
+新增的错误处理**根本没执行**，测试报的是旧的裸错误，看起来像「修复没生效」。
+正确做法是注入 `builtins.open`，让错误真的从被测代码内部抛出来。
+（完整自检清单见 `common-manual-review.md` 第 9 项）
 
 ## 两条纪律
 
