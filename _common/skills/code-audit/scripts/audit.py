@@ -108,16 +108,18 @@ SCENE_SCRIPTS = {
     # 永远 0 条候选——因为压根没跑对应扫描器
     'p-python': ['scan-py.py'], 'p-go': ['scan-go.py'],
     'p-java': ['scan-java.py'], 'p-cpp': ['scan-cpp.py'],
+    'p-rust': ['scan-rust.py'],
 }
 
 # 主循环要跑的扫描器。语言扫描器对 TS 项目输出 0 条，多跑只是白费时间，
 # 所以按源码实际语言挑——用 route.py 命中的语言包来决定。
 ALL_SCANNERS = ('scan-ts.py', 'scan-app.py',
-                'scan-py.py', 'scan-go.py', 'scan-java.py', 'scan-cpp.py')
+                'scan-py.py', 'scan-go.py', 'scan-java.py',
+                'scan-cpp.py', 'scan-rust.py')
 
 # 语言 ID 前缀 → 语言包场景（分组用，见下方 grouped 逻辑）
 LANG_SCENE = {'PY': 'p-python', 'GO': 'p-go',
-              'JAVA': 'p-java', 'CPP': 'p-cpp'}
+              'JAVA': 'p-java', 'CPP': 'p-cpp', 'RS': 'p-rust'}
 
 
 def _items_index():

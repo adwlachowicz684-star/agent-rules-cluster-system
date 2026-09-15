@@ -1944,6 +1944,271 @@
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图"
   },
   {
+   "rule_id": "RS-01",
+   "native_id": "RS-01",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "unwrap/expect 在命令入口（panic 静默化）",
+   "family": "RS",
+   "scene": "p-rust",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2c277342",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-248"
+   ],
+   "fix": "命令入口用 ? 向上传播（Tauri command 支持 Result<T,String>）；或 map_err(|e| e.to_string())? 带上上下文"
+  },
+  {
+   "rule_id": "RS-02",
+   "native_id": "RS-02",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "整数溢出（release 静默回绕）",
+   "family": "RS",
+   "scene": "s-numerics",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f459ec16",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-190",
+    "CWE-681"
+   ],
+   "fix": "用 checked_add/checked_mul 并 ? 处理；窄化改 try_into()，溢出显式报错（验证须加 -C overflow-checks=on）"
+  },
+  {
+   "rule_id": "RS-03",
+   "native_id": "RS-03",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "unsafe 无 SAFETY 注释（契约不可复核）",
+   "family": "RS",
+   "scene": "p-rust",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "faadfb2e",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-119"
+   ],
+   "fix": "unsafe 紧邻上方写 // SAFETY: <为什么满足安全契约>；指针算术与 from_raw_parts 需断言长度/对齐"
+  },
+  {
+   "rule_id": "RS-04",
+   "native_id": "RS-04",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "std 同步锁跨 await（死锁/Send 违反）",
+   "family": "RS",
+   "scene": "s-concurrency",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e57085b8",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-667",
+    "CWE-833"
+   ],
+   "fix": "改 tokio::sync::Mutex；或把 lock() 收进最小作用域，await 前显式 drop(guard)"
+  },
+  {
+   "rule_id": "RS-05",
+   "native_id": "RS-05",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "Tauri 命令入参未校验（路径穿越/注入）",
+   "family": "RS",
+   "scene": "s-backend",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d8a353fd",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-22",
+    "CWE-78"
+   ],
+   "fix": "path.canonicalize() 后 starts_with(base_canonical) 校验；命令执行用白名单枚举而非拼字符串"
+  },
+  {
+   "rule_id": "RS-06",
+   "native_id": "RS-06",
+   "scanner": "scan-rust.py",
+   "level": "P0",
+   "title": "外部输入驱动的无界分配（OOM）",
+   "family": "RS",
+   "scene": "s-backend",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "29e985af",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-770",
+    "CWE-400"
+   ],
+   "fix": "先校验长度上限再分配；流式处理或 take(n) 限制读取量"
+  },
+  {
+   "rule_id": "RS-07",
+   "native_id": "RS-07",
+   "scanner": "scan-rust.py",
+   "level": "P1",
+   "title": "错误被 unwrap_or_default / let _ 掩盖",
+   "family": "RS",
+   "scene": "p-rust",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "bd1b3a29",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-390"
+   ],
+   "fix": "能传播就 ?；确需降级则 unwrap_or_else(|e| { log::warn!(..); default }) 让失败可见"
+  },
+  {
+   "rule_id": "RS-08",
+   "native_id": "RS-08",
+   "scanner": "scan-rust.py",
+   "level": "P1",
+   "title": "Arc 循环引用 / Rc 跨线程",
+   "family": "RS",
+   "scene": "p-rust",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b3506843",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "反向引用改 Weak<T>；跨线程用 Arc 而非 Rc（Rc 非 Send）"
+  },
+  {
+   "rule_id": "RS-09",
+   "native_id": "RS-09",
+   "scanner": "scan-rust.py",
+   "level": "P1",
+   "title": "裸指针 / transmute 未隔离",
+   "family": "RS",
+   "scene": "p-rust",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c5758a37",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-119",
+    "CWE-704"
+   ],
+   "fix": "封装进单一 unsafe 小函数并写 SAFETY 与断言；业务代码不直接出现 transmute/裸指针"
+  },
+  {
+   "rule_id": "RS-10",
+   "native_id": "RS-10",
+   "scanner": "scan-rust.py",
+   "level": "P1",
+   "title": "敏感信息进日志",
+   "family": "RS",
+   "scene": "s-sandbox",
+   "languages": [
+    "rs"
+   ],
+   "fixtures": {
+    "tp": "tp.rs",
+    "fp": "fp.rs"
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "54180e55",
+    "verified_at": null
+   },
+   "cwe": [
+    "CWE-532"
+   ],
+   "fix": "打印前脱敏（只留前 4 位或哈希）；敏感字段自定义 Debug 跳过"
+  },
+  {
    "rule_id": "TS-A01",
    "native_id": "A01",
    "scanner": "scan-ts.py",

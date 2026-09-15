@@ -126,8 +126,13 @@ def extract():
                     'eval': {'precision': 'unverified', 'recall': 'unverified'}})
 
     # ---------- 其它语言包扫描器 ----------
-    # 三个扫描器共用同一套 PATTERNS 四元组写法，按前缀 + 语言 + 场景映射统一提取
+    # 各语言扫描器共用同一套 PATTERNS 四元组写法，按前缀 + 语言 + 场景映射统一提取
     LANG_SCANNERS = [
+        ('scan-rust.py', 'RS', r'\(\s*"(RS-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+         {'RS-01': 'p-rust', 'RS-02': 's-numerics', 'RS-03': 'p-rust',
+          'RS-04': 's-concurrency', 'RS-05': 's-backend', 'RS-06': 's-backend',
+          'RS-07': 'p-rust', 'RS-08': 'p-rust', 'RS-09': 'p-rust',
+          'RS-10': 's-sandbox'}, ['rs']),
         ('scan-go.py', 'GO', r'\(\s*"(GO-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
          {'GO-01': 's-concurrency', 'GO-02': 's-concurrency', 'GO-03': 's-concurrency',
           'GO-04': 's-concurrency', 'GO-05': 's-concurrency', 'GO-06': 'p-go',

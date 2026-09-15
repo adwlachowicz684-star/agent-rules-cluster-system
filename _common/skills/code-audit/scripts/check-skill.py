@@ -215,10 +215,14 @@ def main():
     # PD003 悬挂引用：正文里反引号引用的技能内部文件必须真实存在。
     # 改名/拆分后最容易留下这类断链——读文档的人点过去是 404，
     # 而它在 SKILL.md 层面完全看不出问题，只有逐个文件扫才能发现。
+    # 外部配置文件：属于**被审查项目**的标准配置，不是本技能的文件。
+    # 引用它们（如「tauri.conf.json 的 allowlist 要按需开启」）是在描述
+    # 审查动作的对象，不是指向技能内部的文档。
     _known = {'rule.json',  # open-code-review 的外部配置，非本技能文件
               'registry.json', '.audit-rules.json', '.audit-state.json',
               'README.md', 'package.json', '.gitignore', 'Cargo.toml',
-              'cc.config.json', 'SKILL.md', 'AGENTS.md', 'CLAUDE.md'}
+              'cc.config.json', 'tauri.conf.json',
+              'SKILL.md', 'AGENTS.md', 'CLAUDE.md'}
     _exts = ('.md', '.py', '.ts', '.json')
     def _exists(name):
         if name in _known:

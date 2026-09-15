@@ -23,10 +23,12 @@ python3 scripts/scan-ts.py --self-test
 python3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=py.sarif]
 python3 scripts/scan-py.py --self-test
 
-# ⚠ 多语言仓库按实际语言跑；四个扫描器都支持 --exclude（抑制须显式声明）
+# ⚠ 多语言仓库按实际语言跑；各语言扫描器都支持 --exclude（抑制须显式声明）
 python3 scripts/scan-go.py   --src=<根> [--p0]      # Go
 python3 scripts/scan-java.py --src=<根> [--p0]      # Java
 python3 scripts/scan-cpp.py  --src=<根> [--p0]      # C/C++
+python3 scripts/scan-rust.py --src=<根> [--p0]      # Rust（**含 Tauri 专项**）
+python3 scripts/scan-rust.py --self-test
 
 # 应用级模式扫描（sandbox / boundary / backend / build 用）
 python3 scripts/scan-app.py --src=<根> [--p0] [--json]
@@ -34,8 +36,14 @@ python3 scripts/scan-app.py --self-test
 ```
 
 **语言覆盖是硬约束**：`scan-ts.py` / `scan-app.py` 只认 TS/JS 语法，
-对 Python / Go / Java / C++ 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。
+对 Python / Go / Java / C++ / Rust 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。
 有多语言代码就必须跑对应扫描器。
+
+**Rust / Tauri 专项**（`p-rust.md`，RS-01~10）：
+`unwrap` 在 `#[tauri::command]` 里会把 panic 翻译成前端的模糊错误；
+整数溢出在 release 下**静默回绕**（debug 会 panic，正好掩盖问题）；
+`unsafe` 无 `// SAFETY:` 注释则契约无法复核。
+证明：UB 用 `cargo miri`，溢出加 `RUSTFLAGS=-C overflow-checks=on` 重编译。
 
 ## 判据条目级加载（省 67%~91% 上下文）
 

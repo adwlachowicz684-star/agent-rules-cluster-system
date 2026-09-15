@@ -149,3 +149,10 @@
 | 2026-09-15 | item-index 置信度 | 新增 | --scan 输出带 [已实测]/[未验证]（取自 registry.json 的 precision/recall）。此前 eval 数据 131 条双 pass 但无任何下游消费，产出而不改变行为是纯负债 |
 | 2026-09-15 | check-skill.py | 新增 | SY001：体积阈值与 skill-evolution config.yaml 一致性检查。找到就比对，找不到跳过——保留独立分发能力，同时把口头约定变成可验证 |
 | 2026-09-15 | SK006/SY001 | 补充 | 不直接读 config.yaml 的理由：两个 skill 独立分发，运行时依赖会在单独使用时崩或静默降级。硬编码+注释溯源是慢性病，运行时依赖是急性的 |
+| 2026-09-15 | p-rust | 新增 | Rust 语言包 RS-01~10：panic 静默化/整数 release 回绕/unsafe 契约/同步锁跨 await/Tauri 入参未校验。含 Tauri 专项段 |
+| 2026-09-15 | scan-rust.py | 新增 | Rust 扫描器（正则，无需 cargo）。自检 20/20，fixture 10 组 tp+fp 双全 |
+| 2026-09-15 | RS-04 | 补充 | 判据修正：std 锁的强信号是 .lock().unwrap()（返回 Result），tokio 锁是 .lock().await（返回 Future）。按 tokio::sync 字样排除不可靠——真实代码常用 SharedState 这类别名 |
+| 2026-09-15 | RS-08 | 补充 | Rc 检出要同时认 Rc< 与 Rc::new：只写 Rc\s*< 会漏掉最常见的构造点 |
+| 2026-09-15 | route.py | 新增 | p-rust 语言包信号：.rs / Cargo.toml / src-tauri/ / tauri::command / unwrap / unsafe |
+| 2026-09-15 | audit.py | 补充 | SCENE_SCANNERS 与 LANG_SCENE 补 p-rust / RS，否则 Rust 项目永远 0 条候选（与当初漏四个语言包同一个坑） |
+| 2026-09-15 | check-skill.py | 补充 | _known 加 tauri.conf.json：它是被审查项目的配置，不是本技能文件，引用它不算悬挂 |

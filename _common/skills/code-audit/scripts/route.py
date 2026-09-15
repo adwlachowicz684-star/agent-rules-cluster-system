@@ -88,6 +88,7 @@ SCENE_SCANNER = {
     's-backend': 'scan-app.py', 's-build': 'scan-app.py',
     'p-python': 'scan-py.py', 'p-go': 'scan-go.py',
     'p-java': 'scan-java.py', 'p-cpp': 'scan-cpp.py',
+    'p-rust': 'scan-rust.py',
 }
 
 ITEM_IDX = None
@@ -244,6 +245,14 @@ SCENES = [
       ('rx', r'std::thread|std::mutex|std::async|pthread_create', 'C++ 并发'),
       ('rx', r'\b(?:Lock|RLock|Semaphore|Condition|Event)\s*\(|mutex|atomic',
        '锁/同步原语')]),
+    ('p-rust', 'Rust 语言包',
+     'Rust 语义特有缺陷（panic 静默化 / 整数回绕 / unsafe 契约 / 跨 await 持锁）',
+     [('ext', '.rs', 'Rust 文件'),
+      ('file', 'Cargo.toml', 'Rust 项目'),
+      ('dir', 'src-tauri', 'Tauri 后端'),
+      ('rx', r'#\[tauri::command\]|#\[command\]', 'Tauri 命令'),
+      ('rx', r'\.unwrap\s*\(\s*\)|\.expect\s*\(', 'unwrap/expect'),
+      ('rx', r'\bunsafe\s*(?:\{|\bfn\b)', 'unsafe 块')]),
     ('p-go', 'Go 语言包', 'Go 语义特有缺陷（goroutine 泄漏 / context 传播 / channel）',
      [('ext', '.go', 'Go 文件'),
       ('file', 'go.mod', 'Go 模块'),
