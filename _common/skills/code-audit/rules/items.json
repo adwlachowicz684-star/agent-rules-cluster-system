@@ -43,6 +43,14 @@
    "preamble_tokens": 205
   },
   {
+   "file": "s-backend.md",
+   "scene": "s-backend",
+   "entries": 32,
+   "sections": 7,
+   "preamble": "# 场景：原生后端（s-backend）\n\n**触发**：有 Rust / C++ / Go / C# 后端、文件系统操作、子进程、本地网络服务、FFI。\n**风险**：资源无上限（OOM）、命令注入面、路径黑名单可绕过、锁中毒崩溃、跨设备操作失败。\n\n以 Rust / Tauri 为主，原则同样适用于 Electron 主进程、Go/C++ 后端。\n\n`overlaps:` **只管后端自身的资源与健壮性**。\n后端与前端的**消息契约**归 `s-boundary`；后端的**权限策略**归 `s-sandbox`；\n后端命令是否**被文档正确描述**归 `s-contracts`。\n\n---",
+   "preamble_tokens": 224
+  },
+  {
    "file": "s-boundary.md",
    "scene": "s-boundary",
    "entries": 9,
@@ -153,7 +161,9 @@
    ],
    "body": "- **判据**：`new` / `malloc` / `fopen` / `socket` / `pthread_mutex_init` 出现，\n  但文件内**没有**对应的 `delete` / `free` / `fclose` / `close` / `destroy`，\n  且未使用智能指针（`unique_ptr` / `shared_ptr`）\n- **确认**：数一数每条路径——**正常路径配对了，异常路径呢？**\n- **典型**：`char* p = new char[n]; parse(p); delete[] p;` —— `parse` 抛异常就泄漏\n- **修法**：RAII —— `std::unique_ptr` / `std::vector` / `std::fstream`\n- **定级**：异常路径泄漏 → **P0**；仅所有权不清晰但无异常 → P1",
    "tokens": 189,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-02",
@@ -193,7 +203,9 @@
    ],
    "body": "- **判据**：`strcpy` / `strcat` / `sprintf` / `gets` / `memcpy` / `memset` /\n  `alloca` 出现，**长度参数不是常量也不来自 sizeof**\n- **确认**：长度是否可被外部输入影响。是 → **缓冲区溢出 = 任意代码执行**\n- **典型**：`char buf[64]; strcpy(buf, user_input);`\n- **修法**：`snprintf` / `strncpy`（注意末尾补 `\\0`）/ `std::string` / `std::vector`\n- **降级**：长度是 `sizeof(目标)` 或字面量常量 → 安全，不报",
    "tokens": 165,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-03",
@@ -223,7 +235,9 @@
    "tokens": 123,
    "xrefs": [
     "D-11"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-04",
@@ -251,7 +265,9 @@
    ],
    "body": "- **判据**：全局/`static` 变量被写，且文件内有 `std::thread` / `pthread_create` /\n  `std::async`，但**无** `std::mutex` / `atomic` / `lock_guard`\n- **确认**：该变量是否被多线程写。是 → 数据竞争 = 未定义行为\n- **修法**：`std::atomic` / `mutex` + `lock_guard`（RAII 式，异常安全）",
    "tokens": 111,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-05",
@@ -297,7 +313,9 @@
    "xrefs": [
     "CPP-06",
     "R-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-07",
@@ -329,7 +347,9 @@
    ],
    "body": "- **判据**：函数返回**局部变量或临时对象的引用/指针**；\n  或 `string_view` / `span` / 迭代器所引用的容器在其后被修改/销毁\n- **典型**：`const std::string& f() { std::string s = \"x\"; return s; }` —— 返回即悬垂\n- **修法**：按值返回；或延长被引用对象的生命周期\n- **易漏点**：`std::string_view sv = std::string(\"tmp\");` —— 临时对象语句结束即销毁",
    "tokens": 161,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-08",
@@ -357,7 +377,9 @@
    ],
    "body": "- **判据**：`size_t` / 无符号数与 `int` 混算；`n - 1` 形式的长度计算；\n  有符号→无符号隐式转换后参与比较\n- **典型**：`for (size_t i = v.size() - 1; i >= 0; --i)` —— `size()` 为 0 时下溢成巨大值；\n  且 `i >= 0` 对无符号恒真 → 无限循环 + 越界\n- **修法**：用反向迭代器；或先判空；避免混用有符号无符号",
    "tokens": 148,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-09",
@@ -382,7 +404,9 @@
    ],
    "body": "- **判据**：类构造函数初始化列表里**漏掉**某些内置类型成员；\n  或 `int n;` 声明后直接参与计算\n- **确认**：未初始化的值是**不确定的**（不是 0），调试版和发布版可能不同\n- **修法**：成员默认初始化 `int count_{0};`",
    "tokens": 118,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "CPP-10",
@@ -413,7 +437,9 @@
    ],
    "body": "- **判据**：项目明确禁用项出现——异常（`throw` / `catch`）、RTTI（`dynamic_cast` /\n  `typeid`）、全局 `operator new` 重载、`thread_local`、动态分配\n  （游戏/嵌入式项目常见约束）\n- **确认**：先读项目规范（如 HotSpot Style 禁用异常与 RTTI）。无规范则不报\n- **定级**：P2（是约定违反，非缺陷本身）\n\n---",
    "tokens": 133,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-01",
@@ -449,7 +475,9 @@
    ],
    "body": "- **判据**：`go func` / `go f()` 出现，但文件内**没有** `context` / `WaitGroup` /\n  `done` channel / `sync` 包任何一个\n- **确认**：找启动路径——是否每次请求/每次循环都起一个。是 → 随运行时长累积\n- **典型**：`go func() { for { select { case v := <-ch: ... } } }()`，\n  `ch` 永不关闭 → goroutine 永久挂住\n- **修法**：接 `ctx.Done()`；`defer wg.Done()`；channel 由发送方关闭\n- **降级**：`main` 里的 `go` 且生命周期等同进程 → P2",
    "tokens": 179,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-02",
@@ -481,7 +509,9 @@
    ],
    "body": "- **判据**：函数签名里有 `ctx context.Context`，但函数体内调用\n  `http.Get` / `http.NewRequest` / `db.Query` / `time.After` 时**没传 ctx**\n- **确认**：上游取消后，这些调用是否立刻返回。否 → 上游超时下游照跑\n- **典型**：`http.Get(url)` 而非 `http.NewRequestWithContext(ctx, ...)`\n- **修法**：所有阻塞调用都带 ctx；`time.After` 改 `time.AfterFunc` 或 ctx 定时器",
    "tokens": 150,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-03",
@@ -515,7 +545,9 @@
    ],
    "body": "- **判据**：三种形态——① 无缓冲 channel 在 `go func` 里收但可能无发送方\n  ② `close()` 出现多次或出现在接收方 ③ `for range ch` 但没人关闭\n- **确认**：画发送方/接收方数量与关闭位置。**由接收方关闭** = 多发送方时 panic\n- **典型**：`c := make(chan int); go func(){ c <- 1 }()` 但主协程已 return → 永久阻塞\n- **修法**：由发送方关闭；或用 `sync.Once` 保关闭唯一；加 `default` 分支防阻塞",
    "tokens": 187,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-04",
@@ -550,7 +582,9 @@
    ],
    "body": "- **判据**：存在 `map[...]...` 类型 + 文件里有 `go func` 或 `sync` 未引入\n- **确认**：该 map 是否被多个 goroutine 同时写。是 → `fatal error: concurrent map writes`\n- **修法**：`sync.Mutex` / `sync.Map` / 用 channel 串行化\n- **注**：Go 的 map 并发写会 **panic 崩溃**（不是静默），但只读并发是安全的——\n  先确认到底是读还是写",
    "tokens": 141,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-05",
@@ -576,7 +610,9 @@
    ],
    "body": "- **判据**：函数参数或结构体字段出现 `sync.Mutex` **非指针**，或 `sync.Mutex` / `RWMutex` 被赋值传递\n- **确认**：锁被拷贝后，两个副本各自保护自己的状态 → **保护完全失效**\n- **修法**：用 `*sync.Mutex`；或结构体嵌入时不拷贝（`go vet` 可查）",
    "tokens": 121,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-06",
@@ -608,7 +644,9 @@
    ],
    "body": "- **判据**：`_` 接收错误返回值，或 `err` 赋值后从未被判断\n- **确认**：被丢的错误是否影响正确性（写文件失败、网络失败）\n- **典型**：`v, _ := strconv.Atoi(s)` —— 解析失败时 `v` 是 0，后续按 0 算\n- **修法**：至少 `if err != nil { return err }`；确实可忽略要写 `_ =` 并注释\n- **定级**：写操作/网络/解析的 err 被丢 → P0；纯打印类 → P2",
    "tokens": 162,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-07",
@@ -637,7 +675,9 @@
    ],
    "body": "- **判据**：文件内有 `wg.Add(` 但无 `wg.Done()`，或 `Add` 在 goroutine **内部**调用\n- **确认**：`Add` 必须在 `go` 之前调用，否则 `Wait()` 可能先返回\n- **典型**：`go func(){ wg.Add(1); ...; wg.Done() }()` → Wait 可能提前结束",
    "tokens": 92,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-08",
@@ -671,7 +711,9 @@
    ],
    "body": "- **判据**：`for` 循环体内出现 `defer`\n- **确认**：defer 在**函数返回时**才执行，循环 N 次就累积 N 个\n- **典型**：`for _, f := range files { fh, _ := os.Open(f); defer fh.Close() }` →\n  文件句柄累积到函数结束，上万文件直接打满 fd\n- **修法**：循环体抽成函数；或显式 close",
    "tokens": 124,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-09",
@@ -700,7 +742,9 @@
    ],
    "body": "- **判据**：`select` 语句里既无 `ctx.Done()` 也无 `default` 也无超时分支\n- **确认**：所有 case 的 channel 都不活跃时，这个 select 会永久阻塞\n- **修法**：加 `case <-ctx.Done(): return`",
    "tokens": 79,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "GO-10",
@@ -729,7 +773,9 @@
    ],
    "body": "- **判据**：`go func` 内没有 `defer func(){ if r := recover(); ... }()`\n- **确认**：子 goroutine panic 会导致**整个进程退出**，且无法被外层 recover 捕获\n- **修法**：每个长期 goroutine 加 recover + 日志\n\n---",
    "tokens": 84,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-01",
@@ -764,7 +810,9 @@
    ],
    "body": "- **判据**：`new FileInputStream` / `new FileOutputStream` / `Connection` /\n  `Statement` / `ResultSet` / `BufferedReader` 等 `Closeable` 赋值给变量，\n  但不在 `try (` 里，也没有 `finally { .close() }`\n- **确认**：异常路径下是否释放。抛错即泄漏 → **P0**\n- **典型**：`Connection c = ds.getConnection();` 中途抛异常 → 连接池耗尽\n- **修法**：`try (Connection c = ds.getConnection()) { ... }`\n- **降级**：成员变量（生命周期更长）→ P2",
    "tokens": 161,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-02",
@@ -794,7 +842,9 @@
    ],
    "body": "- **判据**：出现 `Executors.newFixedThreadPool` / `newCachedThreadPool` /\n  `newSingleThreadExecutor` / `new ThreadPoolTaskExecutor`，但无 `shutdown()` / `shutdownNow()`\n- **确认**：是每请求创建还是全局单例。**每请求创建** → 线程数随请求累积到 OOM\n- **典型**：某个方法里 `Executors.newCachedThreadPool()` → 每次调用建一个线程池，永不回收\n- **修法**：全局共享线程池 + 显式 shutdown；或用 Spring 托管的 `ThreadPoolTaskExecutor`",
    "tokens": 175,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-03",
@@ -831,7 +881,9 @@
    ],
    "body": "- **判据**：`catch (InterruptedException` 后既不 `Thread.currentThread().interrupt()`\n  也不重新抛出\n- **确认**：上层依赖中断来取消任务时，这里吞掉 = **取消永远不生效**\n- **典型**：`catch (InterruptedException e) { log.warn(\"interrupted\"); }` ——\n  中断标志已被 JVM 清除，上层 `Future.cancel(true)` 形同虚设\n- **修法**：`catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }`\n- **定级**：**P0** —— 这是 Java 里最常见、也最难查的取消失效",
    "tokens": 184,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-04",
@@ -861,7 +913,9 @@
    ],
    "body": "- **判据**：`HashMap` / `ArrayList` / `HashSet` / `StringBuilder` 被\n  **多线程共享写**（附近有 `Thread` / `Executor` / `@Async` / `Runnable`）\n- **确认**：确认该集合是否真的跨线程。是 → `HashMap` 并发 `put` 可能**死循环**（JDK7 扩容环形链表）\n- **修法**：`ConcurrentHashMap` / `CopyOnWriteArrayList` / `Collections.synchronizedXxx`",
    "tokens": 123,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-05",
@@ -894,7 +948,9 @@
    ],
    "body": "- **判据**：`ThreadLocal` / `InheritableThreadLocal` 声明，且附近有线程池\n- **确认**：线程复用 → 上一次请求的值会被下一次读到（**跨请求数据串扰**）\n- **典型**：`ThreadLocal<User> currentUser` 在线程池里不 remove → 用户 A 看到用户 B 的数据\n- **修法**：`finally { tl.remove(); }`",
    "tokens": 124,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-06",
@@ -921,7 +977,9 @@
    ],
    "body": "- **判据**：两种——① `synchronized` 锁在**字符串常量**或 `Integer` 等会被 intern/缓存的对象上\n  ② 同步块内做 IO / 远程调用（粒度过粗）\n- **确认**：① 会导致**不相关的代码意外互斥**（甚至死锁）② 会让所有线程串行等网络\n- **修法**：用专用 `private final Object lock = new Object()`",
    "tokens": 136,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-07",
@@ -949,7 +1007,9 @@
    ],
    "body": "- **判据**：类里有 `equals(` 但没有 `hashCode(`，或反之\n- **确认**：该类是否放进 `HashMap` / `HashSet`。是 → 查不到、重复插入\n- **修法**：两者同时重写（IDE 可生成）",
    "tokens": 77,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-08",
@@ -978,7 +1038,9 @@
    ],
    "body": "- **判据**：`static` 非 `final` 的集合/可变对象字段（`static Map` / `static List` / `static StringBuilder`）\n- **确认**：是否有多处写入。是 → 竞态 + 内存泄漏（类加载器无法回收）\n- **修法**：`static final` + 不可变；或改实例字段 + 依赖注入",
    "tokens": 108,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-09",
@@ -1009,7 +1071,9 @@
    ],
    "body": "- **判据**：`catch (Exception` / `catch (Throwable` 后既不抛出也不记录\n  （空块或只有注释），或 `printStackTrace()` 后继续执行\n- **确认**：调用方能否区分成功失败。不能 → **静默失败**\n- **典型**：`catch (Exception e) { /* ignore */ }`\n- **降级**：`printStackTrace()` 至少有痕迹 → P1（但仍应改日志框架）",
    "tokens": 132,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "JAVA-10",
@@ -1038,7 +1102,9 @@
    ],
    "body": "- **判据**：`SimpleDateFormat` / `DateTimeFormatter`（旧版）/ `DecimalFormat`\n  声明为 `static` 字段并被多线程使用\n- **确认**：`SimpleDateFormat` **不是线程安全的**，共享会产出错乱日期\n- **修法**：每次 new；或 `DateTimeFormatter`（不可变，线程安全）；或 `ThreadLocal`\n\n---",
    "tokens": 112,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-01",
@@ -1080,7 +1146,9 @@
    ],
    "body": "- **判据**：`def f(x=[])` / `={}` / `=set()`，且函数体内对该参数做 `append` / `update` / `add` 等\n- **确认**：连调两次不带该参数，看返回值是否累积\n- **典型**：`def add_item(x, acc=[]): acc.append(x); return acc` —— 第二次调用返回第一次的结果\n- **修法**：`acc=None` + `acc = acc or []`\n- **定级**：函数体内检出修改 → P0；仅声明未检出修改 → P1（需人工确认）\n- **为什么易漏**：第一次调用永远正确，只在第二次起暴露",
    "tokens": 193,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-02",
@@ -1114,7 +1182,9 @@
    "tokens": 128,
    "xrefs": [
     "A-02"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-03",
@@ -1143,7 +1213,9 @@
    ],
    "body": "- **判据**：`open()` / `socket.socket()` / `Lock()` / `Popen()` 直接赋值给变量，无 `with`\n- **确认**：异常路径下是否释放。抛错即泄漏 → 升 P0\n- **修法**：`with open(p) as f:`；锁用 `with lock:`",
    "tokens": 77,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-04",
@@ -1173,7 +1245,9 @@
    ],
    "body": "- **判据**：出现 `Thread` / `Process` / `ThreadPoolExecutor` / `asyncio.create_task`，\n  但文件内**找不到** `Lock` / `Queue` / `Semaphore` 等任何同步原语\n- **确认**：画出被这些任务共同读写的状态；有共享且无同步 → 真竞态\n- **降级**：任务间无共享状态（纯计算、参数传入结果返回）→ P2",
    "tokens": 133,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-05",
@@ -1207,7 +1281,9 @@
    ],
    "body": "- **判据**：`pickle.loads` / `pickle.load` / `marshal.loads` / `yaml.load`（无 `SafeLoader`）\n- **确认**：数据来源是否可被外部控制（网络、文件上传、消息队列）。是 → 任意代码执行\n- **修法**：改 JSON / `yaml.safe_load`；必须 pickle 则验签\n- **降级**：数据完全由本进程产生且不可被替换 → P2",
    "tokens": 128,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-06",
@@ -1239,7 +1315,9 @@
    ],
    "body": "- **判据**：`log/print/logger.*` 的参数名或关键字名含\n  `password` / `token` / `secret` / `api_key` / `身份证` / `phone` 等\n- **确认**：该日志是否落盘/上报。落盘即长期泄露，比内存泄露更严重\n- **修法**：脱敏（只留前 4 位）、或移出日志字段\n- **注意**：关键字名本身也要查——`logger.info(\"login\", password=pw)` 的敏感信息在 **arg** 上",
    "tokens": 155,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-07",
@@ -1274,7 +1352,9 @@
    "tokens": 118,
    "xrefs": [
     "R-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-08",
@@ -1303,7 +1383,9 @@
    ],
    "body": "- **判据**：模块级 `X = {}` / `= []`，且全文件有对 `X` 的修改（`X[k] = v` / `X.append(...)`）\n- **确认**：是否有多线程/多请求同时读写。是 → 竞态\n- **⚠ 不要按「全大写就跳过」降级**：名为常量、实际被改的（`CACHE[k] = v`）\n  恰恰最危险——名字暗示不可变，读代码的人不会加锁\n- **降级（实测 68 条里 67 条是误报）**：只读常量（`EXCLUDE_DIRS` / `LEVEL_DESC`）→ 忽略。\n  **判据只看「有没有被改」**",
    "tokens": 189,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-09",
@@ -1336,7 +1418,9 @@
    ],
    "body": "- **判据**：`assert isinstance(...)` / `assert x is not None` / `assert len(x) > 0`\n- **确认**：生产是否可能跑 `python -O`。是 → 校验凭空消失\n- **修法**：改成显式 `if ...: raise ValueError(...)`\n- **降级**：仅测试文件或内部开发脚本 → P3",
    "tokens": 95,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-10",
@@ -1366,7 +1450,9 @@
    ],
    "body": "- **判据**：`subprocess.*(..., shell=True)` / `os.system()` / `os.popen()`\n- **确认**：命令串是否拼接了外部输入。是 → 命令注入\n- **修法**：传参数数组 `subprocess.run(['ls', '-l'])`，不用字符串拼接",
    "tokens": 82,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-11",
@@ -1390,7 +1476,9 @@
    ],
    "body": "- **判据**：`except:` 不指定异常类型\n- **后果**：连 `KeyboardInterrupt` / `SystemExit` 一起吞掉，Ctrl-C 都停不下来\n- **修法**：`except Exception:` 起，最好指定具体类型",
    "tokens": 72,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "PY-12",
@@ -1417,7 +1505,9 @@
    ],
    "body": "- **判据**：`datetime.now()` / `utcnow()` / `fromtimestamp()` 不带 `tz`\n- **确认**：是否跨时区部署或与其它时间源比较。是 → 升 P1\n- **修法**：`datetime.now(timezone.utc)`\n\n---",
    "tokens": 68,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-01",
@@ -1444,7 +1534,9 @@
    ],
    "body": "- **正确**：先全量预检再统一动账，或 try/catch 整体回滚\n- **特征**：扣减与增加在相邻行且无 `try`\n- **典型**：扣库存成功、加钱包失败 → 库存没了钱没到账",
    "tokens": 86,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-02",
@@ -1469,7 +1561,9 @@
    ],
    "body": "- **正确**：至少记录日志\n- **特征**：`catch (e) { }`\n- **定级**：吞的是**安全/经济链路**的异常 → **P0**",
    "tokens": 49,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-03",
@@ -1505,7 +1599,9 @@
    ],
    "body": "- **正确**：**fail-closed**\n- **特征**：`can*` / `is*` / `should*` / `check*` 体内 `if (!x) return true`\n- **确认**：放行分支是否涉及货币、解锁、封禁、权限 → 是则致命\n- **典型**：`if token.is_empty() { return true }` —— 本意「没配口令就不校验」，\n  实际「本机任何进程都能触发工作流」",
    "tokens": 122,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-04",
@@ -1537,7 +1633,9 @@
    ],
    "body": "- **正确**：比较前先校验有限性\n- **特征**：`can*` / `has*` 返回 boolean，体内有数值比较但无 `isFinite` / `numOr`\n- **典型**：`hasEnough(x)` 里 `x` 是 NaN → 比较恒 false → 判定为「不够」或「够」取决于分支写法",
    "tokens": 94,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-05",
@@ -1569,7 +1667,9 @@
    ],
    "body": "- **正确**：`enabled` / `debug` / `cheat` / `devMode` 默认 **false**，宿主显式开启；\n  生产构建应 hard fail 或剔除\n- **特征**：`enabled = true` / `enabled: true` / `enabled ?? true`\n- **为什么 P0**：生产构建漏配即可暴露作弊命令、经济/关卡修改能力。\n  **把安全寄托于「调用方记得关」不可靠**",
    "tokens": 130,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-06",
@@ -1593,7 +1693,9 @@
    ],
    "body": "- **正确**：补处理体或删除整个 `if`\n- **特征**：`if (...) { }`\n- **注意**：命中少但**几乎条条是真问题**，优先处理",
    "tokens": 58,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-07",
@@ -1619,7 +1721,9 @@
    ],
    "body": "- **正确**：改写分支或删条件\n- **特征**：`cond ? A : A`\n- **典型**：本该 `cond ? A : B`，写错后分支失效",
    "tokens": 47,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-08",
@@ -1636,7 +1740,9 @@
    "tokens": 59,
    "xrefs": [
     "N-16"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-09",
@@ -1663,7 +1769,9 @@
    ],
    "body": "- **正确**：库走 logger 注入，不直接 `console.*`\n- **特征**：`console.log/warn/error/info`",
    "tokens": 32,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-10",
@@ -1708,7 +1816,9 @@
    "xrefs": [
     "A-11",
     "C-12"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-12",
@@ -1746,7 +1856,9 @@
    ],
    "body": "- **判据**：批量写（提交 / 暂存 / 批量更新）不指定作用范围，默认作用于「当前全部」\n- **确认**：预先在环境里放一份脏状态（别人 `git add` 过的文件、残留暂存），\n  看它是否被一起卷进去\n- **典型**：`git commit -m msg` 不带 pathspec →\n  把调用前就已暂存的其他文件一并提交\n- **修法**：一律显式传 pathspec / 显式文件列表，不用「当前状态」当隐式范围\n- **降级**：该环境保证干净（CI 全新 checkout）→ P2",
    "tokens": 212,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-13",
@@ -1789,7 +1901,9 @@
    ],
    "body": "- **判据**：防覆盖逻辑只比对「远端当前 sha == 基线记录的 sha」就放行，\n  **没有校验本地副本是基于哪个远端版本改的**\n- **为什么不够**：这个比对只能证明「远端没被**别人**改」，\n  证明不了「本地是**从最新版**改的」。本地副本一旦过期\n  （CDN 缓存的 tarball、离线包、未 pull 的旧 clone、镜像延迟），\n  过期的全文 + 你的改动会被整文件覆盖上去，**把远端更新的内容回退掉，且不报错**\n- **确认**：分别取「本地副本的原始版本 sha」与「远端当前 sha」，两者不等 → 本地已过期\n- **典型**：从 `.../tarball/main` 拉代码，CDN 命中旧快照；\n  本地改 3 个文件后推送，第一层校验 `rsha == base` 全部通过，\n  实际把远端新加的一条扫描规则（含其 fixture）整体抹掉。\n  同一份代码隔几分钟重下一次，两份 tarball 的 blob sha 竟然不同\n- **修法**：基线里额外记录「本地开始编辑时所基于的远端 commit」，\n  推送前与当前远端比对；**落后就必须先同步再提交**，不允许直接覆盖\n- **定级**：**P0** —— 静默 + 不可逆 + 破坏的是别人的产出\n- **同类**：`ETag` / `Last-Modified` 未校验的离线缓存、`git pull` 后才 push 的纪律被绕过",
    "tokens": 543,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "A-14",
@@ -1824,7 +1938,701 @@
    ],
    "body": "- **判据**：校验在**本无风险**的场景也拦截，逼着用户每次都加全局绕过开关\n  （`--force` / `--yes` / `--skip-check` / `|| true`）\n- **确认**：列出被拦的场景，算「其实没风险」的占比。占比高 → 用户很快形成\n  肌肉记忆，真有风险时也被同一个开关一起放过，**保护形同虚设**\n- **典型**：防覆盖脚本对**新增文件**（远端根本不存在）也报「基线未记录，无法确认原状态」→\n  每次推新文件都要加 `--force-overwrite` → 真遇到他人改动时，同一个开关照加不误\n- **修法**：校验要精确到「**这个具体场景**有没有风险」，而不是「我能不能确认所有事」。\n  上例正确判据是「基线没记录**且远端却有**该文件」才拦；远端也没有即纯新增，直接放行\n- **定级**：P1（不直接造成损失，但**让已有的安全机制失效**）\n- **注意**：这不是「放宽标准」，是把 fail-closed 用在真正需要的地方——\n  泛化的严格等于没有严格\n\n\n---",
    "tokens": 440,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "K-01",
+   "level": "P1",
+   "name": "读入是否有界",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否用 take(cap) 流式读取，而非 fs::read 后截断"
+    ]
+   },
+   "keywords": [
+    "cap",
+    "read",
+    "take",
+    "读入是否有界"
+   ],
+   "body": "- **判据**：是否用 take(cap) 流式读取，而非 fs::read 后截断\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 51,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-02",
+   "level": "P0",
+   "name": "max_bytes == 0 的语义",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "退化成 usize::MAX 还是合理默认值"
+    ]
+   },
+   "keywords": [
+    "MAX",
+    "usize",
+    "的语义"
+   ],
+   "body": "- **判据**：退化成 usize::MAX 还是合理默认值\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 46,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-03",
+   "level": "P0",
+   "name": "删除保护",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "黑名单是否 canonicalize 后比较"
+    ]
+   },
+   "keywords": [
+    "canonicalize",
+    "删除保护"
+   ],
+   "body": "- **判据**：黑名单是否 canonicalize 后比较\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 43,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-04",
+   "level": "P1",
+   "name": "删除目录",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否要求显式 force + dry-run 预览"
+    ]
+   },
+   "keywords": [
+    "dry",
+    "force",
+    "run",
+    "删除目录"
+   ],
+   "body": "- **判据**：是否要求显式 force + dry-run 预览\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 44,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-05",
+   "level": "P1",
+   "name": "递归遍历",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否用 symlink_metadata 跳过链接点"
+    ]
+   },
+   "keywords": [
+    "symlink_metadata",
+    "递归遍历"
+   ],
+   "body": "- **判据**：是否用 symlink_metadata 跳过链接点\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 44,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-06",
+   "level": "P2",
+   "name": "跨设备移动",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "rename 是否有 copy+delete 回退"
+    ]
+   },
+   "keywords": [
+    "copy",
+    "delete",
+    "rename",
+    "跨设备移动"
+   ],
+   "body": "- **判据**：rename 是否有 copy+delete 回退\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 40,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-07",
+   "level": "P2",
+   "name": "路径穿越",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否 canonicalize / realpath 后比较（normpath 不算）。本地工具可免责，但要在文档写明"
+    ]
+   },
+   "keywords": [
+    "canonicalize",
+    "normpath",
+    "realpath",
+    "路径穿越"
+   ],
+   "body": "- **判据**：是否 canonicalize / realpath 后比较（normpath 不算）。本地工具可免责，但要在文档写明\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 69,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-30",
+   "level": "P1",
+   "name": "元数据推断",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "mode / 类型是否取自版本库索引，而非 os.access / os.stat 现算"
+    ]
+   },
+   "keywords": [
+    "access",
+    "mode",
+    "stat",
+    "元数据推断"
+   ],
+   "body": "- **判据**：mode / 类型是否取自版本库索引，而非 os.access / os.stat 现算\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 58,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-31",
+   "level": "P1",
+   "name": "子进程返回码",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "包装函数是否丢弃 returncode 只看 stdout"
+    ]
+   },
+   "keywords": [
+    "returncode",
+    "stdout",
+    "子进程返回码"
+   ],
+   "body": "- **判据**：包装函数是否丢弃 returncode 只看 stdout\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 48,
+   "xrefs": [],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-32",
+   "level": "P0",
+   "name": "不安全反序列化",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "pickle.loads / yaml.load（无 SafeLoader）/ ObjectInputStream / 无 allowlist 的 JSON 转对象。Python 形态见 p-python PY-05"
+    ]
+   },
+   "keywords": [
+    "JSON",
+    "ObjectInputStream",
+    "Python",
+    "SafeLoader",
+    "allowlist",
+    "pickle.loads",
+    "python",
+    "yaml.load",
+    "不安全反序列"
+   ],
+   "body": "- **判据**：pickle.loads / yaml.load（无 SafeLoader）/ ObjectInputStream / 无 allowlist 的 JSON 转对象。Python 形态见 p-python PY-05\n- **所属**：文件系统操作（最高频缺陷源）",
+   "tokens": 66,
+   "xrefs": [
+    "PY-05"
+   ],
+   "source": "table",
+   "section": "文件系统操作（最高频缺陷源）"
+  },
+  {
+   "id": "K-08",
+   "level": "P0",
+   "name": "shell 解析",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否存在 cmd /c + 外部输入"
+    ]
+   },
+   "keywords": [
+    "cmd",
+    "解析"
+   ],
+   "body": "- **判据**：是否存在 cmd /c + 外部输入\n- **所属**：进程与命令执行",
+   "tokens": 34,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-09",
+   "level": "P0",
+   "name": "可执行文件来源",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "白名单 vs 用户配置任意路径"
+    ]
+   },
+   "keywords": [
+    "可执行文件来"
+   ],
+   "body": "- **判据**：白名单 vs 用户配置任意路径\n- **所属**：进程与命令执行",
+   "tokens": 37,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-10",
+   "level": "P1",
+   "name": "参数传递",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "参数数组 vs 字符串拼接"
+    ]
+   },
+   "keywords": [
+    "参数传递"
+   ],
+   "body": "- **判据**：参数数组 vs 字符串拼接\n- **所属**：进程与命令执行",
+   "tokens": 34,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-11",
+   "level": "P1",
+   "name": "子进程生命周期",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否有注册表 + kill 能力"
+    ]
+   },
+   "keywords": [
+    "kill",
+    "子进程生命周"
+   ],
+   "body": "- **判据**：是否有注册表 + kill 能力\n- **所属**：进程与命令执行",
+   "tokens": 34,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-12",
+   "level": "P2",
+   "name": "注册表清理",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "进程结束后是否 remove（否则内存持续增长）"
+    ]
+   },
+   "keywords": [
+    "remove",
+    "注册表清理"
+   ],
+   "body": "- **判据**：进程结束后是否 remove（否则内存持续增长）\n- **所属**：进程与命令执行",
+   "tokens": 45,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-13",
+   "level": "P2",
+   "name": "权限声明",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "capabilities 里的 spawn 白名单是否克制"
+    ]
+   },
+   "keywords": [
+    "capabilities",
+    "spawn",
+    "权限声明"
+   ],
+   "body": "- **判据**：capabilities 里的 spawn 白名单是否克制\n- **所属**：进程与命令执行",
+   "tokens": 38,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-14",
+   "level": "P3",
+   "name": "探测命令",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "where / which 起子进程在 debug 下会闪控制台窗口"
+    ]
+   },
+   "keywords": [
+    "debug",
+    "where",
+    "which",
+    "探测命令"
+   ],
+   "body": "- **判据**：where / which 起子进程在 debug 下会闪控制台窗口\n- **所属**：进程与命令执行",
+   "tokens": 45,
+   "xrefs": [],
+   "source": "table",
+   "section": "进程与命令执行"
+  },
+  {
+   "id": "K-15",
+   "level": "P0",
+   "name": "请求体上限",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否按客户端声明的 content-length 直接分配"
+    ]
+   },
+   "keywords": [
+    "content",
+    "length",
+    "请求体上限"
+   ],
+   "body": "- **判据**：是否按客户端声明的 content-length 直接分配\n- **所属**：本地网络服务",
+   "tokens": 42,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-16",
+   "level": "P0",
+   "name": "读写超时",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否设置 set_read_timeout / set_write_timeout"
+    ]
+   },
+   "keywords": [
+    "set_read_timeout",
+    "set_write_timeout",
+    "读写超时"
+   ],
+   "body": "- **判据**：是否设置 set_read_timeout / set_write_timeout\n- **所属**：本地网络服务",
+   "tokens": 34,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-17",
+   "level": "P0",
+   "name": "绑定地址",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "127.0.0.1 vs 0.0.0.0（后者对局域网开放）"
+    ]
+   },
+   "keywords": [
+    "绑定地址"
+   ],
+   "body": "- **判据**：127.0.0.1 vs 0.0.0.0（后者对局域网开放）\n- **所属**：本地网络服务",
+   "tokens": 36,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-18",
+   "level": "P0",
+   "name": "鉴权",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "token 为空时是否直接放行"
+    ]
+   },
+   "keywords": [
+    "token",
+    "鉴权"
+   ],
+   "body": "- **判据**：token 为空时是否直接放行\n- **所属**：本地网络服务",
+   "tokens": 33,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-19",
+   "level": "P1",
+   "name": "并发上限",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "每连接一线程是否有上限"
+    ]
+   },
+   "keywords": [
+    "并发上限"
+   ],
+   "body": "- **判据**：每连接一线程是否有上限\n- **所属**：本地网络服务",
+   "tokens": 35,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-20",
+   "level": "P2",
+   "name": "响应构造",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "状态码与 reason 是否匹配（401 却写 OK）"
+    ]
+   },
+   "keywords": [
+    "reason",
+    "响应构造"
+   ],
+   "body": "- **判据**：状态码与 reason 是否匹配（401 却写 OK）\n- **所属**：本地网络服务",
+   "tokens": 38,
+   "xrefs": [],
+   "source": "table",
+   "section": "本地网络服务"
+  },
+  {
+   "id": "K-21",
+   "level": "P1",
+   "name": "lock().unwrap()",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否改为 unwrap_or_else(\\|e\\| e.into_inner())"
+    ]
+   },
+   "keywords": [
+    "into_inner",
+    "unwrap_or_else"
+   ],
+   "body": "- **判据**：是否改为 unwrap_or_else(\\|e\\| e.into_inner())\n- **所属**：锁与错误处理",
+   "tokens": 34,
+   "xrefs": [],
+   "source": "table",
+   "section": "锁与错误处理"
+  },
+  {
+   "id": "K-22",
+   "level": "P0",
+   "name": "配合 panic = \"abort\"",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "一次锁中毒 = 应用直接崩，无降级空间"
+    ]
+   },
+   "keywords": [
+    "配合"
+   ],
+   "body": "- **判据**：一次锁中毒 = 应用直接崩，无降级空间\n- **所属**：锁与错误处理",
+   "tokens": 42,
+   "xrefs": [],
+   "source": "table",
+   "section": "锁与错误处理"
+  },
+  {
+   "id": "K-23",
+   "level": "P2",
+   "name": "错误向上抛",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "Result 是否一路传到命令边界"
+    ]
+   },
+   "keywords": [
+    "Result",
+    "错误向上抛"
+   ],
+   "body": "- **判据**：Result 是否一路传到命令边界\n- **所属**：锁与错误处理",
+   "tokens": 35,
+   "xrefs": [],
+   "source": "table",
+   "section": "锁与错误处理"
+  },
+  {
+   "id": "K-24",
+   "level": "P2",
+   "name": "阻塞式固定 sleep 轮询",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "该等待是否有更精确的信号（transitionend / 事件 / 条件变量）。有 → 应替换，P2；串起来造成可感卡顿（>1s）→ P1"
+    ]
+   },
+   "keywords": [
+    "transitionend",
+    "轮询",
+    "阻塞式固定"
+   ],
+   "body": "- **判据**：该等待是否有更精确的信号（transitionend / 事件 / 条件变量）。有 → 应替换，P2；串起来造成可感卡顿（>1s）→ P1\n- **所属**：锁与错误处理",
+   "tokens": 74,
+   "xrefs": [],
+   "source": "table",
+   "section": "锁与错误处理"
+  },
+  {
+   "id": "K-25",
+   "level": "P2",
+   "name": "注册完整性",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "命令是否都在 invoke_handler 里注册（未注册 = 死代码）"
+    ]
+   },
+   "keywords": [
+    "invoke_handler",
+    "注册完整性"
+   ],
+   "body": "- **判据**：命令是否都在 invoke_handler 里注册（未注册 = 死代码）\n- **所属**：命令注册与状态管理",
+   "tokens": 51,
+   "xrefs": [],
+   "source": "table",
+   "section": "命令注册与状态管理"
+  },
+  {
+   "id": "K-26",
+   "level": "P2",
+   "name": "孤儿文件",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     ".rs 文件是否都被 mod 声明（未声明 = 改了不生效）"
+    ]
+   },
+   "keywords": [
+    "mod",
+    "孤儿文件"
+   ],
+   "body": "- **判据**：.rs 文件是否都被 mod 声明（未声明 = 改了不生效）\n- **所属**：命令注册与状态管理",
+   "tokens": 50,
+   "xrefs": [],
+   "source": "table",
+   "section": "命令注册与状态管理"
+  },
+  {
+   "id": "K-27",
+   "level": "P1",
+   "name": "重复实现",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否存在内容近似但已分叉的两份文件（最危险：改了不生效）"
+    ]
+   },
+   "keywords": [
+    "重复实现"
+   ],
+   "body": "- **判据**：是否存在内容近似但已分叉的两份文件（最危险：改了不生效）\n- **所属**：命令注册与状态管理",
+   "tokens": 61,
+   "xrefs": [],
+   "source": "table",
+   "section": "命令注册与状态管理"
+  },
+  {
+   "id": "K-28",
+   "level": "P1",
+   "name": "状态管理",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "注册表（进程/监听/端口）是否在对象销毁时清理"
+    ]
+   },
+   "keywords": [
+    "状态管理"
+   ],
+   "body": "- **判据**：注册表（进程/监听/端口）是否在对象销毁时清理\n- **所属**：命令注册与状态管理",
+   "tokens": 52,
+   "xrefs": [],
+   "source": "table",
+   "section": "命令注册与状态管理"
+  },
+  {
+   "id": "K-29",
+   "level": "P2",
+   "name": "启动参数",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "是否在 Builder 之前处理自有子命令，避免与框架参数冲突"
+    ]
+   },
+   "keywords": [
+    "Builder",
+    "启动参数"
+   ],
+   "body": "- **判据**：是否在 Builder 之前处理自有子命令，避免与框架参数冲突\n- **所属**：命令注册与状态管理",
+   "tokens": 57,
+   "xrefs": [],
+   "source": "table",
+   "section": "命令注册与状态管理"
   },
   {
    "id": "B-01",
@@ -1852,7 +2660,9 @@
    ],
    "body": "- **判据**：`addEventListener('message', h)` 的处理器里只校验数据字段，\n  不校验 `e.source` / `e.origin`\n- **确认**：该文档里是否嵌套了第三方 iframe 或引用第三方脚本。\n  有 → 攻击者可伪造消息驱动内部流程\n- **降级**：同文档内无第三方内容、且消息只触发幂等的展示逻辑 → P2",
    "tokens": 144,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-02",
@@ -1870,7 +2680,9 @@
    "tokens": 71,
    "xrefs": [
     "S-02"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-03",
@@ -1897,7 +2709,9 @@
    ],
    "body": "- **判据**：双向握手（ready ↔ init）里任一侧会对同一消息重复响应\n- **确认**：画一次时序，看是否存在 `init → ready → init` 的环。\n  **去重标记**是否每次实例重建\n- **典型**：收到 init 就回发 ready，而 ready 又触发对端发 init → 无限往返，\n  每轮重建上下文与订阅",
    "tokens": 136,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-04",
@@ -1923,7 +2737,9 @@
    ],
    "body": "- **判据**：退订时按**事件名**匹配摘除（常见 LIFO 取最近一个），而不是按订阅 id\n- **确认**：构造「同一事件订阅两次、以不同顺序退订」的路径，看是否会摘错 handler\n- **典型**：改一次设置就多一个 handler → 按一次快捷键执行两次",
    "tokens": 128,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-05",
@@ -1957,7 +2773,9 @@
    "tokens": 176,
    "xrefs": [
     "B-06"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-07",
@@ -1979,7 +2797,9 @@
    ],
    "body": "- **判据**：错误信息里回显完整本地路径、堆栈、配置内容\n- **降级**：纯本地工具、无网络出口 → P3",
    "tokens": 55,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-08",
@@ -2002,7 +2822,9 @@
    ],
    "body": "- **判据**：消息体直接解构使用，无 type 判别 / 版本字段 / 字段存在性检查\n- **确认**：对端版本不一致时是否静默产生错误行为",
    "tokens": 74,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-09",
@@ -2026,7 +2848,9 @@
    ],
    "body": "- **判据**：桥接返回值里含函数 / Symbol / DOM 节点\n- **失效**：`structuredClone` 抛错，**整条响应失败而不只是该字段**",
    "tokens": 58,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "B-10",
@@ -2067,7 +2891,9 @@
    ],
    "body": "- **判据**：按「字段存在性」判成功（`\"sha\" in resp` / `resp.get(\"ok\")`）而**不看状态码**；\n  或客户端吞掉错误（`curl -s` 不配 `-w`、fetch 不查 `res.ok`、SDK 默认不抛）\n- **确认**：让服务端返回 403 / 422 的**错误体**，看调用方是否当成正常响应继续解析\n- **典型**：`curl -s` 把 422 的 `{\"message\":\"Validation Failed\"}` 原样返回，\n  解析后靠 `if \"sha\" not in blob` 猜；有的调用点直接 `resp[\"object\"][\"sha\"]` → KeyError 崩栈\n- **修法**：显式取状态码（`curl -w \"\\n%{http_code}\"` / `res.ok`），\n  非 2xx 一律中止并**回显响应体**（否则 403 和 422 的排查成本一样高）\n- **附带判据（重试幂等性）**：重试是否区分方法 —— 对**非幂等 POST** 盲目重试，\n  超时但已生效的请求会重复建对象 / 重复计账；5xx / 429 才值得退避重试\n- **降级**：调用方对每个调用点都做了字段级校验且失败可观测 → P2\n\n---",
    "tokens": 376,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-01",
@@ -2090,7 +2916,9 @@
    ],
    "body": "- **判据**：`frontendDist` / `files` 指向项目根，且忽略清单未排除源码外的内容\n- **确认**：测试目录、构建配置、源码是否进了安装包（体积 + 源码暴露）",
    "tokens": 81,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-02",
@@ -2119,7 +2947,9 @@
    ],
    "body": "- **判据**：构建配置里写死成员列表（如要拷贝的插件名数组）\n- **确认**：新增成员是否会**静默缺失**\n- **典型**：`const PLUGINS = ['home', 'settings', ...]` —— 新增插件不进包",
    "tokens": 86,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-03",
@@ -2148,7 +2978,9 @@
    ],
    "body": "- **判据**：存在 `typecheck` / `test:*` / `lint` 脚本但无 CI 配置引用它们\n- **确认**：这些脚本是否真的还能跑通（**过时的测试脚本本身就是缺陷**）\n- **典型**：package.json 有 15 个校验脚本，README 只提到 7 个，且无 CI",
    "tokens": 107,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-04",
@@ -2172,7 +3004,9 @@
    ],
    "body": "- **判据**：`package.json` 有依赖但 lock 文件缺失/过期；可选依赖未在文档说明\n- **确认**：干净环境下能否复现安装",
    "tokens": 62,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-05",
@@ -2196,7 +3030,9 @@
    ],
    "body": "- **判据**：图标/证书/样例配置仍是脚手架默认值\n- **典型**：`icons/` 下是占位图标、identifier 是 `com.example.*`",
    "tokens": 54,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-06",
@@ -2224,7 +3060,9 @@
    ],
    "body": "- **判据**：`.gitignore` / 打包忽略清单缺 `node_modules` / `dist` / `target` /\n  `__pycache__` / `.DS_Store`\n- **确认**：`git status` 里是否出现这些目录",
    "tokens": 57,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-07",
@@ -2241,7 +3079,9 @@
    "tokens": 23,
    "xrefs": [
     "S-04"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-08",
@@ -2263,7 +3103,9 @@
    ],
    "body": "- **判据**：输出结构是否与运行时期望匹配\n  （如期望 `dist/plugins/<id>/index.html`，实际输出 `<id>/index.html`）\n- **确认**：跑一次构建，比对产物路径与代码里的加载路径",
    "tokens": 85,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-09",
@@ -2294,7 +3136,9 @@
    ],
    "body": "- **判据**：构建使用了 `--config <额外配置>`\n- **确认**：**是合并（JSON Merge Patch）而非替换** —— 安全项谁覆盖谁要按合并规则推一遍\n- **典型**：主配置 `csp: null`，另一份配置没写 csp → 合并后仍为 null",
    "tokens": 101,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-10",
@@ -2331,7 +3175,9 @@
    ],
    "body": "- **判据**：构建配置里的 `sourcemap` / `minify` 是常量，不随 debug / release 变化\n- **确认**：两个方向都要看——**生产构建是否产出了 `.map`**（源码随产物分发）、\n  **调试构建是否被 minify**（断点打不上、栈不可读）\n- **典型**：`sourcemap: true` 写死 → 生产包里带完整源码，\n  等于把未压缩的实现和注释一起发出去\n- **修法**：按 profile 分别配置。生产关 sourcemap，\n  确实需要定位线上报错则只上传到错误监控系统，不下发到 CDN\n- **降级**：纯前端且分发前会剥离 `.map` → P3",
    "tokens": 244,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-11",
@@ -2370,7 +3216,9 @@
    ],
    "body": "- **判据**：四问——**有锁定文件吗**（npm / poetry / go / cargo 各自的全量锁文件）·\n  **有 SBOM 吗**·**跑漏洞扫描吗**·**原生依赖是否进审计**\n- **确认**：删掉 lock 文件重装，看依赖版本是否会漂移。会 → 构建不可复现，\n  且无法回答「线上跑的到底是哪一版」\n- **典型**：只有 `requirements.txt` 不锁版本 → 某次构建自动升到带后门的版本\n- **修法**：锁全量（含间接依赖）+ CI 里跑 `npm audit` / `pip-audit` / `govulncheck`\n- **定级**：**P0** —— 供应链攻击不经过代码审查，看代码看不出来\n- **降级**：内部工具、无外部用户输入、无生产部署 → P2",
    "tokens": 275,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "G-12",
@@ -2398,7 +3246,9 @@
    ],
    "body": "- **判据**：构建依赖当前时间、随机数、`latest` 标签、或未固定的基础镜像\n- **确认**：同一份源码在两台机器上构建，产物是否逐字节一致。不一是 → 无法回滚定位\n- **修法**：固定基础镜像 digest、`SOURCE_DATE_EPOCH`、锁全量依赖\n- **判据**：debug 与 release 使用相同构建选项\n\n---",
    "tokens": 145,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-01",
@@ -2434,7 +3284,9 @@
    "tokens": 184,
    "xrefs": [
     "PY-04"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-02",
@@ -2461,7 +3313,9 @@
    ],
    "body": "- **判据**：起后台任务，但**没有**取消机制、等待机制，也没有退出测试\n  （Go 无 `context` / `WaitGroup`；Python 无 `join` / `shutdown`；Java 无 `shutdown()`）\n- **确认**：反复创建任务的路径，看任务数是否单调增长\n- **典型**：每次请求起一个 goroutine 监听，请求结束不取消 → 随运行时长累积到 OOM",
    "tokens": 144,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-03",
@@ -2491,7 +3345,9 @@
    ],
    "body": "- **判据**：函数接收了 `context` / `CancellationToken`，但新起的任务、\n  HTTP 调用、DB 查询、定时器**没收到**它\n- **确认**：上游超时后，下游是否还在跑（画调用链逐个看入参）\n- **典型**：`ctx` 只用于最外层，内部 `http.Get` 用的是 `context.Background()` →\n  上游超时，下游继续占着连接",
    "tokens": 139,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-04",
@@ -2519,7 +3375,9 @@
    ],
    "body": "- **判据**：多把锁在不同函数里获取顺序相反，或无锁分级文档\n- **确认**：构造「A 持锁1等锁2 / B 持锁2等锁1」的时序\n- **修法**：全局锁序 + 按序获取；或用单锁/无锁结构\n- **定级**：P0（死锁不可恢复，且只在特定时序下出现，测试期难复现）",
    "tokens": 135,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-05",
@@ -2548,7 +3406,9 @@
    ],
    "body": "- **判据**：`if check(x): use(x)` 中间无锁、无原子条件\n- **确认**：check 与 use 之间是否有其他执行流能改 `x`\n- **典型**：检查余额 → 扣款，中间被另一笔交易改掉 → 超卖 / 负余额\n- **修法**：`compare_and_swap` / 数据库条件更新 `WHERE balance >= amt` / 事务内重查",
    "tokens": 126,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-06",
@@ -2581,7 +3441,9 @@
    ],
    "body": "- **判据**：`with timeout` / `select` / deadline 触发后，连接、事务、文件、锁\n  没有明确关闭或回滚\n- **确认**：在超时分支里查 close / rollback / release 是否齐全\n- **典型**：RPC 超时抛错，但本地已扣的库存没回滚 → 库存凭空消失",
    "tokens": 111,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-07",
@@ -2611,7 +3473,9 @@
    "tokens": 158,
    "xrefs": [
     "B-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-08",
@@ -2637,7 +3501,9 @@
    ],
    "body": "- **判据**：进程收到 SIGTERM 后，任务队列、定时器、订阅没有收敛到关闭点\n- **确认**：发 SIGTERM 后进程是否立刻退出；退出时是否有数据丢失\n- **典型**：K8s 滚动更新时正在处理的消息被强杀 → 半处理状态",
    "tokens": 115,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "R-09",
@@ -2675,7 +3541,9 @@
    "tokens": 228,
    "xrefs": [
     "R-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-01",
@@ -2710,7 +3578,9 @@
    ],
    "body": "- **判据**：存在组件/模块/命令的**定义**但全仓库无**引用**；或定义了回调却没传\n- **确认**：全局搜该标识符，只出现在自身定义与导出处 → 确认。\n  **注意动态引用**（注册表、字符串拼接、构建配置自动扫描）\n- **典型**：`PluginSettingsDrawer.tsx` 全仓库唯一命中自身 → Vite 模式「设置」按钮永不出现\n- **修法**：接线，或删除并在文档里去掉该承诺\n- **定级**：无降级。声明了却完全不可用 = 对外承诺完全失效",
    "tokens": 228,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-02",
@@ -2740,7 +3610,9 @@
    ],
    "body": "- **判据**：README 或注释声称两套实现（原生/构建版、A 语言/B 语言、新旧并存）行为一致\n- **确认**：把两套入口的功能点列成**两列逐项比对**，重点比对\n  **回调 / 钩子 / props / 命令注册**四类接线\n- **典型**：React 外壳比无构建外壳少 4 个回调（设置抽屉、侧边栏注入、\n  快捷键转发、CSP 上报）→ 焦点进 iframe 后 ⌘B/R/, 全失效\n- **降级**：差异只在不影响功能的呈现细节（文案、顺序）→ P2",
    "tokens": 210,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-03",
@@ -2771,7 +3643,9 @@
    ],
    "body": "- **判据**：文档写「默认 X」「共 N 个」「M 套」，代码里是另一个值\n- **确认**：定位代码里的常量/数组，数一遍\n- **典型**：README 说 22 套主题，`PRESET_THEMES` 实际 23 条；\n  README 说 4 个测试脚本，package.json 里 13 个\n- **降级**：数量差 1 且不影响理解 → P2",
    "tokens": 121,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-04",
@@ -2801,7 +3675,9 @@
    ],
    "body": "- **判据**：文档描述某行为为「设计如此 / 已修复 / 已知限制」，实际是 bug 且未修\n- **确认**：按文档描述的路径去代码里找对应实现，看它是否真的做了\n- **典型**：README 声称「隔离后由插件自报基调，已修复」，实际自报字段没接上\n- **定级**：P0。它会**阻止下一个人修复**",
    "tokens": 154,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-05",
@@ -2837,7 +3713,9 @@
    "tokens": 174,
    "xrefs": [
     "C-06"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-07",
@@ -2859,7 +3737,9 @@
    ],
    "body": "- **判据**：仓库里有大模块（行数占比 >10%）在文档里完全没有章节\n- **确认**：模块表 vs 文档目录，逐个对",
    "tokens": 59,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-08",
@@ -2883,7 +3763,9 @@
    ],
    "body": "- **判据**：注释说做了 X，代码没做（或做了相反的 Y）\n- **确认**：**先确认自己没读错注释**——很多注释是在解释「为什么不能那样写」\n- **降级**：注释描述历史行为、代码后来改过 → P2，改注释即可",
    "tokens": 110,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-09",
@@ -2916,7 +3798,9 @@
    ],
    "body": "- **判据**：同一语义的清单（变量白名单、主题变量表、命令列表）在两处各定义一份，内容不同\n- **确认**：diff 两份清单，确认哪份是权威来源\n- **典型**：`host.js` 的 `THEME_VARS` 与 `themes.js` 的 `THEME_VARS` 已分叉，\n  导致插件拿到的主题快照缺一大半变量\n- **降级**：**不同插件各自定义同名常量是常态**（取值本就不同）→ 忽略。\n  只有**同一区域内**出现不同取值才算分叉",
    "tokens": 203,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-10",
@@ -2942,7 +3826,9 @@
    ],
    "body": "- **判据**：CSS/代码里定义了某变量，但主题/配置清单里没列\n- **后果**：该变量无法被主题覆盖 + 切主题时不会被清理（残留旧值）\n- **典型**：CSS 定义了 `--r: 14px`，`THEME_VARS` 只有 `--r-md`",
    "tokens": 97,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-11",
@@ -2966,7 +3852,9 @@
    ],
    "body": "- **正确**：数组或 Set 存订阅者，`on()` 返回取消函数\n- **特征**：`this._onXxx = fn` 直接赋值 → 第二个订阅者顶掉第一个",
    "tokens": 60,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-12",
@@ -3003,7 +3891,9 @@
    ],
    "body": "- **正确**：抽 `private _normalize(raw)`，所有入口共用\n- **特征**：`set`/`add`、`register`/`import`、`preview`/`upgrade` 一个有校验一个没有\n- **注意**：需两个成员都出现才触发\n- **规律**：**后加的便捷入口最容易漏校验**",
    "tokens": 100,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "C-13",
@@ -3058,7 +3948,9 @@
    "tokens": 576,
    "xrefs": [
     "C-14"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-01",
@@ -3087,7 +3979,9 @@
    ],
    "body": "- **正确**：注册与注销必须在同一生命周期层级对称出现\n  （`onLoad`↔`onDestroy`，`onEnable`↔`onDisable`）\n- **特征**：有 `.on(` / `addEventListener(` / `subscribe(`，全文无\n  `off` / `removeEventListener` / `unsubscribe`\n- **确认**：注销是否可能在基类或其他文件（是 → 降级，但仍需确认）\n- **降级**：生命周期与页面/应用等长（如主窗口 keydown）→ P2 或忽略",
    "tokens": 156,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-02",
@@ -3108,7 +4002,9 @@
    ],
    "body": "- **正确**：三套机制**各自配对，不能互相替代**：\n  `schedule`↔`unschedule`、`setInterval`↔`clearInterval`、`setTimeout`↔`clearTimeout`\n- **确认**：是否为全局单例（是 → 标「待确认：生命周期长于页面」）",
    "tokens": 85,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-03",
@@ -3137,7 +4033,9 @@
    ],
    "body": "- **正确**：load/open/acquire 后必须 decRef/release/close/dispose\n- **确认**：框架是否提供自动释放（**自动释放通常不覆盖动态加载的资源**，高频误区）",
    "tokens": 72,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-04",
@@ -3168,7 +4066,9 @@
    ],
    "body": "- **正确**：持有引用并在销毁时 `stop()` / `clear()`\n- **特征**：`repeatForever` / `setLoop(true)` / `loop: true` 无停止调用\n- **为什么**：这类任务**永远不会自己结束**，宿主销毁后仍驻留",
    "tokens": 86,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-05",
@@ -3198,7 +4098,9 @@
    ],
    "body": "- **正确**：`lock`↔`unlock`、`acquire`↔`release`、`open`↔`close`\n- **确认**：是否有兜底路径（如 try/finally 中的释放写成了别的名字）",
    "tokens": 54,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-06",
@@ -3224,7 +4126,9 @@
    ],
    "body": "- **正确**：回调必须是**具名方法 / 持有引用**\n- **特征**：`on(ev, () => {...})` 或 `on(ev, function(){})`\n- **为什么**：`off` 需同一函数引用，匿名函数导致「写了 off 也 off 不掉」。\n  与「忘了写 off」**成因不同、改法不同**，所以单列",
    "tokens": 110,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-07",
@@ -3261,7 +4165,9 @@
    ],
    "body": "- **判据**：`addEventListener` / `setInterval` 在可能重复执行的初始化流程里\n- **确认**：是否有 generation 标记或先 remove 再 add\n- **典型**：插件重载一次，同一事件的 handler 多一个 → **按一次快捷键执行两次**\n- **期望形态**（三选一）：\n  - **generation 令牌**：每次挂载 `++gen`，异步回来时 `gen` 变了就丢弃结果\n  - **先清理再施加**：施加滤镜/覆盖层之前先清一遍，保证幂等\n  - **卸载钩子兜底**：即使前两者漏了，卸载时也能清干净\n- **⚠「宿主引擎」类代码若三样都没有，几乎必然存在叠加缺陷**",
    "tokens": 261,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-08",
@@ -3291,7 +4197,9 @@
    ],
    "body": "- **正确**：`[...this._listeners].forEach(...)` 或倒序索引\n- **特征**：`_listeners` / `_handlers` / `_callbacks` + `.forEach`\n- **标准测法**：三个订阅者 A/B/C，A 在回调里退订，**执行序列必须包含 B**",
    "tokens": 80,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-09",
@@ -3318,7 +4226,9 @@
    ],
    "body": "- **正确**：注册返回唯一句柄，按句柄取消\n- **特征**：Set 存监听器 + `filter` 按函数值重建\n- **失效**：同一函数注册多次时一次取消全删",
    "tokens": 76,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-10",
@@ -3343,7 +4253,9 @@
    ],
    "body": "- **正确**：置 `true` 处配对置 `false`\n- **特征**：`this._flag = true` 存在但全文无 `= false`",
    "tokens": 37,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-11",
@@ -3371,7 +4283,9 @@
    ],
    "body": "- **正确**：`clear` / `reset` / `destroy` 覆盖全部内部容器\n- **特征**：清理了部分但同文件还有别的容器字段\n- **识别三种清理写法**：`.clear()` / `.length = 0` / `= []`",
    "tokens": 77,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-12",
@@ -3405,7 +4319,9 @@
    ],
    "body": "- **正确**：把结果缓存到初始化阶段，回调内只做增量计算\n- **特征**：`update` / `tick` / `lateUpdate` 内出现 `find` / `getComponent` /\n  `instantiate` / `destroy` / `new X` / `JSON.parse` / `sort` / `Object.keys`\n- **确认**：该回调是否真的每帧执行（有些引擎的回调可能被降频或手动驱动）\n- **判据**：**每帧回调内的开销要乘 60 看**（60fps 下每秒执行 60 次）",
    "tokens": 161,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-13",
@@ -3429,7 +4345,9 @@
    ],
    "body": "- **正确**：复用对象或预分配\n- **特征**：`update` 内 `new` / 数组字面量 / 闭包",
    "tokens": 39,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-14",
@@ -3455,7 +4373,9 @@
    ],
    "body": "- **判据**：销毁后无状态标记，外部仍持有引用\n- **定级**：**静默**产生错误结果 → P1；抛异常（能被发现） → P2\n- **加固**：加状态标记",
    "tokens": 71,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "L-15",
@@ -3484,7 +4404,9 @@
    ],
    "body": "- **判据**：`Map.set(k, v)` 无对应 `delete` 且 key 来自外部/递增序列\n- **确认**：key 是否有界（固定枚举 vs 用户输入 vs 时间戳）\n- **典型**：pending 请求表、进程注册表、监听器表\n\n---",
    "tokens": 88,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-01",
@@ -3512,7 +4434,9 @@
    ],
    "body": "- **正确**：`if (!(x > 0))` 或 `if (!Number.isFinite(x))`\n- **特征**：`if (x <= 0)` / `if (x < n)`\n- **确认**：变量是否可能来自外部输入；只可能是常量/枚举则忽略\n- **为什么**：所有比较对 NaN 恒 false → 校验分支永不触发",
    "tokens": 100,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-02",
@@ -3545,7 +4469,9 @@
    ],
    "body": "- **正确**：`clampNum(opts.x, min, max, def)`\n- **特征**：`opts.x ?? d` 且附近无收口\n- **确认**：字段是否为数值型（非数值字段 → 忽略）\n- **注意**：命中数常常最多（常数百条），**按族批量修**，不逐条写报告",
    "tokens": 99,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-03",
@@ -3576,7 +4502,9 @@
    ],
    "body": "- **正确**：入参来自外部时先 `Number.isFinite`\n- **特征**：`clamp*(opts.x, ...)` 附近无 `isFinite`\n- **降级**：**`clampNum` / `numOr` 不算问题**——它们内部走 `numOr(v,NaN)` + `isNaN→fallback`，\n  非有限值有兜底，不穿透。只有裸 `clamp` / `clamp01` 才是\n- **确认**：调用方有没有兜住",
    "tokens": 119,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-04",
@@ -3609,7 +4537,9 @@
    ],
    "body": "- **正确**：脏样本**丢弃**（`if (!Number.isFinite(s)) return;`），不是兜底 0\n- **特征**：`this._x +=` / `lerp(this._x, ...)` 无 `isFinite`\n- **确认**：是否参与后续所有帧（是 → 污染不可逆）\n- **为什么**：用兜底值会把「数据坏了」伪装成正常值",
    "tokens": 107,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-05",
@@ -3637,7 +4567,9 @@
    ],
    "body": "- **正确**：`Number.isFinite(o.seed) ? o.seed >>> 0 : defaultSeed`\n- **特征**：`>>> 0` / `| 0`\n- **确认**：种子类参数是高危",
    "tokens": 44,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-06",
@@ -3667,7 +4599,9 @@
    ],
    "body": "- **正确**：`clampNum(opts.n ?? 4, 1, 64)`\n- **特征**：`for (let i = 0; i < <标识符>; i++)` 非字面量且附近无 clamp\n- **确认**：是否来自配置/入参",
    "tokens": 60,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-07",
@@ -3694,7 +4628,9 @@
    ],
    "body": "- **正确**：有限上界 + guard 计数器\n- **特征**：`while` 体内 `*= 2` / `++` / `+=`，条件涉及 `Infinity` / `maxRadius` / `limit`",
    "tokens": 47,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-08",
@@ -3721,7 +4657,9 @@
    ],
    "body": "- **正确**：**常数时间取模**并先拒非有限值\n  ```typescript\n  const norm = (a: number) => { const r = a % (Math.PI * 2); return r < 0 ? r + Math.PI * 2 : r; };\n  ```\n- **特征**：`while` 体内 `- 360` / `- 2*Math.PI`（单语句与带大括号两种形态都检）\n- **失效**：`diff` 为 `Infinity` 时减 360 后仍为 `Infinity` → **永不退出**",
    "tokens": 123,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-09",
@@ -3752,7 +4690,9 @@
    "tokens": 92,
    "xrefs": [
     "N-06"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-10",
@@ -3788,7 +4728,9 @@
    ],
    "body": "- **正确**：`typeof v === 'number' ? ... : def`\n- **特征**：`clampNum`/`numOr`/`needCount` 体内无 `typeof ... === 'number'`\n- **为什么**：`Number(null)` → 0，缺失配置会**静默变成合法的 0 或下界**，\n  改变超时/容量/速度语义且不报错\n- **确认**：先判类型再判有限性；若在 `Number.isFinite` 之前已做了 `Number(v)` 转换则无效",
    "tokens": 140,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-11",
@@ -3815,7 +4757,9 @@
    ],
    "body": "- **正确**：空集用 `length === 0` 或 `null`\n- **特征**：`= -Infinity` / `=== Infinity`\n- **为什么**：±Infinity 是**合法数值**，当哨兵会把含合法极值的集合静默替换为 fallback",
    "tokens": 76,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-12",
@@ -3842,7 +4786,9 @@
    ],
    "body": "- **正确**：`clampNum` 或先 `Number.isFinite`\n- **特征**：`Math.max(数字, 变量)`\n- **失效矩阵**：\n  ```\n  Math.max(1, NaN)       → NaN        （守卫失效）\n  Math.max(1, Infinity)  → Infinity   （当数组尺寸会崩）\n  Math.max(1, -5)        → 1          （只有这个符合预期）\n  ```",
    "tokens": 99,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-13",
@@ -3871,7 +4817,9 @@
    ],
    "body": "- **正确**：数量参数先转有限非负整数\n- **特征**：`.slice(` / `.splice(` 参数含变量\n- **失效**：`slice(0, -1)` 不是「取 0 个」而是「去掉最后 1 个」，负数配置会反转语义\n- **降级**：参数已在上游夹紧为非负 → 忽略",
    "tokens": 107,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-14",
@@ -3901,7 +4849,9 @@
    ],
    "body": "- **正确**：两个操作数都校验为有限 number\n- **特征**：`case 'add'` / `case 'mul'` 内用 `+` / `*=` 无类型校验\n- **失效**：`10 + '5'` → `'105'`（拼接）。`add` 是重灾区",
    "tokens": 69,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-15",
@@ -3930,7 +4880,9 @@
    ],
    "body": "- **正确**：不得用 `|| 0` / `?? 0` 掩盖 NaN，应显式标注或抛错\n- **特征**：`display` / `format` / `render` 体内有 `|| 0` / `?? 0`\n- **为什么有害**：一次坏输入永久污染该维度，而 UI 显示正常的 0，**故障被完全隐藏**",
    "tokens": 101,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-16",
@@ -3968,7 +4920,9 @@
    ],
    "body": "- **正确**：`Number.isInteger(n) && n > 0 && Number.isFinite(n)`\n- **特征**：`buy` / `sell` / `craft` / `pullN` / `roll` / `simulate` / `prewarm` 的数量参数无双重校验\n- **失效**：购买 `-2` 件 → `total = -20` → **钱包凭空增加 20、库存增加 2**，日志却记为成功\n- **注意**：`<= 0` 挡不住 NaN，且必须**同时查整数性**",
    "tokens": 126,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-17",
@@ -3990,7 +4944,9 @@
    ],
    "body": "- **正确**：`Math.pow(2, n) - 1`\n- **特征**：`1 << n` 且 `n >= 31`",
    "tokens": 21,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-18",
@@ -4014,7 +4970,9 @@
    ],
    "body": "- **正确**：`total > 0 ? v / total : 0`\n- **特征**：`/ scale` 等且无零判定",
    "tokens": 28,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "N-19",
@@ -4055,7 +5013,9 @@
    ],
    "body": "- **正确**：`interface Options { readonly now?: () => number; }`；随机源构造注入 `IRandomSource`\n- **特征**：`Date.now()` / `performance.now()` / 裸 `Math.random()`\n- **降级**：已有 `now?` 注入口 → 忽略\n- **升级**：注释声称「只影响观感」但实际参与逻辑累积 → **P0**（错误注释会阻止修复）\n- **注意**：只在确实是注入口（箭头函数/函数类型声明）时才跳过，\n  `const now = Date.now();` 是硬编码取值，不算\n\n---",
    "tokens": 179,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-01",
@@ -4090,7 +5050,9 @@
    ],
    "body": "- **判据**：扩展层**绕过宿主上下文**直连底层 API（`@tauri-apps/api`、\n  `window.parent`、`__TAURI_INTERNALS__`），而宿主提供的是 `ctx.invoke` / 桥接\n- **确认**：开启严格沙箱/隔离 → 该能力是否**静默**失效（无报错、无提示）\n- **典型**：插件直连 `@tauri-apps/api/core` 的 invoke/listen，\n  开启严格沙箱后 run_node / watch / webhook / fs_op / 读图全部失效且不提示\n- **定级**：P0。文档承诺「隔离切断的是直连通道，不是能力」，实际两者都被切断",
    "tokens": 206,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-02",
@@ -4127,7 +5089,9 @@
    ],
    "body": "- **判据**：`ns[method](...args)` 动态取成员后调用，无允许列表；\n  或白名单里含**改写自身权限策略**的方法\n- **确认**：枚举该模块全部导出，找出能改写安全策略/配置的那几个（如 `savePolicy`）\n- **典型**：隔离插件可调用 `pluginConfig` 与 `external` 模块的任意导出 →\n  自己把外链策略改成 allow-all、把域名标成 trusted，整个外链治理形同虚设\n- **修法**：方法白名单 + `hasOwnProperty` 拦原型链\n- **定级**：P0（权限链路的放行）",
    "tokens": 221,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-03",
@@ -4160,7 +5124,9 @@
    ],
    "body": "- **判据**：插件里直接读 `window.__XXX__`（挂在**主窗口**上的运行时对象）\n- **确认**：该插件是同页挂载还是 iframe 沙箱。iframe → 取不到 → **静默空**\n- **典型**：概览页「插件总数 0」、移除按钮点了没反应（可选链不报错）\n- **修法**：宿主在桥接里提供 `plugins.list` / `plugins.remove`，扩展优先走桥接、\n  失败再降级直连：\n  ```js\n  if (bridge && typeof bridge.list === 'function') {\n    try { return await bridge.list(); } catch {}\n  }\n  return window.__NEXUS__?.getPlugins?.() ?? [];\n  ```\n- **降级**：插件是同页挂载（非 iframe）→ 忽略",
    "tokens": 228,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-04",
@@ -4195,7 +5161,9 @@
    ],
    "body": "- **判据**：有多个入口（多份 HTML / 多套构建配置）但 CSP / 权限配置只写在其中一份\n- **确认**：逐个入口查。**注意构建工具的配置是按 JSON Merge Patch 合并而非替换**——\n  主配置里的安全项在另一套配置下依然生效，反之要看清谁覆盖谁\n- **典型**：主配置 `csp: null`，只有无构建入口的 HTML 里有 CSP meta → Vite 模式裸奔",
    "tokens": 173,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-05",
@@ -4226,7 +5194,9 @@
    ],
    "body": "- **判据**：危险路径用**字符串比较**（小写化 + 去尾斜杠 + `==` / `starts_with`），\n  未做 `canonicalize` / 路径归一\n- **确认**：构造 `/etc/..`、`C:\\Windows\\..`、含 `./` 的变体，看是否绕过\n- **定级**：保护的是删除/写入这类不可逆操作 → **P0**\n- **降级**：保护的是可逆操作 → P2",
    "tokens": 131,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-06",
@@ -4259,7 +5229,9 @@
    ],
    "body": "- **判据**：`Command::new(\"cmd\").args([\"/c\", \"start\", \"\", url])` 把外部输入喂给 shell；\n  或可执行文件完整路径来自用户配置且无白名单\n- **确认**：外部输入含 `&` / `|` 时是否被 shell 二次解析\n- **修法**：改用官方 opener / 直接 spawn 并传参数数组；路径白名单 + 用户确认",
    "tokens": 133,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-07",
@@ -4291,7 +5263,9 @@
    ],
    "body": "- **判据**：外部传入的 URL 直接用于导航、iframe src、插件入口\n- **确认**：是否校验协议白名单（http/https/mailto）。`javascript:` / `file:` 是否可达\n- **典型**：插件入口填外域地址 → 代码来自网络，且能访问宿主数据",
    "tokens": 107,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-08",
@@ -4325,7 +5299,9 @@
    ],
    "body": "- **判据**：「免口令」模式的密钥素材（设备特征、随机盐）**全部**存在同一个可被读出的存储里\n- **确认**：攻击者拿到存储文件后能否离线复现密钥。能 → 加密只防「随手打开 DevTools 看一眼」\n- **典型**：`deviceSalt` 也存在 localStorage → 整条链可离线复现\n- **修法**：盐由原生侧生成并存在应用数据目录；或首次使用时引导选口令模式\n- **降级**：文档已明确说明该模式的防护边界 → P2",
    "tokens": 215,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-10",
@@ -4369,7 +5345,9 @@
    "tokens": 315,
    "xrefs": [
     "PY-06"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-11",
@@ -4405,7 +5383,9 @@
    ],
    "body": "- **判据**：数据访问路径只在入口做一次身份校验，**后续每次取数不重复执行**\n  tenant / owner 过滤\n- **确认**：把 URL 里的资源 id 换成别人的，看能否读到。能 → 水平越权\n- **典型**：`GET /api/orders/{id}` 只校验\"已登录\"，没校验\"这个订单属于当前用户\" →\n  改个 id 就能看别人的订单\n- **修法**：在数据访问层统一加租户/归属过滤，而不是在每个 handler 里各写一遍\n- **为什么易漏**：入口鉴权确实存在，测试也通过——没人会想到换 id",
    "tokens": 238,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-12",
@@ -4430,7 +5410,9 @@
    ],
    "body": "- **判据**：密钥写死在配置或代码里，没有版本号、没有轮换入口、没有吊销机制\n- **确认**：密钥泄露后，能否在不发版的情况下让它失效。不能 → 事故响应时间以\"天\"计\n- **降级**：文档已明确说明该模式的防护边界与轮换流程 → P2",
    "tokens": 135,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "S-09",
@@ -4460,7 +5442,9 @@
    ],
    "body": "- **判据**：宿主在隔离态下采样不到子文档，设计了「子方自报 X」机制，\n  但宿主构造下游入参时**没有带上 X 字段**\n- **确认**：从自报消息的接收处一路跟到消费处，看字段是否传到底\n- **典型**：`reportedBase` 自报了，但 `adaptInput` 构造时没写进去 →\n  判定基调一致 → 不反转 → 深色面板上一块刺眼的白，**且不报错**\n- **定级**：P0（静默且对外承诺失效）\n\n---",
    "tokens": 198,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-02",
@@ -4498,7 +5482,9 @@
    "tokens": 235,
    "xrefs": [
     "T-03"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-04",
@@ -4526,7 +5512,9 @@
    ],
    "body": "- **判据**：上下文对象在挂载时拷贝一份状态快照（如 `theme`），状态变更后不更新\n- **确认**：看消费方是否**被迫自己另开监听器绕过**（**这是强信号**）\n- **典型**：插件为了拿主题变更自己再注册一个 message 监听器，与 SDK 内置监听器并存",
    "tokens": 136,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-05",
@@ -4558,7 +5546,9 @@
    ],
    "body": "- **判据**：首屏/兜底逻辑用 `element.style.xxx = v` 而非注入 `<style>`\n- **确认**：内联样式优先级最高，后续主题系统写 CSS 变量覆盖不住\n- **典型**：首屏防闪用内联 `background` → 切到浅色主题后底色卡在深色那一版\n- **降级**：该值后续不会再变 → 忽略",
    "tokens": 134,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-06",
@@ -4575,7 +5565,9 @@
    "tokens": 53,
    "xrefs": [
     "L-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-07",
@@ -4592,7 +5584,9 @@
    "tokens": 25,
    "xrefs": [
     "C-03"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-08",
@@ -4618,7 +5612,9 @@
    ],
    "body": "- **判据**：持久化结构变更但无 version 字段、无迁移路径\n- **确认**：老版本数据加载后是否静默产生错误结构（而非报错）\n- **定级**：静默损坏 → P0；报错（能被发现） → P1",
    "tokens": 93,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-09",
@@ -4635,7 +5631,9 @@
    "tokens": 32,
    "xrefs": [
     "A-01"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-10",
@@ -4665,7 +5663,9 @@
    "tokens": 114,
    "xrefs": [
     "C-10"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-11",
@@ -4706,7 +5706,9 @@
    ],
    "body": "- **判据**：比对基线只存内容哈希（blob sha / 内容 md5），不存 mode、类型、时间戳\n- **确认**：**只改元数据、不改内容**（如 `chmod +x`）时，比对判为「一致」→ 跳过\n  → 该变更永远推不上去**且不报错**\n- **典型**：`if lsha == rsha: continue  # 内容已一致，跳过` ——\n  用户改了可执行位，脚本说「已一致」，远端 mode 始终不变\n- **修法**：比对改用元组 `(mode, sha)`；基线结构变更时加 `version` 字段并留迁移路径\n- **定级**：变更静默丢失 → P1；若丢的是权限/可执行性这类安全相关属性 → **P0**",
    "tokens": 247,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "T-12",
@@ -4742,7 +5744,9 @@
    ],
    "body": "- **判据**：程序把「自己上一次写入的值」读回来当默认输入，形成闭环\n- **确认**：连跑两轮，看第二轮的输入是否等于第一轮的输出。是 → 值被固化\n- **典型**：推送脚本用 `git log -1 --format=%B` 取提交信息，\n  而它自己在推送成功后会补一个同信息的 commit →\n  **从第二次起所有提交信息完全相同**，且没人报错\n- **修法**：优先级必须是「显式入参 > 交互输入 > 自动生成」，\n  且自动生成**不得回读自身产出**（用文件清单等外部事实兜底）\n- **注意**：这类缺陷**第一轮表现正常**，只在第二次起暴露，手工测试极易漏\n\n---",
    "tokens": 296,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-01",
@@ -4776,7 +5780,9 @@
    ],
    "body": "- **正确**：`new Map()` / `Object.create(null)` / `Object.hasOwn(T, k)`\n- **特征**：`TABLE[k]` 或 `k in TABLE`\n- **危险键**：`toString` / `constructor` / `__proto__` / `valueOf` / `hasOwnProperty`\n- **确认**：key 是否可能来自外部输入（存档、网络、配置）",
    "tokens": 87,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-02",
@@ -4806,7 +5812,9 @@
    ],
    "body": "- **正确**：`new Map<string, number>()`\n- **特征**：`const x = {}` 后 `x[key] +=`\n- **失效**：key 为 `__proto__` 时丢失",
    "tokens": 40,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-03",
@@ -4836,7 +5844,9 @@
    ],
    "body": "- **正确**：过滤 `__proto__` / `constructor` / `prototype` 后再合并\n- **特征**：`Object.assign(` / `...spread` 涉及 JSON / import / state",
    "tokens": 45,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-04",
@@ -4868,7 +5878,9 @@
    ],
    "body": "- **正确**：解析后拒绝 `__proto__` / `prototype` / `constructor` 段，只在自有容器写入\n- **特征**（三种写法都要覆盖）：\n  ① `str.split('.')` ② 正则 `/([^.[\\]]+)|\\[(\\d+)\\]/g` ③ `parsePath` 类函数\n- **为什么**：不可信存档/网络差量可**改写进程级对象行为**\n- **注意**：只扫 split 会漏掉正则实现",
    "tokens": 134,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-05",
@@ -4898,7 +5910,9 @@
    ],
    "body": "- **正确**：同一父数组多个索引必须**按索引降序** splice\n- **特征**：循环内 `splice` 且上下文无 `sort` / `reverse`\n- **失效**：`['a','b','c']` 删 [1] 与 [2]，先删 1 后原 [2] 移到 [1]，\n  结果 `['a','c']` 而非 `['a']`\n- **注意**：**按路径深度排序不足以处理同层多删**",
    "tokens": 124,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-06",
@@ -4927,7 +5941,9 @@
    ],
    "body": "- **正确**：JSON Pointer（RFC 6901）或带转义 token 数组\n- **特征**：路径解析 + patch 应用同时存在\n- **失效**：`{'a.b':1}` 往返一次变成 `{'a.b':1, a:{b:2}}`，\n  合法 JSON 键被静默改造成另一棵树",
    "tokens": 87,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-07",
@@ -4956,7 +5972,9 @@
    ],
    "body": "- **正确**：长度前缀编码/转义，或结构化 tuple / 嵌套 Map\n- **特征**：`join('|')` 拼 key 或模板字符串 `${a},${b}`\n- **失效**：`{a:'1,b=2'}` 与 `{a:'1', b:'2'}` 生成同一 key →\n  两个维度写入同一项，数值静默合并",
    "tokens": 97,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-08",
@@ -4988,7 +6006,9 @@
    ],
    "body": "- **正确**：有限正整数 + **总元素量上限**\n- **特征**：`new Array(x)` / `new Float32Array(x)`，x 非字面量且附近无 clamp\n- **为什么 P0**：错误不在 API 边界报出，而是传导到底层 `RangeError` 或瞬时 OOM，\n  **诊断信息完全指向不了配置字段**\n- **特别检查**：宽高相乘（两个都合法但乘积极大）",
    "tokens": 144,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-09",
@@ -5019,7 +6039,9 @@
    ],
    "body": "- **正确**：维护有效计数，`remove` 幂等\n- **特征**：`LazyHeap` / tombstone + `get size` / `get isEmpty`\n- **失效**：`size` 返回物理条目数但 `pop()` 返回 undefined →\n  以 isEmpty 驱动的循环与 pop 不一致",
    "tokens": 83,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-10",
@@ -5054,7 +6076,9 @@
    "tokens": 135,
    "xrefs": [
     "D-11"
-   ]
+   ],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-11",
@@ -5088,7 +6112,9 @@
    ],
    "body": "- **正确**：删除 `Map<K, Set<V>>` 条目时先 `set.clear()`；\n  `map.clear()` 前先遍历 clear 各内部容器\n- **特征**：`_map.delete(k)` / `map.clear()` 附近无 `clear()`\n- **确认**：**是否存在闭包持有容器内条目**（`on()` 返回的取消函数、\n  暴露迭代器、直接返回容器）—— 无持有途径则 delete 后可 GC，是误报\n- **降级**：摘除时容器已空（同行有 `.size === 0` 判断）→ 忽略",
    "tokens": 168,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-12",
@@ -5120,7 +6146,9 @@
    ],
    "body": "- **正确**：\n  1. `put()` 拒绝非本池借出的对象（扣减 active 必须以归属为前提）\n  2. `active` 不得为负\n  3. `prewarm` 必须有限整数上限\n- **特征**：`prewarm()` 无上界收口 / `active--` 无 `Math.max(0,...)` /\n  `put()` 里 active 扣减**直接写在方法体**（花括号深度 1，不在任何 if 内）\n- **确认**：实测 `get 3 个 → put 5 个外部对象 → active 被刷成 0`\n- **⚠ 注意**：不能用「有没有 `has()`」判归属——重复归还拦截也用 `has()`，\n  但它查的是「是否已空闲」，方向与归属相反（**实测会漏掉只有重复拦截的池**）",
    "tokens": 243,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-13",
@@ -5146,7 +6174,9 @@
    ],
    "body": "- **正确**：循环归约\n- **特征**：`Math.max(...arr)`\n- **失效**：参数量大时 `RangeError`。**AST 深度限制挡不住**——深度很浅但参数很多",
    "tokens": 62,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-14",
@@ -5176,7 +6206,9 @@
    ],
    "body": "- **正确**：`clampNum` 收口 + 超限裁剪\n- **特征**：`_log` / `_history` / `_seen` / `_cache` 容器全文无 `shift` / `splice` / `clear`",
    "tokens": 47,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-15",
@@ -5202,7 +6234,9 @@
    ],
    "body": "- **正确**：预建索引\n- **特征**：`filter` / `map` 回调内调用 `this.get()` / `indexOf` / `includes`",
    "tokens": 37,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-16",
@@ -5231,7 +6265,9 @@
    ],
    "body": "- **正确**：返回副本 `[...arr]`，或文档明确标注\n- **特征**：`return this._x;` 无 `.slice()`\n- **降级**：文档已明确标注「返回内部引用，勿持有」→ P2",
    "tokens": 68,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   },
   {
    "id": "D-17",
@@ -5259,7 +6295,9 @@
    ],
    "body": "- **正确**：传访问集或深度上限\n- **特征**：**普通函数自递归**与**方法自递归**两种形态都要检\n- **确认**：深度是否由数据决定（子表互引用、嵌套树）→ 是则必改\n- **失效**：互相引用 → 栈溢出\n\n---",
    "tokens": 110,
-   "xrefs": []
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
   }
  ],
  "sections": [
@@ -5508,6 +6546,87 @@
    ],
    "tokens": 143,
    "body": "- **A-03 判定的是纯展示逻辑**（如「是否显示某按钮」）→ P2\n- **A-02 catch 里确实不需要处理**（如清理失败无碍）→ P2，但建议至少注释说明\n- **A-09 应用代码（非库）用 console** —— 可接受 → P3\n- **注释解释了为什么默认 true**（如「本地工具无需鉴权」）→ 确认文档写明后降级\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "文件系统操作（最高频缺陷源）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "K-01",
+    "K-07",
+    "K-30",
+    "K-31",
+    "K-32"
+   ],
+   "tokens": 1116,
+   "body": "|---|---|---|\n\n**典型缺陷**（K-01）：\n```rust\nlet bytes = std::fs::read(p)?;                        // 10GB 直接进内存\nlet text = &bytes[..bytes.len().min(cap)];            // 之后才截断 → 上限形同虚设\n```\n先整文件读入再按 `max_bytes` 截断 —— **上限参数形同虚设**，10GB 文件直接 OOM。\n\n**典型缺陷**（K-07，`normpath` 不等于 `canonicalize`）：\n```python\nfull = os.path.normpath(os.path.join(ROOT, rel))      # 只做字符串规整\nif full.startswith(ROOT): 通过                        # ← 符号链接被放过\n```\n仓库内若有指向外部目录的符号链接（`etcdir -> /etc`），\n`etcdir/passwd` 通过校验，`open()` 却读到 `/etc/passwd`。\n**判据**：路径校验必须解析链接后再比较（`os.path.realpath` / `canonicalize`），\n只做 `..` / `.` 的字符串规整等于没校验。\n**确认**：造一个 `ln -s /etc <repo>/etcdir`，读 `<repo>/etcdir/passwd` 看是否可读。\n\n**修法注意（易踩）**：用 `realpath` **校验**、用 `normpath` **返回**。\n若把 `realpath` 的结果直接当路径用，仓库内的合法符号链接（`link -> sub/t.txt`）\n会被改写成 `sub/t.txt`，推送的就不是链接本身了。校验与取值要用两套结果。\n\n**典型缺陷**（K-30，容器里 `os.access` 恒为 true）：\n```python\nmode = \"100755\" if os.access(p, os.X_OK) else \"100644\"\n```\n容器 / 挂载文件系统（overlayfs、Windows 盘、共享目录）上文件权限常是 `0777`\n或 `core.fileMode=false`，此时 `os.access(X_OK)` **恒真**，\n结果是把所有改动文件一律写成可执行，污染远端。\n**判据**：文件 mode 应取自版本库索引（`git ls-files -s`），\n索引缺失（新文件）时**回退 `100644` 而非 `100755`** —— 宁可丢执行位，\n也不要把 `.md` / `.json` 变成可执行。\n**确认**：`git config core.fileMode` 与 `ls -l` 一起看；\n`chmod +x` 后 `git ls-files -s` 的 mode 不变 → 该环境不跟踪执行位，禁用推断。\n\n**典型缺陷**（K-31，返回码被吞）：\n```python\ndef git(*a):\n    return subprocess.run([...], capture_output=True, text=True).stdout.strip()\n```\n只看 stdout，`git add` 部分失败（退出码 1，被 `.gitignore` 拦下部分路径）\n**照常返回空字符串**，调用方以为成功。\n**确认**：造一条必然失败的子命令，看包装函数的返回值是否可区分成功与失败。\n\n**典型缺陷**（K-32，反序列化 = 任意代码执行）：\n```python\ndata = pickle.loads(request.body)          # 攻击者构造 payload 即可执行任意代码\nconfig = yaml.load(f)                      # 无 SafeLoader，同样可达\n```\n**判据**：先看数据来源是否可被外部控制（网络、文件上传、消息队列）。\n可控 + 无 allowlist/签名 → **P0**。\n**修法**：改 JSON / `yaml.safe_load`；必须反序列化原生对象则加类型 allowlist + 验签。\n**降级**：数据完全由本进程产生且不可被替换（如本地临时文件）→ P2。\n**为什么易漏**：代码看起来只是\"读个配置\"，没有 `eval` / `exec` 那么显眼。\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "进程与命令执行",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 4,
+   "body": "|---|---|---|\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "本地网络服务",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [
+    "K-15",
+    "K-18"
+   ],
+   "tokens": 139,
+   "body": "自建 HTTP / WebSocket 服务时逐项查：\n\n|---|---|---|\n\n**K-18 最容易忽略**：代码写成 `if expected.is_empty() { return true; }`，\n本意是「没配口令就不校验」，实际效果是\n「**本机任何进程都能触发工作流**」——进而启动子进程、执行文件操作。\n\n**K-15 典型**：`vec![0u8; content_len]` —— 声明 10GB 就分配 10GB。\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "锁与错误处理",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 4,
+   "body": "|---|---|---|\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "命令注册与状态管理",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 44,
+   "body": "|---|---|---|\n\n**注意**：`build.rs` 是 Cargo 约定的构建脚本，本就不该被 `mod` 声明，不算孤儿。\n\n---"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "依赖与构建",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 88,
+   "body": "- 引入的每个 crate 都要能说清为什么不能用标准库替代\n- 平台特定依赖（Windows 句柄类型）要写明规避理由\n- release profile（`lto` / `panic` / `strip`）与错误处理能力要匹配"
+  },
+  {
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "title": "常见误报",
+   "is_fp": true,
+   "is_required": false,
+   "refs": [
+    "K-24"
+   ],
+   "tokens": 177,
+   "body": "- **「刻意不引第三方 crate」** —— 注释常会解释（如「少一个依赖就少一类编译失败」）\n- **「路径穿越不做限制」** —— 本地工具可免责，但需确认文档写明\n- **「用 std::fs 而非官方 fs 插件」** —— 语义上更接近「执行一条命令」，\n  可省去逐条声明路径权限，不是缺陷\n- **「硬编码 sleep 等待」** —— 若有更精确的信号可用才报（见 K-24）"
   },
   {
    "scene": "s-boundary",

@@ -125,6 +125,9 @@ python3 scripts/item-index.py --scan /tmp/go.json
 # 起步路径：还没跑扫描器时，让路由给最小集
 python3 scripts/route.py --src=<根> --items       # 列出建议条目 + 可执行命令
 
+# 全自动：编排器跑完直接把判据落盘（推荐）
+python3 scripts/audit.py --src=<根> --items       # → <根>/.audit-items/<场景>.md
+
 python3 scripts/item-index.py --get PY-01 PY-05   # 手工指定
 python3 scripts/item-index.py --query "线程池"      # 关键词检索
 ```

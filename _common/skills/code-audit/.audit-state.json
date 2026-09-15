@@ -1,0 +1,111 @@
+{
+ "scenes": {
+  "s-numerics": {
+   "items": "/tmp/audit_scene_s-numerics.json",
+   "count": 0
+  },
+  "s-concurrency": {
+   "items": "/tmp/audit_scene_s-concurrency.json",
+   "count": 0
+  },
+  "s-structures": {
+   "items": "/tmp/audit_scene_s-structures.json",
+   "count": 0
+  },
+  "p-cpp": {
+   "items": "/tmp/audit_scene_p-cpp.json",
+   "count": 0
+  },
+  "p-java": {
+   "items": "/tmp/audit_scene_p-java.json",
+   "count": 0
+  },
+  "p-go": {
+   "items": "/tmp/audit_scene_p-go.json",
+   "count": 0
+  },
+  "s-lifecycle": {
+   "items": "/tmp/audit_scene_s-lifecycle.json",
+   "count": 2
+  },
+  "p-python": {
+   "items": "/tmp/audit_scene_p-python.json",
+   "count": 0
+  },
+  "s-atomicity": {
+   "items": "/tmp/audit_scene_s-atomicity.json",
+   "count": 0
+  },
+  "s-sandbox": {
+   "items": "/tmp/audit_scene_s-sandbox.json",
+   "count": 0
+  },
+  "s-boundary": {
+   "items": "/tmp/audit_scene_s-boundary.json",
+   "count": 0
+  },
+  "s-backend": {
+   "items": "/tmp/audit_scene_s-backend.json",
+   "count": 1
+  },
+  "s-state": {
+   "items": "/tmp/audit_scene_s-state.json",
+   "count": 1
+  },
+  "s-contracts": {
+   "items": "/tmp/audit_scene_s-contracts.json",
+   "count": 0
+  },
+  "s-build": {
+   "items": "/tmp/audit_scene_s-build.json",
+   "count": 1
+  },
+  "p-cocos": {
+   "items": "/tmp/audit_scene_p-cocos.json",
+   "count": 0
+  }
+ },
+ "done": [
+  "s-numerics",
+  "s-concurrency",
+  "s-structures",
+  "p-cpp",
+  "p-java",
+  "p-go",
+  "s-lifecycle",
+  "p-python",
+  "s-atomicity",
+  "s-sandbox",
+  "s-boundary",
+  "s-backend",
+  "s-state",
+  "s-contracts",
+  "s-build",
+  "p-cocos"
+ ],
+ "spent": 300,
+ "started": 1789460373.471622,
+ "pending": [
+  "s-numerics",
+  "s-concurrency",
+  "s-structures",
+  "p-cpp",
+  "p-java",
+  "p-go",
+  "s-lifecycle",
+  "p-python",
+  "s-atomicity",
+  "s-sandbox",
+  "s-boundary",
+  "s-backend",
+  "s-state",
+  "s-contracts",
+  "s-build",
+  "p-cocos"
+ ],
+ "scan_cache": {
+  "scan-ts.py": "/tmp/audit_scan-ts.json",
+  "scan-app.py": "/tmp/audit_scan-app.json"
+ },
+ "exhausted": false
+}

@@ -129,6 +129,23 @@ C01（扫描器原生） · TS-C01（注册表 rule_id） · C-01（索引/Markd
 **Markdown 仍是源**，JSON 是产物（`rules/items.json`，不读入上下文）——
 跟 `registry.json` 一个模式。`--check` 防止改了 Markdown 忘了 sync。
 
+### 全自动路径：audit.py --items
+
+人工跑上面那些命令还是麻烦，编排器已经串好了：
+
+```bash
+python3 audit.py --src=<根> --items               # → <根>/.audit-items/<场景>.md
+python3 audit.py --src=<根> --items --items-all    # 无候选的场景也落 P0 起步集
+python3 audit.py --src=<根> --items --item-level=P0
+```
+
+跑完每个场景落一个 Markdown，里面只有**该场景命中的判据** + 常见误报段。
+实测四语言项目：8 场景 / 7 候选 → 5 个文件 / 9 条 / 1508 tokens
+（不加闸门的 8 文件 / 36 条 / 4854 tokens 里，多数是零命中场景的 P0 起步集）。
+
+**无候选的场景默认不落判据**——判据服务于候选核对，没候选就没必要读。
+确实要人工兜底时加 `--items-all`。
+
 ### 自动附带的三类上下文
 
 只取条目会丢上下文，所以以下三类自动带上，不用手工拼：

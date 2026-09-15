@@ -40,6 +40,19 @@ OUT = os.path.join(SKILL, 'rules', 'items.json')
 
 # `### PY-01 (P0) 可变默认参数（跨调用累积）`
 ENTRY_RX = re.compile(r'^### ([A-Z]{1,4}-\d{1,2}) \((P\d)\)\s+(.+?)\s*$')
+# 表格格式的判据（s-backend.md 用这种）：
+#   | **K-01** 读入是否有界 | 是否用 `take(cap)` 流式读取 | P1 |
+# 级别可能被加粗成 **P0**
+TBL_ENTRY_RX = re.compile(
+    r'^\|\s*\*\*([A-Z]{1,4}-\d{1,2})\*\*\s*(.+?)\s*\|\s*(.+?)\s*\|\s*\*{0,2}(P\d)\*{0,2}\s*\|')
+# 判据表的表头。注意：有些表只有「模式 | 判据」两列（缺级别），
+# 所以这里**不能**要求表头含「级别」——否则整表被跳过，条目静默丢失。
+TBL_HEAD_RX = re.compile(r'^\|[^|]*模式[^|]*\|[^|]*判据[^|]*\|')
+# 缺级别列时用的占位。刻意用一个不可能与真实级别混的值，
+# 好让 --check 能明确区分「没写」和「写了 P1」。
+UNKNOWN_LEVEL = 'P?'
+# 两列版：`| **K-25** 名称 | 判据 |`（无级别列）
+TBL_ENTRY_RX2 = re.compile(r'^\|\s*\*\*([A-Z]{1,4}-\d{1,2})\*\*\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$')
 # 只认二级标题 `## xxx` 为分节。
 # 一级标题 `# 场景：xxx` 是**文件标题**，它到第一个 ## 之间的内容是文件前言，
 # 归 preamble（用 --with-preamble 显式加载），不混进 sections。
@@ -55,6 +68,28 @@ SKIP_FILES = {'common.md', 'common-workflow.md', 'common-severity.md',
 # 文件名 → 场景 id
 def scene_of(fname):
     return fname[:-3] if fname.endswith('.md') else fname
+
+
+def _clean_md(t):
+    """去掉 Markdown 强调标记，留纯文本。表格里的 `**P0**` 之类要还原成 P0。"""
+    return re.sub(r'\*\*|`', '', (t or '')).strip()
+
+
+def norm_id(x):
+    """把 `C01` / `TS-C01` / `C-01` 三种写法归一到 `C01`。
+
+    同一个判据在系统里就有这三种形式（扫描器原生 / 注册表 / 索引），
+    不做归一化则三者互相对不上，按 ID 取条目会一条也取不到。
+    """
+    if not x:
+        return None
+    m = re.match(r'^(?:TS|APP)-([A-Z]{1,4})-?(\d{1,2})$', x)
+    if m:
+        return m.group(1) + m.group(2).zfill(2)
+    m = re.match(r'^([A-Z]{1,4})-?(\d{1,2})$', x)
+    if m:
+        return m.group(1) + m.group(2).zfill(2)
+    return None
 
 
 def token_estimate(text):
@@ -87,16 +122,21 @@ def split_doc(text):
     所以分节也结构化，靠**标题/正文里引用的条目 ID 自动关联**。
     """
     lines = text.split('\n')
-    if not any(ENTRY_RX.match(l) for l in lines):
+    has_entry = any(ENTRY_RX.match(l) for l in lines)
+    has_table = any(TBL_HEAD_RX.match(l) for l in lines)
+    if not has_entry and not has_table:
         return [], [], ''
 
     entries, sections, pre = [], [], []
     cur_e, cur_s, started = None, None, False
+    cur_sec_title = ''   # 表格条目要记住自己在哪个分节下
+    in_tbl = False
 
     def flush():
         nonlocal cur_e, cur_s
         if cur_e:
-            cur_e['body'] = '\n'.join(cur_e['body']).strip('\n')
+            if isinstance(cur_e['body'], list):
+                cur_e['body'] = '\n'.join(cur_e['body']).strip('\n')
             entries.append(cur_e)
             cur_e = None
         if cur_s:
@@ -109,14 +149,44 @@ def split_doc(text):
         if m:
             flush()
             cur_e = {'id': m.group(1), 'level': m.group(2),
-                     'name': m.group(3), 'body': [], 'fields': {}}
+                     'name': m.group(3), 'body': [], 'fields': {},
+                     'source': 'entry'}
+            started = True
+            continue
+        if TBL_HEAD_RX.match(ln):
+            in_tbl = True
+            started = True
+            continue
+        tm = TBL_ENTRY_RX.match(ln) if in_tbl else None
+        if tm:
+            # 表格条目没有 `- **判据**：` 行，手工构造字段，
+            # 否则 keywords_of 抽不到代码标识符，检索会失效。
+            e = {'id': tm.group(1), 'level': tm.group(4),
+                 'name': _clean_md(tm.group(2)), 'body': [],
+                 'fields': {'判据': [_clean_md(tm.group(3))]},
+                 'source': 'table', 'section': cur_sec_title}
+            e['body'] = ('- **判据**：%s\n- **所属**：%s'
+                         % (_clean_md(tm.group(3)), cur_sec_title))
+            entries.append(e)
+            started = True
+            continue
+        # 三列匹配不上 → 试两列（缺级别列）。不猜级别，记为 P? 让 --check 报出来。
+        tm2 = TBL_ENTRY_RX2.match(ln) if in_tbl else None
+        if tm2:
+            e = {'id': tm2.group(1), 'level': UNKNOWN_LEVEL,
+                 'name': _clean_md(tm2.group(2)), 'body': [],
+                 'fields': {'判据': [_clean_md(tm2.group(3))]},
+                 'source': 'table', 'section': cur_sec_title}
+            e['body'] = ('- **判据**：%s\n- **所属**：%s\n- **级别**：未标注（表格缺「级别」列）'
+                         % (_clean_md(tm2.group(3)), cur_sec_title))
+            entries.append(e)
             started = True
             continue
         if SECTION_RX.match(ln):
             flush()
+            in_tbl = False
             title = ln.lstrip('#').strip()
-            if title.startswith('###'):
-                continue
+            cur_sec_title = title
             cur_s = {'title': title, 'body': [],
                      'is_fp': any(k in title for k in FP_TITLE),
                      'is_required': any(k in title for k in REQ_TITLE)}
@@ -139,6 +209,8 @@ def split_doc(text):
         s['refs'] = sorted(set(ID_REF_RX.findall(s['title'] + ' ' + s['body'])))
         s['tokens'] = token_estimate(s['body'])
     for e in entries:
+        if isinstance(e['body'], list):
+            e['body'] = '\n'.join(e['body']).strip('\n')
         e['tokens'] = token_estimate(e['body'])
     return entries, sections, '\n'.join(pre).strip('\n')
 
@@ -196,6 +268,8 @@ def build():
                 'body': e['body'],
                 'tokens': e['tokens'],
                 'xrefs': sorted(set(ID_REF_RX.findall(e['body'])) - {e['id']}),
+                'source': e.get('source', 'entry'),
+                'section': e.get('section', ''),
             })
         for s in sections:
             secs.append({'scene': scene_of(fn), 'file': fn,
@@ -239,6 +313,12 @@ def cmd_check():
     si = {i['id']: i for i in saved['items']}
     li = {i['id']: i for i in live['items']}
     errs = []
+    # 级别缺失必须显式报出来：按 P0 过滤时会漏掉这些条目，
+    # 而它们在 Markdown 里看起来"正常存在"，不报就永远发现不了。
+    nolv = [i['id'] for i in live['items'] if i['level'] == UNKNOWN_LEVEL]
+    if nolv:
+        errs.append('%d 条判据未标级别（表格缺「级别」列）: %s'
+                    % (len(nolv), ' '.join(sorted(nolv)[:10])))
     for rid in sorted(set(si) | set(li)):
         if rid not in li:
             errs.append('%s 索引里有、Markdown 里没了（改了 Markdown 没 sync？）' % rid)
@@ -463,23 +543,13 @@ def cmd_scan(path, json_out=False):
     # 同一个判据在系统里有三种写法，必须先归一化再匹配：
     #   C01（扫描器原生）· TS-C01（注册表 rule_id）· C-01（索引/Markdown 条目）
     # 只做字符串相等判断的话三种互相对不上，--scan 会一条也取不到。
-    import re as _re
-    def norm(x):
-        m = _re.match(r'^(?:TS|APP)-([A-Z]{1,4})-?(\d{1,2})$', x)
-        if m:
-            return m.group(1) + m.group(2).zfill(2)
-        m = _re.match(r'^([A-Z]{1,4})-?(\d{1,2})$', x)
-        if m:
-            return m.group(1) + m.group(2).zfill(2)
-        return None
-
     by_norm = {}
     for k in idx:
-        n = norm(k)
+        n = norm_id(k)
         if n:
             by_norm.setdefault(n, k)
 
-    mapped = {x: by_norm.get(norm(x) or '') for x in ids}
+    mapped = {x: by_norm.get(norm_id(x) or '') for x in ids}
     got = [idx[mapped[i]] for i in ids if mapped[i]]
     miss = [i for i in ids if not mapped[i]]
     if json_out:
@@ -560,13 +630,7 @@ def cmd_self_test():
     chk(not empty, '所有条目正文非空（空: %s）' % (empty[:5] or '无'))
 
     # ID 归一化：三种写法必须都能命中同一条
-    import re as _re
-    def _norm(x):
-        m = _re.match(r'^(?:TS|APP)-([A-Z]{1,4})-?(\d{1,2})$', x)
-        if m:
-            return m.group(1) + m.group(2).zfill(2)
-        m = _re.match(r'^([A-Z]{1,4})-?(\d{1,2})$', x)
-        return m.group(1) + m.group(2).zfill(2) if m else None
+    _norm = norm_id
     trio = ['C01', 'TS-C01', 'C-01']
     chk(len({_norm(x) for x in trio}) == 1 and _norm('C01') is not None,
         '三种 ID 写法归一到同一个（%s）' % ' / '.join(trio))
