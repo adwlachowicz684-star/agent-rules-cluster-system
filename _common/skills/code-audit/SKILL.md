@@ -148,7 +148,7 @@ python3 scripts/route.py --src=<根> --items     # 起步：还没跑扫描器�
 | `references/common-workflow.md` | 六步展开、模块推进顺序、规模分档 |
 | `references/common-severity.md` | 三级定义、8 条升级规则、降级条件、驳回清单 |
 | `references/common-reporting.md` | 报告结构、**退出标准（三类清单 + blocking）**、复核 |
-| `references/common-manual-review.md` | 人工精审 8 项清单（**第 8 项「防护的组合与出口」命中率最高**） |
+| `references/common-manual-review.md` | 人工精审 9 项清单（**第 8 项「防护的组合与出口」、第 9 项「复验历史修复」命中率最高**） |
 | `references/common-global.md` | 跨单元一致性、地基优先 |
 | `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库 |
 | `references/route.md` | 场景命中判据（人读版）：信号分级、人工审核清单、增量路由 |
