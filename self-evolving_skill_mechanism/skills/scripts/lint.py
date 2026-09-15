@@ -205,6 +205,25 @@ def check_root(cfg):
                      "未初始化时本脚本只检查了引擎自身文件"}]
 
 
+# 体积豁免：文件里写了这行，就说明「超大是有理由的」，降级为提示。
+#
+# 为什么需要：用户偏好 F002 是「宁可写全写详细，不要为精简牺牲完整性」，
+# 但体积检查会预警超限——两者直接冲突。没有豁免机制时，
+# 为了消掉预警去砍内容，等于为了指标牺牲质量。
+# 强制写理由，是为了防止豁免被滥用成「不想拆就标一下」。
+EXEMPT_RX = re.compile(r'<!--\s*oversize-exempt\s*:\s*(.+?)\s*-->')
+
+
+def oversize_exempt(p):
+    """返回豁免理由；没有则返回 None。"""
+    try:
+        head = p.read_text(encoding="utf-8")[:2000]
+    except Exception:
+        return None
+    m = EXEMPT_RX.search(head)
+    return m.group(1).strip() if m else None
+
+
 def check_size(cfg, limits):
     issues = []
 
@@ -213,9 +232,18 @@ def check_size(cfg, limits):
             return
         n = n_lines(path)
         lim = int(limits.get(key, DEFAULTS.get(key, 400)))
-        if n > lim:
-            issues.append({"level": "warn", "file": label, "lines": n,
-                           "limit": lim, "hint": hint or HINTS.get(key, "拆分")})
+        if n <= lim:
+            return
+        why = oversize_exempt(path)
+        if why:
+            # 声明过豁免 → 降为 info，并把理由带上（理由也要能被复核）
+            issues.append({"level": "info", "file": label, "lines": n,
+                           "limit": lim,
+                           "issue": "已声明豁免：%s" % why,
+                           "hint": "豁免必须有理由；理由不成立就该拆"})
+            return
+        issues.append({"level": "warn", "file": label, "lines": n,
+                       "limit": lim, "hint": hint or HINTS.get(key, "拆分")})
 
     chk(ROOT / "SKILL.md", "SKILL.md", "SKILL.md", "细节下沉到 reference/")
     for name in ("_hot.md", "_preferences.md", "_commands.md"):
@@ -238,11 +266,18 @@ def check_size(cfg, limits):
             lim = int(limits.get(sub, DEFAULTS.get(sub, 400)))
             for f in sorted(sd.rglob("*.md")):
                 n = n_lines(f)
-                if n > lim:
+                if n <= lim:
+                    continue
+                why = oversize_exempt(f)
+                label = "%s/%s/%s" % (d.name, sub, f.name)
+                if why:
                     issues.append({
-                        "level": "warn",
-                        "file": "%s/%s/%s" % (d.name, sub, f.name),
-                        "lines": n, "limit": lim,
+                        "level": "info", "file": label, "lines": n, "limit": lim,
+                        "issue": "已声明豁免：%s" % why,
+                        "hint": "豁免必须有理由；理由不成立就该拆"})
+                else:
+                    issues.append({
+                        "level": "warn", "file": label, "lines": n, "limit": lim,
                         "hint": HINTS.get(sub, "拆分归档")})
     return issues
 
@@ -385,6 +420,28 @@ TODO 待补充
         issues3 = check_landing(cfg)
         chk(any('占位符' in i['issue'] for i in issues3), '占位符能查出')
         chk(any('空段落' in i['issue'] for i in issues3), '空段落能查出')
+
+        # 体积豁免：超限但声明了理由 → 降为 info，不是 warn
+        big = dom / 'big.md'
+        big.write_text('''---
+id: D996
+name: 大包
+keywords: [测试]
+trigger: 测试
+---
+<!-- oversize-exempt: 确认候选时需整体对照本包全部判据 -->
+
+## 完整流程
+
+''' + ('x\n' * 60), encoding='utf-8')
+        cfg2 = dict(cfg)
+        cfg2['size_limits'] = {'skills': 20}
+        iss = check_size(cfg2, cfg2['size_limits'])
+        b = [i for i in iss if 'big.md' in i['file']]
+        chk(bool(b) and b[0]['level'] == 'info',
+            '声明豁免的超限文件降为提示（不是预警）')
+        chk(bool(b) and '豁免' in b[0].get('issue', ''),
+            '豁免理由会被带上（可复核）')
 
         # 体积检查本身
         chk(callable(check_size), '体积检查可用')

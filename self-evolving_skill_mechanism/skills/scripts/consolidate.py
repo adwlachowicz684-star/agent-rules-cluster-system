@@ -205,6 +205,75 @@ def parse_drafts(path: Path) -> list[str]:
     return out
 
 
+# ---- 驳回清单（负面门槛）----
+# 四道门槛是「什么该入库」，驳回清单是「什么不该」。只有正面清单的后果是：
+# 一条草稿只要"说得通"就被放进去，库里慢慢堆满听起来对但没用的条目。
+#
+# 对应的判据来自审查技能里的「驳回清单」——那里最高频的误报来源是
+# 「没读注释就报问题」，搬到这里就是「没查溯源就改旧规则」。
+REJECT_RULES = [
+    # (检测函数, 驳回理由, 补救建议)
+    ("intent", "可能是既有设计意图",
+     "先查溯源（note.py --show <ID>）确认它当初为什么这么写，再决定改不改"),
+    ("consequence", "说不出后果",
+     "补上「不这么做会怎样」；补不出来说明它不构成技能，丢弃"),
+    ("style", "风格偏好",
+     "命名 / 格式 / 架构口味不构成技能，丢弃"),
+    ("scope", "趁机顺手改无关内容",
+     "本轮范围外的改动不做；单独记一条草稿下轮处理"),
+]
+
+
+def check_reject(text: str) -> list[tuple[str, str]]:
+    """对一条草稿跑驳回清单，返回 [(理由, 建议)]。
+
+    只做保守的关键词粗筛，宁可漏报不可误杀——
+    最终判断留给人工（本脚本的定位就是「机械活给脚本，判断活给 AI」）。
+    """
+    hits = []
+    t = text.lower()
+
+    # 设计意图：提到「改成/不要/去掉/删掉」+ 指向已有做法 → 可能是要推翻既有设计
+    if re.search(r'(改成|改为|换成|不要|去掉|删掉|不应该|不该)', text) and \
+            re.search(r'(之前|原来|现有|已有|现在)', text):
+        hits.append(("可能是既有设计意图", REJECT_RULES[0][2]))
+
+    # 后果：只有动词没有后果描述
+    if re.search(r'^(应该|要|需要|建议|最好)', text) and len(text) < 12:
+        hits.append(("说不出后果", REJECT_RULES[1][2]))
+
+    # 风格偏好
+    if re.search(r'(命名|格式|排版|风格|统一用|改成.*名|大小写|缩进)', text) and \
+            not re.search(r'(命令|脚本|检查|grep|rg|python)', text):
+        hits.append(("风格偏好", REJECT_RULES[2][2]))
+
+    # 超出范围
+    if re.search(r'(顺便|顺手|一起改|一并|统一改)', text):
+        hits.append(("趁机顺手改无关内容", REJECT_RULES[3][2]))
+    return hits
+
+
+def check_trio(text: str) -> list[str]:
+    """入库三件套：来源 / 证据 / 后果。
+
+    对应审查技能的「行号 + 证据 + 后果，三件套缺一不可」。
+    技能库版本：
+      来源 — 哪次任务、什么信号（note.py 的 --src）
+      证据 — 实测输出，或可验证的推导链
+      后果 — 不这么做会怎样
+    缺任一条都标出来，让整合时补，而不是默默入库。
+    """
+    miss = []
+    if not re.search(r'\[(env|src|来源|信号)[:：]', text) and \
+            not re.search(r'(来源|捕获自|来自)', text):
+        miss.append("来源（哪次任务 / 什么信号）")
+    if not re.search(r'(实测|跑过|验证|输出|结果|报错|退出码)', text):
+        miss.append("证据（实测输出或可验证推导链）")
+    if not re.search(r'(否则|会|导致|后果|不然|造成)', text):
+        miss.append("后果（不这么做会怎样）")
+    return miss
+
+
 def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
     # 扫描实际存在的技能文件，按用途给中文名
     name_map = {
@@ -267,9 +336,13 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
     drafts = parse_drafts(draft_path)
     print(f"\n【2】待整合草稿：{len(drafts)} 条")
     if not drafts:
+        # 注意：不能就此 return。第【3】跨库重复检查**不依赖草稿**——
+        # 它查的是库里已有条目之间的重复。早先这里直接 return，
+        # 导致「没草稿时跑 consolidate.py」永远看不到库内已有的重复，
+        # 而输出是正常的「无需整合」，看起来一切良好。
+        # 定期查库内重复是常规维护动作，不该被草稿状态挡住。
         print("  （草稿为空，无需整合）")
-        print("\n" + "=" * 62)
-        return
+        print("  ℹ️ 仍继续检查库内已有条目（跨库重复不依赖草稿）")
 
     dbgs = [bigrams(d) for d in drafts]
     dup, related, fresh, variants = [], [], [], []
@@ -345,6 +418,28 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
         for where, label, hit in fact_hits[:10]:
             print(f"    · {where}  [{label}] {hit}")
         print("    → 能抽象成通用做法就改写，不能就删除；事实留在对话上下文里")
+
+    # ---- 2.6 驳回清单 ----
+    # 四道门槛是正面清单（什么该入），这里是负面清单（什么不该入）。
+    # 只有正面清单时，"说得通"的废话会被一路放行。
+    reject_hits = [(d, check_reject(d)) for d in drafts]
+    reject_hits = [(d, r) for d, r in reject_hits if r]
+    if reject_hits:
+        print(f"\n  ⛔ 驳回清单：{len(reject_hits)} 条疑似不该入库 → 逐条确认后再决定")
+        for d, rs in reject_hits:
+            print(f"    · {d[:56]}")
+            for reason, advice in rs:
+                print(f"        ↳ {reason} → {advice}")
+
+    # ---- 2.7 三件套 ----
+    trio_miss = [(d, check_trio(d)) for d in drafts]
+    trio_miss = [(d, m) for d, m in trio_miss if m]
+    if trio_miss:
+        print(f"\n  ⚠ 三件套不全：{len(trio_miss)} 条 → 补齐再入库，别默默放进去")
+        for d, m in trio_miss:
+            print(f"    · {d[:56]}")
+            print(f"        缺：{'、'.join(m)}")
+        print("    → 判据：说不出「不这么做会怎样」的，通常不是真技能")
 
     # ---- 3. 跨库重复 ----
     flat = [(f, e) for f, es in all_entries.items() for e in es]

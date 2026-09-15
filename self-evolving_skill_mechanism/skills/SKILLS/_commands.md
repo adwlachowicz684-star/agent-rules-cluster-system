@@ -81,3 +81,7 @@
 | C069 | 找 2.x 遗留 API | `rg -n "cc\.loader\|cc\.find\|cc\.tween\|getScheduler" DIR` | rg | 迁移到 3.x | 0 |
 | C070 | 找合批风险组件 | `rg -n "Mask\|RichText" DIR` | rg | 每个都可能加 DrawCall | 0 |
 | C071 | 找全局单例持有 | `rg -n "getInstance\|static.*instance\|window\." DIR` | rg | 闭包泄漏排查入口 | 0 |
+| C072 | 查库内重复（不依赖草稿） | `python3 scripts/consolidate.py` | - | 可定期单独跑 | 0 |
+| C073 | 查某条规则当初为什么改 | `python3 scripts/note.py --show \| rg <ID>` | - | **改旧规则前必查** | 0 |
+| C074 | 验证检查脚本本身没失效 | `python3 scripts/lint.py --self-test` | - | 永远输出通过=没在查 | 0 |
+| C075 | 索引防漂移检查 | `python3 scripts/index.py --check` | - | 扫到 0 包会告警 | 0 |

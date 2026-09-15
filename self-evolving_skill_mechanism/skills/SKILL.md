@@ -71,83 +71,59 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
    **不读全局 INDEX.md** —— 它随技能数增长，只在跨类检索时用。
 2. **捕获**（会话中）— 出现信号向 `pending/draft.md` 追加一行，不分析、不打断。
    **显式纠正只占少数**，用户重做 / 改输出 / 换说法重问是更常见的隐性信号
-3. **整合**（会话结束）— 过闸、查重、**判定归属大类**、写入、重建索引
+3. **整合**（会话结束）— 过闸 → **驳回清单** → 查重 → 判定归属 → 写入 → 重建索引
+   （长会话捕获 ≥10 条时按子任务分段整合，别攒到最后丢细节）
 4. **留痕**（改了就记）— `python3 scripts/note.py "<ID>" <类型> "<原因>"`
-5. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / **孤立知识点**）
+5. **改后重跑比对** — `lint.py` + `index.py --check`，确认没顺手引入新问题
+6. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / **孤立知识点**）
    `python3 scripts/lint.py --self-test` 验证检查项本身没失效
+   `python3 scripts/consolidate.py` 查库内重复（**不依赖草稿，可定期单独跑**）
 
 ## 两个"装不下"的出口
 
-**① 环境装不下**（同一技能在不同环境写法不同）— 用 `applies_to` 标注，
-**两条都留**，不删旧版本写法：
-```yaml
-applies_to: python>=3.8, os:linux
-```
-加载前 `python3 scripts/env.py --check "python>=3.8, os:linux"`。详见 `reference/env.md`。
+**① 环境装不下**（不同环境写法不同）— `applies_to: python>=3.8, os:linux`，
+**两条都留**。加载前 `python3 scripts/env.py --check "约束"`。详见 `reference/env.md`。
 
 **② 类目装不下**（现有大类都归不精准）— **提提案，不自行改结构**：
 ```bash
-python3 scripts/structure.py --route-check "<描述>"          # 是否装得下
-python3 scripts/structure.py --propose-new 名 --key k --kw "词,词"   # 只生成提案
-python3 scripts/structure.py --apply                         # 用户确认后执行
+python3 scripts/structure.py --route-check "<描述>"   # ok/core_hit 归位 ·
+python3 scripts/structure.py --propose-new 名 --key k --kw "词,词"   # weak_match 确认 ·
+python3 scripts/structure.py --apply                  # ambiguous/no_match 提案后执行
 ```
-| 判定 | 动作 |
-|---|---|
-| `ok` / `core_hit` | 直接归位 |
-| `weak_match` | 确认后归，或考虑新建 |
-| `ambiguous` | 提议中间大类 |
-| `no_match` | **提议新建大类** |
-
 **硬约束：AI 在提案这步停住** —— 结构变更影响所有后续归类，
 误操作代价远高于多问一次。详见 `reference/structure-evolution.md`。
 
 ## 改了就记一行（assets/）
 
-技能条目攒多了，半年后看到一条规则没人记得它怎么来的。
-**改了就往 `assets/changelog.md` 记一行**，只写一句：
+半年后没人记得一条规则怎么来的。**改了就记一行**，也是改旧规则前必查的溯源：
 
 ```bash
-python3 scripts/note.py "LAW-R003" 补充 "合同审查漏了违约金条款" --domain legal
 python3 scripts/note.py "C047" 更新 "macOS sed 需空参数" --src 实测
-python3 scripts/note.py --show                    查看记录
+python3 scripts/note.py --show                    查看记录（**改旧规则前先查**）
 ```
 
 类型：新增 / 补充 / 修正 / 更新 / 参考 / 合并 / 拆分 / 冷藏
 
 ## 单文件体积上限
 
-`python3 scripts/lint.py` 会预警（不硬报错）。只需记住最关键的两条：
-
-- **`rules/*.md` 50 行** —— 它每次任务都要读，混进流程会让「必读」变成
-  「读不完」，等于没有约束
-- **`skills/*.md` 500 行** —— 超了按子任务拆包，`related` 互链
-
-其余（`SKILL.md` 200 / `reference` 400 / `agents` 100 / `assets` 300）
-见 `reference/writing-rules.md`，脚本会自动比对。
+`lint.py` 会预警（不硬报错）。最要紧两条：**`rules/*.md` 50 行**（每次必读，
+混进流程就等于没约束）· **`skills/*.md` 500 行**（超了拆包互链）。
+**超限但有理由** → 文件头写 `<!-- oversize-exempt: 理由 -->`，降为提示
+（防止为消预警砍内容，违反「宁可写全」）。其余见 `reference/writing-rules.md`。
 
 ## `verified` 字段：只标注，不校验
 
-```yaml
-verified: yes | no | partial
-```
-
-**只作参考，不做任何自动校验**：标 `no` 不会拒绝加载，标 `yes` 也不免检。
-用途是回溯时知道该信几分——标 `no` 的出错优先怀疑它，标 `yes` 的出错检查环境是否变了。
-
+`verified: yes | no | partial` —— 不做任何自动校验，只为回溯时知道信几分。
 **整合报告必须分三类**（已验证 / 未验证 / 需人工确认），
 混在一张表等于声称全部已验证。详见 `reference/consolidation.md`。
 
 ## 技能归属（写入哪个大类）
 
-四问，从强信号到弱信号：
+四问，强→弱：① 换个大类还成立吗（是 → `_common`）·
+② 当前项目接入哪个大类（**最强信号**）·
+③ `--route "<描述>"` 命中哪个 · ④ 是技能还是知识（知识进 `rules/`，不进 `skills/`）。
 
-1. **换个大类还成立吗？** 成立 → `_common`
-2. **当前项目接入哪个大类？** ← 最强信号，默认归属
-3. **`--route` 关键词命中哪个？** `python3 scripts/domain.py --route "<描述>"`
-4. **是领域技能还是领域知识？** 知识（法条/API 参数）→ 进 `rules/` 不进 `skills/`
-
-**推荐 ≠ 自动写入**：归错类比不归更糟，必须确认。
-完整协议见 `reference/domain-routing.md`。
+**推荐 ≠ 自动写入**：归错类比不归更糟。完整协议见 `reference/domain-routing.md`。
 
 ## 捕获信号（简表）
 
@@ -165,11 +141,10 @@ verified: yes | no | partial
 
 完整判定见 `reference/capture-signals.md`。
 
-## 第零道闸 + 四道门槛
+## 第零道闸（先分诊）
 
-**第零道闸**：描述的是"怎么做"还是"是什么"？是"是什么"（路径/文件名/项目背景）→ 直接丢弃。
-
-**四道门槛**：**可迁移**（换个项目还成立吗）· **已抽象**（模式还是个案）· **可执行**（能照着做）· **已验证**（真跑通过）。任一不过 → 丢弃。
+描述的是"怎么做"还是"是什么"？是"是什么"（路径/文件名/项目背景）→ 直接丢弃。
+门槛与驳回清单见下方专节。
 
 ## 冷热分层（替代删除）
 
@@ -183,12 +158,29 @@ verified: yes | no | partial
 
 **冷藏不是删除**：文件原样保留，索引里仍有它，下次检索到自动回热。
 
+**0 命中要先分清是哪种**：换两三种同义词 `--find` 都召不回 →
+是 keywords 太窄，**补同义词**，不是冷藏。误判成低频就永久丢了一条技能。
+（见 `reference/consolidation.md`）
+
+## 四道门槛 + 驳回清单 + 三件套
+
+| | 内容 |
+|---|---|
+| **四道门槛**（正面） | 可迁移 · 已抽象 · 可执行 · 已验证。任一不过 → 丢弃 |
+| **驳回清单**（负面） | 证据不足 · **可能是既有设计意图**（先 `note.py --show` 溯源）· 说不出后果 · 重复劳动 · 超出范围 · 风格偏好 |
+| **三件套** | 来源 · 证据 · 后果，缺一条就补，别默默入库 |
+
+`consolidate.py` 自动扫驳回清单与三件套。
+**说不出「不这么做会怎样」的，通常不是真技能。**
+详细判据与「批量相似怎么抽样」见 `reference/consolidation.md`。
+
 ## 违反即升级
 
 规则已写却仍被违反 → **不是记性问题，是规则设计问题**。依次检查：
 不够显眼（上浮热区）· 不够具体（改写成可执行判据）· 反直觉（加 ⚠）· 放错层。
 
 同一条目被违反 ≥2 次 → 进下方最高优先级区。
+**整合时顺手改无关条目引入的问题，一律按 L1 处理。**
 
 ---
 
