@@ -121,6 +121,24 @@ def main():
     infos.append('[INFO] SKILL.md 显式引用 %d 个资源文件，%s'
                  % (len(refs), '全部存在' if not broken else '有断链'))
 
+    # 提及范围：SKILL.md + 子文档（references/ assets/ 下的 .md）。
+    #
+    # 为什么不能只看 SKILL.md：内容下沉到 reference 后，引用关系随内容一起搬走
+    # （例：命令速查表下沉到 references/commands.md 后，那里引用的脚本
+    # 在 SKILL.md 里就不出现了）。只扫主文件会把它们全判成孤儿，
+    # 逼人把内容搬回主文件——与「细节下沉」直接冲突。
+    corpus = content
+    for _sub in ('references', 'assets'):
+        _d = os.path.join(SKILL_DIR, _sub)
+        if not os.path.isdir(_d):
+            continue
+        for _f in sorted(os.listdir(_d)):
+            if _f.endswith('.md') and not _f.startswith('.'):
+                try:
+                    corpus += '\n' + open(os.path.join(_d, _f), encoding='utf-8').read()
+                except OSError:
+                    pass
+
     for sub in ('references', 'scripts', 'assets'):
         d = os.path.join(SKILL_DIR, sub)
         if not os.path.isdir(d):
@@ -129,9 +147,9 @@ def main():
             if f.startswith('.') or f == '__pycache__':
                 continue
             rel = '%s/%s' % (sub, f)
-            if rel in refs or f in content or rel in content:
+            if rel in refs or f in corpus or rel in corpus:
                 continue
-            add('warn', 'PD001', '孤儿文件（SKILL.md 未提及）: %s' % rel)
+            add('warn', 'PD001', '孤儿文件（无任何文档提及）: %s' % rel)
 
     for f in sorted(os.listdir(SKILL_DIR)):
         if f in REDUNDANT_ROOT and os.path.isfile(os.path.join(SKILL_DIR, f)):

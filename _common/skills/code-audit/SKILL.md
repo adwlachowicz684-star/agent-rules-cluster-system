@@ -102,14 +102,12 @@ Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测
 
 ## 五个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制 · 判据可索引）
 
-规则注册表 / SARIF / 编排器 / 项目级规则——**命令与「为什么需要」见 `references/mechanisms.md`**。
-项目特化约定（通用模式库抽象不出来的）走 `scripts/project-rules.py`，按路径绑定生效。
-最常用三条：
+规则注册表 / SARIF / 编排器 / 判据索引——**命令与「为什么需要」见 `references/mechanisms.md`**；
+项目特化约定（通用模式库抽象不出来的）走 `scripts/project-rules.py`，按路径绑定生效。最常用两条：
 
 ```bash
 python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture 覆盖率
 python3 scripts/audit.py --src=<根> --resume      # 断点续跑
-python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 ```
 
 ## 判据加载：默认按条目，不整文件读
@@ -118,19 +116,11 @@ python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 实测只取相关条目可省 67%~91%（取 1 条：366 vs 2771 tokens）。
 
 ```bash
-# 精准路径（推荐）：扫描器报哪条取哪条
-python3 scripts/scan-go.py --src=<根> --json > /tmp/go.json
-python3 scripts/item-index.py --scan /tmp/go.json
-
-# 起步路径：还没跑扫描器时，让路由给最小集
-python3 scripts/route.py --src=<根> --items       # 列出建议条目 + 可执行命令
-
-# 全自动：编排器跑完直接把判据落盘（推荐）
-python3 scripts/audit.py --src=<根> --items       # → <根>/.audit-items/<场景>.md
-
-python3 scripts/item-index.py --get PY-01 PY-05   # 手工指定
-python3 scripts/item-index.py --query "线程池"      # 关键词检索
+python3 scripts/audit.py --src=<根> --items     # 全自动落盘（推荐）
+python3 scripts/route.py --src=<根> --items     # 起步：还没跑扫描器时给最小集
 ```
+
+其余用法（`--scan` 精准取 · `--get` 手工指定 · `--query` 检索 · `--check` 防漂移）见 `references/commands.md`。
 
 自动附带三类上下文，不用手工拼：**常见误报**段（判断是不是误报靠它）·
 **标题引用了该条目 ID 的章节**（如「双实现比对（C-02 的展开）」）·
@@ -169,42 +159,13 @@ python3 scripts/item-index.py --query "线程池"      # 关键词检索
 
 ## 扫描命令
 
+**全量见 `references/commands.md`**（路由 / 扫描 / 条目加载 / 编排 / 专项 / 维护）——命令用到了才查，不常驻。四条最常用：
+
 ```bash
-# 场景路由（先跑这个）
-python3 scripts/route.py --src=<根>
-
-# TS/JS 模式扫描（numerics / structures / lifecycle / atomicity / state 用）
-python3 scripts/scan-ts.py --src=<根> [--p0] [--json] [--flat]
-python3 scripts/scan-ts.py --self-test
-
-# ⚠ 有 Python 代码时必须额外跑这个（scan-ts/scan-app 不覆盖 Python）
-python3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=py.sarif]
-python3 scripts/scan-py.py --self-test
-
-# ⚠ 多语言仓库按实际语言跑；四个扫描器都支持 --exclude（抑制须显式声明）
-python3 scripts/scan-go.py   --src=<根> [--p0]      # Go
-python3 scripts/scan-java.py --src=<根> [--p0]      # Java
-python3 scripts/scan-cpp.py  --src=<根> [--p0]      # C/C++
-
-# 应用级模式扫描（sandbox / boundary / backend / build 用）
-python3 scripts/scan-app.py --src=<根> [--p0] [--json]
-python3 scripts/scan-app.py --self-test
-
-# 交付物完整性（单元有无 README/测试/示例）
-python3 scripts/doc-deliverable.py --src=<根> [--missing-only] [--strict]
-# 文档承诺一致性（README 说的 vs 代码有的）
-python3 scripts/doc-promise.py --src=<根> [--commands-only] [--links-only]
-
-# 探针（numerics 实测用）
-cp scripts/probe-template.ts audit/probe_<单元>.ts
-
-# 专项
-python3 scripts/dep-scan.py --src=<根> [--violations-only]
-python3 scripts/cocos-audit.py <路径> [--level P0] [--rule memory]
-
-# 维护
-python3 scripts/note.py "<ID>" <类型> "<原因>"
-python3 scripts/check-skill.py
+python3 scripts/route.py --src=<根>                  # 场景命中 + 证据
+python3 scripts/scan-ts.py --src=<根> --self-test    # TS/JS
+python3 scripts/scan-py.py --src=<根> --self-test    # Python（scan-ts 不覆盖）
+python3 scripts/audit.py --src=<根> --items          # 编排 + 判据落盘
 ```
 
 ## 硬约束
