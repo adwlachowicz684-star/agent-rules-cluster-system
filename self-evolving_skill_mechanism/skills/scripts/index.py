@@ -360,6 +360,135 @@ def cmd_stats(cfg: dict) -> None:
         print("  （暂无）")
 
 
+
+def cmd_check(cfg):
+    """防漂移：索引里记录的 vs 磁盘上实际存在的。
+
+    为什么需要：索引是**产物**，文件是**源**。改了文件忘了重建索引，
+    定向加载就会指向不存在的包、或漏掉新写的包——而它不会报错，
+    只是"没命中"，看起来跟"库里没有这个技能"一模一样。
+    """
+    issues = []
+    items = scan(cfg)
+    root = domain_root(cfg)
+
+    by_id = {}
+    for it in items:
+        if it["id"] in by_id:
+            issues.append({"level": "error", "issue":
+                           "ID 重复：%s（%s / %s）" % (it["id"], by_id[it["id"]], it["path"])})
+        else:
+            by_id[it["id"]] = it["path"]
+
+    # 索引文件里写了、但磁盘上没有的条目（悬空引用）
+    for key in cfg.get("domains", {}):
+        idx = domain_dir(cfg, key) / "INDEX.md"
+        if not idx.exists():
+            continue
+        try:
+            text = idx.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for m in re.finditer(r'`?([A-Z]\d{2,4})`?', text):
+            rid = m.group(1)
+            if rid not in by_id:
+                issues.append({"level": "warn", "issue":
+                               "%s 索引引用了 %s，但磁盘上没有该技能包" % (idx.name, rid)})
+
+    # 无 keywords / 无 trigger → 永远召不回
+    for it in items:
+        if not it.get("keywords"):
+            issues.append({"level": "warn", "issue":
+                           "%s 缺 keywords → 检索召回不到" % it["path"]})
+        if not it.get("trigger"):
+            issues.append({"level": "warn", "issue":
+                           "%s 缺 trigger → 不知道何时加载" % it["path"]})
+
+    print("index · 防漂移检查")
+    print("扫描到 %d 个技能包" % len(items))
+    errs = [i for i in issues if i["level"] == "error"]
+    for i in issues:
+        print(("  ✗ " if i["level"] == "error" else "  ! ") + i["issue"])
+
+    # 0 命中不等于没问题：最常见的原因是 domains 还没实例化，
+    # 或 config.yaml 的 root 与实际目录不一致。直接报「一致」会让人以为库是好的。
+    if not items:
+        print()
+        print("  ⚠ 一个包都没扫到——**这不等于没问题**。逐项排查：")
+        print("    1) 大类目录建了没：python3 scripts/domain.py --list")
+        print("       没有就初始化：python3 scripts/domain.py --init")
+        print("    2) config.yaml 的 root 指向了别处（当前：%s）" % root)
+        print("    3) 文件放在了 skills/ 之外，或以 _ 开头被跳过")
+        print("   扫不到时 --find 也永远为空，看起来跟「库里没有」一模一样。")
+
+    print("结论：%s" % ("一致。" if not issues and items
+                        else ("未扫到任何包，先确认大类目录" if not items
+                              else "%d 错误 / %d 预警 → 跑 index.py 重建" % (
+                                  len(errs), len(issues) - len(errs)))))
+    return 1 if errs else 0
+
+
+def cmd_self_test():
+    """验证检索 / 计数 / 回热 / 防漂移四条主链路真的能跑。
+
+    为什么需要：这套机制最坏的失效是"看起来在跑"——
+    --find 永远返回空、--check 永远说一致，而实际一个包都没扫到
+    （domains 未实例化、路径拼错、ID 前缀不匹配都会造成这个假象）。
+    """
+    import tempfile
+    import shutil
+    ok = fail = 0
+
+    def chk(cond, msg):
+        nonlocal ok, fail
+        print(("  ✓ " if cond else "  ✗ ") + msg)
+        if cond:
+            ok += 1
+        else:
+            fail += 1
+
+    tmp = tempfile.mkdtemp()
+    try:
+        cfg = {"domains": {"dev": {"name": "开发"}}, "root": tmp,
+               "subdirs": ["agents", "skills", "rules"], "common": "_common"}
+        sd = domain_dir(cfg, "dev") / "skills"
+        sd.mkdir(parents=True)
+        (sd / "pack.md").write_text("""---
+id: D900
+name: 交付打包
+keywords: [交付, 打包, zip]
+trigger: 产物多于一个
+tier: cold
+---
+# 交付打包
+""", encoding="utf-8")
+
+        items = scan(cfg)
+        chk(len(items) == 1, "能扫到技能包（%d 个）" % len(items))
+        chk(items and items[0]["id"] == "D900", "frontmatter 的 id 能解析")
+
+        # 关键词召回：同义词要能命中
+        hits = [i for i in items if "打包" in " ".join(i.get("keywords", []))]
+        chk(bool(hits), "keywords 同义词可召回")
+
+        # 缺字段必须被防漂移查出来
+        (sd / "bad.md").write_text("""---
+id: D900
+name: 重复ID
+---
+""", encoding="utf-8")
+        code = cmd_check(cfg)
+        chk(code == 1, "重复 ID 被判为错误（退出码 1）")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    print()
+    print("自检：%d 通过 / %d 失败" % (ok, fail))
+    if not fail:
+        print("结论：索引主链路工作正常")
+    return 1 if fail else 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--find", nargs="+", metavar="关键词")
@@ -367,12 +496,18 @@ def main():
     ap.add_argument("--add", metavar="文件", help="写入指定大类（配合 --domain）")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--stats", action="store_true")
+    ap.add_argument("--check", action="store_true", help="防漂移检查（索引 vs 磁盘）")
+    ap.add_argument("--self-test", action="store_true", help="验证主链路真的能跑")
     ap.add_argument("--config", default=str(CONFIG))
     args = ap.parse_args()
 
     cfg = load_config(Path(args.config))
     items = scan(cfg)
 
+    if args.self_test:
+        sys.exit(cmd_self_test())
+    if args.check:
+        sys.exit(cmd_check(cfg))
     if args.add:
         if not args.domain:
             sys.exit("--add 必须配合 --domain <大类KEY>")

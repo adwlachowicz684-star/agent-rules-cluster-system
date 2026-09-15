@@ -21,6 +21,11 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 保证每次执行一致。单行给命令，多行封 `scripts/` 只留一行调用。
 **这条对生成的技能同样有效**：技能里出现「先…然后…再…」就该抽命令了。
 
+**知识点必须落地到流程。** 只写「要注意 X」而不改变任何一步动作，是纯负债——
+读了行为不变，还占上下文。判据一句话：**它改变了哪个流程的哪一步？**
+答不出来 → 改写或删除。`python3 scripts/lint.py` 会自动报出孤立知识点。
+详见 `reference/knowledge-landing.md`。
+
 ## 目录地图
 
 | 路径 | 内容 | 何时读 |
@@ -40,6 +45,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `scripts/env.py` | 环境探测与约束检查 | 技能因版本/系统分化时 |
 | `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
 | `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
+| `reference/knowledge-landing.md` | **知识点落地协议**（不写正确的废话） | 写/改技能时 |
 | `reference/anti-patterns.md` | 反模式与官方规范 | 写完技能后对照检查 |
 | `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
 | `reference/env.md` | 环境分化（版本/系统差异） | 同一技能有多个版本写法时 |
@@ -67,7 +73,8 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
    **显式纠正只占少数**，用户重做 / 改输出 / 换说法重问是更常见的隐性信号
 3. **整合**（会话结束）— 过闸、查重、**判定归属大类**、写入、重建索引
 4. **留痕**（改了就记）— `python3 scripts/note.py "<ID>" <类型> "<原因>"`
-5. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段）
+5. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / **孤立知识点**）
+   `python3 scripts/lint.py --self-test` 验证检查项本身没失效
 
 ## 两个"装不下"的出口
 
@@ -109,19 +116,14 @@ python3 scripts/note.py --show                    查看记录
 
 ## 单文件体积上限
 
-超过就该拆（`python3 scripts/lint.py` 预警，不硬报错）：
+`python3 scripts/lint.py` 会预警（不硬报错）。只需记住最关键的两条：
 
-| 文件 | 上限 | 超了 |
-|---|---|---|
-| `rules/*.md` | **50 行** | 混进流程了 → 移到 `skills/` |
-| `agents/*.md` | 100 行 | 按场景拆角色 |
-| `SKILL.md` | 200 行 | 细节下沉 `reference/` |
-| `assets/*.md` | 300 行 | 按年/季度归档 |
-| `reference/*.md` | 400 行 | 按主题拆 |
-| `skills/*.md` | 500 行 | 按子任务拆包，`related` 互链 |
+- **`rules/*.md` 50 行** —— 它每次任务都要读，混进流程会让「必读」变成
+  「读不完」，等于没有约束
+- **`skills/*.md` 500 行** —— 超了按子任务拆包，`related` 互链
 
-**`rules/` 的 50 行最要紧**——它每次任务都要读，
-混进流程会让「必读」变成「读不完」，等于没有约束。
+其余（`SKILL.md` 200 / `reference` 400 / `agents` 100 / `assets` 300）
+见 `reference/writing-rules.md`，脚本会自动比对。
 
 ## `verified` 字段：只标注，不校验
 
@@ -131,6 +133,9 @@ verified: yes | no | partial
 
 **只作参考，不做任何自动校验**：标 `no` 不会拒绝加载，标 `yes` 也不免检。
 用途是回溯时知道该信几分——标 `no` 的出错优先怀疑它，标 `yes` 的出错检查环境是否变了。
+
+**整合报告必须分三类**（已验证 / 未验证 / 需人工确认），
+混在一张表等于声称全部已验证。详见 `reference/consolidation.md`。
 
 ## 技能归属（写入哪个大类）
 
