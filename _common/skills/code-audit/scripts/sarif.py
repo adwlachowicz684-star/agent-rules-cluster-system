@@ -265,10 +265,22 @@ def main():
         return
 
     findings = []
+    missing = []
     for p in args:
+        # 缺失输入原本直接抛 FileNotFoundError 崩掉，导致 --out 文件根本不生成；
+        # 而调用方常常带 `|| true`，于是整条链静默失效——
+        # 本仓库 CI 曾因此**每次**都在「上传 SARIF」失败（ts.sarif 从未生成过）。
+        # 缺失不是致命错误：跳过并明确报出，让调用方能看见。
+        if not os.path.isfile(p):
+            missing.append(p)
+            continue
         base = os.path.basename(p).lower()
         scanner = 'scan-app.py' if 'app' in base else ('scan-ts.py' if 'ts' in base else None)
         findings += load_findings(p, scanner)
+    if missing:
+        print('[warn] 跳过不存在的输入：%s' % ', '.join(missing), file=sys.stderr)
+        if not findings:
+            print('[warn] 所有输入均不存在，仍写出空的 %s' % out, file=sys.stderr)
     doc = build_sarif(findings, root=root or os.getcwd())
     if out:
         write_sarif(doc, out)

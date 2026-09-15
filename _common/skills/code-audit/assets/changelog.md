@@ -174,3 +174,7 @@
 | 2026-09-15 | CI 扫描器列表改推导式 | 修正 | CI 写死 `for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp`——新增 Rust 语言包后 scan-rust.py 一条自检都没跑，流水线照样绿。同一类「名单漏一个就静默失效」刚在 --map 里修过，CI 里又留了一份。新增 --scanners 从注册表推导，SARIF 步骤同样推导。变异测试：从注册表移除 scan-rust 后会报「有扫描器文件但注册表里没有它的规则」 |
 | 2026-09-15 | scan-ts 静默空转 | 修正 | 无可扫文件时 `return`（退出码 0）→ 不扫描、不写 SARIF，CI 里配 `|| true` 后完全隐形。ts.sarif **从未生成过**。改为退出码 1，并按 --flat 与否分别给提示（原先 --flat 已传入却仍提示「请加 --flat」）。审计确认 audit.py 第 544 行对非零退出有容错，改动安全 |
 | 2026-09-15 | SARIF 忽略规则 | 新增 | 仓库无 .gitignore，CI 生成的 all.sarif / sarif-out/ 与 __pycache__ 会污染仓库（.pyc 已生成）。补进已有的 skill 级 .gitignore（其注释本就声明「跑出来的产物」），不另建根级文件 |
+| 2026-09-15 | CI 历史失败根因（scan-ts 静默空转） | 修正 | CI 从首次运行起**每次**都在「上传 SARIF」失败。根因链：scan-ts 无可扫文件时 return（退出码 0）→ ts.sarif 从未生成 → sarif.py 遇缺失输入抛 FileNotFoundError → 被 `|| true` 掩盖 → all.sarif 从未生成 → 上传步因文件缺失失败。修 scan-ts 退出码 + CI 推导式（只合并已生成文件）后，CI 首次全绿（audit + engine 两 job 全 success，SARIF 23 条结果上传成功） |
+| 2026-09-15 | sarif.py 缺失输入改为跳过 | 修正 | 遇到不存在的输入文件直接崩，导致 --out 文件根本不生成，配合调用方的 `|| true` 整条链静默失效。改为跳过 + stderr 告警，仍写出合法空 SARIF |
+| 2026-09-15 | CI 扫描器列表推导化 | 修正 | 写死的 6 个扫描器名单漏掉新增的 scan-rust.py，一条自检都没跑。新增 --scanners 从注册表推导，SARIF 步骤同样推导；grep 过滤告警行，列表为空则退出 1 |
+| 2026-09-15 | .gitignore 补 SARIF | 新增 | 补 *.sarif / sarif-out/ 进已有的 skill 级 .gitignore（不另建根级文件） |
