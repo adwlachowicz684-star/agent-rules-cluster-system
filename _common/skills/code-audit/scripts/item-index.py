@@ -432,11 +432,56 @@ def cmd_scan(path, json_out=False):
     except (ValueError, OSError) as e:
         print('读扫描结果失败: %s' % e, file=sys.stderr)
         return 1
-    ids = sorted({r.get('rule_id') or r.get('id') for r in rows
-                  if r.get('rule_id') or r.get('id')})
+    # 扫描器输出有三种形态：
+    #   ① [{'id':..,'file':..}] —— scan-py/go/java/cpp 的 --json
+    #   ② {'items':[...], 'by_pattern':{...}} —— scan-ts 的 --json（聚合版）
+    #   ③ {'by_pattern': {'C01': N}} —— 只要键名也够用
+    # 早先只处理 ①，遇到 ② 直接 AttributeError 崩栈。
+    if isinstance(rows, dict):
+        raw = rows.get('items') or []
+        ids = set()
+        if raw:
+            for r in raw:
+                if isinstance(r, dict):
+                    rid = r.get('rule_id') or r.get('id') or r.get('pattern')
+                    if rid:
+                        ids.add(str(rid))
+        if not ids:
+            ids = {str(k) for k in (rows.get('by_pattern') or {})}
+    else:
+        ids = set()
+        for r in rows:
+            if isinstance(r, dict):
+                rid = r.get('rule_id') or r.get('id')
+                if rid:
+                    ids.add(str(rid))
+            elif isinstance(r, str):
+                ids.add(r)
+    ids = sorted(ids)
     idx = {i['id']: i for i in d['items']}
-    got = [idx[i] for i in ids if i in idx]
-    miss = [i for i in ids if i not in idx]
+
+    # 同一个判据在系统里有三种写法，必须先归一化再匹配：
+    #   C01（扫描器原生）· TS-C01（注册表 rule_id）· C-01（索引/Markdown 条目）
+    # 只做字符串相等判断的话三种互相对不上，--scan 会一条也取不到。
+    import re as _re
+    def norm(x):
+        m = _re.match(r'^(?:TS|APP)-([A-Z]{1,4})-?(\d{1,2})$', x)
+        if m:
+            return m.group(1) + m.group(2).zfill(2)
+        m = _re.match(r'^([A-Z]{1,4})-?(\d{1,2})$', x)
+        if m:
+            return m.group(1) + m.group(2).zfill(2)
+        return None
+
+    by_norm = {}
+    for k in idx:
+        n = norm(k)
+        if n:
+            by_norm.setdefault(n, k)
+
+    mapped = {x: by_norm.get(norm(x) or '') for x in ids}
+    got = [idx[mapped[i]] for i in ids if mapped[i]]
+    miss = [i for i in ids if not mapped[i]]
     if json_out:
         print(json.dumps([{'id': i['id'], 'level': i['level'], 'name': i['name'],
                            'scene': i['scene']} for i in got],
@@ -513,6 +558,19 @@ def cmd_self_test():
     # 每条判据都能取到（body 非空）
     empty = [i['id'] for i in d['items'] if not i['body'].strip()]
     chk(not empty, '所有条目正文非空（空: %s）' % (empty[:5] or '无'))
+
+    # ID 归一化：三种写法必须都能命中同一条
+    import re as _re
+    def _norm(x):
+        m = _re.match(r'^(?:TS|APP)-([A-Z]{1,4})-?(\d{1,2})$', x)
+        if m:
+            return m.group(1) + m.group(2).zfill(2)
+        m = _re.match(r'^([A-Z]{1,4})-?(\d{1,2})$', x)
+        return m.group(1) + m.group(2).zfill(2) if m else None
+    trio = ['C01', 'TS-C01', 'C-01']
+    chk(len({_norm(x) for x in trio}) == 1 and _norm('C01') is not None,
+        '三种 ID 写法归一到同一个（%s）' % ' / '.join(trio))
+    chk('C-01' in idx, '归一化后能对上索引里的 C-01')
 
     # 收益：单条加载必须显著小于整文件
     whole = token_estimate(open(os.path.join(REF, 'p-python.md'), encoding='utf-8').read())

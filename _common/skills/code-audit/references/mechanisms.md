@@ -87,11 +87,40 @@ python3 item-index.py --sync                  # 从 references/*.md 重建
 python3 item-index.py --check                 # 改了 Markdown 没 sync → 报错
 python3 item-index.py --self-test             # 关联逻辑自检
 python3 item-index.py --stats                 # 条目数 / token 账
-python3 item-index.py --get PY-01 PY-05       # ← 核心：只取这几条
-python3 item-index.py --scan scan.json        # 按扫描器命中取对应条目
+
+# 精准路径（推荐）：扫描器报哪条取哪条
+python3 scan-go.py --src=<根> --json > /tmp/go.json
+python3 item-index.py --scan /tmp/go.json
+
+# 起步路径：还没跑扫描器时
+python3 route.py --src=<根> --items           # 给最小集 + 可执行命令
+
+python3 item-index.py --get PY-01 PY-05       # 手工指定
 python3 item-index.py --query "线程池"         # 关键词检索
 python3 item-index.py --get N-01 --with-preamble   # 首次接触该场景时带前言
 ```
+
+### 两条路径的分工
+
+| 路径 | 什么时候用 | 精度 |
+|---|---|---|
+| `--scan`（精准） | 已跑过扫描器 | 只取真正命中的，实测 Go 项目 404 vs 1319 tokens |
+| `route --items`（起步） | 还没跑扫描器 | 按路由命中的**特征名**匹配条目，再收窄到 P0 |
+
+`route --items` 的匹配只认「判据 / 特征 / 典型 / 正确」四个字段——
+早先连 keywords 一起算，一个场景命中 13 条，等于没筛。
+另外特征名带 `×N` 计数后缀（`clamp×3`），必须剥掉，
+否则一条都对不上、静默回退成「全 P0」。
+
+### ID 归一化的坑
+
+同一个判据在系统里有**三种写法**：
+
+```
+C01（扫描器原生） · TS-C01（注册表 rule_id） · C-01（索引/Markdown 条目）
+```
+
+`--scan` 必须先归一化再匹配，否则一条也取不到（这个 bug 已修，自检有覆盖）。
 
 **为什么需要**：路由的最小粒度是文件，命中 `p-python` 就把 2771 tokens 整个读进来，
 哪怕相关的只有 PY-01 和 PY-05。规则越加越多，浪费线性放大。

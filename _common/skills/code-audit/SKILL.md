@@ -118,10 +118,15 @@ python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
 实测只取相关条目可省 67%~91%（取 1 条：366 vs 2771 tokens）。
 
 ```bash
-python3 scripts/item-index.py --get PY-01 PY-05     # 只取这几条
-python3 scripts/item-index.py --scan <扫描结果.json> # 按扫描器命中取
-python3 scripts/item-index.py --query "线程池"        # 关键词检索
-python3 scripts/item-index.py --with-preamble ...    # 首次接触该场景时带前言
+# 精准路径（推荐）：扫描器报哪条取哪条
+python3 scripts/scan-go.py --src=<根> --json > /tmp/go.json
+python3 scripts/item-index.py --scan /tmp/go.json
+
+# 起步路径：还没跑扫描器时，让路由给最小集
+python3 scripts/route.py --src=<根> --items       # 列出建议条目 + 可执行命令
+
+python3 scripts/item-index.py --get PY-01 PY-05   # 手工指定
+python3 scripts/item-index.py --query "线程池"      # 关键词检索
 ```
 
 自动附带三类上下文，不用手工拼：**常见误报**段（判断是不是误报靠它）·

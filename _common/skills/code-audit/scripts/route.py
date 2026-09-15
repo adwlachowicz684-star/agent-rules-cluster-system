@@ -50,6 +50,17 @@ AS_JSON = '--json' in _flags
 SHOW_ALL = '--all' in _flags
 MIN_HITS = 1
 BATCH = 4
+ITEMS = '--items' in _flags
+LEVEL = ''
+LIMIT = 0
+for _f in _flags:
+    if _f.startswith('--level='):
+        LEVEL = _f.split('=', 1)[1].strip()
+    elif _f.startswith('--limit='):
+        try:
+            LIMIT = int(_f.split('=', 1)[1])
+        except ValueError:
+            LIMIT = 0
 for f in _flags:
     if f.startswith('--min-hits='):
         MIN_HITS = int(f.split('=', 1)[1])
@@ -66,6 +77,87 @@ SCAN_LIMIT = 400          # 超过这个文件数就抽样，避免大仓库卡�
 
 # ---------------------------------------------------------------- 场景定义
 # signals: (信号类型, 判据, 展示名)
+# ---- 条目级索引（可选依赖）----
+# 索引缺失时路由照常工作，只是不输出条目建议——不因缺索引而报错。
+# 场景 → 能精确定位的扫描器（有扫描器的场景不必整列条目）
+SCENE_SCANNER = {
+    's-numerics': 'scan-ts.py', 's-structures': 'scan-ts.py',
+    's-lifecycle': 'scan-ts.py', 's-atomicity': 'scan-ts.py',
+    's-state': 'scan-ts.py', 's-contracts': 'scan-ts.py',
+    's-sandbox': 'scan-app.py', 's-boundary': 'scan-app.py',
+    's-backend': 'scan-app.py', 's-build': 'scan-app.py',
+    'p-python': 'scan-py.py', 'p-go': 'scan-go.py',
+    'p-java': 'scan-java.py', 'p-cpp': 'scan-cpp.py',
+}
+
+ITEM_IDX = None
+
+
+def load_items():
+    """读 rules/items.json。没有就返回 {}（不报错、不影响路由本身）。"""
+    global ITEM_IDX
+    if ITEM_IDX is not None:
+        return ITEM_IDX
+    p = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'rules', 'items.json'))
+    try:
+        ITEM_IDX = json.load(open(p, encoding='utf-8')) if os.path.isfile(p) else {}
+    except (ValueError, OSError):
+        ITEM_IDX = {}
+    return ITEM_IDX
+
+
+def items_for_scene(scene, level=None, limit=None, feats=None):
+    """某场景的条目清单（只给 id/level/name，不含正文）。
+
+    feats：路由在本场景命中的特征名（如 ['clamp', 'while', '除法/乘法']）。
+    给了就**只返回与这些特征相关**的条目——否则一个场景动辄 12~19 条，
+    全列出来等于整文件读，条目级索引就白做了。
+
+    匹配方式：特征名 / 条目名 / 判据字段 / keywords 做子串匹配。
+    """
+    d = load_items()
+    if not d or not d.get('items'):
+        return []
+    out = [i for i in d['items'] if i['scene'] == scene]
+    if level:
+        out = [i for i in out if i['level'] == level]
+
+    # 无特征信号（只有结构命中，如 package.json）时不整列：
+    # 也走 P0 起步集，跟「特征对不上」同一处理。
+    if not feats:
+        out = [i for i in out if i['level'] == 'P0']
+    elif feats:
+        # 只用「判据 / 特征 / 典型 / 正确」四个字段匹配。
+        # 早先版本把 keywords 和所有字段都算进去，结果一个场景命中 13 条——
+        # 因为 keywords 里全是 `loop` `size` 这类通用词，等于没筛。
+        MATCH_FIELDS = ('判据', '特征', '典型', '正确')
+        # feat 形如 `clamp×3` / `循环上界非字面量×1`——必须剥掉 `×N` 计数后缀。
+        # 早先没剥，拿 `clamp×3` 去匹配条目，一条都对不上，
+        # 于是静默回退到「全 P0」（13 条），条目级索引等于没生效。
+        keys = [f.split('×')[0].strip().lower() for f in feats if f]
+        keys = [k for k in keys if k]
+        scored = []
+        for i in out:
+            parts = [i['name']]
+            for k in MATCH_FIELDS:
+                for v in (i.get('fields') or {}).get(k, []):
+                    parts.append(v if isinstance(v, str) else ' '.join(v))
+            hay = ' '.join(parts).lower()
+            sc = sum(1 for k in keys if k and k in hay)
+            if sc:
+                scored.append((sc, i))
+        if scored:
+            scored.sort(key=lambda t: (-t[0], t[1]['level'], t[1]['id']))
+            out = [i for _, i in scored]
+        else:
+            # 特征对不上任何条目 → 不瞎猜，给 P0 做起步集
+            out = [i for i in out if i['level'] == 'P0']
+
+    out.sort(key=lambda i: (i['level'], i['id']))
+    return out[:limit] if limit else out
+
+
 SCENES = [
     ('s-numerics', '数值与边界', 'P0 密度最高的一类，TS/JS 库几乎必中',
      [('dir', None, None),
@@ -273,15 +365,67 @@ def score(item):
     return st + kinds * 30 + int(10 * (1 + (n / 100.0 if n else 0)) ** 0.5)
 
 
+def cmd_self_test():
+    """路由条目建议的自检。
+
+    为什么单独测：`--items` 的收窄逻辑踩过两个坑（feat 带 ×N 后缀、
+    keywords 太宽泛），两者都表现为「静默回退到全 P0」——
+    输出看起来正常，实际条目级索引完全没生效。不测根本发现不了。
+    """
+    ok = fail = 0
+
+    def chk(cond, msg):
+        nonlocal ok, fail
+        print(('  ✓ ' if cond else '  ✗ ') + msg)
+        if cond:
+            ok += 1
+        else:
+            fail += 1
+
+    d = load_items()
+    chk(bool(d and d.get('items')), 'items.json 可读且有条目')
+
+    # 1) feat 的 ×N 后缀必须被剥掉
+    its = items_for_scene('s-numerics', None, None, ['clamp×3', '循环上界非字面量×1'])
+    ids = [i['id'] for i in its]
+    chk(0 < len(ids) < 13, '带 ×N 后缀的特征能收窄（得到 %d 条，未回退到全 P0 的 13 条）' % len(ids))
+
+    # 2) 无特征信号时给 P0 起步集，不是全列
+    its2 = items_for_scene('s-numerics', None, None, [])
+    chk(all(i['level'] == 'P0' for i in its2) and len(its2) > 0,
+        '无特征信号 → P0 起步集（%d 条，非全列 %d 条）'
+        % (len(its2), len([i for i in d['items'] if i['scene'] == 's-numerics'])))
+
+    # 3) 场景 → 扫描器映射覆盖所有有扫描器的场景
+    miss = [k for k in SCENE_SCANNER
+            if not os.path.isfile(os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), SCENE_SCANNER[k]))]
+    chk(not miss, '场景→扫描器映射的文件都存在（缺: %s）' % (miss or '无'))
+
+    print()
+    print('自检：%d 通过 / %d 失败' % (ok, fail))
+    if not fail:
+        print('结论：路由条目建议工作正常')
+    return 1 if fail else 0
+
+
 def main():
+    if '--self-test' in _flags:
+        sys.exit(cmd_self_test())
     files, sampled, hits = route(ROOT)
     ranked = sorted(hits.items(), key=lambda kv: -score(kv[1]))
     ranked = [(k, v) for k, v in ranked if score(v) >= MIN_HITS or v['struct']]
 
     if AS_JSON:
-        print(json.dumps([{'scene': k, 'name': v['name'], 'struct': v['struct'],
-                           'feat': v['feat'], 'score': score(v)}
-                          for k, v in ranked], ensure_ascii=False, indent=1))
+        out = [{'scene': k, 'name': v['name'], 'struct': v['struct'],
+                'feat': v['feat'], 'score': score(v)}
+               for k, v in ranked]
+        if ITEMS:
+            for o in out:
+                o['items'] = [{'id': i['id'], 'level': i['level'], 'name': i['name']}
+                              for i in items_for_scene(o['scene'], LEVEL,
+                                                       LIMIT or None, o.get('feat'))]
+        print(json.dumps(out, ensure_ascii=False, indent=1))
         return
 
     print('route · 代码审查场景路由')
@@ -309,6 +453,36 @@ def main():
             chunk = ranked[i * BATCH:(i + 1) * BATCH]
             print('   第 %d 批  %s' % (i + 1, ', '.join(k for k, _ in chunk)))
         print('每批审完再加载下一批；审的过程中发现新特征 → 回头补加载（增量路由）')
+    if ITEMS:
+        print()
+        print('─' * 56)
+        print('判据条目建议：')
+        allids, p0ids, scan_cmds = [], [], []
+        for sid, v in ranked:
+            its = items_for_scene(sid, LEVEL, LIMIT or None, v['feat'])
+            sc = SCENE_SCANNER.get(sid)
+            if sc:
+                scan_cmds.append((sid, sc))
+            if not its:
+                continue
+            ids = [i['id'] for i in its]
+            allids += ids
+            p0ids += [i['id'] for i in its if i['level'] == 'P0']
+            print('  %-14s %s%s' % (sid, ' '.join(ids),
+                                    '' if not sc else '   ← 可精确定位'))
+        if scan_cmds:
+            print()
+            print('  更精准的做法（扫描器报哪条取哪条，比整列更省）：')
+            for sid, sc in scan_cmds:
+                print('    python3 scripts/%s --src=<根> --json > /tmp/%s.json' % (sc, sid))
+                print('    python3 scripts/item-index.py --scan /tmp/%s.json' % sid)
+        if allids:
+            print()
+            print('  直接取（%d 条）：' % len(allids))
+            print('    python3 scripts/item-index.py --get %s' % ' '.join(allids))
+            if p0ids and len(p0ids) < len(allids):
+                print('  只看 P0（%d 条）：' % len(p0ids))
+                print('    python3 scripts/item-index.py --get %s' % ' '.join(p0ids))
     print()
     print('⚠ 脚本只按信号机械扫描，输出的是候选。必须人工审核：')
     print('   · 可能漏（相关代码在没扫到的路径）→ 手动补')
