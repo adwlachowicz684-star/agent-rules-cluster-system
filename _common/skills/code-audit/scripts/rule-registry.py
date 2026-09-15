@@ -179,7 +179,9 @@ def extract():
                         'eval': {'precision': 'unverified', 'recall': 'unverified'}})
 
     # scan-app 的 FILE_PATTERNS / PROJECT_CHECKS 无法用统一正则提取，按已知清单补齐
-    extra = {'J13': ('P1', '同名常量清单重复定义且已分叉', 's-contracts'),
+    extra = {'G09': ('P2', '导出后零引用（已实现未接线）', 's-contracts'),
+             'G10': ('P0', 'CI 引用不存在的 npm script', 's-build'),
+             'J13': ('P1', '同名常量清单重复定义且已分叉', 's-contracts'),
              'P01': ('P2', '忽略清单缺常见项', 's-build'),
              'P02': ('P2', '孤儿源文件（无任何引用）', 's-contracts'),
              'P03': ('P2', '有校验脚本但无 CI', 's-build'),
