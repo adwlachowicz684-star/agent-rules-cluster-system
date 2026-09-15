@@ -142,3 +142,19 @@
 - **L-11 该容器本就不需要清** —— 与模块同生命周期 → 忽略
 - **L-12 回调被降频或手动驱动** —— 不是每帧 → 降级
 - **注释解释了为什么不能那样写** —— 先读注释
+
+### 已知误报：`setInterval` 可能是 React state setter 名
+
+```jsx
+const [interval, setInterval] = useState(config.watchIntervalSecs || 30);
+...
+onChange={(e) => setInterval(Number(e.target.value))}
+```
+扫到 `setInterval` 时**先看是不是 `useState` 的 setter**。判断方法：
+同一作用域内是否有 `const [xxx, setXxx] = useState(`。
+
+**实测影响**：nexus-panel 里 `grep setInterval` = 8 处，其中 **2 处**是 React state setter、
+1 处在注释里（「用 rAF 而不是 setInterval」），真定时器只有 4 处且**全部配对**。
+不剔除就会报出"3 处定时器未清理"的假结论。
+
+同理，`setTimeout` 也要警惕同名变量。

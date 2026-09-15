@@ -208,3 +208,39 @@ onPolicyChange：      off() 后派发，回调被调用 1 次 → ❌
 后端 `FORBIDDEN_DELETE`（16 条，生效）。后端多
 `/lib` `/boot` `/root` `/program files` `c:\program files` 5 条。
 当前后端生效所以无漏洞，但如果有人调用前端那份做预校验，保护就缺 5 条。
+
+
+### H-08 「已核实为干净」的维度也要反向抽查
+
+报告里"查过、没问题"的清单**风险最高**：结论错了就不会再有人复查。
+抽查方法不是重跑一遍，而是**验证它的否定面是否真的成立**。
+
+**实例 A（数字对但口径要澄清）**：报告称 `setInterval` 全部配对。
+实测 `grep setInterval` = 8、`clearInterval` = 5，看似 3 处未配对。逐个查：
+| 位置 | 实际 |
+|---|---|
+| `ToolsPanel.tsx:388/466` | **不是定时器** —— `const [interval, setInterval] = useState(...)` 是 React state setter |
+| `tab-drag.js:239` | 注释「用 rAF 而不是 setInterval」，不是调用 |
+| 其余 4 处 | ✅ 真配对 |
+
+**结论成立**，但数字口径必须写进报告，否则下轮按字面复查会以为报告错了。
+→ 这条也是扫描器已知误报模式：**`setInterval` 可能是 React state setter 名**。
+
+**实例 B（表述要限定范围）**：报告称「自研代码零 `console.log`」。
+实测全项目 2 处，都在 `plugins/demo-module/`。若"自研代码"排除 demo 插件则成立
+——**但表述必须写明排除范围**，否则就是个等着被推翻的结论。
+
+### H-09 属性驱动的 innerHTML（直接赋值扫描会漏）
+
+扫 `innerHTML =` 只能找到**字面赋值点**，找不到**属性驱动**的：
+```js
+else if (k === 'html') el.innerHTML = v;   // h() 的 html: 属性直通
+```
+这是 hyperscript 的常见设计，**当前无风险**（唯一调用方传静态字符串），
+但它是**无转义的公开 API 且无警示**——将来有人传模板变量就是 XSS。
+
+**检查方法**：除了 `innerHTML`，还要搜 `html:` / `dangerouslySetInnerHTML` /
+`insertAdjacentHTML` / `outerHTML`，并确认**每个调用方传的是字面量还是变量**。
+
+**修法**：不加转义（会破坏"传 HTML"的语义），改为在 JSDoc 写明
+「仅接受可信 HTML，传用户输入前必须自行 escapeHtml」。
