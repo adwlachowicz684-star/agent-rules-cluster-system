@@ -6,3 +6,7 @@
 audit/
 __pycache__/
 *.pyc
+# SARIF 是 CI 每次跑出来的（`--sarif=` + sarif.py 合并产物），
+# 入库会让每次流水线都产生无意义 diff。
+*.sarif
+sarif-out/

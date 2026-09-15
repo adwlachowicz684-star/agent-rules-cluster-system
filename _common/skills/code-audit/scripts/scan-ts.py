@@ -2058,9 +2058,22 @@ def main():
 
     plugins = load_plugins(only)
     if not plugins:
+        # 两处都会导致「静默空转」，必须分开说清：
+        # ① 提示失真：--flat 已经传了却仍提示「请加 --flat」。
+        #    --flat 下 _read_files 只读 SRC **直接子级**（不递归），
+        #    根目录没有源文件时照样为空，此时该提示毫无用处。
+        # ② return 导致退出码 0：CI 里配 `|| true` 就完全隐形——
+        #    SARIF 文件没生成、一条都没扫，流水线照样绿。
+        #    这正是 _hot.md H011「工具报 0 命中不等于没问题」的翻版。
         print('未找到可扫描的模块目录（SRC=%s）' % SRC)
-        print('提示：扁平结构请加 --flat；子目录结构请确认 --src 指向模块根。')
-        return
+        if FLAT:
+            print('提示：--flat 只读取 SRC 根目录下的 %s 文件（不递归子目录）；'
+                  '当前根目录下没有这类文件。' % '/'.join(SOURCE_EXT))
+        else:
+            print('提示：扁平结构请加 --flat；子目录结构请确认 --src 指向模块根。')
+            print('注意：%s 等目录在跳过清单内，不会作为模块被扫描。'
+                  % ', '.join(sorted(SKIP_DIRS)[:6]))
+        return 1
 
     total = 0
     by_pattern = {}
@@ -2137,4 +2150,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main() or 0)

@@ -871,6 +871,37 @@ def _load_gaps():
     except (OSError, ValueError, AttributeError):
         return {}
 
+def cmd_scanners():
+    """列出注册表里出现过的全部扫描器。
+
+    CI 里原本写死 `for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp`——
+    正是本仓库反复出现的「名单漏一个就静默失效」：新增 Rust 语言包后
+    scan-rust.py 一条自检都没跑，而流水线照样绿。
+    扫描器全集本就写在 registry 里，从这里推导就不会漏。
+    """
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    seen, out = set(), []
+    for r in reg['rules']:
+        sc = r.get('scanner')
+        if sc and sc not in seen:
+            seen.add(sc)
+            out.append(sc)
+    here = set(os.listdir(HERE)) if os.path.isdir(HERE) else set()
+    for sc in sorted(out):
+        mark = '' if sc in here else '   ← 文件不存在！'
+        print('%s%s' % (sc, mark))
+    missing = sorted(s for s in here
+                     if s.startswith('scan-') and s.endswith('.py') and s not in seen)
+    if missing:
+        print('\n  ▲ 有扫描器文件但注册表里没有它的规则：%s' % ', '.join(missing))
+        print('    → 跑 --sync 重新提取')
+    return 0
+
+
+
 
 def cmd_gaps():
     """判据缺口清单：items.json 里没有任何机扫规则对应的判据。
@@ -1052,6 +1083,8 @@ def main():
         sys.exit(cmd_map(apply='--apply' in _flags))
     if '--gaps' in _flags:
         sys.exit(cmd_gaps())
+    if '--scanners' in _flags:
+        sys.exit(cmd_scanners())
 
     reg = load()
     if reg is None:

@@ -33,24 +33,47 @@ jobs:
         working-directory: _common/skills/code-audit
         run: python3 scripts/rule-registry.py --test
 
-      - name: 扫描器自检
+      - name: 扫描器自检（列表从注册表推导，新增语言包自动纳入）
         working-directory: _common/skills/code-audit
         run: |
-          for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp; do
-            python3 scripts/$s.py --self-test
-          done
+          # 不要写死 for s in scan-ts scan-app ... —— 那是「名单漏一个就静默失效」：
+          # 新增 Rust 语言包时 scan-rust.py 一条自检都没跑，流水线照样绿。
+          # grep 过滤：--scanners 正常输出之外还可能带「▲ 有扫描器文件但注册表里
+          # 没有它的规则」这类告警行，直接喂给 while read 会被当成扫描器名。
+          python3 scripts/rule-registry.py --scanners | grep -E '^scan-[a-z]+\.py$' > /tmp/scanners.txt
+          cat /tmp/scanners.txt
+          test -s /tmp/scanners.txt || { echo "扫描器列表为空"; exit 1; }
+          while read -r s; do
+            [ -z "$s" ] && continue
+            echo "── $s"
+            python3 "scripts/$s" --self-test
+          done < /tmp/scanners.txt
 
       - name: skill 结构检查
         working-directory: _common/skills/code-audit
         run: python3 scripts/check-skill.py
 
-      - name: 扫自身并导出 SARIF
+      - name: 扫自身并导出 SARIF（同样推导，不写死）
         working-directory: _common/skills/code-audit
         run: |
-          python3 scripts/scan-ts.py  --src=. --sarif=ts.sarif  || true
-          python3 scripts/scan-app.py --src=. --sarif=app.sarif || true
-          python3 scripts/scan-py.py  --src=. --sarif=py.sarif  || true
-          python3 scripts/sarif.py ts.sarif app.sarif py.sarif --root=. --out=all.sarif || true
+          mkdir -p sarif-out
+          files=""
+          while read -r s; do
+            [ -z "$s" ] && continue
+            out="sarif-out/${s%.py}.sarif"
+            # 退出码 1 有两种含义：找到 P0/P1（正常，有输出），
+            # 或「无可扫文件」（异常，无输出）。用文件是否生成来区分，
+            # 不要一律 || true 吞掉——那正是 H011。
+            python3 "scripts/$s" --src=. --sarif="$out" || true
+            if [ -f "$out" ]; then
+              files="$files $out"
+            else
+              echo "  $s：无 SARIF 输出（该语言无文件可扫，或扫描失败）"
+            fi
+          done < /tmp/scanners.txt
+          echo "合并：$files"
+          python3 scripts/sarif.py $files --root=. --out=all.sarif || true
+          test -f all.sarif && echo "all.sarif 已生成（$(wc -c < all.sarif) 字节）"
         continue-on-error: true
 
       - name: 上传 SARIF 到 Code Scanning
