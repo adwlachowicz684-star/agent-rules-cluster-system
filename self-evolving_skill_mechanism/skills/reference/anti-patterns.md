@@ -10,7 +10,8 @@
 | 所有细节堆在 SKILL.md | 抓不住重点 | 主文件作目录，细节拆到 `reference/` |
 | SKILL.md 正文 > 500 行 | 加载慢、注意力稀释 | 拆分为独立文件 |
 | 文件引用嵌套过深（A→B→C） | AI 迷路、读不到底 | **引用只深一层** |
-| 用 `docs/file1.md` 这种命名 | 无法按内容定位 | 按领域命名 `reference/finance.md` |
+| 用 `docs/file1.md` 这种命名 | 无法按内容定位 | 按内容命名 `reference/domain-routing.md` |
+| 举例时编造不存在的文件名 | 读者照着找会扑空，且命令无法直接复制 | 示例一律用**真实存在**的文件/脚本名 |
 | Windows 风格路径 `configs\deploy.yaml` | Linux 报错 | 一律正斜杠 |
 
 ## 二、描述与触发（最关键）

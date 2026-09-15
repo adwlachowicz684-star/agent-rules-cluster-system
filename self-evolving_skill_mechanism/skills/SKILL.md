@@ -46,6 +46,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
 | `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
 | `reference/knowledge-landing.md` | **知识点落地协议**（不写正确的废话） | 写/改技能时 |
+| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 |
 | `reference/anti-patterns.md` | 反模式与官方规范 | 写完技能后对照检查 |
 | `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
 | `reference/env.md` | 环境分化（版本/系统差异） | 同一技能有多个版本写法时 |
@@ -75,9 +76,10 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
    （长会话捕获 ≥10 条时按子任务分段整合，别攒到最后丢细节）
 4. **留痕**（改了就记）— `python3 scripts/note.py "<ID>" <类型> "<原因>"`
 5. **改后重跑比对** — `lint.py` + `index.py --check`，确认没顺手引入新问题
-6. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / **孤立知识点**）
-   `python3 scripts/lint.py --self-test` 验证检查项本身没失效
-   `python3 scripts/consolidate.py` 查库内重复（**不依赖草稿，可定期单独跑**）
+6. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / 孤立知识点 / 死链 /
+   重复副本 / 标注退化）+ `consolidate.py` 查重复（不依赖草稿，可定期单独跑）；
+   `--self-test` 验证检查项没失效。**加检查项必须同步加坏样例**——永远绿的检查
+   等于没有，见 `reference/self-verification.md`
 
 ## 两个"装不下"的出口
 
@@ -178,7 +180,6 @@ python3 scripts/note.py --show                    查看记录（**改旧规则�
 
 规则已写却仍被违反 → **不是记性问题，是规则设计问题**。依次检查：
 不够显眼（上浮热区）· 不够具体（改写成可执行判据）· 反直觉（加 ⚠）· 放错层。
-
 同一条目被违反 ≥2 次 → 进下方最高优先级区。
 **整合时顺手改无关条目引入的问题，一律按 L1 处理。**
 

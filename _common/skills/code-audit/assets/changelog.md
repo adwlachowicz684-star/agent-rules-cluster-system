@@ -127,3 +127,4 @@
 | 2026-09-15 | common-maintenance | 修正 | 自检段仍指向已重命名的 scripts/tool-scan.py（现 scan-app.py），是死链。改为遍历六个扫描器 --self-test；新增「加模式必须配 fixture」段，写明 fp 不是可选项 |
 | 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
 | 2026-09-15 | cocos_audit.py 去重复 | 修正 | self-evolving 下的 cocos_audit.py 与 code-audit 的 cocos-audit.py md5 完全相同 → 修 bug 只改一处、另一处静默过期。改为转发壳（不删是因为 SKILLS/_commands.md 的 C060~C067 仍引用它）。已验证 --rules/--help 与 P0 退出码 1 均原样透传 |
+| 2026-09-15 | 经验回哺引擎 | 新增 | 本轮改造提炼的通用机制（双样本 / 三态返回值 / 扫描范围自报 / 标注自动回填 / 检查项必须能红）已入库为 skill-evolution 的 reference/self-verification.md，并在 lint.py 落地为 4 个自动检查项。本技能的 common-maintenance.md 反向引用该协议，形成闭环 |

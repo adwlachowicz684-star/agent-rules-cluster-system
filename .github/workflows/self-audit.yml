@@ -72,6 +72,16 @@ jobs:
         working-directory: self-evolving_skill_mechanism/skills
         run: python3 scripts/structure.py --self-test
 
+      - name: 规范检查自检（检查项必须能红，不能永远绿）
+        working-directory: self-evolving_skill_mechanism/skills
+        run: python3 scripts/lint.py --self-test
+
+      - name: 规范检查（死链 / 重复副本 / 标注退化 / 孤立知识点）
+        working-directory: self-evolving_skill_mechanism/skills
+        run: |
+          python3 scripts/domain.py --init
+          python3 scripts/lint.py
+
       - name: 配置解析自检
         working-directory: self-evolving_skill_mechanism/skills
         run: |

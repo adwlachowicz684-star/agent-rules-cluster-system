@@ -107,6 +107,19 @@ verified: partial # 部分步骤验证过
 
 `python3 scripts/lint.py` 会列出未标注的条目，纯提示，不影响使用。
 
+**但标注本身会退化。** 手填的字段既没有填错的成本，也没有填对的反馈，
+于是会自然收敛到同一个值（全 `no`、命中全 0）。表面「标注齐全」，
+实际读的人还是得逐个怀疑——**字段活着，但已经死了**。
+
+所以：
+
+- **能实测的 → 脚本跑完自动回填**，别手填
+- **填不了的 → 至少能发现退化**：条目数 ≥ 阈值且取值只有一种 → `lint.py` 预警
+- 退化预警**不是要求标 yes**，而是要求**有区分度**
+
+完整机制（三态返回值、正反双样本、扫描范围自报）见
+`reference/self-verification.md`。
+
 ### 变更溯源：改动要留痕
 
 改了技能就在 `assets/changelog.md` 记一行，别靠记忆：
@@ -164,7 +177,8 @@ python3 scripts/note.py "C047" 更新 "macOS sed 需空参数" --src "实测"
 | 先把原文件备份，再批量替换内容 | `cp X X.bak && sed -i 's/旧/新/g' X` |
 | 检查一下各库条目数，超过 40 要合并 | `grep -c '^\| [A-Z][0-9]' SKILLS/*.md` |
 | 改动后记得重建索引 | `python3 scripts/index.py` |
-| 用 Python 遍历目录统计代码行数 | `python3 scripts/count.py DIR` |
+| 加了新的检查项 | 同步加 `--self-test` 坏样例，确认它真能红 |
+| 判定某描述归属哪个大类 | `python3 scripts/structure.py --route-check "<描述>"` |
 
 **三条细则**：
 1. **单行能搞定** → 直接给命令，标注 `applies_to`（`os:linux` / `python>=3.9`）

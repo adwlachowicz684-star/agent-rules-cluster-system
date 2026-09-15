@@ -85,6 +85,10 @@ rules/fixtures/APP-P04/fp.d/admin.html      # 有 CSP → 必须不命中
 **fp 不是可选项**。只写 tp 的话 `precision` 永远是 `unverified`——
 知道规则抓得到真问题，却不知道它会不会误伤。
 
+本节的双样本、三态返回值、扫描范围自报，已提炼为跨领域通用协议：
+`self-evolving_skill_mechanism/skills/reference/self-verification.md`。
+改本技能的自检逻辑前先看它，避免两边走偏。
+
 ## 变更溯源
 
 ```bash

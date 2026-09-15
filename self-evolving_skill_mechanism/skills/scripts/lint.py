@@ -282,6 +282,19 @@ def check_size(cfg, limits):
     return issues
 
 
+def _frontmatter(text):
+    """解析 YAML frontmatter → dict。没有则返回 {}。"""
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+    if not m:
+        return {}
+    fm = {}
+    for line in m.group(1).splitlines():
+        if ":" in line and not line.strip().startswith("#"):
+            k, v = line.split(":", 1)
+            fm[k.strip()] = v.strip()
+    return fm
+
+
 def check_frontmatter(cfg):
     issues, seen = [], {}
     targets = []
@@ -298,11 +311,7 @@ def check_frontmatter(cfg):
                            "issue": "缺少 frontmatter",
                            "hint": "至少 id / name / keywords / trigger"})
             continue
-        fm = {}
-        for line in m.group(1).splitlines():
-            if ":" in line and not line.strip().startswith("#"):
-                k, v = line.split(":", 1)
-                fm[k.strip()] = v.strip()
+        fm = _frontmatter(text)
 
         miss = [k for k in REQUIRED_FM if not fm.get(k)]
         if miss:
@@ -323,6 +332,178 @@ def check_frontmatter(cfg):
                            "issue": "未标注 verified",
                            "hint": "执行验证过就标 verified: yes，仅作回溯参考"})
     return issues
+
+def check_refs(cfg, root=None):
+    """文档引用的 scripts/ 与 reference/ 路径必须真实存在。
+
+    为什么需要：脚本改名后，散落在文档里的旧名不会跟着变。
+    它们是**死链**——读文档的人照着敲会 command not found，
+    而文档自己不会报错。code-audit 里 tool-scan.py 早已改名 scan-app.py，
+    自检段、工作流段、检查清单共 4 处仍指向旧名，全靠人工翻才找出来。
+
+    为什么必须脚本化：改脚本名时人只想着改调用它的代码，不会去 grep 文档。
+
+    为什么只查引擎自身文件：domains 下的引用基准是该域根目录
+    （且 root 常未初始化），路径基准不确定，查了只会误报。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    targets = [base / "SKILL.md"]
+    for sub in ("reference", "SKILLS"):
+        d = base / sub
+        if d.exists():
+            targets += sorted(d.rglob("*.md"))
+
+    RX = re.compile(r'(?<![A-Za-z0-9_/.-])'
+                    r'((?:scripts|reference)/[A-Za-z0-9_./-]+\.(?:py|sh|md))')
+    for f in targets:
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for m in RX.finditer(text):
+            rel = m.group(1)
+            if (base / rel).exists():
+                continue
+            ln = text[:m.start()].count('\n') + 1
+            issues.append({
+                "level": "error",
+                "file": "%s:%d" % (f.relative_to(base), ln),
+                "issue": "引用了不存在的 %s" % rel,
+                "hint": "脚本改名后文档里的旧名不会自动跟着变 → 照着敲会 "
+                        "command not found。改指向或删引用"})
+    return issues
+
+
+def check_duplicates(cfg, root=None):
+    """内容完全相同的副本（逐字节一致）。
+
+    为什么需要：两份相同的脚本 = 修 bug 只改一处、另一处静默过期。
+    它不报错，只是慢慢变得不一样，或一起烂掉。
+
+    为什么比内容不比文件名：名字不同的重复（cocos-audit.py / cocos_audit.py）
+    恰恰是最难被发现的那种，按名查永远查不到。
+    """
+    import hashlib
+    base = Path(root) if root else ROOT
+    groups = {}
+    targets = []
+    for sub, pat in (("scripts", "*.py"), ("scripts", "*.sh"),
+                     ("reference", "*.md"), ("SKILLS", "*.md")):
+        d = base / sub
+        if d.exists():
+            targets += sorted(d.glob(pat))
+    for f in targets:
+        try:
+            raw = f.read_bytes()
+        except Exception:
+            continue
+        # 空文件与极短文件同 md5 没有意义，会淹掉真问题
+        if len(raw.strip()) < 40:
+            continue
+        groups.setdefault(hashlib.md5(raw).hexdigest(), []).append(f)
+
+    issues = []
+    for _h, fs in sorted(groups.items()):
+        if len(fs) < 2:
+            continue
+        issues.append({
+            "level": "warn",
+            "file": " = ".join(str(x.relative_to(base)) for x in sorted(fs)),
+            "issue": "内容完全相同（%d 份副本）" % len(fs),
+            "hint": "保留一份 canonical，其余改为转发壳或删除。"
+                    "逐字节副本 = 修 bug 只改一处、另一处静默过期"})
+    return issues
+
+
+def check_degeneracy(cfg, root=None):
+    """标注字段退化：全库同一个值 = 这个字段已经不携带信息。
+
+    为什么需要：verified / 命中数这类字段手填时既没有成本也没有反馈，
+    于是会自然收敛到同一个值（全 no、全 0）。表面「标注齐全」，
+    实际上读的人还是得逐个怀疑——**字段活着，但已经死了**。
+    code-audit 的 eval 字段曾 131 条全部 unverified，正是这种退化。
+
+    判据：条目数 ≥ 阈值 且 取值只有一种。
+    注意这不是要求「必须标 yes」——而是要求**有区分度**。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    vcfg = cfg.get("verification") or {}
+    threshold = int(vcfg.get("degeneracy_min_entries", 5))
+
+    # ① domain skills 的 verified 字段
+    vals = {}
+    for key in cfg.get("domains", {}):
+        sd = domain_dir(cfg, key) / "skills"
+        if not sd.exists():
+            continue
+        for f in sorted(sd.rglob("*.md")):
+            if f.name.startswith("_"):
+                continue
+            try:
+                v = _frontmatter(f.read_text(encoding="utf-8")).get("verified")
+            except Exception:
+                continue
+            if v:
+                vals.setdefault(v, []).append(str(f))
+    if sum(len(v) for v in vals.values()) >= threshold and len(vals) == 1:
+        only = list(vals)[0]
+        issues.append({
+            "level": "warn",
+            "file": "domains/*/skills",
+            "issue": "verified 全部为「%s」（%d 条，无区分度）"
+                     % (only, len(vals[only])),
+            "hint": "标注手填无成本也无反馈 → 会收敛成同一个值。"
+                    "能实测的条目跑一遍回填；字段失去区分度就等于没标"})
+
+    # ② _hot.md 的命中列
+    hot = base / "SKILLS" / "_hot.md"
+    if hot.exists():
+        try:
+            txt = hot.read_text(encoding="utf-8")
+        except Exception:
+            txt = ""
+        nums = [int(m.group(1)) for m in re.finditer(
+            r'^\|\s*H\d+\s*\|.*\|\s*(\d+)\s*\|\s*$', txt, re.M)]
+        if len(nums) >= threshold and len(set(nums)) == 1:
+            issues.append({
+                "level": "warn",
+                "file": "SKILLS/_hot.md",
+                "issue": "命中列全部为 %d（%d 条）" % (nums[0], len(nums)),
+                "hint": "要么这些规则从没触发过，要么触发了没人更新。"
+                        "两种情况都说明热区没在真正运转 —— 命中归零不删除，"
+                        "但全 0 时应确认它是「真没触发」还是「机制没跑」"})
+    return issues
+
+
+def scan_scope(cfg):
+    """本次实际扫到了什么、跳过了什么。
+
+    为什么需要：lint 输出「✓ 通过」时，没人知道它到底检查了几个文件。
+    根目录不存在、目录为空、后缀不匹配——这些都会让检查在空集上跑，
+    然后输出一片绿。H011 说「工具报 0 命中不等于没问题」，
+    要让这句话不用靠人记，就得让工具**自己说出扫描范围**。
+    """
+    scanned, missing = 0, []
+    for label, d in (("reference", ROOT / "reference"),
+                     ("SKILLS", ROOT / "SKILLS"),
+                     ("scripts", ROOT / "scripts")):
+        if not d.exists():
+            missing.append(label)
+            continue
+        scanned += len(list(d.rglob("*.md"))) + len(list(d.rglob("*.py")))
+    dom_files, dom_missing = 0, []
+    for key in cfg.get("domains", {}):
+        d = domain_dir(cfg, key)
+        if not d.exists():
+            dom_missing.append(key)
+            continue
+        sk = d / "skills"
+        if sk.exists():
+            dom_files += len([f for f in sk.rglob("*.md")])
+    return {"engine_files": scanned, "engine_missing": missing,
+            "domain_files": dom_files, "domain_missing": dom_missing}
 
 
 def cmd_self_test():
@@ -445,6 +626,61 @@ trigger: 测试
 
         # 体积检查本身
         chk(callable(check_size), '体积检查可用')
+
+        # ---- 新增检查项：各自造一个坏样例，确认真能查出来 ----
+        # 纪律：加检查项必须同步加自检用例。永远绿的检查等于没有检查，
+        # 而「检查在空集上跑」是最难发现的失效方式。
+        vroot = Path(tmp) / 'engine'
+        (vroot / 'reference').mkdir(parents=True)
+        (vroot / 'SKILLS').mkdir(parents=True)
+        (vroot / 'scripts').mkdir(parents=True)
+        # 真建一个 lint.py：否则「已存在的引用不该报」这条根本没被验证到
+        # ——自检用例自己造错，会让它永远通过（正是本节要防的事）
+        (vroot / 'scripts' / 'lint.py').write_text('# ok\n', encoding='utf-8')
+        (vroot / 'SKILL.md').write_text(
+            '见 scripts/lint.py 与 scripts/nope.py\n', encoding='utf-8')
+        (vroot / 'reference' / 'x.md').write_text(
+            '详见 reference/ghost.md\n', encoding='utf-8')
+
+        refs = check_refs(cfg, vroot)
+        chk(len(refs) == 2, '死链能查出（真实存在的 lint.py 不报，'
+                            '不存在的 nope.py / ghost.md 各报 1）')
+        chk(all('不存在' in i['issue'] for i in refs), '死链报的是「引用不存在」')
+
+        # 重复副本：两份内容相同的脚本
+        (vroot / 'scripts' / 'dup_a.py').write_text(
+            'x = 1\n' * 30, encoding='utf-8')
+        (vroot / 'scripts' / 'dup_b.py').write_text(
+            'x = 1\n' * 30, encoding='utf-8')
+        dups = check_duplicates(cfg, vroot)
+        chk(len(dups) == 1 and 'dup_a' in dups[0]['file'],
+            '逐字节重复的副本能查出（名字不同也查得到）')
+
+        # 命中列退化：5 条全 0
+        rows = ['| H%03d | 场景%d | 做法%d | L1 | 0 |' % (i, i, i)
+                for i in range(1, 6)]
+        (vroot / 'SKILLS' / '_hot.md').write_text(
+            '# 热区\n\n| ID | 触发场景 | 正确做法 | 强度 | 命中 |\n'
+            '|----|---------|---------|------|------|\n'
+            + '\n'.join(rows) + '\n', encoding='utf-8')
+        deg = check_degeneracy(cfg, vroot)
+        chk(any('命中列' in i['issue'] for i in deg),
+            '标注退化能查出（命中列全 0）')
+
+        # 有区分度时不该误报
+        (vroot / 'SKILLS' / '_hot.md').write_text(
+            '# 热区\n\n| ID | 触发场景 | 正确做法 | 强度 | 命中 |\n'
+            '|----|---------|---------|------|------|\n'
+            '| H001 | a | b | L1 | 3 |\n| H002 | a | b | L1 | 0 |\n'
+            '| H003 | a | b | L1 | 1 |\n| H004 | a | b | L1 | 0 |\n'
+            '| H005 | a | b | L1 | 2 |\n', encoding='utf-8')
+        chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
+            '命中数有区分度时不误报')
+
+        # 扫描范围自报
+        sc = scan_scope(cfg)
+        chk('engine_files' in sc and 'domain_files' in sc,
+            '扫描范围可自报（让「在空集上跑」可见）')
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -469,34 +705,67 @@ def main():
     cfg = load_config(Path(args.config))
     limits = cfg.get("size_limits", {})
     issues = (check_root(cfg) + check_size(cfg, limits)
-              + check_frontmatter(cfg) + check_landing(cfg))
+              + check_frontmatter(cfg) + check_landing(cfg)
+              + check_refs(cfg) + check_duplicates(cfg)
+              + check_degeneracy(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
-        return
-
-    if not issues:
-        print("✓ 规范检查通过")
         return
 
     errs = [i for i in issues if i["level"] == "error"]
     warns = [i for i in issues if i["level"] == "warn"]
     infos = [i for i in issues if i["level"] == "info"]
 
+    # 扫描范围**无条件**先说清楚：在空集上跑出来的「通过」没有意义（H011）。
+    # 早先把它放在「有问题才打印」的分支里，结果恰恰是「✓ 通过」时看不到
+    # ——而那正是最需要知道「到底扫了几个」的时候。
+    sc = scan_scope(cfg)
+    seg = ["引擎自身 %d 个文件" % sc["engine_files"]]
+    if sc["engine_missing"]:
+        seg.append("缺目录 %s → 相关检查未跑" % "/".join(sc["engine_missing"]))
+    seg.append("domains 技能包 %d 个" % sc["domain_files"])
+    if sc["domain_missing"]:
+        seg.append("未初始化大类 %d 个" % len(sc["domain_missing"]))
+    scope_line = "扫描范围：" + "；".join(seg)
+    no_domain = sc["domain_files"] == 0
+
+    if not issues:
+        print(scope_line)
+        if no_domain:
+            print("! 仅通过（引擎自身）——未检查到任何 domains 技能包，"
+                  "不代表库内容合规。先 python3 scripts/domain.py --init")
+        else:
+            print("✓ 规范检查通过")
+        return
+
     print("=" * 56)
     print("规范检查")
     print("=" * 56)
+    print("\n" + scope_line)
+    if no_domain:
+        print("  ! 未检查到任何 domains 技能包 → 下面若显示「通过」，"
+              "只代表引擎自身文件合规")
+
     if errs:
         print("\n【错误】%d 项 → 必须修" % len(errs))
         for i in errs:
             print("  ✗ " + i["file"])
             print("    " + i["issue"] + " → " + i["hint"])
-    if warns:
-        print("\n【体积预警】%d 项" % len(warns))
-        for i in warns:
+    # 预警里只有体积类带 lines；死链/重复/退化类没有，混在一起遍历会 KeyError
+    size_warns = [i for i in warns if "lines" in i]
+    other_warns = [i for i in warns if "lines" not in i]
+    if size_warns:
+        print("\n【体积预警】%d 项" % len(size_warns))
+        for i in size_warns:
             bar = "#" * min(30, i["lines"] // 20)
             print("  ! %s  %d/%d 行 %s" % (i["file"], i["lines"], i["limit"], bar))
             print("    -> " + i["hint"])
+    if other_warns:
+        print("\n【预警】%d 项" % len(other_warns))
+        for i in other_warns:
+            print("  ! %s" % i["file"])
+            print("    " + i["issue"] + " → " + i["hint"])
     if infos:
         print("\n【提示】%d 项" % len(infos))
         for i in infos[:10]:

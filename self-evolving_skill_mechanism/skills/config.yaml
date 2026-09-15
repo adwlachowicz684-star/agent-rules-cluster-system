@@ -90,3 +90,9 @@ generic_words: [通用, 流程, 输出, 文件, 交付, 打包, 沟通, 搜索, 
 
 # 归属判定阈值：关键词命中数达到此值才自动推荐，否则询问用户
 auto_route_threshold: 2
+
+# 自检配置（见 reference/self-verification.md）
+verification:
+  # 标注退化阈值：某库条目数达到此值且状态字段只有一种取值 → 预警。
+  # 手填字段会收敛成同一个值，此时「标注齐全」是假象，读的人仍得逐个怀疑。
+  degeneracy_min_entries: 5
