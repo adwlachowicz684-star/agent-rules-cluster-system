@@ -130,7 +130,7 @@ def check_route_ambiguity(cfg: dict, text: str) -> dict:
     scored.sort(key=lambda x: (-x["score"], x["key"] == common, -x["raw"]))
 
     if not scored or scored[0]["score"] == 0:
-        return {"fits": False, "reason": "no_match",
+        return {"fits": False, "reason": "no_match", "top_key": None,
                 "suggest": ("现有大类的专业关键词一个都没命中"
                             f"（仅靠泛词命中 {common}）→ 建议新建大类"),
                 "action": "new-domain"}
@@ -147,19 +147,58 @@ def check_route_ambiguity(cfg: dict, text: str) -> dict:
         # 命中核心词 → 归属明确，不必确认
         core = top["meta"].get("core", []) or []
         if any(k in core for k in top["solid"]):
-            return {"fits": True, "reason": "core_hit",
+            return {"fits": True, "reason": "core_hit", "top_key": top["key"],
                     "suggest": f"归 {top['meta'].get('name', top['key'])}"
                                f"（命中核心词「{top['solid'][0]}」）",
                     "action": "none"}
-        return {"fits": False, "reason": "weak_match",
+        return {"fits": False, "reason": "weak_match", "top_key": top["key"],
                 "suggest": (f"仅命中边缘词「{top['solid'][0]}」→ "
                             f"勉强归 {top['meta'].get('name')}，建议确认；"
                             f"若这是新方向，考虑新建大类"),
                 "action": "confirm"}
 
-    return {"fits": True, "reason": "ok",
+    return {"fits": True, "reason": "ok", "top_key": top["key"],
             "suggest": f"归 {top['meta'].get('name', top['key'])}（命中 {', '.join(top['solid'])}）",
             "action": "none"}
+
+
+# ---------- 路由自检 ----------
+
+# 为什么需要：keywords 一旦退化成字符串，路由会变成逐字符匹配，
+# 表现为「命中 c, o, 空格」——输出看起来正常，归属却全是错的。
+# 这类静默失真只有固定用例能发现，所以固化在这里。
+ROUTE_CASES = [
+    ("Cocos 引擎的帧率优化与渲染管线", "dev",
+     "引擎类词命中 dev，不应被「审查/工具」抢走"),
+    ("合同的违约金条款审查", "legal",
+     "领域名词（合同/条款）应压过通用动词（审查）"),
+    ("游戏数值脚本的随机数与对象池审查", "dev",
+     "同上：游戏/脚本 是领域词"),
+    ("股票财报的估值模型", "finance", "核心词命中"),
+    ("给学生批改作业的流程", "education",
+     "「流程」是泛词，真正的信号是学生/作业"),
+    ("小说章节的剧情大纲", "fiction", "多核心词命中"),
+    ("审查一个 Tauri 桌面应用的沙箱隔离", "tooling",
+     "整机型审查确实归 tooling"),
+    ("整理一下输出文件的流程", None,
+     "全是泛词 → 不算归属，应提示新建大类"),
+]
+
+
+def route_self_test(cfg: dict) -> int:
+    print("route 自检 · %d 个用例" % len(ROUTE_CASES))
+    fail = 0
+    for text, expect, why in ROUTE_CASES:
+        r = check_route_ambiguity(cfg, text)
+        got = r.get("top_key")
+        ok = (got == expect)
+        if not ok:
+            fail += 1
+        print("  %s %-26s 期望 %-9s 实得 %-9s（%s）"
+              % ("✓" if ok else "✗", text[:26], expect or "no_match",
+                 got or "no_match", why))
+    print("结论：%d 通过 / %d 失败" % (len(ROUTE_CASES) - fail, fail))
+    return fail
 
 
 # ---------- 提案 ----------
@@ -530,6 +569,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="检测结构问题并生成提案")
     ap.add_argument("--route-check", metavar="描述", help="判定归属是否精准")
+    ap.add_argument("--self-test", action="store_true",
+                    help="路由自检：keywords 退化会让归属静默失真，靠固定用例兜底")
     ap.add_argument("--propose-new", metavar="类名", help="提议新建大类（配 --key）")
     ap.add_argument("--key", metavar="英文key", help="新大类的英文 key")
     ap.add_argument("--kw", metavar="关键词", help="新大类关键词，逗号分隔")
@@ -555,6 +596,8 @@ def main():
         propose_new_domain(args.propose_new, args.key, kws, args.desc, core)
     elif args.check:
         build_from_issues(check(cfg))
+    elif args.self_test:
+        sys.exit(1 if route_self_test(cfg) else 0)
     elif args.route_check:
         r = check_route_ambiguity(cfg, args.route_check)
         print(f"描述：{args.route_check}")

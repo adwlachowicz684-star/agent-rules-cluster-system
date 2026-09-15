@@ -17,6 +17,7 @@ rule-registry.py —— 规则注册表管理（rule_id / 漂移检查 / fixture
     python3 rule-registry.py --sync              # 从扫描器重新提取，重建注册表
     python3 rule-registry.py --check             # 漂移检查 + fixture 覆盖率
     python3 rule-registry.py --test              # 跑 fixture（TP/FP 断言）
+    python3 rule-registry.py --eval              # 跑 fixture 并把结论回填 eval 字段
     python3 rule-registry.py --list              # 列出全部规则
     python3 rule-registry.py --scene s-numerics  # 只看某场景
     python3 rule-registry.py --json              # 机器可读
@@ -27,7 +28,9 @@ import re
 import sys
 import json
 import shutil
+import hashlib
 import tempfile
+import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
@@ -248,13 +251,36 @@ def attach_cwe(rules):
 
 def cmd_sync():
     rules = attach_cwe(attach_fixtures(extract()))
+    # eval 继承：判据没变就保留上次实测结论，变了（sig 不同）才重置。
+    # 不带 sig 的历史 eval 一律不继承 —— 无法确认实测时的规则是否还是这一版。
+    old = {}
+    if os.path.isfile(REG):
+        try:
+            prev = json.load(open(REG, encoding='utf-8'))
+            old = {r['rule_id']: r.get('eval') for r in prev.get('rules', [])}
+        except ValueError:
+            old = {}
+    kept = 0
+    for r in rules:
+        ev = old.get(r['rule_id'])
+        if isinstance(ev, dict) and ev.get('sig') == _rule_sig(r):
+            r['eval'] = ev
+            kept += 1
+        else:
+            e = r.get('eval') or {}
+            e['sig'] = _rule_sig(r)
+            e.setdefault('precision', 'unverified')
+            e.setdefault('recall', 'unverified')
+            e.setdefault('verified_at', None)
+            r['eval'] = e
     reg = {'version': '1.0.0',
            'note': '由 scripts/rule-registry.py --sync 从扫描器提取生成。'
                    '不要手改条目（会被 --check 判为漂移）；改扫描器后重新 sync。',
            'rules': rules}
     os.makedirs(os.path.dirname(REG), exist_ok=True)
     json.dump(reg, open(REG, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print('已同步 %d 条规则 → rules/registry.json' % len(rules))
+    print('已同步 %d 条规则 → rules/registry.json（继承实测结论 %d 条）'
+          % (len(rules), kept))
     return 0
 
 
@@ -304,6 +330,17 @@ def cmd_check():
         ' / '.join('%s %d' % (k.replace('.py', ''), v)
                    for k, v in sorted(per.items()))))
     print('有 TP fixture: %d / %d' % (verified, len(reg['rules'])))
+    # eval 分布：全 unverified 说明这个字段没活起来（跑 --eval 回填）
+    evc = Counter()
+    for r in reg['rules']:
+        e = r.get('eval') or {}
+        evc[(e.get('precision', 'unverified'), e.get('recall', 'unverified'))] += 1
+    print('eval 状态: %s' % ' · '.join(
+        'recall=%s/precision=%s %d' % (rc, pr, n)
+        for (pr, rc), n in sorted(evc.items(), key=lambda x: -x[1])))
+    never = evc.get(('unverified', 'unverified'), 0)
+    if never == len(reg['rules']):
+        warns.append('eval 全部 unverified（等于没标）→ 跑 --eval 回填实测结论')
     for e in errs:
         print('  ✗ %s' % e)
     for w in warns:
@@ -319,35 +356,46 @@ def cmd_check():
 
 
 def _run_scanner(scanner, src_root, native_id):
-    """在临时模块结构上跑扫描器，返回是否命中该规则。"""
+    """在临时模块结构上跑扫描器，返回 (ok, hits, err)。
+
+    ok=False 表示扫描器**没跑起来**（超时 / 崩溃 / 无输出 / 输出非 JSON），
+    hits 为 None。
+
+    为什么拆成三态：原来失败与「真的 0 命中」都返回 None，上层统一按
+    「无有效输出」跳过 —— 于是「规则失效」「扫描器坏了」「fixture 没写」
+    三种情况被压成同一个数。这正是本技能最痛恨的静默失败，却出现在
+    统计自身健康度的路径上（未覆盖 72 条里可能混着跑挂的）。
+    """
     import subprocess
     cmd = [sys.executable, os.path.join(HERE, scanner),
            '--src=' + src_root, '--pattern=' + native_id, '--json']
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    except Exception:
-        return None
-    if not r.stdout.strip():
-        return None
+    except Exception as e:
+        return False, None, '执行异常：%s' % e
+    out = (r.stdout or '').strip()
+    if not out:
+        return False, None, 'stdout 为空（stderr：%s）' % (
+            (r.stderr or '').strip()[:200] or '无')
     try:
-        d = json.loads(r.stdout)
+        d = json.loads(out)
     except ValueError:
-        return None
+        return False, None, '输出非 JSON：%s' % out[:160]
     if isinstance(d, dict):
-        return len(d.get('items', []))
-    return len(d) if isinstance(d, list) else 0
+        return True, len(d.get('items', [])), ''
+    return True, (len(d) if isinstance(d, list) else 0), ''
 
 
-def cmd_test():
-    """跑 fixture：TP 必须命中、FP 必须不命中（实际执行扫描器，不是只看文件在不在）。"""
+def run_all_fixtures(reg, verbose=True):
+    """跑全部 fixture，返回 {rid: {'tp': bool|None, 'fp': bool|None, 'errors': [...]}}。
+
+    tp=True  → TP 样本被命中（规则抓得到真问题）
+    fp=True  → FP 样本未被命中（规则不过宽、不误伤）
+    None     → 该项没有样本，或扫描器没跑起来；两者靠 errors 区分。
+    """
+    res = {}
     if not os.path.isdir(FIXDIR):
-        print('没有 fixtures 目录，跳过')
-        return 0
-    reg = load()
-    if reg is None:
-        print('没有注册表')
-        return 1
-    ok = fail = skip = 0
+        return res
     for rid in sorted(os.listdir(FIXDIR)):
         d = os.path.join(FIXDIR, rid)
         if not os.path.isdir(d):
@@ -358,6 +406,7 @@ def cmd_test():
         meta = next((r for r in reg['rules'] if r['rule_id'] == rid), None)
         scanner = (meta or {}).get('scanner', 'scan-ts.py')
         native = (meta or {}).get('native_id', rid.split('-', 1)[-1])
+        rec = {'tp': None, 'fp': None, 'errors': []}
         for kind in ('tp', 'fp'):
             src = next((f for f in files if f.startswith(kind + '.')), None)
             if not src:
@@ -371,31 +420,122 @@ def cmd_test():
                 _sdf = os.path.join(d, '.subdir')
                 if os.path.isfile(_sdf):
                     _sd = open(_sdf).read().strip() or 'mod'
-                mod = os.path.join(tmp, _sd); os.makedirs(mod, exist_ok=True)
+                mod = os.path.join(tmp, _sd)
+                os.makedirs(mod, exist_ok=True)
                 shutil.copy(os.path.join(d, src), os.path.join(mod, src))
-                hits = _run_scanner(scanner, tmp, native)
+                ok, hits, err = _run_scanner(scanner, tmp, native)
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
-            if hits is None:
-                print('  ? %s %s：扫描器无有效输出' % (rid, kind))
+            if not ok:
+                rec['errors'].append('%s：扫描器执行失败（%s）' % (kind, err))
+                if verbose:
+                    print('  ! %s %s：扫描器执行失败（%s）' % (rid, kind, err[:120]))
                 continue
             if kind == 'tp':
-                if hits > 0:
-                    ok += 1
-                else:
-                    fail += 1
+                rec['tp'] = hits > 0
+                if hits == 0 and verbose:
                     print('  ✗ %s TP 未命中（规则可能失效）' % rid)
             else:
-                if hits == 0:
-                    ok += 1
-                else:
-                    fail += 1
-                    print('  ✗ %s FP 被命中（%d 处，规则可能过宽 → 误报源）' % (rid, hits))
-    total = len([d for d in os.listdir(FIXDIR) if os.path.isdir(os.path.join(FIXDIR, d))])
+                rec['fp'] = hits == 0
+                if hits and verbose:
+                    print('  ✗ %s FP 被命中（%d 处，规则可能过宽 → 误报源）'
+                          % (rid, hits))
+        res[rid] = rec
+    return res
+
+
+def cmd_test():
+    """跑 fixture：TP 必须命中、FP 必须不命中（实际执行扫描器，不是只看文件在不在）。"""
+    if not os.path.isdir(FIXDIR):
+        print('没有 fixtures 目录，跳过')
+        return 0
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    res = run_all_fixtures(reg)
+    ok = fail = errs = 0
+    for rid in sorted(res):
+        r = res[rid]
+        for kind in ('tp', 'fp'):
+            v = r[kind]
+            if v is None:
+                continue
+            ok += 1 if v else 0
+            fail += 0 if v else 1
+        errs += len(r['errors'])
+    total = len([d for d in os.listdir(FIXDIR)
+                 if os.path.isdir(os.path.join(FIXDIR, d))])
     skip = len(reg['rules']) - total
     print('\nfixture 实测：通过 %d · 失败 %d · 未覆盖规则 %d'
           % (ok, fail, max(0, skip)))
-    return 1 if fail else 0
+    if errs:
+        print('  ! 另有 %d 项因扫描器执行失败**未计入**（已排除，勿当作「无问题」）'
+              % errs)
+    return 1 if (fail or errs) else 0
+
+
+def _rule_sig(r):
+    """规则判据签名：判据变了，之前的实测结论就不该继承。"""
+    return hashlib.md5(('%s|%s|%s' % (r.get('native_id'), r.get('level'),
+                                      r.get('title'))).encode('utf-8')
+                       ).hexdigest()[:8]
+
+
+def _eval_of(rec):
+    """fixture 结果 → eval 字段。
+
+    recall    ← TP 命中能力（抓不抓得到真问题）
+    precision ← FP 拒绝能力（会不会误伤）
+    没有对应样本就是 unverified，绝不写成 pass。
+    """
+    ev = {'precision': 'unverified', 'recall': 'unverified'}
+    if rec.get('tp') is not None:
+        ev['recall'] = 'pass' if rec['tp'] else 'fail'
+    if rec.get('fp') is not None:
+        ev['precision'] = 'pass' if rec['fp'] else 'fail'
+    ev['verified_at'] = datetime.date.today().isoformat()
+    ev['sig'] = rec.get('sig')
+    return ev
+
+
+def cmd_eval():
+    """跑 fixture 并把结论回填到注册表的 eval 字段。
+
+    为什么需要：eval 默认全 unverified，131 条里没有一条能区分
+    「实测有效」与「从没验证过」——字段形同虚设。跑完这一轮，
+    哪条规则敢信就有据可查了。
+    """
+    reg = load()
+    if reg is None:
+        print('没有注册表，先跑 --sync')
+        return 1
+    res = run_all_fixtures(reg, verbose=False)
+    n_pass = n_fail = n_unv = 0
+    for r in reg['rules']:
+        rid = r['rule_id']
+        rec = res.get(rid)
+        if rec is None:
+            r['eval'] = {'precision': 'unverified', 'recall': 'unverified',
+                         'verified_at': None, 'sig': _rule_sig(r)}
+            n_unv += 1
+            continue
+        rec['sig'] = _rule_sig(r)
+        ev = _eval_of(rec)
+        r['eval'] = ev
+        if 'unverified' in (ev['precision'], ev['recall']):
+            n_unv += 1
+        elif ev['precision'] == 'pass' and ev['recall'] == 'pass':
+            n_pass += 1
+        else:
+            n_fail += 1
+    json.dump(reg, open(REG, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    print('eval 已回填 → rules/registry.json')
+    print('  实测通过 %d · 实测有问题 %d · 仍为 unverified %d'
+          % (n_pass, n_fail, n_unv))
+    if n_fail:
+        print('  ✗ 有规则实测不通过，别把 fail 当 unverified 用')
+    return 1 if n_fail else 0
 
 
 def main():
@@ -403,6 +543,8 @@ def main():
         sys.exit(cmd_sync())
     if '--test' in _flags:
         sys.exit(cmd_test())
+    if '--eval' in _flags:
+        sys.exit(cmd_eval())
     if '--check' in _flags:
         sys.exit(cmd_check())
 

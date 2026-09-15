@@ -36,23 +36,53 @@ IS_WIN = os.name == "nt"
 
 # ---------- 配置 ----------
 
+def _logical_lines(text: str) -> list:
+    """把跨行的流式列表合并成逻辑行，返回 [(行号, 缩进, 内容)]。
+
+    为什么需要：解析器逐行处理，而
+
+        keywords: [通用, 交付, 打包,
+                   审查, 审计]
+
+    这种 YAML 流式列表的开头行不以 `]` 结尾，`_scalar` 认不出它是列表，
+    整包退化成**字符串**。下游 `for k in kws` 遍历字符串 → 逐字符匹配，
+    路由命中显示成「命中 c, o, 空格」这类噪音，归属判定全面失真。
+    判据就是括号是否闭合：未闭合就并上下一行。
+    """
+    out, buf = [], None
+    start = indent = 0
+    for lineno, raw in enumerate(text.splitlines(), 1):
+        c = raw.split("#")[0].rstrip()
+        if not c.strip():
+            continue
+        if buf is None:
+            start, indent, buf = lineno, len(raw) - len(raw.lstrip()), c.strip()
+        else:
+            buf = buf + " " + c.strip()
+        if buf.count("[") > buf.count("]"):
+            continue                      # 未闭合，继续并下一行
+        out.append((start, indent, buf))
+        buf = None
+    if buf is not None:                   # 文件结束时仍未闭合，交给 _scalar 兜底
+        out.append((start, indent, buf))
+    return out
+
+
 def load_config(path: Path = CONFIG) -> dict:
     """极简 YAML 解析（只支持本文件用到的结构，避免引入依赖）。
 
     加了孤儿行检测：缩进 4 的字段若前面没有 key（通常是删 key 时漏删内容），
     会被静默归给上一个大类，导致「金融被改名成区块链」这类隐蔽错误。
     宁可报错，也不要静默产生错误结果。
+
+    收尾另加 keywords 类型校验：退化成字符串会让路由静默失真，
+    与其给出错误归属，不如直接报错。
     """
     if not path.exists():
         sys.exit(f"找不到配置文件：{path}")
     cfg, section, cur = {}, None, None
     cfg["__path__"] = str(path)   # 供写回时定位，避免硬编码引擎自带配置
-    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw.split("#")[0].rstrip()
-        if not line.strip():
-            continue
-        indent = len(raw) - len(raw.lstrip())
-        s = line.strip()
+    for lineno, indent, s in _logical_lines(path.read_text(encoding="utf-8")):
         if indent == 0 and s.endswith(":"):
             section = s[:-1]
             cfg[section] = {}
@@ -86,7 +116,28 @@ def load_config(path: Path = CONFIG) -> dict:
                     f"  请检查 `{section}` 段，补齐缺失的 key 行或删掉孤儿字段。"
                 )
             cfg[section][cur][k] = _scalar(v.strip())
+    _check_keyword_types(cfg, path)
     return cfg
+
+
+def _check_keyword_types(cfg: dict, path: Path) -> None:
+    """keywords / core 必须是列表。
+
+    退化成字符串时下游 `for k in kws` 会逐字符遍历 → 路由静默失真。
+    与孤儿行检测同一个原则：宁可报错，也不要给出看起来正常的错误归属。
+    """
+    for key, meta in (cfg.get("domains") or {}).items():
+        if not isinstance(meta, dict):
+            continue
+        for field in ("keywords", "core"):
+            v = meta.get(field)
+            if v is not None and not isinstance(v, list):
+                sys.exit(
+                    f"配置错误：{path} 大类「{key}」的 {field} 被解析成 "
+                    f"{type(v).__name__}，应为列表。\n"
+                    f"  常见原因：跨行流式列表的括号没成对，未被合并成一行。\n"
+                    f"  逐字符匹配会让路由结果失真，请检查该字段的括号或改写成单行。"
+                )
 
 
 def _scalar(v: str):

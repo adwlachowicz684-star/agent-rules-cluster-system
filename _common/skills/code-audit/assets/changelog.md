@@ -107,3 +107,7 @@
 | 2026-09-15 | audit.py gitignore | 新增 | 审查产物落在被审查项目里会弄脏对方 git status。检测 git 仓库自动追加两行 .gitignore（幂等、带来源注释、可删），--no-gitignore 可关 |
 | 2026-09-15 | gitignore 路径锚定 | 修正 | SRC 是仓库子目录时必须写 sub/.audit-items/。gitignore 含 / 时锚定到文件所在目录，不写前缀会完全失效 |
 | 2026-09-15 | audit 自检 | 补充 | gitignore 四种情形全覆盖：仓库根 / 子目录 / 非 git 目录 / --no-gitignore。初版 _mkgit 把 git init 放在 sub 里，子目录场景等于没测到，已修 |
+| 2026-09-15 | rule-registry --eval | 新增 | 跑 fixture 并把结论回填 eval 字段（recall 看 TP 命中、precision 看 FP 拒绝）。原 131 条全 unverified，字段形同虚设；回填后 55 条实测通过、76 条仍 unverified，哪条敢信有据可查 |
+| 2026-09-15 | rule-registry 三态 | 修正 | _run_scanner 失败与「真的 0 命中」原来都返回 None，被上层当「无有效输出」跳过 → 规则失效/扫描器跑挂/没写 fixture 混成一个数。改为 (ok, hits, err) 三态，执行失败单独计数并在 --test 里报出 |
+| 2026-09-15 | rule-registry eval 继承 | 新增 | --sync 按规则签名（native_id+level+title）继承上次实测结论，判据变了才重置为 unverified。不带 sig 的历史 eval 一律不继承 |
+| 2026-09-15 | check-skill 阈值对齐 | 修正 | SKILL.md 上限自检用 500、config.yaml 用 200，两边不统一 → 238 行却报「警告 0」。改为 200 报 warn、500 报 error，阈值注明依据 |

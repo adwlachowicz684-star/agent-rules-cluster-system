@@ -33,7 +33,10 @@ if SKILL_DIR is None:
 REDUNDANT_ROOT = {'README.md', 'CHANGELOG.md', 'INSTALLATION_GUIDE.md',
                   'QUICK_REFERENCE.md', 'INSTALLATION.md'}
 
-MAX_SKILL_LINES = 500
+MAX_SKILL_LINES = 500      # 绝对上限：超过必须拆
+# 建议上限：与 skill-evolution 的 config.yaml size_limits.SKILL.md 一致。
+# 两处若不统一，会出现「本文件 235 行、自检却说通过」——超了没人管。
+MAX_SKILL_SOFT = 200
 MAX_REF_LINES = 200
 MAX_REF_TOKENS = 8192
 MAX_SCRIPT_LINES = 300
@@ -90,8 +93,13 @@ def main():
     elif not re.search(r'何时使用|用于|适用|何时触发', '\n'.join(lines[:15])):
         add('warn', 'SK005', '正文开头未说明何时使用（影响触发准确性）')
 
+    if len(lines) > MAX_SKILL_SOFT:
+        add('warn', 'SK006', 'SKILL.md %d 行，超过建议上限 %d 行'
+            '（依据 skill-evolution config.yaml 的 size_limits；细节应下沉 reference/）'
+            % (len(lines), MAX_SKILL_SOFT))
     if len(lines) > MAX_SKILL_LINES:
-        add('warn', 'SK006', 'SKILL.md %d 行，超过建议 %d 行' % (len(lines), MAX_SKILL_LINES))
+        add('error', 'SK006', 'SKILL.md %d 行，超过绝对上限 %d 行（必须拆）'
+            % (len(lines), MAX_SKILL_LINES))
     tok = token_estimate(content)
     if tok > MAX_REF_TOKENS:
         add('warn', 'SK006', 'SKILL.md 约 %d tokens，超过 %d' % (tok, MAX_REF_TOKENS))

@@ -22,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from domain import load_config, domain_dir, CONFIG  # noqa: E402
+from domain import load_config, domain_dir, domain_root, CONFIG  # noqa: E402
 
 DEFAULTS = {
     "SKILL.md": 200,
@@ -187,6 +187,22 @@ def n_lines(p):
         return len(p.read_text(encoding="utf-8").splitlines())
     except Exception:
         return 0
+
+
+def check_root(cfg):
+    """大类根目录不存在时，domains/ 下的体积与 frontmatter 检查会被整段跳过，
+    结果却照样输出「✓ 规范检查通过」。
+
+    这正是本技能自己写进 _hot.md 的 H011：工具报 0 命中不等于没问题
+    —— 没东西可查 ≠ 查过了没问题。这里必须显式报出来。
+    """
+    root = domain_root(cfg)
+    if root.exists():
+        return []
+    return [{"level": "error", "file": str(root),
+             "issue": "大类根目录不存在，domains/ 下的检查全部跳过 → 本次结果不完整",
+             "hint": "先跑 python3 scripts/domain.py --init 初始化；"
+                     "未初始化时本脚本只检查了引擎自身文件"}]
 
 
 def check_size(cfg, limits):
@@ -395,7 +411,8 @@ def main():
 
     cfg = load_config(Path(args.config))
     limits = cfg.get("size_limits", {})
-    issues = check_size(cfg, limits) + check_frontmatter(cfg) + check_landing(cfg)
+    issues = (check_root(cfg) + check_size(cfg, limits)
+              + check_frontmatter(cfg) + check_landing(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
