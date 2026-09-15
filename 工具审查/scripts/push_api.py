@@ -32,6 +32,7 @@ import base64
 import difflib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -126,12 +127,21 @@ def api(method, path, payload=None, retries=3, timeout=None):
         raise SystemExit(f"API {method} {url} → HTTP {code}: {body[:400]}")
 
 
-def git(*args, check=False):
+def git(*args, check=False, raw=False):
     """跑 git。check=True 时非 0 直接中止。
 
     默认不中断但**必须告警**：只看 stdout 会让失败完全静默——
     `git add` 部分路径被 .gitignore 拦下时退出码为 1，
     正常文件虽然进了暂存区，调用方却以为全部成功。
+
+    raw=True 时**不做 strip**。
+
+    为什么需要：porcelain 格式是定长的「XY + 1空格 + 路径」，
+    未暂存修改的 X 位就是空格（" M path"）。strip() 会把这个空格吃掉，
+    整个串左移一位，于是 item[3:] 切出来的路径**丢掉首字符**
+    （`_common/...` → `common/...`）。
+    后果是静默的：该文件的本地 sha 取不到，lmap 回落到 git 索引里的旧值，
+    被判「已与远端一致」跳过——改动推不上去，还以为推成功了。
     """
     proc = subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
     if proc.returncode != 0:
@@ -141,7 +151,7 @@ def git(*args, check=False):
         if check:
             raise SystemExit(msg)
         print(f"  ! {msg}")
-    return proc.stdout.strip()
+    return proc.stdout if raw else proc.stdout.strip()
 
 
 def safe_rel(rel):
@@ -253,7 +263,8 @@ def detect_changes():
     if _CHANGES_CACHE is not None:
         return _CHANGES_CACHE
 
-    out = git("status", "--porcelain", "-z", "--untracked-files=all", "--no-renames")
+    out = git("status", "--porcelain", "-z", "--untracked-files=all",
+              "--no-renames", raw=True)
     fields = out.split("\0")
     paths, i = [], 0
     while i < len(fields):
@@ -264,6 +275,20 @@ def detect_changes():
         xy, path = item[:2], item[3:]     # 标准格式 "XY<space>path"
         if not path:
             continue
+        # 解析校验 + 存在性校验：见 git() 的 raw 参数说明。
+        # porcelain 是定长的「XY + 1空格 + 路径」，前导空格被 strip 会让
+        # 路径丢首字符，进而取不到该文件的工作副本 sha，被误判「已与远端
+        # 一致」跳过——改动推不上去却报成功。
+        if not re.fullmatch(r"[ MADRCU?!]{2}", xy):
+            raise SystemExit(
+                f"git status 解析异常：状态位 {xy!r} 不合法"
+                f"（路径 {path[:60]!r}）。porcelain 是定长格式，"
+                f"前导空格被 strip 会让路径丢首字符。")
+        if not os.path.exists(os.path.join(ROOT, path)):
+            raise SystemExit(
+                f"git status 解析异常：路径 {path[:80]!r} 在仓库内不存在。\n"
+                f"porcelain 是定长格式（XY+空格+路径），前导空格被 strip 后\n"
+                f"整个串左移一位，路径首字符会被切掉。请检查 git() 的 raw 参数。")
         if "D" in xy:                     # 删除：本脚本不处理
             print(f"  ! 跳过已删除文件（脚本不支持删除）：{path}")
             continue

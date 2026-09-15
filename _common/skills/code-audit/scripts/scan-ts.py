@@ -37,7 +37,6 @@ INCLUDE_TESTS = '--include-tests' in _flags
 TEST_SKIP_DIRS = {'fixtures', '__fixtures__', 'tests', 'test', '__tests__', 'testdata'}
 
 
-
 try:
     from sarif import build_sarif, write_sarif
 except ImportError:
@@ -320,37 +319,6 @@ def b02(plugin, files):
     return hits
 
 
-@pattern('B03', 'P0', '递归无访问集/深度上限（互相引用 → 栈溢出）',
-         '子表互引用、嵌套材料树等场景')
-def b03(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        # 找 self.method( 形式的自递归
-        for m in re.finditer(r'this\.(\w+)\s*\(', src):
-            name = m.group(1)
-            # 该函数定义体内是否再次调用自己
-            dm = re.search(r'^\s*(?:private\s+|public\s+)?' + re.escape(name) +
-                           r'\s*\([^)]*\)[^{]*\{', src, re.M)
-            if not dm:
-                continue
-            depth, j = 0, dm.end() - 1
-            for k in range(dm.end() - 1, min(len(src), dm.end() + 4000)):
-                if src[k] == '{':
-                    depth += 1
-                elif src[k] == '}':
-                    depth -= 1
-                    if depth == 0:
-                        j = k
-                        break
-            body = src[dm.end():j]
-            if re.search(r'this\.' + re.escape(name) + r'\s*\(', body):
-                line = src[:m.start()].count('\n') + 1
-                if not re.search(r'visiting|visited|seen|depth|guard', body):
-                    hits.append((fn, line, f'this.{name}() 自递归，无访问集/深度上限'))
-                break
-    return hits
-
-
 # ---------- C 族：原型链污染 ----------
 
 @pattern('C01', 'P0', '裸 Record 查表命中 Object.prototype',
@@ -423,56 +391,6 @@ def d01(plugin, files):
     return hits
 
 
-@pattern('D02', 'P0', '参数声明但函数体内从未使用（承诺无效）',
-         'register(type, fn, overwrite=false) 的 overwrite 完全无效')
-def d02(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        # 只匹配行首的函数/方法定义，避免把调用点误当定义
-        for m in re.finditer(r'^[ \t]*(?:export\s+)?(?:private\s+|public\s+|protected\s+)?'
-                             r'(?:static\s+)?(?:async\s+)?(\w+)\s*\('
-                             r'([^()]{0,300})\)\s*(?::\s*[^{;=>]+)?\{\s*$', src, re.M):
-            fname = m.group(1)
-            # 排除控制流关键字（它们的"参数"是条件表达式，天然不在体内出现）
-            if fname in {'if', 'for', 'while', 'switch', 'catch', 'return',
-                         'function', 'constructor', 'get', 'set'}:
-                continue
-            params = m.group(2)
-            if not params.strip() or '=>' in params:
-                continue
-            depth, j = 0, len(src)
-            for k in range(m.end() - 1, min(len(src), m.end() + 6000)):
-                if src[k] == '{':
-                    depth += 1
-                elif src[k] == '}':
-                    depth -= 1
-                    if depth == 0:
-                        j = k
-                        break
-            body = src[m.end():j]
-            # 先抹掉泛型尖括号内容，避免 Record<a,b> 的逗号被当分隔符
-            flat = re.sub(r'<[^<>]*>', '', params)
-            for seg in flat.split(','):
-                seg = seg.split('=')[0].strip().lstrip('.').strip()
-                pm = re.match(r'^([a-zA-Z_$][\w$]*)\s*\??', seg)
-                if not pm:
-                    continue
-                pn = pm.group(1)
-                if len(pn) < 4 or pn in {'this', 'type', 'name', 'opts', 'args'}:
-                    continue
-                if not re.search(r'\b' + re.escape(pn) + r'\b', body):
-                    # 兜底：函数体里的**正则字面量或字符串**含花括号时，配平会提前结束，
-                    # body 被截成几十字 → 后半段用到的参数全被误判为"未使用"。
-                    # 实测 nexus-panel：scopeCss() 体内有正则 /(^|\})([^{}@]+)\{/g，
-                    # body 只剩 27 字符，`scope` 明明用了却报未使用。
-                    # 此时用全文出现次数兜底：>1 说明别处用过，宁可漏报也不误报。
-                    if len(body) < 200 and src.count(pn) > 1:
-                        continue
-                    line = src[:m.start()].count('\n') + 1
-                    hits.append((fn, line, f'参数 `{pn}` 在函数体内未被使用'))
-    return hits
-
-
 # ---------- E 族：遍历中修改集合 ----------
 
 @pattern('E01', 'P0', 'forEach 遍历监听器数组 + 回调可能取消订阅',
@@ -485,18 +403,6 @@ def e01(plugin, files):
         m = re.search(r'([A-Za-z_$][\w.$]*)\.forEach\s*\(', ln)
         if m and SUB.search(m.group(1)):
             hits.append((fn, i, ln.strip()[:90]))
-    return hits
-
-
-@pattern('E02', 'P1', '按函数值去重的 Set 配合"每注册一条"的数组',
-         'signal 的同类问题：一次取消把所有同名注册项全删')
-def e02(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        if re.search(r'Set<[^>]*>\s*\(\s*\)', src) and re.search(r'\.filter\s*\(\s*\(?\w+\)?\s*=>\s*!', src):
-            if re.search(r'has\(l\.fn\)|\.fn\)|indexOf', src):
-                line = src[:src.find('.filter')].count('\n') + 1
-                hits.append((fn, line, '按函数值去重的收尾 filter'))
     return hits
 
 
@@ -578,23 +484,6 @@ def h01(plugin, files):
 
 # ---------- I 族：容量/性能 ----------
 
-@pattern('I01', 'P1', '容量类字段无上限（无限增长）',
-         'historyLimit / _log / _seen / _cache / capacity')
-def i01(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        for m in re.finditer(r'this\.(_\w*(?:log|history|seen|cache|records|entries|samples)\w*)'
-                             r'\s*(?::[^=;]+)?=', src):
-            f = m.group(1)
-            line = src[:m.start()].count('\n') + 1
-            # 全文找该字段的裁剪
-            if re.search(re.escape(f) + r'\.(?:shift|splice|length\s*=\s*0|clear)\s*\(', src):
-                continue
-            if re.search(r'clampNum|Math\.min\(', src):
-                continue
-            hits.append((fn, line, f'{f} 无裁剪/上限'))
-    return hits
-
 
 @pattern('I02', 'P1', 'O(n²)：filter/map 内调用全量扫描方法',
          'reddot activePaths / spatial _findEntry')
@@ -651,46 +540,6 @@ def k01(plugin, files):
             if vs == {'true'}:
                 line = src[:src.find('this.' + f + ' = true')].count('\n') + 1
                 hits.append((fn, line, f'this.{f} 只被置 true，从不复位'))
-    return hits
-
-
-@pattern('K02', 'P1', 'clear/reset 遗漏部分容器（清理不彻底）',
-         'save.clearAll 漏 __tmp / spatial 空桶不回收')
-def k02(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        for m in re.finditer(r'\b(clear|clearAll|reset)\s*\(\s*\)\s*(?::\s*[^{]+)?\{', src):
-            depth, j = 0, len(src)
-            for k in range(m.end() - 1, min(len(src), m.end() + 3000)):
-                if src[k] == '{':
-                    depth += 1
-                elif src[k] == '}':
-                    depth -= 1
-                    if depth == 0:
-                        j = k
-                        break
-            body = src[m.end():j]
-            cleared = set(re.findall(r'this\.(_\w+)\.(?:clear|length\s*=\s*0)\s*\(\s*\)', body))
-            cleared |= set(re.findall(r'this\.(_\w+)\.clear\s*\(', body))
-            # 容器判定改看**类型标注 / 初始化值**，不看名字。
-            # 白名单写法下，字段叫 _queue / _buffer / _pending 一律漏检：
-            # 实测白名单内 4/4 命中、白名单外 0/8 命中。
-            allc = set()
-            # ① 声明处带容器类型：private _queue: Map<K,V> = ...
-            for mm in re.finditer(
-                    r'private\s+(?:readonly\s+)?(_\w+)\s*(?::\s*([^=;]+?))?=',
-                    src):
-                f, ty = mm.group(1), (mm.group(2) or '')
-                if re.search(r'Map|Set|Array|Record|WeakMap|WeakSet|\[\]|\{\}', ty):
-                    allc.add(f)
-            # ② 初始化为容器：this._queue = new Map() / [] / {}
-            allc |= set(re.findall(
-                r'this\.(_\w+)\s*=\s*(?:new\s+(?:Map|Set|Array|WeakMap|WeakSet)'
-                r'|\[\]|\{\})', src))
-            miss = allc - cleared
-            if miss and len(miss) < len(allc):
-                line = src[:m.start()].count('\n') + 1
-                hits.append((fn, line, f'{m.group(1)}() 未清理: {", ".join(sorted(miss))}'))
     return hits
 
 
@@ -771,17 +620,6 @@ def m02(plugin, files):
 
 
 # ---------- N 族：时间与随机源 ----------
-
-@pattern('N01', 'P1', '硬编码 Date.now / performance.now（时间源不可注入）',
-         'Scheduler 吞掉 TimeScale 的注入能力；回放/单测不可控')
-def n01(plugin, files):
-    hits = []
-    for fn, i, ln in iter_lines(files):
-        if re.search(r'\bDate\.now\s*\(\s*\)|performance\.now\s*\(\s*\)', ln):
-            if re.search(r'=\s*Date\.now|now\s*=\s*|now\?|now:', ln):
-                continue  # 有注入口
-            hits.append((fn, i, ln.strip()[:90]))
-    return hits
 
 
 @pattern('N02', 'P1', '裸 Math.random（破坏可复现）',
