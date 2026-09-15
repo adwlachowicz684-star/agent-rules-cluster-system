@@ -36,7 +36,11 @@ import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 REG = os.path.join(SKILL, 'rules', 'registry.json')
+ITEMS = os.path.join(SKILL, 'rules', 'items.json')
 FIXDIR = os.path.join(SKILL, 'rules', 'fixtures')
+GAPS = os.path.join(SKILL, 'rules', 'gaps.json')
+
+# ID 撞号阈值说明见 cmd_map 的文档串
 
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 AS_JSON = '--json' in _flags
@@ -100,12 +104,19 @@ def extract():
 
     asrc = open(os.path.join(HERE, 'scan-app.py'), encoding='utf-8').read()
     aseen = set()
-    for m in re.finditer(r"\(\s*'([A-Z]\d{2}|P\d{2})'\s*,\s*'(P\d)'\s*,\s*'([^']+)'\s*,\s*\(", asrc):
+    # 标题允许单引号或双引号：J03 用的是双引号（`postMessage` 描述里含单引号，
+    # 作者改用了双引号），原正则只认单引号 → J03 从未进入注册表。
+    # 更麻烦的是 --check 也用同一条正则算「扫描器现有规则」，
+    # 两边一起漏，于是它永远报「一致」—— 检查与被测对象共用同一个 bug。
+    for m in re.finditer(
+            r"\(\s*'([A-Z]\d{2}|P\d{2})'\s*,\s*'(P\d)'\s*,\s*"
+            r"(?:'([^']+)'|\"([^\"]+)\")\s*,\s*\(", asrc):
         if m.group(1) in aseen:
             continue
         aseen.add(m.group(1))
+        _title = m.group(3) or m.group(4)
         out.append({'rule_id': 'APP-%s' % m.group(1), 'native_id': m.group(1),
-                    'scanner': 'scan-app.py', 'level': m.group(2), 'title': m.group(3),
+                    'scanner': 'scan-app.py', 'level': m.group(2), 'title': _title,
                     'family': m.group(1)[0], 'scene': APP2SCENE.get(m.group(1), 's-build'),
                     'languages': ['ts', 'js', 'rs', 'html'],
                     'fixtures': {'tp': None, 'fp': None},
@@ -261,15 +272,33 @@ def cmd_sync():
     rules = attach_cwe(attach_fixtures(extract()))
     # eval 继承：判据没变就保留上次实测结论，变了（sig 不同）才重置。
     # 不带 sig 的历史 eval 一律不继承 —— 无法确认实测时的规则是否还是这一版。
-    old = {}
+    old, old_map = {}, {}
     if os.path.isfile(REG):
         try:
             prev = json.load(open(REG, encoding='utf-8'))
             old = {r['rule_id']: r.get('eval') for r in prev.get('rules', [])}
+            # item 映射同样要继承：它是 --map 的产物，不是扫描器能提取出来的。
+            # 不继承的话跑一次 --sync 就把 106 条映射全冲掉，而 --sync 的输出
+            # 看起来一切正常 —— 又一种「跑了但悄悄丢东西」。
+            old_map = {r['rule_id']: (r.get('item'), r.get('item_src'))
+                       for r in prev.get('rules', [])
+                       if 'item' in r}
         except ValueError:
-            old = {}
-    kept = 0
+            old, old_map = {}, {}
+    kept = map_kept = 0
+    lost_map = []
     for r in rules:
+        if r['rule_id'] in old_map:
+            r['item'], r['item_src'] = old_map[r['rule_id']]
+            # 只统计真正有映射的；item=null 是「确认无对应」，不算继承了一条映射，
+            # 混在一起报会让「继承了 N 条」看起来比实际多
+            if r['item']:
+                map_kept += 1
+            elif old_map[r['rule_id']][0]:
+                # 上一版有映射、这一版没了 —— 典型「跑了但悄悄丢东西」。
+                # 不加这道护栏，--sync 输出一切正常，等你用 item-index 才发现
+                # 判据取不到，而那时已经说不清是哪次 sync 丢的。
+                lost_map.append(r['rule_id'])
         ev = old.get(r['rule_id'])
         if isinstance(ev, dict) and ev.get('sig') == _rule_sig(r):
             r['eval'] = ev
@@ -287,8 +316,13 @@ def cmd_sync():
            'rules': rules}
     os.makedirs(os.path.dirname(REG), exist_ok=True)
     json.dump(reg, open(REG, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print('已同步 %d 条规则 → rules/registry.json（继承实测结论 %d 条）'
-          % (len(rules), kept))
+    print('已同步 %d 条规则 → rules/registry.json'
+          '（继承实测结论 %d 条 · 继承判据映射 %d 条）'
+          % (len(rules), kept, map_kept))
+    if lost_map:
+        print('  ✗ 映射在同步中丢失：%s' % ', '.join(lost_map[:10]))
+        print('    → 「跑了但悄悄丢东西」，请查 --map 后再 sync')
+        return 1
     return 0
 
 
@@ -344,6 +378,31 @@ def cmd_check():
     # 重复定义：改前面的不生效，且没有任何报错
     for msg in check_dup_definitions():
         warns.append(msg)
+
+    # 判据映射覆盖率：没映射的规则在 item-index 里取不到人工判据。
+    # 「未映射」与「确认无对应」是两回事（item=null vs 缺字段），
+    # 这里分开报 —— 合并统计会让「还没做」看起来像「做了，没有」。
+    try:
+        _items = {i['id'] for i in
+                  json.load(open(ITEMS, encoding='utf-8'))['items']}
+    except (OSError, ValueError, KeyError):
+        _items = set()
+    by_rid = {r['rule_id']: r for r in reg['rules']}
+    wrong = [('%s→%s(应为%s)' % (k, by_rid[k].get('item'), v))
+             for k, v in sorted(KNOWN_MAP.items())
+             if k in by_rid and by_rid[k].get('item') != v]
+    if wrong:
+        errs.append('已知映射被改坏（撞号回归锚点）：%s' % '; '.join(wrong[:6]))
+
+    unmapped = [r['rule_id'] for r in reg['rules'] if 'item' not in r]
+    dangling = [r['rule_id'] for r in reg['rules']
+                if r.get('item') and _items and r['item'] not in _items]
+    if dangling:
+        errs.append('映射指向不存在的条目：%s → 跑 --map --apply'
+                    % ', '.join(dangling[:8]))
+    if unmapped:
+        warns.append('未做判据映射 %d 条 → 跑 --map --apply（%s…）'
+                     % (len(unmapped), ', '.join(unmapped[:5])))
 
     # CWE 映射完整性：未映射(null)与明确无([])是两回事，只报前者
     uncwe = [r['rule_id'] for r in reg['rules'] if r.get('cwe') is None]
@@ -541,6 +600,351 @@ def run_all_fixtures(reg, verbose=True):
     return res
 
 
+# ---- 机扫规则 → 人工判据 的显式映射 ----
+#
+# 为什么需要：两套编号体系独立演进，撞在了同一个字母上。
+#   items.json  按 scene 编号：A=s-atomicity  N=s-numerics  D=s-structures …
+#   scan-ts     按族   编号：A=数值族         C=原型污染族   T=循环族 …
+# 于是 TS-A05（「>>> 0 把 NaN 变 0」）与 A-05（「调试/作弊/后门默认启用」）
+# 归一化后都是 A05，按 ID 取判据会**静默给出完全无关的一条**——
+# 实测 41/131 条错配。更麻烦的是 family 字母还会误导：
+# TS-A05 的 family 是 A，而它的 scene 是 s-numerics，真判据在 N-05。
+#
+# 解法：把映射关系**显式写进 registry.json 的 item 字段**，不再靠 ID 推算。
+# 取值三态，与 cwe 字段同一套哲学（区分「确认没有」与「还没查」）：
+#   "N-05"  → 已映射
+#   null    → 确认无对应判据
+#   缺字段  → 尚未做过映射
+
+
+def _map_tokens(t):
+    return set(re.findall(r'[\u4e00-\u9fff]|[A-Za-z]{2,}', t or ''))
+
+
+def _map_score(rule, item):
+    """候选打分 0~1。名称为主，关键词/同场景/正文命中为辅。"""
+    a, b = _map_tokens(rule.get('title')), _map_tokens(item.get('name'))
+    s = (len(a & b) / len(a | b)) if (a and b) else 0.0
+    ks = item.get('keywords') or []
+    if ks:
+        hit = sum(1 for k in ks
+                  if k and k.lower() in (rule.get('title') or '').lower())
+        s += min(0.20, hit * 0.07)
+    if rule.get('scene') and rule['scene'] == item.get('scene'):
+        s += 0.08
+    body = item.get('body') or ''
+    core = [w for w in a if len(w) >= 2]
+    if core:
+        bh = sum(1 for w in core if w in body)
+        s += min(0.15, bh / max(1, len(core)) * 0.15)
+    return min(1.0, s)
+
+
+AUTO_ACCEPT = 0.50   # ≥ 此分自动采纳
+AUTO_REVIEW = 0.32   # ≥ 此分记为待确认（保留候选，不写入）
+
+# 人工确认表：自动打分低于阈值，但核对判据原文后确认语义对应的。
+#
+# 为什么需要这张表：措辞差异会让语义正确的映射只有 0.33 分。
+# 例：TS-A05「>>> 0 / |0 把 NaN 静默变成 0」对 N-05「位运算把 NaN 静默归零」，
+# 判据原文写的就是 `>>> 0` / `| 0`，完全同一条，但名称字面重合度只有 0.44。
+# 自动阈值再调低就会引入真错配，所以低分档交人判断，结论沉淀在这里。
+#
+# 为什么写进代码而不是直接改 registry.json：重跑 --map 时人工结论不会被冲掉，
+# 且每条都留了理由，半年后回看知道当初为什么这么定（对应 H016「先查溯源」）。
+#
+# 确认于 2026-09-15：逐条比对 items.json 的 body 判据原文后采纳。
+MANUAL_MAP = {
+    'APP-J04': ('K-32', 'K-32 判据含「无 allowlist 的 JSON 转对象」，'
+                        'APP-J04 是存储反序列化无兜底，同一条'),
+    'APP-P02': ('K-26', 'K-26 判据「.rs 文件是否都被 mod 声明」，'
+                        'APP-P02 是孤儿源文件，同一条'),
+    'APP-P03': ('G-03', 'G-03 判据「有 typecheck/test/lint 脚本但无 CI 引用」，'
+                        '与 APP-P03 完全吻合'),
+    'APP-R02': ('K-22', 'K-22 判据「一次锁中毒 = 应用直接崩」，'
+                        'APP-R02 是 lock().unwrap() 配 panic=abort'),
+    'APP-R05': ('S-05', 'S-05 判据「字符串比较未做 canonicalize」，'
+                        '与 APP-R05 的可 ../ 绕过完全吻合'),
+    'APP-R07': ('K-24', 'K-24 判据「阻塞式固定 sleep 轮询」，'
+                        'APP-R07 前半段即 thread::sleep 轮询'),
+    'TS-A05': ('N-05', 'N-05 判据原文就是 `>>> 0` / `| 0`，与 TS-A05 同一条；'
+                       '此前按 ID 撞号错取到 A-05「调试/作弊后门」'),
+    'TS-F01': ('C-12', 'C-12 特征明确列出 `register`/`import` 成对'
+                       '（一个有校验一个没有），正是 TS-F01 的核心'),
+    'TS-M02': ('A-04', 'A-04 判据「can*/has* 体内数值比较但无 isFinite」，'
+                       '与 TS-M02 的安全判定依赖污染数值吻合'),
+    'TS-O03': ('A-09', 'A-09 判据「不直接 console.*，走 logger 注入」，'
+                       '与 TS-O03 完全吻合'),
+    # 第二批（2026-09-15）：未映射规则 ↔ 未映射判据 的双向配对。
+    # 单向查会漏掉「两边都没映射、其实是一对」——只查「未映射判据能否配上某条规则」
+    # 时，这些规则自身也未被映射，于是两边都被当成「无对应」，缺口被重复计了一次。
+    'APP-R01': ('K-01', 'K-01 判据「是否用 take(cap) 流式读取，而非 fs::read 后截断」，'
+                        '与 APP-R01 完全同一条（Rust 视角）'),
+    'APP-R09': ('K-18', 'K-18 判据「token 为空时是否直接放行」，'
+                        '与 APP-R09 空凭据即放行完全同一条'),
+    'APP-P01': ('G-06', 'G-06 判据「忽略清单缺 node_modules/dist/target/__pycache__」，'
+                        '与 APP-P01 完全同一条'),
+    'TS-J01': ('A-01', 'A-01 特征「扣减与增加在相邻行且无 try」，'
+                       '与 TS-J01 多步写不回滚同一条'),
+    'TS-E02': ('L-09', 'L-09 特征「Set 存监听器 + filter 按函数值重建」，'
+                       '与 TS-E02 按函数值去重的 Set 同一条'),
+    'APP-J05': ('T-02', 'T-02 判据「注册时包箭头函数、解绑时传原始 fn」，'
+                        '与 APP-J05 事件解绑引用不一致同一条'),
+    'APP-R11': ('K-07', 'K-07 判据「是否 canonicalize / realpath 后比较」，'
+                        '与 APP-R11 文件读取无路径约束同族'),
+    'APP-J09': ('L-01', 'L-01「事件订阅无注销」已有 TS-X01 映射；'
+                        'APP-J09「只注册不注销」是同一条的扩展视角（多对一）'),
+    # 缺口补齐批次：规则号刻意取成判据号，语义分却只有 0.4x（标题是「绑定地址：
+    # 0.0.0.0 对局域网开放」，判据名是「127.0.0.1 vs 0.0.0.0」，字面重合低）。
+    # 曾想用「编号同源直映」自动处理，实测会把 TS-S01/TS-K01 也错配（见 cmd_map
+    # ③ 处说明），故逐条显式声明。
+    'APP-K10': ('K-10', 'K-10 判据「参数数组 vs 字符串拼接」，'
+                        '与 APP-K10 完全同一条'),
+    'APP-K17': ('K-17', 'K-17 判据「127.0.0.1 vs 0.0.0.0（后者对局域网开放）」，'
+                        '与 APP-K17 完全同一条'),
+}
+
+# 回归锚点：这些映射**曾经被算错过**，且错得很隐蔽——
+# 每次错都是「归一化后撞到另一个编号体系」，输出看着像一条正常判据。
+# 锚在这里，谁改匹配逻辑改坏了就当场红，不用等人工审查时才发现判据取错。
+KNOWN_MAP = {
+    'TS-S01': 'A-05',   # 撞 S-01「隔离后能力静默失效」（应为「调试/作弊/后门默认启用」）
+    'TS-K01': 'L-10',   # 撞 K-01「读入是否有界」（应为「状态字段只置 true 没有复位」）
+    'TS-A05': 'N-05',   # 撞 A-05「调试/作弊/后门默认启用」（应为「位运算把 NaN 静默归零」）
+    'TS-C01': 'D-01',   # 撞 C-01「孤儿组件/死代码」（应为「裸 Record 查表命中 prototype」）
+    'TS-D01': 'C-05',   # 撞 D-01（应为「接口字段声明但从未被读取」）
+    'TS-B10': 'B-10',
+    'TS-L15': 'L-15',
+    'TS-T05': 'T-05',
+    'TS-D11': 'D-11',
+    'APP-K03': 'K-03',
+    'APP-K08': 'K-08',
+    'APP-K10': 'K-10',
+    'APP-K14': 'K-14',
+    'APP-K15': 'K-15',
+    'APP-K16': 'K-16',
+    'APP-K17': 'K-17',
+    'APP-K31': 'K-31',
+    'APP-K34': 'K-34',
+}
+
+# 明确无对应：候选分最高的也明显不是同一条，别硬塞
+MANUAL_NONE = {
+    'APP-R03': '候选 L-15 是「缓存 Map 无上限」，K-13 是「权限声明」，'
+               '都与「按声明长度分配缓冲」无关',
+}
+
+
+def cmd_map(apply=False):
+    """生成 机扫规则 → items.json 判据 的显式映射，写入 registry.json 的 item 字段。
+
+    为什么分两档：语言包（CPP/GO/JAVA/PY）两边编号同源，native_id 即 items 的 id，
+    属**结构性映射**，无需猜；TS/APP 包编号体系不同源，只能靠语义匹配，
+    所以高分自动采纳、低分**不写入**并保留候选，等人工确认——
+    宁可留空让人看到「未映射」，也不塞一条可能错的。
+    """
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    try:
+        items = json.load(open(ITEMS, encoding='utf-8'))['items']
+    except (OSError, ValueError, KeyError) as e:
+        print('读 items.json 失败：%s' % e)
+        return 1
+    by_id = {i['id']: i for i in items}
+    high, review, none_, lang = [], [], [], 0
+    for r in reg['rules']:
+        nid = r.get('native_id', '')
+        # ① 编号严格同源：native_id / rule_id 与 items 的某个 id **完全相同**。
+        #
+        # 为什么用严格相等而不是硬编码前缀列表：
+        # 原先写死 `^(CPP|GO|JAVA|PY)-\\d`，新增 Rust 语言包后 RS-01~10
+        # 一条都没映射上——扫描器在跑、规则在注册表里、--check 也报了，
+        # 但 item-index 取不到它们的判据。又一处「名单漏了一个就静默失效」。
+        #
+        # 为什么**不能**归一化后比（这正是上一轮撤掉的方案）：
+        # 归一化会让 TS-S01(native=S01) 撞上 S-01「隔离后能力静默失效」，
+        # 而正确答案是 A-05「调试/作弊/后门默认启用」。
+        # 格式对齐 ≠ 语义同源。严格相等才安全——实测 TS/APP 零误伤
+        #（它们的 native_id 是 A05 / J01 这种紧凑写法，items 里不存在）。
+        _same = None
+        for _k in (nid, r['rule_id']):
+            if _k in by_id:
+                _same = _k
+                break
+        if _same:
+            r['_item'], r['_src'] = _same, 'id'
+            lang += 1
+            continue
+        # 进了语言包分支却找不到同 id 条目 → 记一笔，别沉默
+        if re.match(r'^(CPP|GO|JAVA|PY|RS)-\d', r['rule_id']):
+            r['_item'], r['_src'] = None, 'no-same-id'
+            none_.append(r)
+            continue
+        # ② 人工确认表优先（不会被自动打分冲掉）
+        if r['rule_id'] in MANUAL_MAP:
+            tgt, _why = MANUAL_MAP[r['rule_id']]
+            r['_item'], r['_src'] = tgt, 'manual'
+            high.append(r)
+            continue
+        if r['rule_id'] in MANUAL_NONE:
+            r['_item'], r['_src'] = None, 'manual-none'
+            none_.append(r)
+            continue
+        # ③ 语义匹配。
+        #
+        # 这里**曾经**加过一条「编号同源直映」：规则号取成判据号（K17 → K-17）
+        # 就直映。实测是错的，而且错的正是本批次要修的那类撞号——
+        #   TS-S01 native=S01 → S-01「隔离后能力静默失效」
+        #                       （正确答案 A-05「调试/作弊/后门默认启用」）
+        #   TS-K01 native=K01 → K-01「读入是否有界」
+        #                       （正确答案 L-10「状态字段只置 true 没有复位」）
+        # 归一化只是**格式**对齐，不代表语义同源。编号撞车时直映就是静默错配。
+        # 真正的同源（缺口补齐批次）走 MANUAL_MAP 显式声明，带理由、可回溯。
+        best, second, bs, ss = None, None, 0.0, 0.0
+        for it in items:
+            v = _map_score(r, it)
+            if v > bs:
+                best, second, bs, ss = it, best, v, bs
+            elif v > ss:
+                second, ss = it, v
+        if bs >= AUTO_ACCEPT:
+            r['_item'], r['_src'] = best['id'], 'auto:%.2f' % bs
+            r['_margin'] = bs - ss
+            high.append(r)
+        elif bs >= AUTO_REVIEW:
+            r['_item'], r['_src'] = None, 'review'
+            r['_cand'] = (best['id'], bs, second['id'] if second else '-', ss)
+            review.append(r)
+        else:
+            r['_item'], r['_src'] = None, 'none:%.2f' % bs
+            none_.append(r)
+
+    print('映射候选')
+    print('=' * 60)
+    print('  语言包 ID 直映      %3d 条' % lang)
+    print('  语义匹配 高置信     %3d 条（≥%.2f，自动采纳）'
+          % (len(high), AUTO_ACCEPT))
+    print('  语义匹配 待确认     %3d 条（%.2f~%.2f，保留候选不写入）'
+          % (len(review), AUTO_REVIEW, AUTO_ACCEPT))
+    print('  无对应判据          %3d 条' % len(none_))
+
+    if review:
+        print('\n【待人工确认】候选分接近，写入风险大：')
+        for r in review:
+            c = r['_cand']
+            print('  %-9s → %-7s %.2f（次选 %s %.2f）  %s'
+                  % (r['rule_id'], c[0], c[1], c[2], c[3], r['title'][:34]))
+    if none_:
+        print('\n【无对应判据】机扫能报、items 里没有人工判据（正常，非缺陷）：')
+        for r in none_[:12]:
+            print('  %-9s %s' % (r['rule_id'], r['title'][:44]))
+        if len(none_) > 12:
+            print('  … 另有 %d 条' % (len(none_) - 12))
+
+    margin_low = [r for r in high if r.get('_margin', 1) < 0.08]
+    if margin_low:
+        print('\n【高置信但次选接近】已写入，建议抽查：')
+        for r in margin_low:
+            print('  %-9s → %-7s (差距仅 %.2f)  %s'
+                  % (r['rule_id'], r['_item'], r['_margin'], r['title'][:34]))
+
+    if not apply:
+        print('\n（预览模式。加 --apply 写入 registry.json）')
+        return 0
+
+    for r in reg['rules']:
+        r.pop('_margin', None)
+        r.pop('_cand', None)
+        r['item'] = r.pop('_item', None)
+        r['item_src'] = r.pop('_src', '')
+    json.dump(reg, open(REG, 'w', encoding='utf-8'),
+               ensure_ascii=False, indent=1)
+    done = sum(1 for r in reg['rules'] if r.get('item'))
+    print('\n已写入：%d/%d 条有显式映射' % (done, len(reg['rules'])))
+    return 0
+
+def _load_gaps():
+    try:
+        return json.load(open(GAPS, encoding='utf-8')).get('items', {})
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def cmd_gaps():
+    """判据缺口清单：items.json 里没有任何机扫规则对应的判据。
+
+    为什么不直接报「N 条没覆盖」就完事：缺口有三种成因，混在一起报等于没说——
+      xref   判据正文自己写了「与 X 同源，报一次即可」→ **根本不是缺口**
+      manual 跨函数 / 时序 / 架构 / 需运行验证 → 机扫做不到，声明出来即可，
+             否则每次看缺口都要重新纠结一遍「要不要给它写规则」
+      todo   有明确文本特征 → 真的该写规则
+    分类写在 rules/gaps.json（items.json 是生成物，不能手改）。
+    """
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    try:
+        items = json.load(open(ITEMS, encoding='utf-8'))['items']
+    except (OSError, ValueError, KeyError) as e:
+        print('读 items.json 失败：%s' % e)
+        return 1
+    mapped = {r['item'] for r in reg['rules'] if r.get('item')}
+    gaps = [i for i in items if i['id'] not in mapped]
+    cls = _load_gaps()
+
+    buckets = {'todo': [], 'manual': [], 'xref': [], '未分类': []}
+    for it in gaps:
+        k = cls.get(it['id'], {}).get('machine')
+        buckets[k if k in buckets else '未分类'].append((it, cls.get(it['id'], {})))
+
+    print('判据缺口')
+    print('=' * 62)
+    print('  items.json 判据总数   %3d' % len(items))
+    print('  已有规则覆盖          %3d' % (len(items) - len(gaps)))
+    print('  无规则对应            %3d' % len(gaps))
+    print()
+    print('  ├ 同源重复（非缺口）  %3d' % len(buckets['xref']))
+    print('  ├ 需人工判断（非缺陷）%3d' % len(buckets['manual']))
+    print('  ├ 可机扫·待写规则     %3d' % len(buckets['todo']))
+    print('  └ 未分类              %3d' % len(buckets['未分类']))
+
+    if buckets['未分类']:
+        print('\n【未分类】先分类再谈补不补：')
+        for it, _ in buckets['未分类']:
+            print('  %-6s %s' % (it['id'], it['name'][:44]))
+
+    if buckets['todo']:
+        print('\n【可机扫 · 待写规则】按目标扫描器分组：')
+        by = {}
+        for it, c in buckets['todo']:
+            by.setdefault(c.get('target_scanner', '?'), []).append((it, c))
+        for sc in sorted(by):
+            print('  %s（%d 条）' % (sc, len(by[sc])))
+            for it, c in by[sc]:
+                print('    %-6s %-28s %s' % (it['id'], it['name'][:26],
+                                             c.get('why', '')[:36]))
+
+    if buckets['manual']:
+        print('\n【需人工判断】已声明，不必再纠结写不写规则（%d 条）：'
+              % len(buckets['manual']))
+        for it, c in buckets['manual'][:8]:
+            print('  %-6s %-26s %s' % (it['id'], it['name'][:24],
+                                       c.get('why', '')[:32]))
+        if len(buckets['manual']) > 8:
+            print('  … 另有 %d 条' % (len(buckets['manual']) - 8))
+
+    stale = sorted(k for k in cls if k in mapped)
+    if stale:
+        print('\n  ! gaps.json 里 %d 条已被映射，分类已陈旧：%s'
+              % (len(stale), ', '.join(stale[:8])))
+    return 0
+
+
+
+
 def cmd_test():
     """跑 fixture：TP 必须命中、FP 必须不命中（实际执行扫描器，不是只看文件在不在）。"""
     if not os.path.isdir(FIXDIR):
@@ -644,6 +1048,10 @@ def main():
         sys.exit(cmd_eval())
     if '--check' in _flags:
         sys.exit(cmd_check())
+    if '--map' in _flags:
+        sys.exit(cmd_map(apply='--apply' in _flags))
+    if '--gaps' in _flags:
+        sys.exit(cmd_gaps())
 
     reg = load()
     if reg is None:

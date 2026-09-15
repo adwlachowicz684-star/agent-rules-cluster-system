@@ -1,0 +1,388 @@
+{
+ "version": "1.0.0",
+ "note": "判据缺口的分类表。items.json 是生成物（item-index --sync 从 references/*.md 提取）不能手改，故分类单独落盘——与 registry.json 承载扫描器表达不了的规则级元数据同理。machine: todo=可机扫待写规则 / manual=需人工判断(已声明,非缺陷) / xref=与另一条同源(非缺口)。缺字段=未分类。",
+ "items": {
+  "T-06": {
+   "machine": "xref",
+   "why": "判据正文：「与 s-lifecycle L-10 同源，不要两边都报」",
+   "same_as": "L-10"
+  },
+  "T-07": {
+   "machine": "xref",
+   "why": "判据正文：「与 s-contracts C-03 同源」",
+   "same_as": "C-03"
+  },
+  "T-09": {
+   "machine": "xref",
+   "why": "判据正文：「与 s-atomicity A-01 同源」",
+   "same_as": "A-01"
+  },
+  "A-08": {
+   "machine": "xref",
+   "why": "判据正文：「与 s-numerics N-16 同源，报一次即可」",
+   "same_as": "N-16"
+  },
+  "A-10": {
+   "machine": "xref",
+   "why": "判据正文：「与 s-contracts C-12 同源」",
+   "same_as": "C-12"
+  },
+  "K-21": {
+   "machine": "xref",
+   "why": "与 K-22 同为 lock().unwrap()，APP-R02 已映射 K-22",
+   "same_as": "K-22"
+  },
+  "C-13": {
+   "machine": "xref",
+   "why": "与 C-01 同为孤儿/死代码，APP-P02 已映射 K-26",
+   "same_as": "C-01"
+  },
+  "S-04": {
+   "machine": "xref",
+   "why": "与 G-07 同为「多入口只覆盖其一」，APP-P04 已映射 G-07",
+   "same_as": "G-07"
+  },
+  "R-02": {
+   "machine": "xref",
+   "why": "任务/协程泄漏已由语言包覆盖（GO-01 / JAVA-02 / PY-07）",
+   "same_as": "GO-01"
+  },
+  "R-03": {
+   "machine": "xref",
+   "why": "取消未传播已由语言包覆盖（GO-02 / JAVA-03）",
+   "same_as": "GO-02"
+  },
+  "K-03": {
+   "machine": "todo",
+   "why": "删除黑名单未 canonicalize 后比较",
+   "target_scanner": "scan-app.py"
+  },
+  "K-08": {
+   "machine": "todo",
+   "why": "`cmd /c` + 外部输入，shell 解析",
+   "target_scanner": "scan-app.py"
+  },
+  "K-09": {
+   "machine": "todo",
+   "why": "可执行文件来自用户配置任意路径，无白名单",
+   "target_scanner": "scan-app.py"
+  },
+  "K-10": {
+   "machine": "todo",
+   "why": "参数用字符串拼接而非数组",
+   "target_scanner": "scan-app.py"
+  },
+  "K-12": {
+   "machine": "todo",
+   "why": "子进程注册表在进程结束后未 remove",
+   "target_scanner": "scan-app.py"
+  },
+  "K-14": {
+   "machine": "todo",
+   "why": "where / which 起子进程做探测",
+   "target_scanner": "scan-app.py"
+  },
+  "K-15": {
+   "machine": "todo",
+   "why": "按客户端声明的 content-length 直接分配",
+   "target_scanner": "scan-app.py"
+  },
+  "K-16": {
+   "machine": "todo",
+   "why": "TcpStream 无 set_read_timeout / set_write_timeout",
+   "target_scanner": "scan-app.py"
+  },
+  "K-17": {
+   "machine": "todo",
+   "why": "bind(\"0.0.0.0\") 对局域网开放",
+   "target_scanner": "scan-app.py"
+  },
+  "K-25": {
+   "machine": "todo",
+   "why": "命令未在 invoke_handler 注册（死代码）",
+   "target_scanner": "scan-app.py"
+  },
+  "K-27": {
+   "machine": "todo",
+   "why": "两份内容近似但已分叉的重复文件（改了不生效）",
+   "target_scanner": "scan-app.py"
+  },
+  "K-31": {
+   "machine": "todo",
+   "why": "包装函数丢弃 returncode，只看 stdout",
+   "target_scanner": "scan-app.py"
+  },
+  "K-34": {
+   "machine": "todo",
+   "why": "os.stat / File::metadata 用在路径列表上且无兜底",
+   "target_scanner": "scan-app.py"
+  },
+  "C-01": {
+   "machine": "todo",
+   "why": "声明的特性全仓库无引用（孤儿组件 / 死代码）",
+   "target_scanner": "scan-app.py"
+  },
+  "G-01": {
+   "machine": "todo",
+   "why": "frontendDist / files 指向项目根，忽略清单未排除源码",
+   "target_scanner": "scan-app.py"
+  },
+  "G-04": {
+   "machine": "todo",
+   "why": "有 package.json 但缺 lock 文件",
+   "target_scanner": "scan-app.py"
+  },
+  "G-05": {
+   "machine": "todo",
+   "why": "占位资源未替换（com.example.* / 脚手架图标）",
+   "target_scanner": "scan-app.py"
+  },
+  "G-10": {
+   "machine": "todo",
+   "why": "sourcemap / minify 是常量，不随 profile 变化",
+   "target_scanner": "scan-app.py"
+  },
+  "G-12": {
+   "machine": "todo",
+   "why": "构建依赖 latest 标签或未固定的基础镜像",
+   "target_scanner": "scan-app.py"
+  },
+  "B-05": {
+   "machine": "todo",
+   "why": "postMessage(data, '*')，目标 origin 通配",
+   "target_scanner": "scan-ts.py"
+  },
+  "B-10": {
+   "machine": "todo",
+   "why": "按字段存在性判成功而不看状态码（curl -s 不配 -w）",
+   "target_scanner": "scan-ts.py"
+  },
+  "L-15": {
+   "machine": "todo",
+   "why": "Map.set(k,v) 无对应 delete 且 key 来自外部",
+   "target_scanner": "scan-ts.py"
+  },
+  "D-11": {
+   "machine": "todo",
+   "why": "摘除 Map<K,Set<V>> 条目时未先清内部容器",
+   "target_scanner": "scan-ts.py"
+  },
+  "T-05": {
+   "machine": "todo",
+   "why": "首屏兜底用 element.style.xxx = 而非注入 <style>",
+   "target_scanner": "scan-ts.py"
+  },
+  "K-02": {
+   "machine": "manual",
+   "why": "max_bytes == 0 的语义归属，需读业务约定"
+  },
+  "K-04": {
+   "machine": "manual",
+   "why": "是否要求 force + dry-run 是设计约定，非代码特征"
+  },
+  "K-11": {
+   "machine": "manual",
+   "why": "「有注册表 + kill 能力」是架构层判断"
+  },
+  "K-13": {
+   "machine": "manual",
+   "why": "spawn 白名单是否克制，需人工评估"
+  },
+  "K-19": {
+   "machine": "manual",
+   "why": "每连接一线程是否有上限，需读整体并发模型"
+  },
+  "K-20": {
+   "machine": "manual",
+   "why": "状态码与 reason 语义是否匹配，需理解业务"
+  },
+  "K-23": {
+   "machine": "manual",
+   "why": "Result 是否一路传到命令边界，需跨函数跟"
+  },
+  "K-28": {
+   "machine": "manual",
+   "why": "注册表是否在对象销毁时清理，需生命周期分析"
+  },
+  "K-29": {
+   "machine": "manual",
+   "why": "是否在 Builder 前处理自有子命令，需读启动流程"
+  },
+  "K-30": {
+   "machine": "manual",
+   "why": "需知道「版本库索引」在哪，项目强相关"
+  },
+  "K-33": {
+   "machine": "manual",
+   "why": "单样本推断整个环境，需理解探测语义"
+  },
+  "R-01": {
+   "machine": "manual",
+   "why": "需先识别「多个执行流」再判有无同步原语"
+  },
+  "R-04": {
+   "machine": "manual",
+   "why": "跨函数锁序分析，正则做不到"
+  },
+  "R-05": {
+   "machine": "manual",
+   "why": "需判断 check 与 use 之间是否可被改"
+  },
+  "R-06": {
+   "machine": "manual",
+   "why": "需跟超时分支里的 close / rollback"
+  },
+  "R-07": {
+   "machine": "manual",
+   "why": "幂等需运行验证（同请求连发两次）"
+  },
+  "R-08": {
+   "machine": "manual",
+   "why": "需发 SIGTERM 实测收敛"
+  },
+  "R-09": {
+   "machine": "manual",
+   "why": "可观测性需看监控体系，非代码特征"
+  },
+  "B-03": {
+   "machine": "manual",
+   "why": "握手时序需画序列图"
+  },
+  "B-04": {
+   "machine": "manual",
+   "why": "退订按事件名还是订阅 id，需读实现"
+  },
+  "B-07": {
+   "machine": "manual",
+   "why": "什么是「内部细节」需按项目判断"
+  },
+  "B-08": {
+   "machine": "manual",
+   "why": "是否静默错误行为，需对端版本实测"
+  },
+  "B-09": {
+   "machine": "manual",
+   "why": "返回值是否含不可克隆字段，需运行时验证"
+  },
+  "C-02": {
+   "machine": "manual",
+   "why": "两套实现逐项比对，需人工列表"
+  },
+  "C-03": {
+   "machine": "manual",
+   "why": "文档与代码数值比对，需读两边"
+  },
+  "C-04": {
+   "machine": "manual",
+   "why": "文档声称的是否真实现，需按文档路径验证"
+  },
+  "C-07": {
+   "machine": "manual",
+   "why": "模块占比与文档覆盖，需统计判断"
+  },
+  "C-08": {
+   "machine": "manual",
+   "why": "注释与代码是否矛盾，需先确认没读错注释"
+  },
+  "C-10": {
+   "machine": "manual",
+   "why": "清单遗漏需比对 CSS 定义与清单"
+  },
+  "G-02": {
+   "machine": "manual",
+   "why": "该不该动态是设计判断，硬编码本身可能是刻意的"
+  },
+  "G-08": {
+   "machine": "manual",
+   "why": "产物结构需跑一次构建比对"
+  },
+  "G-11": {
+   "machine": "manual",
+   "why": "供应链四问（锁文件/SBOM/漏扫/原生依赖）"
+  },
+  "S-02": {
+   "machine": "manual",
+   "why": "白名单是否含改写自身权限的方法，需枚举导出"
+  },
+  "S-07": {
+   "machine": "manual",
+   "why": "URL 是否该受限，需按用途判断；协议白名单是约定"
+  },
+  "S-08": {
+   "machine": "manual",
+   "why": "密钥素材能否离线复现，需读存储布局"
+  },
+  "S-09": {
+   "machine": "manual",
+   "why": "自报字段是否传到底，需跨模块跟"
+  },
+  "S-10": {
+   "machine": "manual",
+   "why": "哪些字段算 PII，项目强相关"
+  },
+  "S-11": {
+   "machine": "manual",
+   "why": "越权需换资源 id 实测"
+  },
+  "S-12": {
+   "machine": "manual",
+   "why": "密钥轮换能力需看基础设施"
+  },
+  "T-04": {
+   "machine": "manual",
+   "why": "快照是否随状态更新，需看消费方是否绕过"
+  },
+  "T-08": {
+   "machine": "manual",
+   "why": "迁移路径是否存在，需读持久化层"
+  },
+  "T-10": {
+   "machine": "manual",
+   "why": "快照清单缺项需比对实际使用"
+  },
+  "T-11": {
+   "machine": "manual",
+   "why": "基线维度是否够，需理解比对目的"
+  },
+  "T-12": {
+   "machine": "manual",
+   "why": "自污染需连跑两轮实测"
+  },
+  "T-13": {
+   "machine": "manual",
+   "why": "需控制流分析：提前 return 分支是否落盘"
+  },
+  "A-12": {
+   "machine": "manual",
+   "why": "作用范围是否显式限定，需读批量语义"
+  },
+  "A-13": {
+   "machine": "manual",
+   "why": "防覆盖的前提假设，需理解版本模型"
+  },
+  "A-14": {
+   "machine": "manual",
+   "why": "是否「本无风险也拦截」，需按场景判断"
+  },
+  "A-15": {
+   "machine": "manual",
+   "why": "点名粒度与实现粒度是否一致，需读实现"
+  },
+  "A-16": {
+   "machine": "manual",
+   "why": "拦截提示的出路是否有效，需按状态判断"
+  },
+  "A-17": {
+   "machine": "manual",
+   "why": "复用对象的生命周期状态，需读查找逻辑"
+  },
+  "L-07": {
+   "machine": "manual",
+   "why": "需判断该初始化流程是否会重复执行"
+  },
+  "L-14": {
+   "machine": "manual",
+   "why": "销毁后是否被外部持有，需引用分析"
+  }
+ }
+}

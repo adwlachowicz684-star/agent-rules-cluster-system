@@ -565,8 +565,31 @@ def cmd_scan(path, json_out=False):
             return 0.0
         return len(sa & sb) / len(sa | sb)
 
+    # 显式映射优先：registry.json 的 item 字段是 --map 生成的，已按语义确认。
+    # 只有它没有（旧数据 / 未跑过 --map）才回落到 ID+名称推算。
+    reg_map = {}
+    _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       '..', 'rules', 'registry.json')
+    try:
+        _reg = json.load(open(_rp, encoding='utf-8'))
+        for _r in _reg.get('rules', []):
+            if _r.get('item'):
+                reg_map[_r['native_id']] = _r['item']
+                reg_map[_r['rule_id']] = _r['item']
+    except (OSError, ValueError):
+        reg_map = {}
+
     mapped = {}
     for x in ids:
+        # ① 显式映射（native_id 或 rule_id 都可能是扫描器给的形态）
+        if x in reg_map and reg_map[x] in idx:
+            mapped[x] = reg_map[x]
+            continue
+        _nid = reg_map.get('TS-' + x) or reg_map.get('APP-' + x)
+        if _nid and _nid in idx:
+            mapped[x] = _nid
+            continue
+        # ② 回落：ID 归一化 + 名称校验
         cand = by_norm.get(norm_id(x) or '')
         # ID 归一化只是**格式**对齐，不代表语义是同一条：
         # items.json 的 A-xx 是「s-atomicity 场景」编号，
@@ -588,6 +611,8 @@ def cmd_scan(path, json_out=False):
                     best, bs = k, sc
         mapped[x] = best if bs >= 0.45 else ''
     got = [idx[mapped[i]] for i in ids if mapped[i]]
+    # 每条判据对应的「扫描器原始 id」，用于查置信度（eval 挂在规则上）
+    src_of = {mapped[i]: i for i in ids if mapped[i]}
     miss = [i for i in ids if not mapped[i]]
 
     # 置信度：把 registry.json 里实测出来的 precision/recall 带到输出里。
@@ -596,33 +621,45 @@ def cmd_scan(path, json_out=False):
     # 带上之后，读判据的人能立刻知道「这条规则经实测」还是「没验证过」。
     reg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             '..', 'rules', 'registry.json')
+    # 按**扫描器给的 id**（A05 / PY-02）建索引，不是按 item 的 id（N-05）。
+    # eval 挂在规则上，规则与 item 的编号体系不同（这正是撞号根因），
+    # 用 item id 去查会永远查不到，全部显示「未验证」。
     conf = {}
     try:
         with open(reg_path, encoding='utf-8') as fh:
             reg = json.load(fh)
         for r in reg.get('rules', []):
-            n = norm_id(r.get('rule_id', ''))
-            if not n:
-                continue
             ev = r.get('eval') or {}
             p_ = ev.get('precision', 'unverified')
             rc = ev.get('recall', 'unverified')
-            conf[n] = '已实测' if (p_ == 'pass' and rc == 'pass') else '未验证'
+            tag = '已实测' if (p_ == 'pass' and rc == 'pass') else '未验证'
+            for k in (r.get('native_id'), r.get('rule_id')):
+                if k:
+                    conf[str(k)] = tag
+                    _n = norm_id(k)
+                    if _n:
+                        conf[_n] = tag
     except (OSError, ValueError):
         conf = {}
 
     def _conf(rid):
-        return conf.get(norm_id(rid) or '', '未验证')
+        return (conf.get(str(rid))
+                or conf.get(norm_id(rid) or '')
+                or conf.get('TS-' + str(rid))
+                or conf.get('APP-' + str(rid))
+                or '未验证')
 
     if json_out:
         print(json.dumps([{'id': i['id'], 'level': i['level'], 'name': i['name'],
-                           'scene': i['scene'], 'confidence': _conf(i['id'])}
+                           'scene': i['scene'],
+                           'confidence': _conf(src_of.get(i['id'], i['id']))}
                           for i in got],
                          ensure_ascii=False, indent=1))
         return 0
     for i in got:
         print('  %-9s %-3s %-38s %-10s [%s]'
-              % (i['id'], i['level'], i['name'][:38], i['scene'], _conf(i['id'])))
+              % (i['id'], i['level'], i['name'][:38], i['scene'],
+                 _conf(src_of.get(i['id'], i['id']))))
     if miss:
         print('\n扫描器报了但索引里没有（人工判据，需整场景读）：%s' % ' '.join(miss))
     print('\n%d 条可精确定位 · %d tokens（整场景读要 %d）'
@@ -687,10 +724,14 @@ def cmd_self_test():
             sys.stdout, _buf = _buf, sys.stdout
             _buf.flush()
             _out = open(_buf.name, encoding='utf-8').read()
-        chk('A05' in _out and '未索引' not in _out.replace('未索引，', ''),
-            'ID 撞号时不返回无关判据（A05 数值族 ≠ A-05 作弊后门）')
-        chk('可精确定位' in _out and _out.count('A-05') == 0,
-            '撞号条目 A-05 未被误取')
+        # 期望：显式映射生效后取到的是 N-05「位运算把 NaN 静默归零」，
+        # 而不是归一化同号的 A-05「调试/作弊/后门默认启用」。
+        # 断言写成「必须取到 N-05」而不是「不能取到 A-05」——
+        # 后者在映射整体失效（一条都取不到）时也会通过，是假绿。
+        chk('N-05' in _out,
+            'ID 撞号时取到正确判据 N-05（A05 数值族 → s-numerics）')
+        chk('A-05' not in _out,
+            '未误取撞号条目 A-05（调试/作弊/后门默认启用）')
     finally:
         import shutil as _sh
         _sh.rmtree(_tmp, ignore_errors=True)

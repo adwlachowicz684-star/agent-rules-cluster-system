@@ -239,8 +239,12 @@ def rs_unbounded_alloc(src, lines, path):
         if has_pragma(lines, n) or in_test_fn(lines, n):
             continue
         seg = lines[n - 1]
-        # 容量来自字面量常量 → 安全
+        # 有界即安全：字面量常量，或变量上有 .min()/clamp 收口。
+        # 只认字面量是不够的——`Vec::with_capacity(n.min(MAX))` 是最常见的
+        # 有界写法，照样会被报。fixture fp.rs 就是为了盯住这一条。
         if re.search(r"with_capacity\s*\(\s*\d+\s*\)", seg):
+            continue
+        if re.search(r"\.min\s*\(|clamp\s*\(|MAX_|max_bytes|limit", seg, re.I):
             continue
         out.append((n, "Vec::with_capacity 容量来自变量 —— 若来自外部输入可触发 OOM，需设上限"))
     for n in find_line(lines, r"read_to_end\s*\(|read_to_string\s*\("):

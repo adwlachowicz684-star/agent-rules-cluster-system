@@ -856,6 +856,116 @@ def o04(plugin, files):
             hits.append((fn, line, f'return this.{f}; 返回内部引用'))
     return hits
 # ============================================================
+
+# ---------------------------------------------------------------- 缺口补齐批次
+# 以下 4 条来自 rules/gaps.json 里标注为 todo（可机扫但一直没写规则）的判据。
+# 编号沿用判据条目号（B-10 → B10），便于 --map 对上、也便于回查。
+
+
+@pattern('B10', 'P1', '响应成功判定不靠状态码（按字段存在性判成功）',
+         'curl -s 不配 -w；fetch 不查 resp.ok / resp.status')
+def b10(plugin, files):
+    """B-10：用「字段在不在」代替「状态码是多少」判成功。
+
+    两类写法：
+      ① 命令侧：`curl -s ... | jq .sha` —— -s 吞掉 HTTP 错误，
+         管道拿到的可能是错误响应的 body。
+      ② 请求侧：`if ("sha" in resp)` / `if (resp.get("ok"))` ——
+         4xx/5xx 的响应体里恰好没有该字段时会被判成失败，
+         但**有该字段的错误响应**（如部分成功）会被判成成功。
+    """
+    hits = []
+    for fn, src in files.items():
+        # ① curl -s / --silent 且全文没有 -w / --write-out / -f / --fail
+        if re.search(r'curl\s+[^\n]*-{1,2}(?:s|silent)\b', src) and \
+                not re.search(r'-{1,2}(?:w|write-out|f|fail)\b', src):
+            for m in re.finditer(r'curl\s+[^\n]*-{1,2}(?:s|silent)\b', src):
+                line = src[:m.start()].count('\n') + 1
+                hits.append((fn, line, 'curl -s 未配 -w/-f，HTTP 错误被吞'))
+        # ② 按字段存在性判成功
+        for m in re.finditer(r'if\s*\(\s*(?:["\']\w+["\']\s+in\s+\w+|'
+                             r'\w+\s*&&\s*\w+\.\w+\s*(?:!==?|==?)\s*undefined)',
+                             src):
+            line = src[:m.start()].count('\n') + 1
+            ctx = src[max(0, m.start() - 400):m.end() + 400]
+            if re.search(r'\.(?:ok|status|statusCode)\b', ctx):
+                continue
+            hits.append((fn, line, '按字段存在性判成功，未看状态码'))
+    return hits
+
+
+@pattern('L15', 'P1', '缓存 Map 无上限增长（外部 key 且无 delete）',
+         'pending 表 / 进程注册表 / 监听器表只增不减')
+def l15(plugin, files):
+    """L-15：Map.set(k, v) 有写无删，且 key 来自外部（非固定枚举）。
+
+    与 I01 的区别：I01 判「有没有裁剪动作」，本条判「有没有**删除**动作」——
+    `shift()` 有界但 `delete` 缺失时，条目仍会随 key 增长而累积。
+    """
+    hits = []
+    for fn, src in files.items():
+        for m in re.finditer(r'(?:this\.)?(\w+)\s*\.\s*set\s*\(', src):
+            name = m.group(1)
+            if name in ('map', 'set'):
+                continue
+            # 有删除动作 → 有界
+            if re.search(re.escape(name) + r'\s*\.\s*(?:delete|clear)\s*\(', src):
+                continue
+            # 有整体上限裁剪 → 有界
+            if re.search(re.escape(name) + r'\s*\.\s*size\s*[<>]', src):
+                continue
+            line = src[:m.start()].count('\n') + 1
+            hits.append((fn, line, '%s 只 set 不 delete（key 无界则无限增长）' % name))
+    return hits
+
+
+@pattern('T05', 'P2', '首屏兜底用内联样式压过后续动态注入',
+         'element.style.xxx = v 优先级最高，主题系统写 CSS 变量覆盖不住')
+def t05(plugin, files):
+    """T-05：兜底/首屏逻辑直接写内联样式，后续主题系统改 CSS 变量无效。
+
+    只报**首屏/兜底语境**：变量名含 fallback/boot/initial/inline/首屏，
+    或紧邻注释里出现「兜底 / 首屏 / 默认」。普通的一次性样式赋值不算
+    （那种是刻意的，且没有「后续被覆盖」的语义）。
+    """
+    hits = []
+    for fn, src in files.items():
+        for m in re.finditer(r'(\w+)\.style\.([-\w]+)\s*=\s*([^;\n]{1,60})', src):
+            var, prop, val = m.groups()
+            line = src[:m.start()].count('\n') + 1
+            ctx = src[max(0, m.start() - 300):m.end() + 120]
+            if re.search(r'兜底|首屏|初始|default|fallback|boot|inline', ctx, re.I) or \
+                    re.search(r'fallback|boot|initial|inline', var, re.I):
+                hits.append((fn, line, '%s.style.%s 内联赋值压过主题变量' % (var, prop)))
+    return hits
+
+
+@pattern('D11', 'P2', '容器摘除未清内部容器（Map<K, Set<V>> 只删外层）',
+         'map.delete(k) 前未 clear 内部 Set/Map → 条目对象被丢弃但内容仍被引用')
+def d11(plugin, files):
+    """D-11：外层删了，内层没清。
+
+    典型：`this._buckets.delete(k)` 但没有 `this._buckets.get(k)?.clear()`。
+    若内部容器被别处持有（如正在遍历的快照），内容不会随外层删除释放。
+    """
+    hits = []
+    for fn, src in files.items():
+        # 嵌套容器声明：Map<K, Set<V>> / Map<string, Map<...>>
+        nested = set(re.findall(
+            r'(?:private\s+|const\s+|let\s+)(\w+)\s*[:=]\s*[^;\n]*'
+            r'Map\s*<\s*[^<>]+\s*,\s*(?:Set|Map|Array)\s*<', src))
+        for name in nested:
+            if re.search(re.escape(name) + r'\s*\.\s*(?:get|values|entries)\s*\([^)]*\)'
+                         r'\s*\??\.\s*clear\s*\(', src):
+                continue
+            m2 = re.search(re.escape(name) + r'\s*\.\s*delete\s*\(', src)
+            if not m2:
+                continue
+            line = src[:m2.start()].count('\n') + 1
+            hits.append((fn, line, '%s 嵌套容器 delete 前未清内部容器' % name))
+    return hits
+
+
 # 修正区：以下 6 条是 core34 的已知失效实现，后置重新注册以覆盖
 # 装配后按 id 去重（保留最后定义）
 # ============================================================
