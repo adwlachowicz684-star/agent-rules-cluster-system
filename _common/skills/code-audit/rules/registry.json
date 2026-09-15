@@ -2223,6 +2223,16 @@
     "precision": "unverified",
     "recall": "unverified"
    }
+  },
+  {
+   "id": "G09",
+   "name": "导出后零引用（已实现未接线）",
+   "level": "P2",
+   "scanner": "scan-app.py",
+   "kind": "project",
+   "note": "PROJECT_CHECK 类，--sync 不会自动提取，手工维护。P1 条件：名字像机制/防护/订阅（onXxxChange/safe_/check_/fsXxx/canXxx）",
+   "fixture": null,
+   "source": "2026-09-14 nexus-panel：552 导出中 16 个零引用，含 onPluginConfigChange/onPolicyChange（事件发了没人听）、fs 授权 API 4 个、FS_FORBIDDEN"
   }
  ]
 }

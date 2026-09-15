@@ -342,6 +342,72 @@ def _p_dup_import(path, text, st):
     return out
 
 
+def _p_dead_export(joined, root, _unused_all_text=None):
+    """G09 导出后零引用（**全项目**判定，逐文件会大量误报）。
+
+    第一版写成逐文件 → nexus-panel 命中 380 条，全是误报：
+    跨文件引用根本看不到（`defineReactPlugin` 在定义文件内零引用，
+    但被插件消费）。必须项目级判定。
+
+    来源：2026-09-14 nexus-panel。552 个导出中 16 个零引用，最值得警惕的
+    不是普通死代码，而是**本该接线的机制**：
+      - `onPluginConfigChange` / `onPolicyChange`（订阅机制，事件发了没人听）
+      - `fsAllowRoot` / `fsListRoots` / `fsDisallowRoot` / `canFs`（fs 授权 API）
+      - `FS_FORBIDDEN`（禁止删除黑名单的前端副本，且与后端 16 条版本分叉）
+    这类"写好了没接上"的东西**静默**：不报错、不崩溃，测试还可能全绿。
+
+    P1 条件：名字像**机制/防护/订阅**。其余 P2（可能是公开 API 或待补 UI）。
+    """
+    MECH = re.compile(
+        r'^(?:on[A-Z]\w*Change|on[A-Z]\w*|subscribe\w*|unsub\w*|'
+        r'safe_\w*|check_\w*|validate_\w*|guard\w*|fs[A-Z]\w*|can[A-Z]\w*)$')
+    DECL = re.compile(
+        r'export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)')
+    if not root:
+        return out if False else []
+    exts = ('.js', '.ts', '.tsx', '.mjs', '.jsx')
+    exports = {}
+    texts = []
+    for dp, dn, fns in os.walk(root):
+        dn[:] = [d for d in dn if d not in ('node_modules', 'target', '.git',
+                                            'dist', 'build', '.venv')]
+        for f in fns:
+            if not f.endswith(exts) or '.min.' in f:
+                continue
+            p = os.path.join(dp, f)
+            try:
+                if os.path.getsize(p) > 2 * 1024 * 1024:
+                    continue
+                raw = open(p, encoding='utf-8', errors='replace').read()
+            except OSError:
+                continue
+            texts.append((p, raw))
+            for mm in DECL.finditer(raw):
+                nm = mm.group(1)
+                exports.setdefault(nm, []).append((p, raw[:mm.start()].count('\n') + 1))
+    out = []
+    for nm, where in sorted(exports.items()):
+        # 逐文件统计后累加（而非全拼后相减）：全拼的 all_text 不含 test 目录，
+        # 会把"仅被测试引用"的导出误报成死代码 —— 第一版 408 条几乎全是这么来的
+        uses = 0
+        defs_in = {p for p, _ in where}
+        for tp, t in texts:
+            c = len(re.findall(r'\b' + re.escape(nm) + r'\b', t))
+            if tp in defs_in:
+                c -= len(DECL.findall(t)) if False else len(
+                    re.findall(r'export\s+(?:async\s+)?(?:function|const|let|class)\s+'
+                               + re.escape(nm) + r'\b', t))
+            uses += max(0, c)
+        if uses > 0:
+            continue
+        p, ln = where[0]
+        lvl = 'P1' if MECH.match(nm) else 'P2'
+        tag = '（疑似"已实现未接线"）' if lvl == 'P1' else ''
+        out.append(('G09', lvl, '导出后零引用：%s%s' % (nm, tag),
+                    os.path.relpath(p, root), ln))
+    return out
+
+
 FILE_PATTERNS = [
     ('J05', 'P2', '事件解绑引用可能不一致', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j05),
     ('J07', 'P1', '扩展层直连底层 API（隔离后静默失效）', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), _f_j07),
@@ -507,7 +573,7 @@ def _p_multiconf(files_by_ext, root, all_text):
                  % ', '.join(sorted(set(hits))), pkg, 1)]
     return []
 
-PROJECT_CHECKS = [_p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
+PROJECT_CHECKS = [_p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
                   _p_ignore, _p_ci, _p_csp, _p_multiconf]
 
 

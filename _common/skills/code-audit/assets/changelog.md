@@ -49,3 +49,5 @@
 | 2026-09-14 | G07 | 新增（P0） | **失效相对 import**。ES module import 是静态的，找不到模块 → 整个模块图加载失败。来源：nexus-panel `panels.js:19` import 了从未提交的 `preset-icons.js`，mindmap 插件整体白屏而 CI 全绿（smoke-test 未覆盖 + mindmap-test 崩溃退出不产生失败计数）。实现需先剥注释（注释里的 import 文本会误报）。fixture: APP-G07 |
 | 2026-09-14 | G08 | 新增（P2） | 同一模块被 import 两次（具名 + 命名空间）。实测 nexus-panel 6 处：host.js 3 组、agent-flow 2 组、smoke-react 1 组 |
 | 2026-09-14 | 输出层 | **修 bug** | **双重相对化**：输出做 `relpath(f[3], SRC)`，但 PROJECT_CHECKS 返回的已是相对 root 的路径 → 又被相对化一次，路径算成 `../../<cwd>/xxx`。**影响所有项目级检查**（R08/J13/P02/ignore/ci/csp/multiconf）报告的文件位置。改为仅绝对路径才相对化 |
+| 2026-09-14 | G09 | 新增 | **导出后零引用**（"已实现未接线"）。全项目 552 导出中检出 16 个，含 `onPluginConfigChange`/`onPolicyChange`（订阅机制零调用）、fs 授权 API 4 个、`FS_FORBIDDEN`。**P1 条件**：名字像机制/防护/订阅。⚠️ 实现教训：① 逐文件判定 → 380 条误报（跨文件引用看不到）② 改用 all_text → 408 条误报（**all_text 不含 test 目录**，把"仅被测试引用"的误判为死代码）。最终改为自己 os.walk 全扫 + 逐文件 max(0,c) 累加 → 16 条，与手工基准一致 |
+| 2026-09-14 | s-contracts | 新增 H-04/H-05 | H-04 发现一个 bug 后主动搜同源副本（onPluginConfigChange 与 onPolicyChange 同结构同 bug，源报告只报一处）；H-05 安全清单前后端副本分叉（前端 FS_FORBIDDEN 11 条零引用 vs 后端 FORBIDDEN_DELETE 16 条生效） |
