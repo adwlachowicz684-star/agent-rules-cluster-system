@@ -2057,6 +2057,102 @@
    "item_src": "id"
   },
   {
+   "rule_id": "AR-01",
+   "native_id": "AR-01",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "判定与输出 / 副作用耦合（改不动）",
+   "family": "AR",
+   "scene": "s-architecture",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bdbbb417"
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "AR-03",
+   "native_id": "AR-03",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "跨实例 / 跨仓库状态串档（改不动）",
+   "family": "AR",
+   "scene": "s-architecture",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bb18d3a9"
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "AR-04",
+   "native_id": "AR-04",
+   "scanner": "scan-py.py",
+   "level": "P2",
+   "title": "退出码不分类，自动化无法分流",
+   "family": "AR",
+   "scene": "s-architecture",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0548cc72"
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "AR-05",
+   "native_id": "AR-05",
+   "scanner": "scan-py.py",
+   "level": "P1",
+   "title": "测试 harness 焊死实现与输出（债务放大器）",
+   "family": "AR",
+   "scene": "s-architecture",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "11d46ba5"
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "PY-01",
    "native_id": "PY-01",
    "scanner": "scan-py.py",
