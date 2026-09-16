@@ -424,6 +424,29 @@
    "machine": "xref",
    "same_as": "PY-18",
    "why": "已有 scan-py.py 机扫规则（AST：函数体首位非字符串 + 体内另有裸字符串），并配 tp/fp，不算缺口"
+  },
+  "A-30": {
+   "machine": "manual",
+   "why": "需列出判据命中的全部出口并逐个比对变异集，正则做不到"
+  },
+  "PY-19": {
+   "machine": "todo",
+   "why": "readlink().encode() 无 surrogateescape / decode(replace) 写回磁盘",
+   "target_scanner": "scan-py.py"
+  },
+  "H-01": {
+   "machine": "manual",
+   "why": "辅助产物内容敏感度需人工判断；可先用「写 .remote/.base 且无 chmod」做窄召回"
+  },
+  "K-43": {
+   "machine": "todo",
+   "why": "路径列表用 \\n 分隔跨进程传递，而同文件别处已用 -z",
+   "target_scanner": "scan-app.py"
+  },
+  "K-44": {
+   "machine": "todo",
+   "why": "git -c user.name= / --author= 硬编码工具自身身份",
+   "target_scanner": "scan-app.py"
   }
  }
 }

@@ -415,3 +415,28 @@ symlink 用 `os.lstat` 取长度更符合语义（不跟随链接）。
   而 CI 未跑完 / 必需检查未过时 GitHub 返回的正是 `blocked`（或 `unstable`）。
   于是 `_CI_PENDING_HINTS` 与「⏳ 被 CI 状态挡住」那整段输出**从不执行**，
   用户看到「分支不是最新的 → 点 Update branch」，照做完全无效
+
+### K-43 (P2) 路径列表跨进程传递用了会与内容冲突的分隔符
+- **判据**：用 `"\n".join(paths)` / `splitlines()` 把**路径列表**传给子进程或写进管道，
+  而路径本身**允许含换行**（POSIX 文件名只排除 `/` 和 NUL）
+- **确认**：看同文件里有没有别处用了 NUL 分隔（`-z` / `--pathspec-file-nul` / `-print0`）
+  —— 有，则本处是漏网（对两种写法分别 `grep -c` 做差集）
+- **后果**：含换行的路径被拆成两条 → 条目数对不上。
+  若有 `len(out) == len(paths)` 之类的兜底会退回逐个模式（安全但批量优化永不生效）；
+  没有兜底则**贴错结果**（拆行数与失败数恰好抵消时）
+- **实测**（某推送工具）：同文件 `gitignored_set` / `detect_changes` / `local_state_map`
+  三处都用 `-z`，唯独 `local_blob_shas` 用 `"\n".join(rels)` 喂 `--stdin-paths`
+- **修法**：改用 `-z` / `--pathspec-file-nul` / `-print0`；
+  或先过滤掉含换行的路径再批量
+- **降级**：路径来自程序内部常量、不可能含换行 → P3
+
+### K-44 (P2) 工具代用户做提交 / 签名时硬编码自身身份
+- **判据**：`git -c user.name=... -c user.email=...`、`--author=`、`GIT_AUTHOR_*`
+  的值是**工具作者自己的身份**，会写进用户仓库的历史与贡献归属
+- **确认**：`grep -nE "user\.name|--author|GIT_AUTHOR" <file>`，看值是不是硬编码
+- **后果**：用户仓库历史里出现不属于他的提交者；贡献统计被污染；
+  出问题时 `git blame` 指向工具作者而不是使用者
+- **实测**（某推送工具推送后本地补提交）：
+  `git("-c","user.name=yuanbao","-c","user.email=yuanbao@users.noreply.github.com", ...)`
+- **修法**：优先读已有 `git config`；读不到再回退到显式默认值，并**打印一行说明**告知用户
+- **降级**：工具只操作自己的沙盒仓库 → P3
