@@ -1,0 +1,7 @@
+{
+  "name": "demo",
+  "scripts": {
+    "test": "vitest run",
+    "config:check": "node scripts/check-config.js"
+  }
+}

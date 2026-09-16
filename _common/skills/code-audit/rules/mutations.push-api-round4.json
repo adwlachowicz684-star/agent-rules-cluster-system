@@ -1,0 +1,72 @@
+[
+ {
+  "id": "M-C1-01",
+  "rule": "K-42",
+  "expect": "SURVIVED",
+  "desc": "[K-42] 只让语义唯一的 behind 走 mstate 分支，blocked/unstable 下落给 _CI_PENDING_HINTS",
+  "old": "            if s in (\"behind\", \"blocked\", \"unstable\", \"draft\"):\n                # behind  = 分支不够新（重新基于最新主干推一次即可）",
+  "new": "            if s in (\"behind\",):\n                # 只保留语义唯一的 behind；blocked/unstable 下落给细粒度命中表",
+  "target": "push_api.py",
+  "why": "注入修复。当前 ci_pending 分支不可达，测试集里没有覆盖「CI 未跑完」这一成因 → 期望 SURVIVED（真盲区），补测试后应转 KILLED"
+ },
+ {
+  "id": "M-D2-01",
+  "rule": "A-03",
+  "expect": "SURVIVED",
+  "desc": "[A-03/T-01] workflow 取值纳入白名单，非法值不再落 else（直推主干）",
+  "old": "    wf = \"direct\" if opts[\"direct\"] else (state.get(\"workflow\") or DEFAULT_WORKFLOW)",
+  "new": "    wf = \"direct\" if opts[\"direct\"] else (state.get(\"workflow\") or DEFAULT_WORKFLOW)\n    if wf not in (\"pr\", \"direct\"):\n        raise SystemExit(f\"状态文件里的 workflow 值非法：{wf!r}（只接受 pr / direct）\")",
+  "target": "push_api.py",
+  "why": "注入修复。非法值走 else 直推主干这条路径没有任何测试 → 期望 SURVIVED"
+ },
+ {
+  "id": "M-D3-01",
+  "rule": "A-21",
+  "expect": "SURVIVED",
+  "desc": "[A-21] direct 模式下 --branch/--hold/--merge 显式报互斥，不再静默忽略",
+  "old": "    if wf == \"pr\":\n        branch = None",
+  "new": "    if wf != \"pr\" and (opts[\"branch\"] or opts[\"hold\"] or opts[\"merge\"]):\n        raise SystemExit(\"--branch / --hold / --merge 只在 PR 工作流下有效\")\n    if wf == \"pr\":\n        branch = None",
+  "target": "push_api.py",
+  "why": "注入修复。参数被模式开关吞掉的路径无测试覆盖 → 期望 SURVIVED"
+ },
+ {
+  "id": "M-D5-01",
+  "rule": "A-29",
+  "expect": "SURVIVED",
+  "desc": "[A-29] 保护判定从「键存在」改为「取值」，且只拦真正阻止直推的两条",
+  "old": "        KEYS = (\"required_pull_request_reviews\", \"required_status_checks\",\n                \"enforce_admins\", \"restrictions\", \"required_signatures\",\n                \"required_linear_history\", \"allow_force_pushes\",\n                \"allow_deletions\", \"required_conversation_resolution\")\n        if not any(k in prot for k in KEYS):",
+  "new": "        KEYS = (\"required_pull_request_reviews\", \"restrictions\")\n        if not any(prot.get(k) for k in KEYS):",
+  "target": "push_api.py",
+  "why": "注入修复。当前实现恒为真（误杀纯 CI 保护的仓库），无测试守 → 期望 SURVIVED"
+ },
+ {
+  "id": "M-M1-01",
+  "rule": "PY-16",
+  "expect": "SURVIVED",
+  "desc": "[PY-16] 把 prune() 的文档字符串移到函数体首位（原来在 _report_conflict_artifacts() 之后，是死表达式）",
+  "old": "def prune(state, grace_days=MERGED_GRACE_DAYS):\n    _report_conflict_artifacts()\n    \"\"\"分支体检：**只报告，绝不删除**。\n\n    判据用「合并状态 + 活动状态」，不用「N 天没用」——\n    一个开发到一半的 WIP 分支，恰恰就是「开着、没合并、可能好几天没动」，\n    按时间自动删会最先误杀它。\n\n    已合并但分支仍在的，只有超过 grace_days 天才报告：\n    正常流程合并完立刻就删了，刚合并还没删的多半是流程还在跑，\n    立刻报告会让两个人互相反复刷同一条。\n    \"\"\"",
+  "new": "def prune(state, grace_days=MERGED_GRACE_DAYS):\n    \"\"\"分支体检：**只报告，绝不删除**。\n\n    判据用「合并状态 + 活动状态」，不用「N 天没用」——\n    一个开发到一半的 WIP 分支，恰恰就是「开着、没合并、可能好几天没动」，\n    按时间自动删会最先误杀它。\n\n    已合并但分支仍在的，只有超过 grace_days 天才报告：\n    正常流程合并完立刻就删了，刚合并还没删的多半是流程还在跑，\n    立刻报告会让两个人互相反复刷同一条。\n    \"\"\"\n    _report_conflict_artifacts()",
+  "target": "push_api.py",
+  "why": "注入修复。help(prune) 从 None 变成有内容，但没有任何测试断言 __doc__ → 期望 SURVIVED"
+ },
+ {
+  "id": "M-C3-01",
+  "rule": "C-14",
+  "expect": "SURVIVED",
+  "desc": "[C-14/A-15] 确认提示覆盖实际执行的全部写操作（推送 + 自动合并进主干）",
+  "old": "            ans = safe_input(f\"\\n推送到 {OWNER}/{REPO}@{target_ref}？(y/N) \").strip().lower()",
+  "new": "            ans = safe_input(f\"\\n推送到 {OWNER}/{REPO}@{target_ref} 并自动合并进 {BRANCH}？(y/N) \").strip().lower()",
+  "target": "push_api.py",
+  "why": "注入修复。确认粒度与实际执行粒度不一致，无测试守 → 期望 SURVIVED"
+ },
+ {
+  "id": "M-D1-01",
+  "rule": "A-25",
+  "expect": "SURVIVED",
+  "desc": "[A-25] 给 workflow 加显式切换入口（需配合 parse_args 增加 --workflow pr|direct）",
+  "old": "    if opts[\"direct\"] and state.get(\"workflow\") != \"direct\":",
+  "new": "    if opts.get(\"workflow\") in (\"pr\", \"direct\"):\n        state[\"workflow\"] = opts[\"workflow\"]\n        save_state(state)\n    if opts[\"direct\"] and state.get(\"workflow\") != \"direct\":",
+  "target": "push_api.py",
+  "why": "注入修复的一半（开关入口）；parse_args 需同步加 --workflow 才完整。无测试守 → 期望 SURVIVED"
+ }
+]
