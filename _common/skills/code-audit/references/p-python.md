@@ -339,3 +339,29 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 - **实测**：某推送工具 `prune(state, grace_days=...)` 的 `def` 之后第一行是
   `_report_conflict_artifacts()`，其后 10 行三引号文本全部是死表达式 →
   `help(prune)` 取不到「只报告不删除」这条最重要的约定
+
+### PY-19 (P1) 非 subprocess 出口的路径编解码不对称
+- **判据**：路径 / symlink 目标在**读写往返**时编解码方向未配对：
+  - 编码侧：`os.readlink(x).encode()` 未带 `surrogateescape`
+  - 解码侧：`data.decode("utf-8", "replace")` 把非法字节**永久**换成 U+FFFD
+- **与 PY-15 的分界**：PY-15 是 `subprocess.run(input=...)` 的 `errors=` 参数问题；
+  本条**不涉及 subprocess**，是 `os.readlink` / `open` / 落盘往返上的编解码。
+  PY-15 的确认手法（找 `text=True` + `input=`）**抓不到本条**
+  → 这正是「修了 PY-15 那一处、同族其余 3 处仍在」的直接原因
+- **确认**：
+  ```bash
+  grep -nE "readlink\([^)]*\)\.encode\(\s*\)" <file>
+  grep -nE "decode\(\s*["']utf-8["']\s*,\s*["']replace" <file>
+  ```
+  再问：**同一个对象（如 symlink 目标）有几处读写？是否全部配对？**
+- **三种后果，严重度递增**：
+  ① 编码侧崩 `UnicodeEncodeError`（在主路径上就是硬崩溃）
+  ② 解码侧静默损坏 → 写回后 **sha 与远端永久不等** → 永久误报「远端被改动」
+  ③ ②与「归一化做在写入侧」同症状：把用户推向 `--force-overwrite` / `--reset-baseline`
+- **实测**（symlink 目标 `b"bad\xff\xfetarget"`）：
+  `local_blob_sha`（已修）OK；`_local_bytes` 与建 blob 处实测崩
+  `UnicodeEncodeError`；`_write_local` 把字节写成 `b"bad\xef\xbf\xbd\xef\xbf\xbdtarget"`，
+  与原始不一致
+- **修法**：编码 `.encode("utf-8","surrogateescape")`、解码 `.decode("utf-8","surrogateescape")`；
+  需要展示给用户时再单独 `replace`，**不要把展示用的解码结果写回磁盘**
+- **降级**：仅用于打印 / 日志的解码 → 不报
