@@ -203,31 +203,44 @@ def strip_comments(src: str) -> str:
     return ''.join(out)
 
 
-def find_method_body(lines: list, start: int) -> tuple[int, int]:
-    """给定方法定义行，返回方法体的 (起始行, 结束行)（0-based，含）。
+def find_method_body(lines: list, start: int) -> tuple[int, int, str | None]:
+    """给定方法定义行，返回 (起始行, 结束行, 单行体文本)。
 
     按缩进判断：cocos 组件方法通常 4 空格缩进，方法体 >= 8 空格。
     结束于下一个仅 4 空格缩进的 `}`。
 
-    额外处理**单行空实现** `onDestroy() {}`：这种写法方法体为空，
-    原实现从 start+1 开始取，会把下一个方法的内容当成它的 body，
-    于是「空 onDestroy」永远检不出——而 `onDestroy() {}` 恰恰是最常见的空写法。
+    第三个返回值：单行写法时返回 `{` 与 `}` 之间的内容（可能为 ''）；
+    多行写法返回 None，此时调用方用 lines[b_start:b_end]。
+
+    必须处理**单行写法**，且不只是空实现：
+      `onDestroy() {}`                 ← 单行空（最常见的空写法）
+      `onEnable() { input.on(...); }`  ← 单行有内容
+    原实现只认空实现，遇到单行有内容的会把**后续所有方法**当成它的 body —
+    实测 `onEnable(){...}` / `onDisable(){}` / `onDestroy(){...}` 连写时，
+    onEnable 的 body 一路吞到类末尾，作用域判定全错。
     """
     head = lines[start]
-    # 同一行就闭合：onDestroy() {} / onDestroy() { /* 空 */ }
-    tail = head[head.find('(', head.find(')') if '(' in head else 0):]
-    if re.search(r"\)\s*\{\s*\}", head) or re.match(r"^\s*\w+\s*\([^)]*\)\s*\{\s*\}", head):
-        return start + 1, start + 1          # 空 body
+    stripped = head.rstrip()
+    # 单行写法：同一行内既有 { 又有 }，且 } 在 { 之后
+    o, c = stripped.rfind('{'), stripped.rfind('}')
+    if o >= 0 and c > o:
+        return start, start, stripped[o + 1:c].strip()
     i = start + 1
     while i < len(lines):
         if re.match(r"^\s{0,4}\}\s*$", lines[i]):
-            return start + 1, i
+            return start + 1, i, None
         i += 1
-    return start + 1, len(lines)
+    return start + 1, len(lines), None
 
 
-def method_spans(lines: list) -> list[tuple[str, int, int]]:
-    """提取类里所有方法的 (名字, 起始行, 结束行)。用于按作用域判定清理。"""
+def body_text(lines: list, span) -> str:
+    """取方法体文本。span = (name, b_start, b_end, inline)。"""
+    _, s, e, inline = span
+    return inline if inline is not None else "\n".join(lines[s:e])
+
+
+def method_spans(lines: list) -> list[tuple[str, int, int, str | None]]:
+    """提取类里所有方法的 (名字, 起始行, 结束行, 单行体)。用于按作用域判定清理。"""
     spans = []
     for i, l in enumerate(lines):
         m = re.match(r"^\s{1,8}(?:public\s+|private\s+|protected\s+)?"
@@ -235,8 +248,8 @@ def method_spans(lines: list) -> list[tuple[str, int, int]]:
                      r"|[a-zA-Z_]\w*)\s*\(", l)
         if not m:
             continue
-        b_start, b_end = find_method_body(lines, i)
-        spans.append((m.group(1).lower(), b_start, b_end))
+        b_start, b_end, inline = find_method_body(lines, i)
+        spans.append((m.group(1).lower(), b_start, b_end, inline))
     return spans
 
 
@@ -273,8 +286,12 @@ def scan_file(path: Path, rel: str) -> list[dict]:
                        "level": level, "rule": rule, "msg": msg})
 
     def method_of(idx: int) -> str:
-        for name, s, e in spans:
-            if s <= idx < e:
+        """判断某行落在哪个方法体内。单行写法的方法，body 就是它自己那一行。"""
+        for name, s, e, inline in spans:
+            if inline is not None:
+                if s <= idx <= e:
+                    return name
+            elif s <= idx < e:
                 return name
         return ""
 
@@ -295,22 +312,34 @@ def scan_file(path: Path, rel: str) -> list[dict]:
         hits = [(i, l) for i, l in enumerate(lines) if re.search(reg, l)]
         if not hits:
             continue
-        cleaned = False
-        for name, s, e in spans:
-            if name not in CLEANUP_METHODS:
-                continue
-            if re.search(cleanup, "\n".join(lines[s:e])):
-                cleaned = True
-                break
-        if cleaned:
-            continue
         for i, l in hits:
             # 匿名回调已单独立为 P1（"无法 off"），此处不重复报 P0
             if i in anon_lines:
                 continue
             where = method_of(i)
+            # 注册点的**位置**决定清理点必须在哪。
+            #
+            # onEnable 里注册的（全局/输入监听）必须由 onDisable 清理：
+            # 只在 onDestroy 里 off 的话，节点 setActive(false) 期间监听仍然
+            # 生效——隐藏的节点继续被事件驱动。这是 p-cocos.md「已知坑」里
+            # 明写的一条，但原实现把 onDestroy/onDisable 一视同仁，
+            # 「onEnable 注册 + onDisable 空 + onDestroy 有 off」完全不报。
+            #
+            # 注意这与「引擎是否对重复注册去重」无关：即便去重，
+            # 禁用期间监听仍在生效本身就是缺陷。
+            need = ("ondisable",) if where == "onenable" else CLEANUP_METHODS
+            cleaned = any(name in need and re.search(cleanup, body_text(lines, sp))
+                          for sp in spans
+                          for name in (sp[0],))
+            if cleaned:
+                continue
             tail = f"（在 {where}() 内注册）" if where else ""
-            add(i, level, "成对缺失", f"{desc}（第 {i+1} 行{tail}）")
+            if where == "onenable":
+                desc2 = (f"onEnable 注册的监听未在 onDisable 注销 —— "
+                         f"节点禁用期间监听仍生效，需配 onDisable")
+            else:
+                desc2 = desc
+            add(i, level, "成对缺失", f"{desc2}（第 {i+1} 行{tail}）")
 
     # 2) 资源加载未释放
     loads = []
@@ -318,10 +347,10 @@ def scan_file(path: Path, rel: str) -> list[dict]:
         loads += [(i, l) for i, l in enumerate(lines) if re.search(pat, l)]
     if loads:
         released = False
-        for name, s, e in spans:
-            if name not in CLEANUP_METHODS:
+        for sp in spans:
+            if sp[0] not in CLEANUP_METHODS:
                 continue
-            if any(re.search(p, "\n".join(lines[s:e])) for p in RELEASE_PAT):
+            if any(re.search(p, body_text(lines, sp)) for p in RELEASE_PAT):
                 released = True
                 break
         if not released:
@@ -332,9 +361,15 @@ def scan_file(path: Path, rel: str) -> list[dict]:
     # 3) update 方法体内的禁令
     for i, l in enumerate(lines):
         if re.match(r"^\s+(public\s+|private\s+|protected\s+)?update\s*\(", l):
-            b_start, b_end = find_method_body(lines, i)
+            b_start, b_end, inline = find_method_body(lines, i)
+            scan_lines = [i] if inline is not None else range(b_start, b_end)
+            scan_text = inline if inline is not None else None
             for pat, msg, level in UPDATE_BAN:
-                for j in range(b_start, b_end):
+                if scan_text is not None:
+                    if re.search(pat, scan_text):
+                        add(i, level, "update 性能", msg)
+                    continue
+                for j in scan_lines:
                     if re.search(pat, lines[j]):
                         add(j, level, "update 性能", msg)
                         break   # 同一规则在同一 update 内只报一次
@@ -342,8 +377,8 @@ def scan_file(path: Path, rel: str) -> list[dict]:
     # 3.5) Tween repeatForever 未 stop（官方：切场景后驻留内存）
     if re.search(TWEEN_FOREVER, text):
         stopped = any(
-            any(re.search(p, "\n".join(lines[s:e])) for p in TWEEN_STOP)
-            for name, s, e in spans if name in CLEANUP_METHODS
+            any(re.search(p, body_text(lines, sp)) for p in TWEEN_STOP)
+            for sp in spans if sp[0] in CLEANUP_METHODS
         )
         if not stopped:
             for i, l in enumerate(lines):
@@ -387,8 +422,9 @@ def scan_file(path: Path, rel: str) -> list[dict]:
     # 5) 空 onDestroy（有资源/监听却没清理）
     for i, l in enumerate(lines):
         if re.match(r"^\s+onDestroy\s*\(", l):
-            b_start, b_end = find_method_body(lines, i)
-            body = "\n".join(lines[b_start:b_end]).strip()
+            b_start, b_end, inline = find_method_body(lines, i)
+            body = (inline if inline is not None
+                    else "\n".join(lines[b_start:b_end])).strip()
             if not body or body in ("{",):
                 add(i, "P1", "空清理",
                     "onDestroy 为空 —— 确认是否真无需清理（监听/定时器/资源）")
@@ -480,6 +516,30 @@ export class U extends Component {
 }
 """
 
+# onEnable 注册 + onDisable 空 + onDestroy 有 off
+# → 节点禁用期间监听仍生效，必须报（原实现不报）
+SELF_ENABLE = """import { _decorator, Component, input, Input } from 'cc';
+const { ccclass } = _decorator;
+@ccclass('En')
+export class En extends Component {
+    onEnable() { input.on(Input.EventType.TOUCH_MOVE, this.onMove, this); }
+    onDisable() {}
+    onDestroy() { input.off(Input.EventType.TOUCH_MOVE, this.onMove, this); }
+    private onMove() {}
+}
+"""
+
+# 同一个类里 onEnable/onDisable 正确配对 → 不该报
+SELF_ENABLE_OK = """import { _decorator, Component, input, Input } from 'cc';
+const { ccclass } = _decorator;
+@ccclass('EnOk')
+export class EnOk extends Component {
+    onEnable() { input.on(Input.EventType.TOUCH_MOVE, this.onMove, this); }
+    onDisable() { input.off(Input.EventType.TOUCH_MOVE, this.onMove, this); }
+    private onMove() {}
+}
+"""
+
 
 def self_test() -> int:
     tmp = tempfile.mkdtemp(prefix='cocos-audit-self-')
@@ -489,6 +549,8 @@ def self_test() -> int:
             'clean.ts': SELF_CLEAN,
             'fake.ts': SELF_FALSE_CLEANUP,
             'url.ts': SELF_URL,
+            'en.ts': SELF_ENABLE,
+            'enok.ts': SELF_ENABLE_OK,
         }
         res = {}
         for name, src in cases.items():
@@ -544,6 +606,14 @@ def self_test() -> int:
         # 6) 注释里的示例代码不得被当成真实注册
         check(all('fake' not in i['msg'] for i in res['leak.ts']),
               '块注释里的示例代码未被计入')
+
+        # 7) onEnable 注册必须配 onDisable（只在 onDestroy off 不算）
+        check('成对缺失' in rules('en.ts'),
+              'en.ts 报 成对缺失（onEnable 注册 + onDisable 空 + onDestroy 有 off）')
+        check(any('onEnable' in i['msg'] for i in res['en.ts']),
+              'en.ts 的报文明示是 onEnable/onDisable 不配对')
+        check(not [i for i in res['enok.ts'] if i['level'] == 'P0'],
+              'enok.ts 无 P0（onEnable/onDisable 正确配对不误报）')
 
         print('\n自检：%d 通过 / %d 失败' % (ok, len(fail)))
         if fail:

@@ -44,6 +44,10 @@ python3 scripts/cocos-audit.py --self-test                # 改规则后必跑
 必须出现在 `onDestroy` 或 `onDisable` 方法体内才算已清理。写在别的方法里
 （哪怕同一个文件）不算——这是「成对」的本意，注册与注销要跨同一个生命周期。
 
+**注册在 `onEnable` 里的，只能由 `onDisable` 清理**：只在 `onDestroy` 里 `off()`
+不算配对。节点 `setActive(false)` 后监听仍然生效，隐藏的节点继续被事件驱动。
+这与引擎是否对重复注册去重无关——即便去重，禁用期间监听仍在生效本身就是缺陷。
+
 **级别定义**：
 
 | 级别 | 含义 | 典型项 |
@@ -318,6 +322,8 @@ rg -n -B3 -A8 "\.on\(|schedule\(|repeatForever" <文件>
 | `Mask` 只在**挂载处**判 | 只在 `addComponent/getComponent(Mask)` 时报；import 类型不报 | 场景里手挂的 Mask 扫不到，看 `.prefab` |
 | 闭包/循环引用/全局单例 | 完全扫不出 | 必须人工第 2、3 步 |
 | `once()` 不报 | 一次性的确实不需要 off | 正确行为，不用管 |
+| **单行方法体** | `onDestroy() { this.x(); }` 这类单行写法曾导致后续方法被吞并 | 已修（按行内花括号判定），但极端嵌套仍可能误判 |
+| 引擎专项**不在 registry** | cocos 的结果没有 CWE / fix / SARIF，也不参与全库统计 | 需要时另做打通，见 `engine-template.md` |
 
 ⚠ 早期版本用「全文搜一次 `off(` 就算已清理」，实测一个文件里 3 处 `on()`
 全没清理、只要别处出现过一次 `off()` 就全部不报——**报告说没问题，实际有泄漏**。

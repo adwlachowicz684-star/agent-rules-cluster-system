@@ -64,6 +64,29 @@ jobs:
             python3 "scripts/$s" --self-test
           done < /tmp/scanners.txt
 
+      - name: 引擎专项扫描器自检
+        working-directory: _common/skills/code-audit
+        run: |
+          # 上一步的 `ls scripts/scan-*.py` 只匹配 scan- 前缀，
+          # 匹配不到 cocos-audit.py —— 引擎专项扫描器的 --self-test
+          # 一条都不会跑，流水线照样绿。这与上面注释里记录的 scan-rust 事故
+          # 是同一个失效模式，只是换了个文件名前缀。
+          #
+          # 不放进上一步的清单是因为那条链路与 registry 交叉断言绑定：
+          # 引擎专项规则目前不在 registry 里（extract() 不认它的规则结构），
+          # 加进去会让差集断言直接红。引擎专项与 registry 的打通另做。
+          ls scripts/*-audit.py 2>/dev/null | xargs -n1 basename 2>/dev/null > /tmp/engine_scanners.txt
+          if [ ! -s /tmp/engine_scanners.txt ]; then
+            echo "无引擎专项扫描器，跳过"
+            exit 0
+          fi
+          echo "引擎专项扫描器："; cat /tmp/engine_scanners.txt
+          while read -r s; do
+            [ -z "$s" ] && continue
+            echo "── $s"
+            python3 "scripts/$s" --self-test
+          done < /tmp/engine_scanners.txt
+
       - name: skill 结构检查
         working-directory: _common/skills/code-audit
         run: python3 scripts/check-skill.py

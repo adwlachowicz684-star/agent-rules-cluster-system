@@ -260,3 +260,6 @@
 | 2026-09-16 | cocos-audit.py | 新增 | ⑥ 补 --self-test（10 项）：其余 7 个扫描器都有，cocos 是唯一没有的，改规则后无从判断改好改坏 |
 | 2026-09-16 | engine-template.md | 新增 | 引擎专项骨架 16 节 + Cocos↔Godot 对照（生命周期/泄漏源/性能/迁移）+ 补新引擎要改哪些文件。供后续补 p-godot 套用 |
 | 2026-09-16 | p-cocos.md | 补充 | 新增「扫描器的已知局限」节（第 13 节）：审查工具自身的漏报会以『结论』形式出现，原骨架缺这一节 |
+| 2026-09-16 | cocos-audit.py | 修正 | ⑦ onEnable 注册的监听只认 onDisable 清理：原实现把 onDestroy/onDisable 一视同仁，『onEnable注册+onDisable空+onDestroy有off』完全不报——节点禁用期间监听仍生效 |
+| 2026-09-16 | cocos-audit.py | 修正 | ⑧ 单行**带内容**方法体解析错误：只认 onDestroy(){} 空实现，遇到 onEnable(){...} 单行有内容的会把后续所有方法吞进 body，作用域判定全错 |
+| 2026-09-16 | self-audit.yml | 新增 | 引擎专项扫描器自检步骤：ls scripts/scan-*.py 匹配不到 cocos-audit.py，其 --self-test 一条都不跑——与 scan-rust 事故同一失效模式，只换了文件名前缀 |
