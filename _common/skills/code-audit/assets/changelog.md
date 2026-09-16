@@ -252,3 +252,11 @@
 | 2026-09-16 | G11 | 补充 | 补进 rule-registry.py 的 extra（由新增的交叉验证查出漏登记） |
 | 2026-09-16 | common-maintenance.md | 修正 | 「现有 52 条」改为不写死（实际 156 条且会持续增长）；保留远端的 oversize-exempt，撤回之前的拆分方案（拆出来的是子集，两份维护反而易失同步） |
 | 2026-09-16 | SKILL.md | 修正 | 「114 条模式」改为指向 --check 输出，规则数会持续增长，写死必然再次漂移 |
+| 2026-09-16 | cocos-audit.py | 修正 | ① 全文搜一次 off 就算已清理 → 3 处未清理的 on 全部漏报（报告说没问题实际有泄漏），改为按 onDestroy/onDisable 作用域判定 |
+| 2026-09-16 | cocos-audit.py | 修正 | ② strip_comments 删块注释不补换行 → 行号前移（实测真实 L12 报 L7），改为行数+列位守恒；并识别字符串，否则 'http://x'; node.on() 会被当注释吞掉 |
+| 2026-09-16 | cocos-audit.py | 修正 | ③ onDestroy(){} 单行空实现漏报（多行能报单行不能），find_method_body 补单行闭合判定 |
+| 2026-09-16 | cocos-audit.py | 修正 | ④ EXCLUDE_DIRS 里的 assets/scripts/editor 永不成真（p.parts 是分段，不会等于含斜杠的三段）→ 编辑器插件一直被扫进来，改按相对路径子串匹配 |
+| 2026-09-16 | cocos-audit.py | 修正 | ⑤ DrawCall 规则用裸词 Mask → import 类型 / _isMasked / maskLayer 全误报，改为只在 addComponent/getComponent(Mask) 处判 |
+| 2026-09-16 | cocos-audit.py | 新增 | ⑥ 补 --self-test（10 项）：其余 7 个扫描器都有，cocos 是唯一没有的，改规则后无从判断改好改坏 |
+| 2026-09-16 | engine-template.md | 新增 | 引擎专项骨架 16 节 + Cocos↔Godot 对照（生命周期/泄漏源/性能/迁移）+ 补新引擎要改哪些文件。供后续补 p-godot 套用 |
+| 2026-09-16 | p-cocos.md | 补充 | 新增「扫描器的已知局限」节（第 13 节）：审查工具自身的漏报会以『结论』形式出现，原骨架缺这一节 |

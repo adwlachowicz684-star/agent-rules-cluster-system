@@ -4,6 +4,9 @@
 通用缺陷按场景分见 `s-numerics.md`（数值边界）、`s-structures.md`（数据结构）、`s-lifecycle.md`（成对配对 / 热路径）、`s-contracts.md`（死契约）。
 本文件只写**引擎特有**的规则——换个引擎不成立的部分。
 
+> **本文件是「引擎专项」文档的标准范式。** 要补其他引擎（Godot / Unity / Laya 等）
+> 时照此结构写，见 `references/engine-template.md`（骨架 + Cocos↔Godot 对照）。
+
 ## 适用场景
 
 **适用**：Cocos Creator 2.x / 3.x 的 TypeScript 脚本。
@@ -30,11 +33,16 @@ python3 scripts/cocos-audit.py <路径> --level P0          # 只看阻塞级（
 python3 scripts/cocos-audit.py <路径> --rule memory       # 只看内存类
 python3 scripts/cocos-audit.py <路径> --rules             # 查看规则分组
 python3 scripts/cocos-audit.py <路径> --json              # 机器可读
+python3 scripts/cocos-audit.py --self-test                # 改规则后必跑
 ```
 
 **规则分组**：`memory`（内存）· `perf`（性能）· `migration`（2.x 遗留）· `physics`（物理）
 
 **退出码**：有 P0 返回 1（可直接接 CI），否则 0。
+
+**清理是否算数，看的是位置不是存在**：`off()` / `unschedule()` / `decRef()`
+必须出现在 `onDestroy` 或 `onDisable` 方法体内才算已清理。写在别的方法里
+（哪怕同一个文件）不算——这是「成对」的本意，注册与注销要跨同一个生命周期。
 
 **级别定义**：
 
@@ -298,6 +306,22 @@ rg -n -B3 -A8 "\.on\(|schedule\(|repeatForever" <文件>
 
 **为什么拆三个包**：内存看引用链，性能看帧耗时，包体看构建产物——排查方法完全不同，
 塞一起会导致每次都加载全部内容。
+
+## 扫描器的已知局限
+
+改规则前先看这几条，别把扫描器的输出当成定论：
+
+| 局限 | 表现 | 处理 |
+|---|---|---|
+| 只认**成对方法** | 清理写在非 `onDestroy`/`onDisable` 里 → 仍会报 | 是真的该报（生命周期不对称），不是误报 |
+| 无法跟踪**跨文件** | A 组件注册、B 组件清理 → 两边都报 | 人工确认，标"待确认" |
+| `Mask` 只在**挂载处**判 | 只在 `addComponent/getComponent(Mask)` 时报；import 类型不报 | 场景里手挂的 Mask 扫不到，看 `.prefab` |
+| 闭包/循环引用/全局单例 | 完全扫不出 | 必须人工第 2、3 步 |
+| `once()` 不报 | 一次性的确实不需要 off | 正确行为，不用管 |
+
+⚠ 早期版本用「全文搜一次 `off(` 就算已清理」，实测一个文件里 3 处 `on()`
+全没清理、只要别处出现过一次 `off()` 就全部不报——**报告说没问题，实际有泄漏**。
+已改为按作用域判定，但如果你看到老报告的结论，别直接采信。
 
 ## 已知坑
 
