@@ -187,7 +187,12 @@ def extract():
              'P03': ('P2', '有校验脚本但无 CI', 's-build'),
              'P04': ('P0', '多入口但安全策略只覆盖其一', 's-sandbox'),
              'P05': ('P1', '多份构建配置合并关系存疑', 's-build'),
-             'R08': ('P2', '未被 mod 声明的孤儿 .rs 文件', 's-contracts')}
+             'R08': ('P2', '未被 mod 声明的孤儿 .rs 文件', 's-contracts'),
+             'G04': ('P1', '有依赖声明但缺 lock 文件', 's-build'),
+             'G05': ('P1', '占位资源未替换（脚手架默认值发布）', 's-build'),
+             'G11': ('P1', '测试 import 扩展名写法与同目录不一致', 's-build'),
+             'G13': ('P2', 'sourcemap / minify 不随 profile 变化', 's-build'),
+             'G12': ('P1', '基础镜像用 latest 或无标签', 's-build')}
     for k, (lvl, title, scene) in extra.items():
         if k not in aseen:
             out.append({'rule_id': 'APP-%s' % k, 'native_id': k, 'scanner': 'scan-app.py',
@@ -355,6 +360,33 @@ def check_dup_definitions():
     return out
 
 
+
+def project_check_ids():
+    """从 scan-app.py 的 PROJECT_CHECKS 函数 docstring 里取规则 ID。
+
+    为什么需要：项目级检查是**函数**，ID 写在 docstring 首行
+    （约定形如 G04 开头的一行短描述），extract() 的正则提取不到，
+    只能靠 extra 手工登记。登记表散在两处，靠这个函数把
+    「代码里的真实集合」拉出来做交叉验证。
+
+    取不到就返回空集——宁可不报，也不要因为解析失败刷一堆假告警。
+    """
+    path = os.path.join(HERE, 'scan-app.py')
+    if not os.path.isfile(path):
+        return set()
+    try:
+        src = open(path, encoding='utf-8').read()
+    except OSError:
+        return set()
+    ids = set()
+    # 只在 PROJECT_CHECKS 列表**之前**的函数定义里找，避免误抓别处的 docstring
+    head = src.split('PROJECT_CHECKS')[0]
+    for m in re.finditer(r'^def\s+(_\w+)\([^)]*\):\s*\n\s*"""([A-Z]\d{2})\b',
+                         head, re.M):
+        ids.add(m.group(2))
+    return ids
+
+
 def cmd_check():
     reg = load()
     if reg is None:
@@ -380,6 +412,19 @@ def cmd_check():
     # 重复定义：改前面的不生效，且没有任何报错
     for msg in check_dup_definitions():
         warns.append(msg)
+
+    # 项目级规则漏登记：PROJECT_CHECKS 是函数，extract() 提取不到，
+    # 只能靠 extra 手工登记。加规则时改了 scan-app.py 却忘了改这里，
+    # 规则会「能跑、能报、但不在注册表里」——fixture 覆盖率、CWE、
+    # SARIF 导出全都看不到它，且不报任何错。
+    #
+    # 比 native_id 而非 rule_id：docstring 里是裸 ID（R08），
+    # 注册表里 rule_id 带 APP- 前缀（APP-R08）。比错了会全部误报成「未登记」。
+    reg_native = {r.get('native_id') for r in reg['rules']
+                  if r.get('scanner') == 'scan-app.py'}
+    for rid in sorted(project_check_ids() - reg_native):
+        warns.append('%s 在 scan-app.py 的 PROJECT_CHECKS 里，但注册表没有'
+                     ' → 补 rule-registry.py 的 extra 后跑 --sync' % rid)
 
     # 判据映射覆盖率：没映射的规则在 item-index 里取不到人工判据。
     # 「未映射」与「确认无对应」是两回事（item=null vs 缺字段），

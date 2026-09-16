@@ -116,7 +116,10 @@ def main():
         sys.exit(1)
 
     content = open(skill_md, encoding='utf-8').read()
-    lines = content.split('\n')
+    # 用 splitlines() 而非 split('\n')：后者对以换行结尾的文件会多出一个
+    # 末尾空串，行数**恒虚高 1**——上限 200 实际只让写 199 行，
+    # 且 `wc -l` 报 200 而本脚本报 201，看起来像误报。
+    lines = content.splitlines()
     name = desc = None
 
     if content.startswith('---'):
@@ -316,7 +319,8 @@ def main():
             if not f.endswith('.md'):
                 continue
             txt = open(os.path.join(refdir, f), encoding='utf-8').read()
-            n, t = len(txt.split('\n')), token_estimate(txt)
+            # 同 main() 里的 splitlines()：split('\n') 会虚高 1 行
+            n, t = len(txt.splitlines()), token_estimate(txt)
             em = re.search(r'<!--\s*oversize-exempt\s*:\s*([^-]*)-->', txt[:300])
             if n > MAX_REF_LINES:
                 if em:
@@ -335,7 +339,7 @@ def main():
             if f.startswith('.') or f == '__pycache__':
                 continue
             try:
-                n = len(open(os.path.join(sdir, f), encoding='utf-8').read().split('\n'))
+                n = len(open(os.path.join(sdir, f), encoding='utf-8').read().splitlines())
             except Exception:
                 continue
             if n > MAX_SCRIPT_LINES:

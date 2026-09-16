@@ -693,8 +693,115 @@ def _p_multiconf(files_by_ext, root, all_text):
                  % ', '.join(sorted(set(hits))), pkg, 1)]
     return []
 
+def _p_no_lockfile(files_by_ext, root, all_text):
+    """G04 有依赖声明但缺 lock 文件（版本不可复现）"""
+    out = []
+    for decl, locks in (
+            ('package.json', ('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+                              'pnpm-lock.yml', 'bun.lockb')),
+            ('Cargo.toml', ('Cargo.lock',)),
+            ('requirements.txt', ('requirements.lock', 'poetry.lock', 'Pipfile.lock')),
+            ('go.mod', ('go.sum',))):
+        fp = os.path.join(root, decl)
+        if not os.path.isfile(fp):
+            continue
+        if any(os.path.isfile(os.path.join(root, l)) for l in locks):
+            continue
+        out.append(('G04', 'P1', '有 %s 但无 lock 文件（%s）——依赖版本不可复现，'
+                    '换机器或 CI 可能解析到不同版本' % (decl, '/'.join(locks[:3])), fp, 1))
+    return out
+
+
+def _p_placeholder(files_by_ext, root, all_text):
+    """G05 占位资源未替换（脚手架默认值随包发布）
+
+    只查**配置与清单文件**：代码里的 "example" 大多是正常标识符，
+    而配置文件里的 com.example.* 是脚手架没改的实锤。
+    """
+    CONF = re.compile(r'(?:tauri\.conf\.json|Cargo\.toml|package\.json|'
+                      r'AndroidManifest\.xml|Info\.plist|build\.gradle|'
+                      r'.*\.config\.(?:ts|js|json))$', re.I)
+    PLACE = [
+        (r'com\.example\.', '包名仍是 com.example.* 占位'),
+        (r'"your[-_](?:app|name|company|domain|org)"', 'your-app 类占位名'),
+        (r'\bCHANGE_ME\b|\bREPLACE_ME\b', 'CHANGE_ME 类占位标记'),
+    ]
+    out = []
+    # 自己遍历，不用 TEXT_BY_FILE：那个字典只装「被扫描的语言文件」，
+    # json / toml 这类配置不在里面（G05 第一版因此永远 0 命中）。
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for fn in filenames:
+            if not CONF.search(fn):
+                continue
+            fp = os.path.join(dirpath, fn)
+            try:
+                if os.path.getsize(fp) > 200 * 1024:
+                    continue
+                t = open(fp, encoding='utf-8', errors='replace').read()
+            except OSError:
+                continue
+            for rx, why in PLACE:
+                m = re.search(rx, t)
+                if not m:
+                    continue
+                ln = t[:m.start()].count('\n') + 1
+                out.append(('G05', 'P1', '%s（%s）' % (why, fn), fp, ln))
+                break
+    return out[:5]
+
+
+def _p_build_const(files_by_ext, root, all_text):
+    """G13 sourcemap / minify 写成常量，不随 profile 变化
+
+    为什么是 G13 而不是 G10：G10 在远端已被占用（CI 引用不存在的 npm script）。
+    新规则取号前必须先查 registry 与已有 PATTERNS，撞号会让两条规则互相顶掉。
+    """
+    out = []
+    for fn in ('vite.config.ts', 'vite.config.js', 'vite.config.mts',
+               'webpack.config.js', 'rollup.config.js', 'rsbuild.config.ts'):
+        fp = os.path.join(root, fn)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for key in ('sourcemap', 'minify'):
+            m = re.search(key + r'\s*:\s*(true|false|[\'"][^\'"]*[\'"])\s*[,}\n]', t)
+            if not m:
+                continue
+            if re.search(key + r'\s*:\s*(?:.*\?.*:|mode\s*===|isProd|NODE_ENV)', t):
+                continue
+            ln = t[:m.start()].count('\n') + 1
+            out.append(('G13', 'P2', '%s 固定为 %s——不随 profile 变化，'
+                        '生产包可能带 sourcemap 或未压缩'
+                        % (key, m.group(1)), fp, ln))
+    return out
+
+
+def _p_unpinned_image(files_by_ext, root, all_text):
+    """G12 基础镜像用 latest 或无标签（构建不可复现）"""
+    out = []
+    for name in ('Dockerfile', 'docker-compose.yml', 'docker-compose.yaml',
+                 'Containerfile'):
+        fp = os.path.join(root, name)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for m in re.finditer(r'^\s*(?:FROM|image:)\s+(\S+)', t, re.M):
+            img = m.group(1)
+            if img.startswith('$') or img.startswith('${'):
+                continue
+            tail = img.split('/')[-1]
+            if ':' not in tail or tail.endswith(':latest'):
+                ln = t[:m.start()].count('\n') + 1
+                out.append(('G12', 'P1', '基础镜像 %s 未固定版本（latest 或无标签）'
+                            '——构建不可复现，上游一变结果就变' % img, fp, ln))
+    return out
+
+
 PROJECT_CHECKS = [_p_test_import_ext, _p_ci_script, _p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
-                  _p_ignore, _p_ci, _p_csp, _p_multiconf]
+                  _p_ignore, _p_ci, _p_csp, _p_multiconf,
+                  _p_no_lockfile, _p_placeholder, _p_build_const,
+                  _p_unpinned_image]
 
 
 # ---------------------------------------------------------------- 扫描
@@ -863,6 +970,17 @@ SELF_FILES = {
                              "thread::spawn(move || {});\n"
                              "const FORBIDDEN_DELETE: &[&str] = &[\"/etc\"];\n"
                              "fn copy_all(s: &Path) { if s.is_dir() { std::fs::copy(s, d)?; } }\n",
+    # ---- 构建与交付批次 ----
+    # G04：有 package.json / Cargo.toml 但不建任何 lock 文件 → 应命中
+    'src-tauri/Cargo.toml': '[package]\nname = "demo"\n',
+    # G05：脚手架默认包名未改
+    'src-tauri/tauri.conf.json': json.dumps(
+        {'identifier': 'com.example.tauri-app', 'build': {'frontendDist': '../dist'}}),
+    # G13：sourcemap / minify 写成常量
+    'vite.config.ts': "export default { build: { sourcemap: true, minify: 'esbuild' } };\n",
+    # G12：基础镜像用 latest
+    'Dockerfile': 'FROM node:latest\nRUN npm ci\n',
+
 }
 
 def self_test():
@@ -885,7 +1003,9 @@ def self_test():
         expect = ['J01', 'J02', 'J03', 'J04', 'J05', 'J06', 'J07', 'J08', 'J09',
                   'J10', 'J11', 'J12', 'J13',
                   'R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10',
-                  'P01', 'P02', 'P03', 'P04', 'P05']
+                  'P01', 'P02', 'P03', 'P04', 'P05',
+                  # 构建与交付批次（G10 已被占用，sourcemap 常量取号 G13）
+                  'G04', 'G05', 'G13', 'G12']
         miss = [e for e in expect if e not in hit]
         for e in expect:
             print('  %s %s' % ('✓' if e in hit else '✗', e))

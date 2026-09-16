@@ -6,7 +6,7 @@ description: 代码审查矩阵。对任意代码库做分级审查：先跑场�
 # 代码审查矩阵（code-audit）
 
 **分层按需加载**：一个必跑的公共层 + 按仓库实际风险面命中的若干场景层。
-不做「一次读完所有判据」——114 条模式全读既读不完也没必要。
+不做「一次读完所有判据」——全量模式数量以百计（当前数见 `rule-registry.py --check`），全读既读不完也没必要。
 
 ```
 第 0 步  读 references/common.md（必跑）
@@ -150,7 +150,7 @@ python3 scripts/route.py --src=<根> --items     # 起步：还没跑扫描器�
 | `references/common-reporting.md` | 报告结构、**退出标准（三类清单 + blocking）**、复核 |
 | `references/common-manual-review.md` | 人工精审 10 项清单（**第 8 项「防护的组合与出口」、第 9 项「复验历史修复」、第 10 项「验证手段自检」命中率最高**） |
 | `references/common-global.md` | 跨单元一致性、地基优先 |
-| `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库 |
+| `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库、自检、fixture 纪律 |
 | `references/route.md` | 场景命中判据（人读版）：信号分级、人工审核清单、增量路由 |
 
 场景配套文件（按需，场景文件内会指明）：

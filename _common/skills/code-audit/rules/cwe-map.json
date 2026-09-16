@@ -188,6 +188,51 @@
   }
  ],
  "_rules": {
+  "APP-G04": {
+   "cwe": [
+    "CWE-1104"
+   ],
+   "fix": "提交对应 lock 文件（package-lock.json / Cargo.lock / go.sum 等），CI 用 --frozen-lockfile 安装"
+  },
+  "APP-G05": {
+   "cwe": [
+    "CWE-1188"
+   ],
+   "fix": "把 com.example.* / your-app / CHANGE_ME 换成真实标识；发布前跑一遍全局搜索确认无残留"
+  },
+  "APP-G07": {
+   "cwe": [],
+   "fix": "相对 import 补上正确扩展名或改绝对路径别名；CI 里跑一次真实构建验证模块能加载"
+  },
+  "APP-G08": {
+   "cwe": [],
+   "fix": "合并重复 import，或从 barrel 文件统一导出"
+  },
+  "APP-G09": {
+   "cwe": [],
+   "fix": "确认是死代码则删除；确实要接线就补上引用"
+  },
+  "APP-G10": {
+   "cwe": [],
+   "fix": "CI 引用的 script 名补进 package.json，或修正 CI 里的拼写"
+  },
+  "APP-G11": {
+   "cwe": [],
+   "fix": "统一测试文件的 import 扩展名写法（与同目录一致），或配 tsconfig/vite 的 resolve.extensions"
+  },
+  "APP-G12": {
+   "cwe": [
+    "CWE-1104",
+    "CWE-494"
+   ],
+   "fix": "基础镜像固定到具体版本或 digest（node:20.11.1-alpine / @sha256:...）"
+  },
+  "APP-G13": {
+   "cwe": [
+    "CWE-540"
+   ],
+   "fix": "sourcemap 改为按 profile：mode === 'production' ? false : true；minify 生产固定压缩"
+  },
   "APP-J01": {
    "cwe": [
     "CWE-346"
@@ -199,6 +244,12 @@
     "CWE-470"
    ],
    "fix": "动态分发走白名单映射，禁止直接 obj[name]()"
+  },
+  "APP-J03": {
+   "cwe": [
+    "CWE-346"
+   ],
+   "fix": "目标 origin 传具体来源（或从受信任配置读取），不要用通配；接收侧同时校验 event.origin"
   },
   "APP-J04": {
    "cwe": [
@@ -223,6 +274,58 @@
     "CWE-79"
    ],
    "fix": "用 textContent 或对插值做转义，别拼接 innerHTML"
+  },
+  "APP-K03": {
+   "cwe": [
+    "CWE-22"
+   ],
+   "fix": "删除前 canonicalize 并与根目录比对 starts_with；黑名单按规范化后的绝对路径比，不按文件名"
+  },
+  "APP-K08": {
+   "cwe": [
+    "CWE-78"
+   ],
+   "fix": "不用 shell；需 shell 时对入参做白名单或强转义，优先传参数数组"
+  },
+  "APP-K10": {
+   "cwe": [
+    "CWE-88"
+   ],
+   "fix": "用 .args([...]) 传数组，不用 format! 拼整串"
+  },
+  "APP-K14": {
+   "cwe": [],
+   "fix": "改用 PATH 遍历判断，不要起 where / which 子进程"
+  },
+  "APP-K15": {
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "分配前用 .min(MAX_BODY) 收口；流式读取并累计上限，超限即中断"
+  },
+  "APP-K16": {
+   "cwe": [
+    "CWE-400"
+   ],
+   "fix": "set_read_timeout / set_write_timeout，或整个连接交给带超时的运行时"
+  },
+  "APP-K17": {
+   "cwe": [
+    "CWE-1327"
+   ],
+   "fix": "默认绑 127.0.0.1；需局域网访问时显式配置项并提示风险"
+  },
+  "APP-K31": {
+   "cwe": [
+    "CWE-754"
+   ],
+   "fix": "检查 output.status.success()；失败时把 stderr 一起带上"
+  },
+  "APP-K34": {
+   "cwe": [
+    "CWE-703"
+   ],
+   "fix": "对路径列表做 stat 时用 .ok() / filter_map 兜底；悬空 symlink 与并发删除都会抛"
   },
   "APP-P04": {
    "cwe": [
@@ -390,6 +493,12 @@
    ],
    "fix": "subprocess 传参数数组，不用 shell=True / os.system"
   },
+  "PY-13": {
+   "cwe": [
+    "CWE-460"
+   ],
+   "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）"
+  },
   "RS-01": {
    "cwe": [
     "CWE-248"
@@ -467,6 +576,16 @@
    ],
    "fix": "递归加访问集与深度上限"
   },
+  "TS-B10": {
+   "cwe": [
+    "CWE-754"
+   ],
+   "fix": "命令侧 curl 配 -f/--fail 或 -w \"%{http_code}\"；请求侧判 resp.ok / resp.status，别用字段存在性"
+  },
+  "TS-D11": {
+   "cwe": [],
+   "fix": "删除外层条目前先 clear 内部容器：`m.get(k)?.clear(); m.delete(k)`"
+  },
   "TS-J01": {
    "cwe": [
     "CWE-664"
@@ -484,6 +603,12 @@
     "CWE-561"
    ],
    "fix": "三元两支返回同值，说明条件无效"
+  },
+  "TS-L15": {
+   "cwe": [
+    "CWE-770"
+   ],
+   "fix": "给 Map 加容量上限或条目 TTL；摘除时 delete，或改用有界结构（LRU / 环形缓冲）"
   },
   "TS-M01": {
    "cwe": [
@@ -534,89 +659,9 @@
    ],
    "fix": "后门默认关闭，由构建标志剔除"
   },
-  "APP-J03": {
-   "cwe": [
-    "CWE-346"
-   ],
-   "fix": "目标 origin 传具体来源（或从受信任配置读取），不要用通配；接收侧同时校验 event.origin"
-  },
-  "TS-B10": {
-   "cwe": [
-    "CWE-754"
-   ],
-   "fix": "命令侧 curl 配 -f/--fail 或 -w \"%{http_code}\"；请求侧判 resp.ok / resp.status，别用字段存在性"
-  },
-  "TS-L15": {
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "给 Map 加容量上限或条目 TTL；摘除时 delete，或改用有界结构（LRU / 环形缓冲）"
-  },
   "TS-T05": {
    "cwe": [],
    "fix": "兜底值写进 <style> 或 CSS 变量，别用 element.style 内联赋值"
-  },
-  "TS-D11": {
-   "cwe": [],
-   "fix": "删除外层条目前先 clear 内部容器：`m.get(k)?.clear(); m.delete(k)`"
-  },
-  "APP-K03": {
-   "cwe": [
-    "CWE-22"
-   ],
-   "fix": "删除前 canonicalize 并与根目录比对 starts_with；黑名单按规范化后的绝对路径比，不按文件名"
-  },
-  "APP-K08": {
-   "cwe": [
-    "CWE-78"
-   ],
-   "fix": "不用 shell；需 shell 时对入参做白名单或强转义，优先传参数数组"
-  },
-  "APP-K10": {
-   "cwe": [
-    "CWE-88"
-   ],
-   "fix": "用 .args([...]) 传数组，不用 format! 拼整串"
-  },
-  "APP-K14": {
-   "cwe": [],
-   "fix": "改用 PATH 遍历判断，不要起 where / which 子进程"
-  },
-  "APP-K15": {
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "分配前用 .min(MAX_BODY) 收口；流式读取并累计上限，超限即中断"
-  },
-  "APP-K16": {
-   "cwe": [
-    "CWE-400"
-   ],
-   "fix": "set_read_timeout / set_write_timeout，或整个连接交给带超时的运行时"
-  },
-  "APP-K17": {
-   "cwe": [
-    "CWE-1327"
-   ],
-   "fix": "默认绑 127.0.0.1；需局域网访问时显式配置项并提示风险"
-  },
-  "APP-K31": {
-   "cwe": [
-    "CWE-754"
-   ],
-   "fix": "检查 output.status.success()；失败时把 stderr 一起带上"
-  },
-  "APP-K34": {
-   "cwe": [
-    "CWE-703"
-   ],
-   "fix": "对路径列表做 stat 时用 .ok() / filter_map 兜底；悬空 symlink 与并发删除都会抛"
-  },
-  "PY-13": {
-   "cwe": [
-    "CWE-460"
-   ],
-   "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）"
   }
  }
 }
