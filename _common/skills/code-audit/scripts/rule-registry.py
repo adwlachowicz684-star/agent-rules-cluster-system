@@ -511,6 +511,21 @@ def _run_scanner(scanner, src_root, native_id):
 SKIPPED_NO_RULE = []
 
 
+def _judge_ids():
+    """判据库里已定义的判据 ID 集合（区分「人工判据」与「ID 失配」）。
+
+    读不到 items.json 时返回空集 —— 此时所有失配都按「ID 失配」报错，
+    即**从严**处理：宁可误报，不可静默跳过。
+    """
+    try:
+        with open(os.path.join(SKILL, 'rules', 'items.json'), encoding='utf-8') as f:
+            return {i['id'] for i in json.load(f).get('items', [])}
+    except (OSError, ValueError, KeyError):
+        return set()
+
+
+_JUDGE_IDS = _judge_ids()
+
 def run_all_fixtures(reg, verbose=True):
     """跑全部 fixture，返回 {rid: {'tp': bool|None, 'fp': bool|None, 'errors': [...]}}。
 
@@ -546,10 +561,21 @@ def run_all_fixtures(reg, verbose=True):
         # → CI 常红；而真实状态是「这些目录本就不该被机扫」。
         # 正确做法：显式跳过并列出，让人去决定是补规则还是清目录。
         if meta is None:
-            SKIPPED_NO_RULE.append(rid)
+            # 在「统一跳过」之上再分一层（两版实现合并）：
+            #   ① 人工判据（判据库里有这条，只是没机扫形态）→ 跳过，不算失败
+            #   ② ID 失配（规则改过名，fixture 目录没跟上）→ **报错并计入 errs**
+            #      只统一跳过的话，「改个 ID 名字」就能让一批样本悄悄退出测试
+            if rid in _JUDGE_IDS:
+                SKIPPED_NO_RULE.append(rid)
+                if verbose:
+                    print('  ○ %s：人工判据，无机扫规则，跳过（未实测，非失败）' % rid)
+                continue
+            res[rid] = {'tp': None, 'fp': None, 'errors': [
+                '%s：fixture 目录名与注册表规则 ID 不匹配（规则改过 ID？）'
+                '——样本未被实测，勿当作通过' % rid]}
             if verbose:
-                print('  - %s：注册表无此规则，跳过机扫'
-                      '（判据条目或已删除规则的残留 fixture）' % rid)
+                print('  ✗ %s fixture 目录名在注册表里找不到（规则改过 ID？）'
+                      '——样本未被实测，勿当作通过' % rid)
             continue
         scanner = meta.get('scanner', 'scan-ts.py')
         native = meta.get('native_id', rid.split('-', 1)[-1])
@@ -1040,7 +1066,8 @@ def cmd_test():
               % len(SKIPPED_NO_RULE))
         print('    %s' % ' '.join(sorted(SKIPPED_NO_RULE)))
         print('    → 判据条目（A-18 等）属正常，需人工判据而非机扫；')
-        print('      已删除规则的残留（APP-K* 等）应补回规则或清理目录。')
+        print('      若某目录名在判据库（items.json）里也查不到，则是改名残留，'
+              ' 再出现请用 --test 的 ✗ 行定位。')
     return 1 if (fail or errs) else 0
 
 

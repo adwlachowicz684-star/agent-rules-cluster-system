@@ -64,6 +64,10 @@ for _f in _flags:
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
              'docs', 'examples', 'bin', 'obj', '.next', '.cache'}
+# PROJECT_CHECKS（如 _p_orphan）会读这个全局表。此前它只在 main() 里
+# 用 globals() 注入 —— 任何提前调用（单测、复用为库）都会抛 NameError。
+# 模块级预置空表：语义仍是「未加载即视为空」，但不会崩。
+TEXT_BY_FILE = {}
 SKIP_SUFFIX = ('.min.js', '.bundle.js', '.map', '.lock')
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.html')
 MAX_FILE_BYTES = 600 * 1024
@@ -420,7 +424,7 @@ def _p_dead_export(joined, root, _unused_all_text=None):
     DECL = re.compile(
         r'export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)')
     if not root:
-        return out if False else []
+        return []
     exts = ('.js', '.ts', '.tsx', '.mjs', '.jsx')
     exports = {}
     texts = []

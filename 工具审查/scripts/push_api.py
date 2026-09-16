@@ -13,42 +13,90 @@
 
 用法
 ----
-  python3 push_api.py                 # 自动检测本地改动 → 预览 → 确认 → 推送
-  python3 push_api.py --dry-run       # 只预览，不推送
-  python3 push_api.py --yes           # 跳过交互确认（自动化时用，风险自负）
-  python3 push_api.py -m "提交信息"    # 指定提交信息（推荐，否则用自动兜底）
-  python3 push_api.py a.js b.js       # 显式指定文件（默认自动检测 git 改动）
-  python3 push_api.py --init-baseline # 只把远端当前各文件状态记为基线，不推送
-  python3 push_api.py --reset-baseline  # 基线已存在时强制重设（会丢弃旧基线！）
-  python3 push_api.py --mark-synced   # 同步本地到远端最新后跑一次（解除过期拦截）
-  python3 push_api.py --force-overwrite  # 明知远端有他人改动仍要覆盖（慎用）
+  【默认 · 每次新建分支】推 → 自动合并 → 删分支，一条命令走完
+  python3 push_api.py                 # 新建分支 → 推 → 开 PR → squash 合并 → 删分支
+  python3 push_api.py -b feat/login   # 指定分支名（不给就自动生成 task/时间戳-随机）
+  python3 push_api.py --hold          # 先不合并，保留分支攒改动
+  python3 push_api.py --merge         # 合并 --hold 留下的 PR
+  python3 push_api.py --method rebase # 换合并方式（默认 squash）
+
+  【分支体检】只报告，不删任何东西
+  python3 push_api.py --prune             # 列出所有任务分支的状态和建议
+  python3 push_api.py --delete-branch 名字 # 真正删除（逐个确认）
+  python3 push_api.py --branch 名字 --close-pr
+  python3 push_api.py --status
+
+  【直推主干】旧行为，四层防护照旧
+  python3 push_api.py --direct
+
+  【通用】
+  python3 push_api.py --dry-run / --yes / -m "信息" / a.js b.js
+  python3 push_api.py --pull [文件...]  # 三方合并主干改动到本地
+  python3 push_api.py --resolve 文件    # 标记冲突已手工解决
+  python3 push_api.py --init-baseline / --reset-baseline / --mark-synced
+  python3 push_api.py --force-file 文件 / --force-overwrite   # 只有 --direct 才需要
+
+为什么默认走 PR
+----------------
+  把「互相覆盖」交给 GitHub 的 merge 判定：合并时它做真正的**三方合并**
+  （以 merge base 为基准）。两人从同一基点各自改动 → 自动合上，或明确报
+  409 冲突，都不会静默丢改动。
+
+  每次推送都新建分支，是为了让分支基点 = 当前主干最新。基点越新，PR diff
+  越小，三方合并的冲突面也越小；反过来，一个活了很久的分支基点会停在
+  建分支那一刻，diff 越滚越大，人工介入越多就越容易出错。
+
+  有一种情况 PR 也救不了：本地副本落后于主干，分支却是从最新主干建的。
+  这时你的旧内容相对分支基点等于「把主干改动改回去」，GitHub 会当成你
+  故意回退并直接采纳。所以「本地副本落后」**依然拦截** —— 先 --pull。
+
+分支体检（--prune）
+------------------
+  判据是「合并状态 + 活动状态」，不是「N 天没用」：
+    已合并 > 3 天，分支却还在 → 报告（正常流程早该删了）
+    已合并 ≤ 3 天              → 静默（删除流程多半还在跑）
+    PR 仍开启                  → 报告并保留（可能是进行中的工作）
+    PR 已关闭 / 孤儿分支        → 报告，给删除命令
+  一个开发到一半的 WIP，恰恰就是「开着、没合并、好几天没动」，
+  按时间自动删会最先误杀它 —— 所以 --prune 只报告，删除一律走
+  --delete-branch 并逐个确认。
+
+同机并发
+--------
+  同一台机器上同时跑两个本脚本，第二个会**等待**第一个跑完（基线文件有锁），
+  不是并行、也不是报错。锁会持有到整次推送结束，等待时屏幕上有提示。
+  多人各用一台机器则不受影响 —— 那种并发由 GitHub 的合并机制保证。
 
 约定
 ----
   · 基线状态写在 /data/workspace/.push-sync.json（仓库外，不入库）
   · 首次使用必须先跑 --init-baseline，否则推送会被拒绝
+  · token 从环境变量 GITHUB_TOKEN 读取（禁止写进脚本）；
+    传给 curl 时走 --config 临时文件，不出现在进程列表里
+  · --dry-run 会做大文件预检并给出警告，但不推送、不建分支
+  · 分支不是备份：改动存在本地工作区，合并失败时收掉分支不会丢东西
 """
 import base64
+import calendar
+import contextlib
 import difflib
+import fcntl
 import json
 import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
+from urllib.parse import quote
 
-# 从环境变量读取。后续接入工具后，由工具内的加密编码注入。
-#
-# 为什么不放明文：GitHub 的 secret scanning 会**直接拒绝**包含有效凭据的提交
-# （HTTP 422 + bypass_placeholders），写了就推不上去。这是平台强制，不是风格建议。
-TOKEN = os.environ.get("GITHUB_TOKEN", "")
-
-
-def _token():
-    """惰性校验：放这里而不是模块顶层，是为了让 import 不被环境变量缺失打断。"""
-    if not TOKEN:
-        raise SystemExit("未设置 GITHUB_TOKEN 环境变量（token 禁止写进文件）")
-    return TOKEN
+# Token 只从环境变量读取，不落盘、不入库。
+#   导出方式：export GITHUB_TOKEN=github_pat_xxx
+# 注意：旧版本曾把 PAT 明文写在本文件里，若该 PAT 曾被推送到公开仓库，
+# 请立刻到 GitHub → Settings → Developer settings → Personal access tokens 吊销。
+TOKEN = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
 OWNER, REPO = "adwlachowicz684-star", "tauriTools"
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
 ROOT = "/data/workspace/tauriTools"
@@ -62,7 +110,14 @@ MAX_BLOB_BYTES = 10 * 1024 * 1024     # 超过这个大小直接拒推（应改�
 MAX_PREVIEW_LINES = 20000             # 预览用 diff 的行数上限，超了只报行数差
 MAX_PREVIEW_BYTES = 256 * 1024        # 超过这个大小不拉远端内容做预览
 VALID_MODES = ("100644", "100755", "120000")
+VALID_MERGE_METHODS = ("merge", "squash", "rebase")   # GitHub 支持的三种合并方式
 DEFAULT_TIMEOUT = 60                  # 默认 curl 超时（秒）
+
+# ---- PR 工作流 ----
+TASK_PREFIX = "task/"                 # 任务分支前缀（清理时按它识别）
+DEFAULT_WORKFLOW = "pr"               # pr=任务分支+PR；direct=旧版直推主干
+MERGED_GRACE_DAYS = 3                  # 已合并但分支仍在，超过这个天数才报告
+                                      # （防止刚合并、删除流程还在跑就被反复报告）
 
 
 # ---------------------------------------------------------------- 基础
@@ -72,8 +127,235 @@ def _timeout_for(size_bytes):
     return min(600, max(30, 30 + size_bytes // (1024 * 1024) * 10))
 
 
-def api(method, path, payload=None, retries=3, timeout=None):
+class StateLock:
+    """同一台机器上多个进程并发跑本脚本时，保护 .push-sync.json。
+
+    基线是单机共享的，两个进程同时读写会互相覆盖：后写的那个会把先写的
+    base_commit / synced_commit 冲掉，导致其中一个进程拿着过期基线继续判定，
+    文件级防护随之失效。
+
+    锁住让它们串行，反而更安全：脚本只用 `git add -- <本次文件>`，
+    先跑完的那个不会卷走另一个人在工作区里的改动。
+
+    **锁的持有范围是整个 _main()，包含全部网络请求** —— 建 blob、建树、
+    建提交、开 PR、合并都会持锁。一次推送慢的话要等几分钟。
+    这里刻意选了「简单且绝对安全」而不是「细粒度但容易写错」：
+    基线的读→判定→写必须原子，拆成多段短锁反而会重新引入竞态。
+    等待时会打印提示，不会无声卡住。
+
+    注意：flock 只在**同一台机器**上有效。多人各用一台机器时不需要它 ——
+    那种并发由 GitHub 的合并机制保证（见 merge_pr 的注释）。
+    """
+    def __init__(self, state_path, enabled=True):
+        self.path = (state_path or STATE_PATH) + ".lock"
+        self.enabled = enabled
+        self.fd = None
+
+    def __enter__(self):
+        if not self.enabled:
+            return self
+        try:
+            self.fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o644)
+            # 先试非阻塞：抢不到就打一行提示再阻塞等待。
+            # 锁会持有到整次推送结束（含全部网络请求），等待可能长达数分钟；
+            # 一声不响地卡住会让人以为进程挂了，从而 Ctrl-C 或重复启动。
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                print(f"  ⏳ 另一个 push_api 进程正在运行，等待它释放 {os.path.basename(self.path)}…")
+                print("     （同一台机器上并发推送会串行执行，这是刻意的："
+                      "共享的基线文件不能被并发写坏）")
+                fcntl.flock(self.fd, fcntl.LOCK_EX)
+                print("  ✓ 已获得锁，继续执行")
+        except OSError as e:
+            if self.fd is not None:
+                os.close(self.fd)
+                self.fd = None
+            raise SystemExit(f"无法锁定 {self.path}：{e}\n"
+                             f"  另一个 push_api 进程正在跑；等它结束再试。")
+        return self
+
+    def __exit__(self, *exc):
+        if self.fd is not None:
+            fcntl.flock(self.fd, fcntl.LOCK_UN)
+            os.close(self.fd)
+            self.fd = None
+        return False
+
+
+def require_token():
+    """缺 token 必须在发请求前就失败，而不是拿到 401 后靠猜。"""
+    if not TOKEN:
+        raise SystemExit(
+            "缺少 GITHUB_TOKEN 环境变量。\n"
+            "  用法：export GITHUB_TOKEN=github_pat_xxx && python3 push_api.py ...\n"
+            "  （token 请勿写进脚本或提交到仓库）"
+        )
+    return TOKEN
+
+
+@contextlib.contextmanager
+def _auth_config():
+    """把 Authorization 头写进 0600 的临时文件，交给 curl --config 读。
+
+    token 直接拼进 curl 的 argv 时，同机任何用户 `ps aux` 都能看到它 ——
+    和「把 PAT 明文写进脚本」是同一类泄露，只是暴露面从仓库变成了进程列表。
+    改用 --config 后，argv 里只剩一个不敏感的临时文件名。
+
+    选 --config 而不是 `-H @file`：后者要 curl ≥ 7.55，且 @file 语法在不同
+    版本间语义有差异；--config 是长期稳定的接口。stdin 也留给 payload 用。
+
+    文件放 /dev/shm（内存盘，不落磁盘），不可用时回退系统临时目录；
+    权限 0600，退出即删。
+
+    token 先过白名单，只放行 GitHub token 的真实字符集 [A-Za-z0-9_.-]。
+
+    写入的配置行是 `header = "Authorization: Bearer {tok}"`。
+    token 里一旦出现 `"` 就能提前闭合引号、出现换行就能开启新的一行 ——
+    而 curl 配置是「每行一条指令」，那意味着可以注入 `output = /path`
+    或 `url = attacker.host` 这类指令。
+
+    第一版白名单是 `re.sub(r"[^\x21-\x7E]", "", TOKEN)`（所有可打印 ASCII），
+    它拦得住换行，却放行 `"` `\` 反引号 `$()`。实测这些字符暂不足以造成
+    实际注入（curl 一行只解析一条指令，且后续内容被丢弃），但这是**碰巧
+    安全** —— 依赖 curl 具体的解析细节，换版本或换配置写法就可能失效。
+
+    收紧到 GitHub token 的真实字符集后，引号闭合这条路从根上就没有了。
+    实测各类 token 均不受影响：ghp_ / gho_ / ghu_ / ghs_ / ghr_ /
+    github_pat_ 前缀，以及旧版 40 位十六进制。
+
+    用「拒绝」而不是「清洗掉非法字符」：清洗后 token 变了，请求必然 401，
+    用户只会看到「认证失败」而不知为何；直接报「可能复制时混入了换行」
+    才可诊断。
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", TOKEN or ""):
+        raise SystemExit(
+            "GITHUB_TOKEN 含非法字符（可能是复制时混入了换行、引号或空格）。\n"
+            f"  GitHub 的 token 只由 A-Z a-z 0-9 和 _ - . 组成（当前 "
+            f"{len(TOKEN or '')} 个字符）。\n"
+            "  请重新复制，注意不要带上换行或首尾空格。"
+        )
+    tok = TOKEN
+    tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") and os.access("/dev/shm", os.W_OK) else None
+    fd, path = tempfile.mkstemp(prefix="pushapi-curl-", suffix=".cfg", dir=tmpdir)
+    try:
+        # try 从 mkstemp 之后就包住：chmod 若抛异常，fd 既没关闭也没被
+        # finally 回收，属于泄漏。概率极低，但改起来没有成本。
+        os.chmod(path, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            fd = None                     # 所有权已交给文件对象
+            f.write(f'header = "Authorization: Bearer {tok}"\n')
+        yield path
+    finally:
+        if fd is not None:                # 还没交给 fdopen，需要自己关
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def _retryable(method, path):
+    """这个请求在 5xx / 429 时能否安全重试。
+
+    判据是**幂等性**：服务端可能已经处理完毕、只是响应丢了，此时重发
+    非幂等写会造成两类问题
+      · PATCH /git/refs：第二次撞 422 not fast-forward，而调用方那句
+        「出现并发提交，已中止」会把自己的重试**误报成他人抢先提交**，
+        用户据此去排查根本不存在的并发
+      · POST /git/commits、/git/trees、/pulls：重复建对象、重复消耗限流额度
+    无法区分「没处理」和「处理了但响应丢了」，所以宁可不重试 ——
+    失败是安全的（用户重跑即可），误报却会误导排查方向。
+
+    例外：POST /git/blobs 是**内容寻址**的，重发得到同一个 sha，天然幂等，
+    且大文件最容易撞 5xx，允许重试收益明显。
+    """
+    if method == "GET":
+        return True
+    if method == "POST" and path.startswith("/git/blobs"):
+        return True
+    return False
+
+
+# GitHub 错误码 → 可操作的下一步。
+# 只给出「原文」是不够的：用户看到 not fast-forward 只会往权限/设置上猜，
+# 而正确的动作是 --pull。401/403/404/422 是最常撞的四条。
+_HTTP_HINTS = {
+    "401": ("token 无效或已过期：检查 GITHUB_TOKEN 环境变量是否设置、"
+            "是否复制完整。\n        （GitHub 的 token 只由 A-Z a-z 0-9 和 _ - . 组成）"),
+    "403": ("通常是限流（等几分钟重试）或 token 缺权限"
+            "（需要 Contents: write / Pull requests: write）。"),
+    "404": ("仓库不存在，或 token 没有该仓库的访问权限。"),
+    "422": ("请求被拒绝。若是 not fast-forward：远端已前进，"
+            "先跑 --pull 合入远端改动再推。"),
+    "429": ("触发限流，稍后重试。"),
+    "451": ("仓库因法律原因被封锁，通常需要联系 GitHub 支持。"),
+}
+
+
+def _cleanup_failed_branch(branch):
+    """推送中途失败时，删掉本次新建的分支（补偿式清理）。
+
+    只删**本次新建**的：`--hold` 复用的分支里可能已有用户攒的改动，
+    删掉会丢东西 —— 那种分支保留着，用户可以用 --merge / --prune 处理。
+
+    清理本身**静默失败**：网络也挂了的时候，删分支的错误会掩盖真正
+    的失败原因，让用户看到一堆无关报错。
+    """
+    if not branch:
+        return
+    try:
+        api("DELETE", f"/git/refs/heads/{branch}", retries=1)
+        print(f"  · 已清理本次新建的分支 {branch}（推送未完成）")
+    except BaseException:
+        pass
+
+
+def _recheck_ref(ref, expect_sha, when):
+    """确认 ref 仍停在 expect_sha，否则中止并给出下一步。
+
+    报错必须说清三件事，否则用户只会往权限上猜：
+      · 远端前进到了哪（实际值 vs 预期值）
+      · 是在哪个阶段发现的
+      · 下一步该做什么（--pull），以及改动**没丢**（避免用户慌张重做）
+    """
+    now = api("GET", f"/git/refs/heads/{ref}")["object"]["sha"]
+    if now == expect_sha:
+        return
+    raise SystemExit(
+        f"远端 {ref} 已前进到 {now[:8]}（本次基于 {str(expect_sha)[:8]}），"
+        f"{when}检测到并发提交，已中止。\n"
+        f"  先跑 python3 push_api.py --pull 把远端改动合进本地，再重新推送。\n"
+        f"  （你的改动还在本地工作区，没丢。）"
+    )
+
+
+def _raise_api_error(method, url, code, body):
+    """统一的 API 报错出口：GitHub 原文 + 可操作的下一步。
+
+    raw 分支与 JSON 分支**共用这一个出口**。分成两处写迟早会漂移 ——
+    上上轮的 P0 正是 raw 分支漏改造成的（引用了不存在的变量）。
+    """
+    hint = _HTTP_HINTS.get(code)
+    msg = f"API {method} {url} → HTTP {code}"
+    if body:
+        msg += f": {body[:400]}"
+    if hint:
+        msg += f"\n  → {hint}"
+    raise SystemExit(msg)
+
+
+def api(method, path, payload=None, retries=3, timeout=None, raw=False,
+        allow_404=False):
     """调 GitHub API。path 以 http 开头时按绝对 URL 用。
+
+    raw=True 时改取原始字节（Accept: application/vnd.github.raw），
+    用于拉大文件内容——JSON 形式的 blob 对超过 1MB 的文件不返回 content。
+    此时返回 bytes 而非 dict。raw 只用于 GET，幂等，仍按下方策略退避重试。
+
 
     显式检查 HTTP 状态码：curl -s 会把 403/404/422 的错误体也原样返回，
     不检查的话调用方只能靠 "sha" in resp 这种启发式猜，排查成本很高。
@@ -84,66 +366,109 @@ def api(method, path, payload=None, retries=3, timeout=None):
       · 5xx：GET / POST 都退避重试（服务端未处理）
       · 429：只对 GET 重试（限流下重发非幂等写风险更大）
     """
+    require_token()
     url = path if path.startswith("https") else BASE + path
     max_time = str(timeout or DEFAULT_TIMEOUT)
-    for attempt in range(1, retries + 1):
-        cmd = [
-            "curl", "-s", "--max-time", max_time, "-X", method, url,
-            "-H", f"Authorization: Bearer {_token()}",
-            "-H", "Accept: application/vnd.github+json",
-            "-H", "Content-Type: application/json",
-            "-w", "\n%{http_code}",
-        ]
-        if payload is not None:
-            cmd += ["--data-binary", "@-"]
-            out = subprocess.run(cmd, input=json.dumps(payload), capture_output=True, text=True)
-        else:
-            out = subprocess.run(cmd, capture_output=True, text=True)
+    with _auth_config() as auth_cfg:
+        for attempt in range(1, retries + 1):
+            cmd = [
+                "curl", "-s", "--max-time", max_time, "-X", method, url,
+                "--config", auth_cfg,          # token 走这里，不进 argv
+                "-H", "Accept: application/vnd.github.raw" if raw
+                      else "application/vnd.github+json",
+                "-H", "Content-Type: application/json",
+                "-w", "\n%{http_code}",
+            ]
+            if raw:
+                # 原始字节写临时文件：不进 stdout，避免 8bit 数据被 text=True 破坏，
+                # 也避免大文件整份驻留内存两次。
+                # 状态码仍由 -w 写进 stdout，所以下面能和非 raw 分支共用重试判定。
+                tmp = tempfile.NamedTemporaryFile(prefix="pushapi-", delete=False)
+                tmp.close()
+                try:
+                    cmd += ["-o", tmp.name]
+                    out = subprocess.run(cmd, capture_output=True, text=True)
+                    code = (out.stdout.rpartition("\n")[2].strip()
+                            if out.returncode == 0 else "")
+                    if out.returncode == 0 and code.startswith("2"):
+                        with open(tmp.name, "rb") as f:
+                            return f.read()
+                finally:
+                    os.unlink(tmp.name)
 
-        if out.returncode != 0:
-            if out.returncode == 28:
-                raise SystemExit(
-                    f"请求超时（{max_time}s）{method} {url}\n"
-                    f"  不重试：服务端可能已生效，重试会重复创建。请确认远端状态后重跑。"
-                )
-            if attempt < retries:
+                # 与 JSON 分支同一套重试语义：raw 只用于拉大文件，
+                # 而大文件恰恰更容易撞 5xx —— 不重试的话一次抖动就整个失败。
+                if out.returncode == 28:
+                    raise SystemExit(
+                        f"拉取超时（{max_time}s）{method} {url}\n"
+                        f"  不重试：请确认网络后重跑。"
+                    )
+                if out.returncode != 0:
+                    if attempt < retries:
+                        time.sleep(2 ** attempt)
+                        continue
+                    raise SystemExit(f"curl 失败（退出码 {out.returncode}）: {out.stderr}")
+                if allow_404 and code == "404":
+                    return None
+                retryable = ((code in ("500", "502", "503", "504") or code == "429")
+                             and _retryable(method, path))
+                if retryable and attempt < retries:
+                    time.sleep(2 ** attempt)
+                    continue
+                # raw 分支把响应体写到临时文件且不保留文本，这里没有 body 可传。
+                # 传 None 而不是直接用变量名 —— 用不存在的变量会 NameError，
+                # 上上轮的 P0 就是这么来的。
+                _raise_api_error(method, url, code, None)
+            if payload is not None:
+                cmd += ["--data-binary", "@-"]
+                out = subprocess.run(cmd, input=json.dumps(payload), capture_output=True, text=True)
+            else:
+                out = subprocess.run(cmd, capture_output=True, text=True)
+
+            if out.returncode != 0:
+                if out.returncode == 28:
+                    raise SystemExit(
+                        f"请求超时（{max_time}s）{method} {url}\n"
+                        f"  不重试：服务端可能已生效，重试会重复创建。请确认远端状态后重跑。"
+                    )
+                if attempt < retries:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise SystemExit(f"curl 失败（退出码 {out.returncode}）: {out.stderr}")
+
+            body, _, code = out.stdout.rpartition("\n")
+            code = code.strip()
+            try:
+                data = json.loads(body or "{}")
+            except json.JSONDecodeError:
+                raise SystemExit(f"响应非 JSON (HTTP {code}): {body[:400]}")
+
+            if code.startswith("2"):
+                return data
+            if allow_404 and code == "404":
+                return None
+            retryable = ((code in ("500", "502", "503", "504") or code == "429")
+                         and _retryable(method, path))
+            if retryable and attempt < retries:
                 time.sleep(2 ** attempt)
                 continue
-            raise SystemExit(f"curl 失败（退出码 {out.returncode}）: {out.stderr}")
-
-        body, _, code = out.stdout.rpartition("\n")
-        code = code.strip()
-        try:
-            data = json.loads(body or "{}")
-        except json.JSONDecodeError:
-            raise SystemExit(f"响应非 JSON (HTTP {code}): {body[:400]}")
-
-        if code.startswith("2"):
-            return data
-        retryable = code in ("500", "502", "503", "504") or (code == "429" and method == "GET")
-        if retryable and attempt < retries:
-            time.sleep(2 ** attempt)
-            continue
-        raise SystemExit(f"API {method} {url} → HTTP {code}: {body[:400]}")
+            _raise_api_error(method, url, code, body)
 
 
-def git(*args, check=False, raw=False):
+def git(*args, check=False):
     """跑 git。check=True 时非 0 直接中止。
 
     默认不中断但**必须告警**：只看 stdout 会让失败完全静默——
     `git add` 部分路径被 .gitignore 拦下时退出码为 1，
     正常文件虽然进了暂存区，调用方却以为全部成功。
 
-    raw=True 时**不做 strip**。
-
-    为什么需要：porcelain 格式是定长的「XY + 1空格 + 路径」，
-    未暂存修改的 X 位就是空格（" M path"）。strip() 会把这个空格吃掉，
-    整个串左移一位，于是 item[3:] 切出来的路径**丢掉首字符**
-    （`_common/...` → `common/...`）。
-    后果是静默的：该文件的本地 sha 取不到，lmap 回落到 git 索引里的旧值，
-    被判「已与远端一致」跳过——改动推不上去，还以为推成功了。
+    只去掉末尾换行，**不用 strip()**：git status --porcelain 的 X 列是
+    「暂存区状态」，未暂存修改输出为 " M a.txt"（开头一个空格）。
+    strip() 会把这个空格吃掉，字符串变成 "M a.txt"，按 `item[3:]` 切出来的
+    路径就成了 ".txt" —— 最常见的「改完文件没 add」场景会静默推空。
     """
-    proc = subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
+    proc = subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True,
+                           errors="surrogateescape")
     if proc.returncode != 0:
         msg = f"git {' '.join(args)} 退出码 {proc.returncode}"
         if proc.stderr.strip():
@@ -151,7 +476,7 @@ def git(*args, check=False, raw=False):
         if check:
             raise SystemExit(msg)
         print(f"  ! {msg}")
-    return proc.stdout if raw else proc.stdout.strip()
+    return proc.stdout.rstrip("\n")
 
 
 def safe_rel(rel):
@@ -206,25 +531,210 @@ def remote_state_map(ref_sha):
             for t in tree["tree"] if t["type"] == "blob"}
 
 
-def load_state():
-    if not os.path.exists(STATE_PATH):
+def _corrupt_state(why, path=None):
+    """状态文件非法：先把原文件留一份副本，再中止。
+
+    必须先备份再报错：用户看到这条错误的下一步多半就是 --reset-baseline，
+    那会直接覆盖原文件。留一份 .corrupt 既让他能回头检查，也不挡重建的路。
+    """
+    path = path or STATE_PATH
+    backup = None
+    try:
+        # 只备份**普通文件**：目录会抛 OSError（已捕获）；FIFO 则更糟——
+        # copy2 会去读它，然后永远阻塞在那里，连这条错误都打印不出来。
+        if os.path.isfile(path) and not os.path.islink(path):
+            backup = path + ".corrupt"
+            shutil.copy2(path, backup)
+    except OSError:
+        backup = None
+    hint = f"\n  原文已备份到 {backup}" if backup else ""
+    raise SystemExit(
+        f"{path} 内容不合法：{why}\n"
+        f"  基线是「远端文件是否被他人改动」的唯一参照，"
+        f"结构不对时继续跑会误判，因此必须停下。{hint}\n"
+        f"  处理：确认无需保留后删除该文件，再跑 `python3 push_api.py --init-baseline`\n"
+        f"  （重建后文件级防护会短暂失效，重建后建议先 --pull 同步一次）"
+    )
+
+
+def validate_state(state, path=None):
+    """校验基线结构，合法则原样返回；非法则备份 + 中止。
+
+    只拦 JSON **语法**错误远不够：语法合法但结构不对的状态文件
+    （整个 state 是个数字、files 是个列表、conflicts 是个字符串……）
+    会让后面的 .get() 直接 AttributeError 崩在半路，堆栈对排查毫无帮助。
+
+    更危险的是 JSON 的 `null`：json.load 返回 None，而 load_state 用
+    None 表示「文件不存在」—— 于是坏状态被当成首次使用，脚本会高高兴兴
+    地引导用户重建基线，把唯一能判断「远端是否被改过」的参照**静默**丢掉。
+    所以结构校验必须拦在返回 None 之前。
+
+    逐项校验而非 try/except AttributeError：后者只能发现「用到才崩」的字段，
+    没走到的分支依旧带着坏数据运行（conflicts 是字符串时就会这样）。
+    """
+    if not isinstance(state, dict):
+        _corrupt_state(f"期望一个 JSON 对象，实际是 {type(state).__name__}", path)
+
+    def chk(name, types, optional=False):
+        if name not in state:
+            if optional:
+                return
+            _corrupt_state(f"缺少必需字段 {name!r}", path)
+        v = state[name]
+        if v is None and optional:
+            return
+        if not isinstance(v, types):
+            want = "/".join(t.__name__ for t in types) if isinstance(types, tuple) else types.__name__
+            _corrupt_state(f"{name!r} 应是 {want}，实际是 {type(v).__name__}", path)
+
+    chk("version", int, optional=True)
+    chk("files", dict)
+    chk("tasks", dict, optional=True)
+    chk("conflicts", list, optional=True)
+    for k in ("base_commit", "synced_commit", "branch", "remote", "task_branch"):
+        chk(k, str, optional=True)
+    chk("pr_number", int, optional=True)
+
+    ver = state.get("version")
+    if isinstance(ver, int) and ver > STATE_VERSION:
+        _corrupt_state(
+            f"基线版本 {ver} 高于本脚本支持的 {STATE_VERSION}"
+            f"（由更新版本的脚本写入），请升级脚本后再用", path)
+
+    for p, v in state["files"].items():
+        # v1 基线存的是裸 sha 字符串，v2 存 {mode, sha}；两者都由
+        # migrate_state 收敛，这里只挡完全无法解释的类型。
+        if not isinstance(v, (dict, str)):
+            _corrupt_state(
+                f"files[{p!r}] 应是对象或字符串，实际是 {type(v).__name__}", path)
+
+    for b, t in (state.get("tasks") or {}).items():
+        if not isinstance(t, dict):
+            _corrupt_state(
+                f"tasks[{b!r}] 应是对象，实际是 {type(t).__name__}", path)
+
+    for c in (state.get("conflicts") or []):
+        if not isinstance(c, str):
+            _corrupt_state(
+                f"conflicts 的元素应是字符串，实际是 {type(c).__name__}", path)
+
+    return state
+
+
+def _ftype(mode):
+    """文件类型的人类可读名字，用于报错。"""
+    for fn, name in ((stat.S_ISDIR, "目录"), (stat.S_ISFIFO, "FIFO/管道"),
+                     (stat.S_ISLNK, "符号链接"), (stat.S_ISSOCK, "socket"),
+                     (stat.S_ISCHR, "字符设备"), (stat.S_ISBLK, "块设备")):
+        if fn(mode):
+            return name
+    return "非普通文件"
+
+
+def _check_state_path(path):
+    """基线路径是否可读的普通文件。返回 (存在, 不可用的原因)。
+
+    用 stat + S_ISREG 判断，不能用「能不能打开」来试：
+      · 目录  → open 抛 IsADirectoryError
+      · FIFO  → open **一直阻塞**，没有任何输出，看起来像卡死
+      · /dev/zero 之类的字符设备 → 能打开，但读不到头，内存被吃光
+    这几种都不是「内容损坏」，而是路径本身就不该指向这里，必须提前挡掉。
+    """
+    try:
+        st = os.stat(path)              # 跟随软链
+    except FileNotFoundError:
+        return False, None
+    except NotADirectoryError:
+        return True, "路径中的某一级不是目录"
+    except OSError as e:
+        return True, f"无法访问（{e.strerror or e}）"
+
+    if stat.S_ISDIR(st.st_mode):
+        return True, "是一个目录（应是文件）"
+    if stat.S_ISFIFO(st.st_mode):
+        return True, "是一个 FIFO/管道（按文件读会一直阻塞）"
+    if not stat.S_ISREG(st.st_mode):
+        return True, f"不是普通文件，而是{_ftype(st.st_mode)}"
+    return True, None
+
+
+def _load_state_strict():
+    """读基线并校验结构。内容非法一律中止（见 validate_state 的说明）。"""
+    exists, bad = _check_state_path(STATE_PATH)
+    if not exists:
+        if os.path.islink(STATE_PATH):
+            # 软链指向的目标没了。os.stat 跟随软链所以走到这里。
+            # 不当成「没有基线」默默过去：基线凭空消失会让人以为是脚本出错。
+            # 也不中止 —— save_state 用 os.replace，会直接替换掉这个软链，
+            # 所以 --init-baseline 能自愈，没必要挡住用户。
+            print(f"  ⚠️  基线路径是悬空软链，目标不存在：{STATE_PATH}")
+            print("     将按「没有基线」处理；跑 --init-baseline 即可重建。")
         return None
-    with open(STATE_PATH, encoding="utf-8") as f:
+    if bad:
+        _corrupt_state(bad)
+
+    try:
+        with open(STATE_PATH, encoding="utf-8") as f:
+            state = json.load(f)
+    except json.JSONDecodeError as e:
+        _corrupt_state(f"不是合法 JSON（{e}）")
+    except UnicodeDecodeError as e:
+        # 二进制文件被误当成基线：json.load 在读的阶段就炸，不是 JSON 语法问题。
+        _corrupt_state(f"不是 UTF-8 文本（{e}）")
+    except OSError as e:
+        # 权限不足、I/O 错误等。os.stat 已挡掉目录/FIFO，这里兜住其余。
+        _corrupt_state(f"无法读取（{e.strerror or e}）")
+    if state is None:
+        # 文件内容是 JSON 的 null：json.load 成功但拿到 None。
+        # 放过去就等于「没有基线」，会静默引导用户重建并丢掉旧基线。
+        _corrupt_state("文件内容是 null（空基线应删掉文件，而不是写入 null）")
+    return validate_state(state)
+
+
+def load_state(strict=True):
+    """读基线。返回 None 表示「没有可用基线」。
+
+    strict=False 只给 --init-baseline / --reset-baseline 用：那两条命令本来
+    就要丢弃旧基线，旧基线合不合法无关紧要。此时坏文件一律按「没有基线」
+    处理，用户直接重跑一次就能修好，不必先手工删文件。
+    """
+    if not strict:
         try:
-            return json.load(f)
-        except json.JSONDecodeError as e:
-            raise SystemExit(
-                f"{STATE_PATH} 已损坏（{e}）。请手动检查，或用 "
-                f"`--reset-baseline` 重建基线（重建后文件级防护会短暂失效）。"
-            )
+            return _load_state_strict()
+        except SystemExit:
+            return None
+    return _load_state_strict()
 
 
 def save_state(state):
     """原子写：写 tmp 再 os.replace，避免写一半崩溃留下坏 JSON。"""
     tmp = STATE_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, STATE_PATH)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+        # 收紧到 0600：状态文件不含 token、不含文件内容，只有「仓库文件清单」
+        # 和 remote 字段。私有仓库场景下，文件名清单本身也算信息泄露面。
+        # os.replace 会沿用 tmp 的权限，所以要在 replace **之前** chmod。
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass                      # 权限改不动不该阻断推送
+        os.replace(tmp, STATE_PATH)
+    except OSError as e:
+        # 这一步通常在推送**之后**，所以必须说清三件事，否则用户会做错反应：
+        #  · 失败的是基线文件，不是要推的内容（远端可能已经生效）
+        #  · 推送其实成功了，不用重推
+        #  · 千万不要 --reset-baseline —— 那会丢掉「远端文件是否被他人改过」
+        #    的参照，而这正是防覆盖的唯一依据。
+        # 裸的 [Errno 28] 只会让人往磁盘/权限上查，看不出推送已生效。
+        raise SystemExit(
+            f"基线写入失败：{STATE_PATH}\n"
+            f"  {e.strerror or e}（errno {e.errno}）\n"
+            f"  ⚠ 注意：这一步在推送**之后**，远端改动可能已经生效。\n"
+            f"  清理磁盘或修正权限后重新运行即可（基线会自然追上），"
+            f"不要 --reset-baseline ——\n"
+            f"  那会丢掉「远端文件是否被他人改过」的参照。"
+        )
 
 
 def migrate_state(state, rstate):
@@ -245,14 +755,54 @@ def migrate_state(state, rstate):
     state["files"] = files
     state["version"] = STATE_VERSION
     state.setdefault("synced_commit", state.get("base_commit"))
+    state.setdefault("conflicts", [])
     return state, True
 
 
 _CHANGES_CACHE = None
 
 
-def detect_changes():
+def gitignored_set(paths):
+    """返回 paths 中被 .gitignore 屏蔽的子集（git 不跟踪的那些）。
+
+    **一次** `git check-ignore` 查出全部，不要每文件跑一个子进程：
+    批量推送上百个文件时那是上百次 git 调用，纯属浪费，
+    而且会把测试里「rmtree 后残留 .git」的竞态放大成经常性失败。
+
+    用 `--stdin -z`：输出是 NUL 分隔的命中路径，能区分「哪个被忽略」，
+    而不是像 `-q` 那样只给一个「有没有」的退出码。
+    退出码 0 = 有命中，1 = 一个都没有，128 = 出错（不是仓库等）。
+
+    注意语义：只报告**未被跟踪**的路径。已跟踪文件即便匹配 ignore 规则
+    也照样被 git 跟踪，这里不会报 —— 正是我们想要的（那个文件受自动检测）。
+    """
+    paths = [p for p in paths if p]
+    if not paths:
+        return set()
+    # 这里的编解码要**双向**处理，不能只管输出：
+    #   · 输出（stdout）：路径可能含非 UTF-8 字节 → errors="surrogateescape"
+    #   · 输入（stdin） ：把 surrogate 写回子进程时同样要 surrogateescape，
+    #     否则 text=True 下默认用严格 UTF-8 编码 stdin，直接抛
+    #     UnicodeEncodeError。只修输出不修输入，崩溃只是换个地方（实测）。
+    try:
+        proc = subprocess.run(
+            ["git", "-C", ROOT, "check-ignore", "-z", "--stdin"],
+            input=("\0".join(paths) + "\0").encode("utf-8", "surrogateescape"),
+            capture_output=True, timeout=30)
+        out = proc.stdout.decode("utf-8", "surrogateescape")
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        return set()
+    if proc.returncode not in (0, 1):
+        return set()                     # 出错就当没有，不因此打断推送
+    return {p for p in out.split("\0") if p}
+
+
+def detect_changes(refresh=False):
     """用 git 检测工作区相对本地基线的改动（含未跟踪文件）
+
+    结果会缓存（一次运行内多处使用）。但**写入文件后再检测必须 refresh**：
+    pull 合并过程中会改写文件，沿用旧快照会把刚落盘的改动误判成「本地无改动」，
+    进而在下一轮合并里被远端版本直接覆盖掉。
 
     用 -z 避免 git 对含空格/中文/引号的路径做 quoting 转义（省掉反转义）。
     加 --no-renames：重命名会退化成 "D 旧路径" + "?? 新路径"，旧路径被跳过、
@@ -260,11 +810,10 @@ def detect_changes():
     重命名记录的字段顺序问题。
     """
     global _CHANGES_CACHE
-    if _CHANGES_CACHE is not None:
+    if _CHANGES_CACHE is not None and not refresh:
         return _CHANGES_CACHE
 
-    out = git("status", "--porcelain", "-z", "--untracked-files=all",
-              "--no-renames", raw=True)
+    out = git("status", "--porcelain", "-z", "--untracked-files=all", "--no-renames")
     fields = out.split("\0")
     paths, i = [], 0
     while i < len(fields):
@@ -275,20 +824,6 @@ def detect_changes():
         xy, path = item[:2], item[3:]     # 标准格式 "XY<space>path"
         if not path:
             continue
-        # 解析校验 + 存在性校验：见 git() 的 raw 参数说明。
-        # porcelain 是定长的「XY + 1空格 + 路径」，前导空格被 strip 会让
-        # 路径丢首字符，进而取不到该文件的工作副本 sha，被误判「已与远端
-        # 一致」跳过——改动推不上去却报成功。
-        if not re.fullmatch(r"[ MADRCU?!]{2}", xy):
-            raise SystemExit(
-                f"git status 解析异常：状态位 {xy!r} 不合法"
-                f"（路径 {path[:60]!r}）。porcelain 是定长格式，"
-                f"前导空格被 strip 会让路径丢首字符。")
-        if not os.path.exists(os.path.join(ROOT, path)):
-            raise SystemExit(
-                f"git status 解析异常：路径 {path[:80]!r} 在仓库内不存在。\n"
-                f"porcelain 是定长格式（XY+空格+路径），前导空格被 strip 后\n"
-                f"整个串左移一位，路径首字符会被切掉。请检查 git() 的 raw 参数。")
         if "D" in xy:                     # 删除：本脚本不处理
             print(f"  ! 跳过已删除文件（脚本不支持删除）：{path}")
             continue
@@ -307,15 +842,29 @@ def detect_changes():
 _EXEC_RELIABLE = None
 
 
+def _file_is_executable(full):
+    """文件自身是否带执行位。
+
+    用 st_mode & 0o111，**不用 os.access(X_OK)**：后者判断的是「当前进程能否
+    执行它」，受挂载选项影响 —— noexec 挂载（本沙盒的 virtiofs 就是）下，
+    即使权限位是 0755，os.access 也返回 False，于是所有文件都被判成 100644，
+   chmod +x 永远推不上去。git 记录的是权限位本身，所以按位判断才对得上。
+    """
+    try:
+        return bool(os.stat(full).st_mode & 0o111)
+    except OSError:
+        return False
+
+
 def _exec_bit_reliable():
-    """该环境能否靠 os.access 判断可执行位（惰性探测，只探一次）。
+    """该环境能否靠文件权限位判断可执行（惰性探测，只探一次）。
 
     两个条件都要满足，缺一不可：
       1. git 跟踪执行位（core.fileMode != false）
-      2. 文件系统真的区分权限（不是所有文件都 0777）
+      2. 文件系统真的区分权限（不是所有文件都带执行位）
 
-    容器 / 挂载目录常两条都不满足：core.fileMode=false，或权限一律 0777
-    导致 os.access(X_OK) 恒为真——此时推断会把 .md / .json 全判成 100755。
+    容器 / 挂载目录常两条都不满足：core.fileMode=false，或权限一律 0777，
+    此时推断会把 .md / .json 全判成 100755。
     """
     global _EXEC_RELIABLE
     if _EXEC_RELIABLE is not None:
@@ -326,17 +875,31 @@ def _exec_bit_reliable():
         print("  ! core.fileMode=false：git 不跟踪可执行位，新文件一律按 100644 处理")
         return _EXEC_RELIABLE
 
-    # 挑一个明显不该可执行的已跟踪文件探一下文件系统
+    # 挑明显不该可执行的已跟踪文件探一下文件系统。
+    #
+    # 取**多个样本**而不是第一个：单个样本可能是被合法 chmod +x 的
+    # （少见但完全可能），那样整个环境会被误判成「文件系统不区分权限」，
+    # 于是所有新文件按 100644 推送 —— 可执行位静默丢失，而提示只打印一行
+    # 与具体文件无关的话，没人会联想到是探测踩错了样本。
+    # 判定「所有样本都带执行位」才算环境不可靠，并打印文件名便于核对。
+    samples = []
     for line in git("ls-files").splitlines():
         if not line.endswith((".md", ".txt", ".json", ".py", ".yml", ".yaml")):
             continue
         probe = os.path.join(ROOT, line)
-        if os.path.isfile(probe) and os.access(probe, os.X_OK):
+        if os.path.isfile(probe):
+            samples.append(probe)
+        if len(samples) >= 5:
+            break
+
+    if samples:
+        flagged = [p for p in samples if _file_is_executable(p)]
+        if len(flagged) == len(samples):
             _EXEC_RELIABLE = False
-            print(f"  ! 文件系统不区分权限（{os.path.basename(probe)} 也是可执行的）："
-                  f"os.access 恒为真，新文件一律按 100644 处理")
+            names = ", ".join(os.path.basename(p) for p in flagged[:3])
+            print(f"  ! 文件系统不区分权限（探测了 {len(samples)} 个文件，"
+                  f"{names} 等全部带执行位）：新文件一律按 100644 处理")
             return _EXEC_RELIABLE
-        break
 
     _EXEC_RELIABLE = True
     return _EXEC_RELIABLE
@@ -347,6 +910,15 @@ def local_state_map():
 
     新文件（索引里没有）不靠 os.access 推断——先过 _exec_bit_reliable()，
     环境不可靠时**回退 100644**：宁可丢执行位，也不要把文档推成可执行。
+
+    必须 **refresh=True**：本函数的语义是「当前工作区的状态」，而
+    detect_changes() 的结果带缓存。若缓存在文件被写入**之前**已填充，
+    这里就会拿到一份过期的列表 —— 于是「刚改过、却不在列表里」的文件
+    落到下方 `m[rel] = (mode, parts[1])` 分支，沿用 **git 索引里的旧 sha**。
+
+    后果正是本脚本最想防的那类事故：本地改动被判成「已与远端一致」而跳过，
+    **静默丢失，零报错**（实测复现）。宁可多跑一次 git status 也要拿新值。
+    顺带把全局缓存刷新成最新，后续调用一并受益。
     """
     m = {}
     for line in git("ls-files", "-s").splitlines():
@@ -357,70 +929,928 @@ def local_state_map():
         mode = parts[0] if parts[0] in VALID_MODES else "100644"
         m[path] = (mode, parts[1] if len(parts) > 1 else "")
 
-    for rel in detect_changes():
+    for rel in detect_changes(refresh=True):
         full = os.path.join(ROOT, rel)
         if os.path.islink(full):
             m[rel] = ("120000", local_blob_sha(rel))
         elif os.path.isfile(full):
-            idx = m.get(rel)
-            if idx:                       # 已跟踪：索引 mode 是唯一权威
-                mode = idx[0] if idx[0] in ("100644", "100755") else "100644"
-            else:                          # 新文件：环境不可靠就用保守值
-                mode = "100755" if (_exec_bit_reliable() and os.access(full, os.X_OK)) else "100644"
+            if _exec_bit_reliable():
+                # 执行位可靠时以**工作区**实际权限为准。
+                # 只 chmod +x 的场景下 git status 会报 M，但索引里的 mode 还停在
+                # 旧值；沿用索引的话「改成可执行」会被推成一个没变化的 100644。
+                mode = "100755" if _file_is_executable(full) else "100644"
+            else:
+                # 环境不可靠（容器/挂载常 0777）：索引是唯一可信来源，
+                # 宁可丢执行位，也不要把 .md / .json 全推成可执行。
+                idx = m.get(rel)
+                mode = idx[0] if idx and idx[0] in ("100644", "100755") else "100644"
             m[rel] = (mode, local_blob_sha(rel))
     return m
+
+
+def _local_matches_baseline(state, lmap, rel):
+    """本地文件与基线记录完全一致 → 本地没改过。
+
+    用于区分两种「本地 ≠ 分支」：
+      · 本地改过（相对基线变了）   → 是要推的改动
+      · 本地没改、只是落后于主干   → 推它只会把主干回退成本地旧版本
+
+    基线里没记录的返回 False（保守）：那种情况归第一层的
+    「基线未记录」分支处理，不算「已知未改动」。
+    """
+    base = (state.get("files") or {}).get(rel)
+    if not isinstance(base, dict) or not base.get("sha"):
+        return False
+    return lmap.get(rel) == (base.get("mode"), base.get("sha"))
+
+
+def baseline_changed_files(state, lmap):
+    """本地与**基线**不同的文件 —— 补上 git status 看不见的「已 commit 未推送」。
+
+    detect_changes() 的对比基准是本地 HEAD，用户一旦 `git commit`，
+    工作区变干净，git status 就报不出任何东西，改动永远推不上去且**静默失败**。
+
+    这里改用基线（上次推送/同步后记下的状态）做基准：本地 ≠ 基线 说明
+    这个文件在你这儿变过（改过、或合并过远端改动），就该纳入推送候选。
+
+    刻意**不**用远端做基准：远端被别人改了但你没动过时，本地 == 基线，
+    这条不会把它算进来 —— 于是你不会拿旧版本去覆盖别人的新改动。
+    「远端被改过」由第一层校验负责拦，两件事分开。
+
+    基线里没记录的文件直接跳过：那种情况归第一层的「基线未记录」分支处理，
+    在这里算进来只会制造噪音。
+    """
+    out = []
+    for rel, lmode_lsha in lmap.items():
+        base = state.get("files", {}).get(rel)
+        if not isinstance(base, dict) or not base.get("sha"):
+            continue
+        if lmode_lsha != (base.get("mode"), base.get("sha")):
+            out.append(rel)
+    return out
 
 
 def init_baseline(head_sha, rstate):
     """把远端当前状态记为基线。
 
     这一步本质是「无条件信任远端当前状态」，无法区分差异是别人改的还是你改的，
-    所以必须把「本地 ≠ 远端」的文件列出来让人过目：这些文件后续会被当作你的改动
-    整文件覆盖上去。
+    所以「本地 ≠ 远端」的文件**不给它记基线**——留空后第一层校验会把它判为
+    「基线未记录、远端却已存在」而拦住，强制先同步再推。
+
+    （旧版做法：照样记基线、照样把 synced_commit 设成 head_sha，只打印一行警告。
+     结果是本地旧副本的全文 + 你的改动会被整文件覆盖上去，把远端更新静默回退掉，
+     全程零报错——正是本脚本最想防的场景，却被自己的初始化开了后门。）
     """
+    lmap = local_state_map()
+    # 只有**内容**不同才算风险：内容一致、仅 mode 不同（容器里文件常一律 0777，
+    # 索引 mode 与远端不同但字节完全相同）推上去不会丢任何东西。
+    # 若把 mode 差异也算进 diff，这类环境首次 init 会把整个仓库判成「不一致」，
+    # 全部拒绝建基线，人看了只会困惑。
+    diff = sorted(p for p in rstate if p in lmap and lmap[p][1] != rstate[p][1])
+    mode_only = sorted(p for p in rstate if p in lmap
+                       and lmap[p][1] == rstate[p][1] and lmap[p][0] != rstate[p][0])
+    # 远端有、本地没有。不算 diff（否则全新目录首次 init 会被 P0-1 永久拦住，
+    # 用户只想推自己的改动时不该被挡），但**必须明确提示**：
+    # 这些文件此前会被一路静默忽略，表现为「本地缺一批文件且 --pull 拉不下来」。
+    missing = sorted(p for p in rstate if p not in lmap)
+    files = {p: {"mode": m, "sha": s} for p, (m, s) in rstate.items() if p not in set(diff)}
+
     state = {
         "version": STATE_VERSION,
         "remote": f"{OWNER}/{REPO}",
         "branch": BRANCH,
         "base_commit": head_sha,
         # 本地副本基于哪个远端 commit —— P0-1 的过期校验靠它。
-        # 建基线时本地尚未改动，等价于「已同步到 head_sha」。
-        "synced_commit": head_sha,
-        "files": {p: {"mode": m, "sha": s} for p, (m, s) in rstate.items()},
+        # 有 diff 时**必须留空**：本地明显不等于远端，声称「已同步到 head_sha」
+        # 是假声明，会让过期防护整体失效。留空后 P0-1 一律拦（fail-closed）。
+        "synced_commit": None if diff else head_sha,
+        "conflicts": [],
+        "tasks": {},
+        "task_branch": None,
+        "workflow": DEFAULT_WORKFLOW,
+        "files": files,
     }
     save_state(state)
-    print(f"✅ 基线已写入 {STATE_PATH}（记录 {len(state['files'])} 个文件，未做任何推送）")
+    print(f"✅ 基线已写入 {STATE_PATH}（记录 {len(files)} 个文件，未做任何推送）")
 
-    lmap = local_state_map()
-    diff = [p for p in rstate if p in lmap and lmap[p][1] != rstate[p][1]]
+    if missing:
+        print(f"\n  · 本地缺少 {len(missing)} 个远端存在的文件"
+              f"（基线已按远端记录，不影响你推送自己的改动）：")
+        for p in missing[:10]:
+            print(f"   - {p}")
+        if len(missing) > 10:
+            print(f"   … 其余 {len(missing) - 10} 个")
+        print("    需要把这些文件拿到本地，跑：python3 push_api.py --pull")
+
+    if mode_only:
+        print(f"\n  · {len(mode_only)} 个文件内容一致但权限位与远端不同"
+              f"（按远端 mode 记入基线；推送时会把本地权限带上去）：")
+        for p in mode_only[:10]:
+            print(f"   - {p} 本地 {lmap[p][0]} / 远端 {rstate[p][0]}")
+        if len(mode_only) > 10:
+            print(f"   … 其余 {len(mode_only) - 10} 个")
+
     if diff:
-        print(f"\n⚠️  本地与远端不一致的文件 {len(diff)} 个（会被视为你的改动，推送时整文件覆盖）：")
+        print(f"\n❌ 本地与远端不一致的文件 {len(diff)} 个：已**拒绝**为它们建立基线。")
         for p in diff[:20]:
             print(f"   - {p}")
         if len(diff) > 20:
             print(f"   … 其余 {len(diff) - 20} 个")
-        print("   若其中含他人改动，请先把本地同步到远端最新再推。")
+        print("\n   这些文件本地与远端不同，无法判断差异属于谁。直接推送会把远端内容")
+        print("   整文件覆盖掉且不报错。请先合并远端改动：\n")
+        print("     python3 push_api.py --pull        # 三方合并远端改动到本地\n")
+        print("   合并完成、本地与远端一致后，本脚本会自动补齐基线。")
 
 
 def mark_synced(state, head_sha, rstate):
     """标记「本地副本已同步到远端 head_sha」，解除 P0-1 的过期拦截。
 
     顺带刷新「本地已与远端一致」的条目基线，避免同步后仍报旧的差异。
+
+    有**未合并的远端改动**时拒绝标记：远端变过、本地又还没合上，此时声称
+    「已同步到 head_sha」是假声明，P0-1 一旦放行，本地旧内容就会被整文件
+    覆盖上去，把远端更新静默回退掉。先跑 `--pull` 再标记。
     """
     lmap = local_state_map()
     refreshed = 0
+    unmerged = []
     for p, (rmode, rsha) in rstate.items():
         lm = lmap.get(p)
-        if not lm or lm[1] != rsha:
+        base = state["files"].get(p)
+        base_sha = base.get("sha") if isinstance(base, dict) else base
+        if lm != (rmode, rsha) and rsha != base_sha:
+            unmerged.append(p)          # 远端变过 + 本地没合上
             continue
-        cur = state["files"].get(p)
-        if not isinstance(cur, dict) or cur.get("sha") != rsha or cur.get("mode") != rmode:
+        if lm != (rmode, rsha):
+            continue                    # 远端没变，差异纯粹是你自己的改动
+        if not isinstance(base, dict) or base.get("sha") != rsha or base.get("mode") != rmode:
             state["files"][p] = {"mode": rmode, "sha": rsha}
             refreshed += 1
+
+    if unmerged:
+        print(f"\n❌ 还有 {len(unmerged)} 个文件的远端改动未合并进本地，不能标记已同步：")
+        for p in unmerged[:20]:
+            print(f"   - {p}")
+        if len(unmerged) > 20:
+            print(f"   … 其余 {len(unmerged) - 20} 个")
+        print("\n     python3 push_api.py --pull      # 三方合并远端改动到本地")
+        print("   合并后再跑 --mark-synced。")
+        return
+
     state["synced_commit"] = head_sha
     state["base_commit"] = head_sha
     save_state(state)
     print(f"✅ 已标记本地副本基于远端 {head_sha[:8]}（刷新 {refreshed} 条已一致的基线）")
+
+
+# ---------------------------------------------------------------- 拉取与三方合并
+
+def _remote_bytes(sha):
+    """取远端 blob 原始字节。用 raw 而非 JSON：JSON 形式对 >1MB 不返回 content。"""
+    try:
+        return api("GET", f"/git/blobs/{sha}", raw=True,
+                   timeout=_timeout_for(0) + 60)
+    except SystemExit as e:
+        print(f"  ! 取远端 blob {str(sha)[:8]} 失败：{e}")
+        return None
+
+
+def _local_bytes(rel):
+    full = os.path.join(ROOT, rel)
+    if os.path.islink(full):
+        return os.readlink(full).encode()
+    try:
+        with open(full, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _binary(b):
+    return b is not None and b"\0" in b[:64 * 1024]
+
+
+def _merge3(local, base, remote):
+    """三方合并，返回 (合并后字节, 是否冲突)。
+
+    二进制不做合并——git merge-file 只按行处理，对二进制产出的结果是垃圾。
+    直接判冲突，交给人工：本地/远端副本都会另存出来。
+    """
+    if _binary(local) or _binary(base) or _binary(remote):
+        return None, True
+    paths = []
+    try:
+        for data in (local, base, remote):
+            fd = tempfile.NamedTemporaryFile(prefix="merge3-", delete=False)
+            fd.write(data or b"")
+            fd.close()
+            paths.append(fd.name)
+        out = subprocess.run(
+            ["git", "merge-file", "-p",
+             "-L", "本地", "-L", "基线", "-L", "远端", *paths],
+            capture_output=True)
+        if out.returncode < 0 or (out.returncode > 0 and not out.stdout):
+            return None, True
+        return out.stdout, out.returncode != 0
+    finally:
+        for p in paths:
+            os.unlink(p)
+
+
+def _write_local(rel, data, mode):
+    full = os.path.join(ROOT, rel)
+    os.makedirs(os.path.dirname(full) or ROOT, exist_ok=True)
+    if os.path.islink(full):
+        os.unlink(full)
+    if mode == "120000":
+        if os.path.exists(full):
+            os.unlink(full)
+        os.symlink(data.decode("utf-8", "replace").strip(), full)
+        return
+    if os.path.exists(full) and not os.path.isfile(full):
+        raise SystemExit(f"{rel} 不是普通文件，拒绝覆盖（请手工处理）")
+    with open(full, "wb") as f:
+        f.write(data)
+    if mode == "100755":
+        os.chmod(full, 0o755)
+    # 工作区刚被改写，detect_changes() 的缓存立即失效。
+    # 不清的话，后续任何 detect_changes()（无 refresh）都会返回**写入前**
+    # 的旧快照，把刚落盘的改动当成「本地无改动」—— 这正是 pull 里那句
+    # 「写入文件后再检测必须 refresh」注释所指，但要靠每个调用点自觉传参
+    # 太脆弱，这里从源头失效掉。
+    global _CHANGES_CACHE
+    _CHANGES_CACHE = None
+
+
+def _git_blob_bytes(rev):
+    """从本地 git 里取某个对象的原始字节（本地 HEAD 版本的 base 用得上）。"""
+    proc = subprocess.run(["git", "-C", ROOT, "cat-file", "blob", rev],
+                          capture_output=True)
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def _base_bytes(state, rel):
+    """三方合并的 base = 「本地副本所基于的那个远端版本」。
+
+    返回 **(data, source)**，source 说明这份 base 从哪来、有多可信：
+      · "baseline" —— 基线记录的远端版本。**唯一可信**的合并基点。
+      · "git"      —— 基线没记，回退到本地 git HEAD 里的版本。
+      · None       —— 都没有（文件连 git 都没跟踪）。
+
+    为什么必须区分来源：git HEAD 里的版本**可能已经含用户自己的改动**。
+    用户 `git commit` 之后，HEAD 就随之前进了；此时拿 HEAD 当 base，
+    等于宣称「用户改动是共同祖先的一部分」，于是
+    「远端没有你这行改动」会被误判成「远端故意删掉了你这行」——
+    三方合并干净通过，用户的改动静默消失。实测踩到过。
+
+    所以 "git" 这一档只能用来判断「远端有没有变过」，
+    **不能**用作合并基点，也不能用来断言「本地没改动」。
+    """
+    entry = state["files"].get(rel)
+    if isinstance(entry, dict) and entry.get("sha"):
+        data = _remote_bytes(entry["sha"])
+        if data is not None:
+            return data, "baseline"
+    sha = git("rev-parse", f"HEAD:{rel}")
+    if sha and len(sha) == 40:
+        data = _git_blob_bytes(sha)
+        if data is not None:
+            return data, "git"
+    return None, None                   # 无法确定 —— 调用方要有降级方案
+
+
+def pull(state, head_sha, rstate, only=None, force=False):
+    """把远端改动三方合并进本地，解决「检测到冲突却无法解决」的问题。
+
+    没有这一步，第一层校验报「可能覆盖他人改动」后，本脚本给的出路只有
+    --force-overwrite（因为 git 协议被网关拦死，用户没有 git pull 可用），
+    于是唯一便捷出路就是摧毁防护本身。
+
+    合并基（base）取**基线里记的远端 sha**——那正是本地副本所基于的版本，
+    三方合并因此能分清「你改的」和「远端改的」。
+    合并成功后基线更新为远端当前 sha：本地已包含远端全部内容，
+    再推送时第一层校验 (远端 == 基线) 自然通过。
+    """
+    lmap = local_state_map()
+    # 开始合并前的快照：之后每写一个文件，工作区状态就变了，
+    # dirty 判断必须基于「合并开始前本地有没有自己的改动」。
+    dirty0 = set(detect_changes(refresh=True))
+    if only:
+        paths = []
+        for f in only:
+            rel = safe_rel(f)
+            if rel is None:
+                print(f"  ! 忽略越界路径：{f}")
+            else:
+                paths.append(rel)
+    else:
+        # 默认：远端变过 且 本地还没合上的
+        #
+        # 额外并入**本地根本没有**的文件。原判据要求「远端相对基线变过」，
+        # 于是「远端新增 → init 把它的 sha 记进基线 → 之后远端没再变过」
+        # 会被判成无需拉取，本地永远缺这些文件，--pull 还报告
+        # 「没有需要合并的远端改动」并谎称已同步。实测 150 个新增文件
+        # 一个都没拉下来（用户侧表现为「148 个文件缺失」）。
+        # 本地没有内容可丢，补齐不存在覆盖风险，故无条件纳入。
+        paths = sorted(p for p in rstate
+                       if lmap.get(p) != rstate[p]
+                       and ((state["files"].get(p) or {}).get("sha") != rstate[p][1]
+                            or p not in lmap))
+
+    if not paths:
+        # 也必须刷新 synced_commit，否则用户会被 P0-1 **永久挡住**：
+        #
+        # 「待合并集合」是「远端相对基线变了 且 本地还没合上」。下列情况它为空，
+        # 但主干确实前进过，P0-1 因此一直拦 —— 而提示给的出路只有 --pull
+        # （正是这条空转的路径）和 --force-overwrite（摧毁防护）：死锁。
+        #   ① 远端删了某个文件（脚本不支持删除，该文件不在 rstate 里）
+        #   ② 远端改动后内容又等价（改回原样 / 只动了别处）
+        #   ③ 用户已用别的途径把内容同步好了
+        # 这些情况下「本地与远端内容一致」为真，声明已同步是真实的。
+        print("\n没有需要合并的远端改动。")
+        if state.get("conflicts"):
+            print("  ! 但有未解决的冲突，暂不标记为已同步。")
+        else:
+            state["base_commit"] = head_sha
+            state["synced_commit"] = head_sha
+            save_state(state)
+            print(f"  · 本地内容已与远端一致，标记为已同步（{str(head_sha)[:8]}），"
+                  f"可正常推送。")
+        return True
+
+    print(f"\n合并 {len(paths)} 个文件的远端改动（base = 基线记录的远端版本）：")
+    clean, conflicted = [], []
+    for rel in paths:
+        rmode, rsha = rstate.get(rel, (None, None))
+        if rsha is None:
+            print(f"  · {rel} 远端已不存在，跳过（本脚本不支持删除）")
+            continue
+        remote = _remote_bytes(rsha)
+        if remote is None:
+            conflicted.append(rel)
+            continue
+        local = _local_bytes(rel)
+        base, base_src = _base_bytes(state, rel)
+
+        if local is None:
+            # 本地根本没有这个文件：远端新增，或本地副本不完整。
+            # 必须**先于**下面的「远端相对基线没变」判断处理 ——
+            # 否则 base == remote（基线记的就是远端当前 sha）会让它
+            # 走进「远端无变化，本地改动原样保留」而跳过，永远补不上。
+            # 本地没有内容可丢，直接落盘不存在覆盖风险。
+            _write_local(rel, remote, rmode)
+            state["files"][rel] = {"mode": rmode, "sha": rsha}
+            clean.append(rel)
+            print(f"  ↓ {rel} 本地缺失，已从远端补齐")
+            continue
+
+        if local == remote:
+            state["files"][rel] = {"mode": rmode, "sha": rsha}
+            print(f"  = {rel} 已一致")
+            clean.append(rel)
+            continue
+        if base is not None and base == remote:
+            # 远端相对基线没变 → 这个文件远端根本没动，本地保留自己的改动即可。
+            # 必须计入 clean：若所有文件都走这条分支，clean 会为空，
+            # synced_commit 就不刷新，用户随即被 P0-1 永久挡住（同 P1-2）。
+            print(f"  · {rel} 远端无变化，本地改动原样保留")
+            clean.append(rel)
+            continue
+
+        # git HEAD 那份 base 可信吗？取决于用户有没有把改动 commit 进去：
+        #   · 工作区已比 HEAD 新（local != base）→ 改动还没进 HEAD，
+        #     HEAD 仍是纯净的远端版本，可作共同祖先 —— **可信**
+        #   · 工作区与 HEAD 一致（local == base）→ 无法排除「用户已 commit」，
+        #     而 commit 后 HEAD 就含其改动了 —— **不可信**
+        if base_src == "baseline":
+            base_ok = True
+        elif base_src == "git":
+            base_ok = (local != base)
+        else:
+            base_ok = False
+
+        # 「本地有没有自己的改动」必须用 local == base 判定，不能用
+        # 「工作区是否有未提交改动」：推送成功后脚本会在本地补一个 commit，
+        # 工作区随之变干净，按后者判断就成了「本地无改动」→ 直接用远端覆盖，
+        # 把你刚推上去的改动从工作区抹掉（还在本地 git 历史里，但文件没了）。
+        #
+        # 但 `local == base` 只在 base **可信**时成立。若 base 是不可信的
+        # git HEAD（用户已 commit），则 local == HEAD 恒成立 ——
+        # 判成「本地无改动」→ 用远端覆盖，用户已 commit 的改动被静默抹掉
+        # （实测：改动消失且零冲突提示）。这种情况按**有改动**处理。
+        if base is not None and base_ok:
+            no_local_change = (local == base)
+        elif base is not None:
+            no_local_change = False         # base 不可信，不敢断言
+        else:
+            no_local_change = rel not in dirty0     # 没 base，退回工作区脏检查
+
+        if no_local_change:
+            # 本地没有自己的改动，只是版本旧：直接更新到远端版本即可，
+            # 不存在要保留的内容，硬走三方合并只会制造假冲突。
+            _write_local(rel, remote, rmode)
+            state["files"][rel] = {"mode": rmode, "sha": rsha}
+            clean.append(rel)
+            print(f"  ↓ {rel} 本地无改动，已更新到远端版本")
+            continue
+
+        if not force and rel in (state.get("conflicts") or []):
+            print(f"  ! {rel} 上次冲突尚未解决（先手工改好再 --resolve {rel}），跳过")
+            conflicted.append(rel)
+            continue
+
+        if local is None:                   # 本地没有：远端新增，直接落盘
+            _write_local(rel, remote, rmode)
+            state["files"][rel] = {"mode": rmode, "sha": rsha}
+            clean.append(rel)
+            print(f"  ↓ {rel} 远端新增，已写入本地")
+            continue
+
+        if rmode == "120000" or lmap.get(rel, (None,))[0] == "120000":
+            # symlink 内容是路径字符串，行合并没有意义：直接采用远端并提示
+            _write_local(rel, remote, rmode)
+            state["files"][rel] = {"mode": rmode, "sha": rsha}
+            clean.append(rel)
+            print(f"  ! {rel} 是符号链接，不合并，已直接采用远端目标")
+            continue
+
+        # 合并基点**只认来自基线记录的那一份**。
+        #
+        # base 为 None（基线没记 + git HEAD 里也没有，例如 untracked 新文件）
+        # 或 base 来自 git HEAD 时，都退化成「空 base」跑三方合并 ——
+        # 两侧都被视为新增，容易判成冲突，但宁可假冲突也不能静默丢改动：
+        # git HEAD 那份在用户 commit 之后已含其改动，拿它当基点会让
+        # 「远端没有你这行」被误读成「远端故意删了你这行」，合并干净通过
+        # 而改动消失。后续有 --resolve 兜底。
+        merge_base = base if base_ok else b""
+        merged, bad = _merge3(local, merge_base, remote)
+        if bad or merged is None:
+            conflicted.append(rel)
+            # .base 只在**确实知道** base 时才写。base 是 None 时
+            # `f.write(base)` 会抛 TypeError（实测），整个 pull 崩在半路；
+            # 也不能写成空文件 —— 那等于宣称「合并基点是空文件」，
+            # 与「不知道基点」是两回事，会误导人工比对。
+            with open(os.path.join(ROOT, rel + ".remote"), "wb") as f:
+                f.write(remote)
+            # 只有**可信**的 base 才落盘成 .base。git HEAD 那份在用户 commit
+            # 之后已含其改动，写出去会让人误以为那是共同祖先。
+            if base_ok:
+                with open(os.path.join(ROOT, rel + ".base"), "wb") as f:
+                    f.write(base)
+            if merged is not None:
+                _write_local(rel, merged, rmode)
+            hint = (f"{rel}.remote / {rel}.base 供比对" if base_ok
+                    else f"{rel}.remote 供比对（合并基点不可信，未生成 {rel}.base）")
+            print(f"  ✗ {rel} 冲突：已生成 {hint}")
+            if base_src is None:
+                print("     合并基点未知：基线没记这个文件，本地 git HEAD 里也没有。"
+                      "两侧都被当作新增，冲突未必是真冲突。")
+            elif base_src == "git" and not base_ok:
+                print("     基线没记这个文件，只有本地 git HEAD 里的版本；"
+                      "而 HEAD 与你工作区一致，无法排除「你已 commit 了自己的改动」，"
+                      "不能当共同祖先。")
+                print(f"     故按「基点未知」处理：冲突未必是真冲突，请对照 "
+                      f"{rel}.remote 人工判断。")
+                print("     （补上基线可避免此类误判："
+                      "python3 push_api.py --init-baseline）")
+            print(f"     手工改好后运行：python3 push_api.py --resolve {rel}")
+            continue
+
+        _write_local(rel, merged, rmode)
+        state["files"][rel] = {"mode": rmode, "sha": rsha}
+        clean.append(rel)
+        print(f"  ✓ {rel} 已合并（{len(merged)} B）")
+
+    state["conflicts"] = sorted(set(state.get("conflicts") or []) | set(conflicted))
+    # 判据是「没有冲突」，不是「有 clean」：clean 为空不代表没跟上 ——
+    # 所有文件都走「远端无变化」分支时 clean 也为空，但本地确实已是最新。
+    # 用 clean 做条件会让 synced 不刷新，用户被 P0-1 永久挡住（P1-2）。
+    if not conflicted:
+        state["synced_commit"] = head_sha      # 本地确实包含远端最新
+    state["base_commit"] = head_sha
+    save_state(state)
+
+    print(f"\n合并完成：干净 {len(clean)} 个，冲突 {len(conflicted)} 个")
+    if conflicted:
+        print("冲突文件已记录，解决前不会被推送（避免把冲突标记推上去）。")
+        print("逐个解决：python3 push_api.py --resolve <文件>")
+        return False
+
+    # 这里**故意不自动 git commit**：一旦提交，工作区就"干净"了，
+    # detect_changes() 再也看不到这些合并结果 —— 用户想把自己的改动
+    # （连同刚合进来的远端改动）推上去时，脚本只会说「本地没有待推送的改动」。
+    # 保持工作区脏，合并结果才推得出去；是否落本地提交交给推送流程统一处理。
+    print(f"✅ 本地已包含远端 {head_sha[:8]} 的全部改动，可直接推送。")
+    return True
+
+
+def resolve(state, rel, head_sha=None, rstate=None):
+    """确认某个冲突文件已手工解决：清冲突标记 + 补基线。
+
+    调用前会检查文件里是否还留着 `<<<<<<<` 标记——带着冲突标记推送等于
+    把一份损坏的文件推上去，这是最该拦的一道。
+
+    手工解决意味着人已经看过远端版本并做了决定，所以这里把基线补成远端当前值：
+    下一轮第一层校验看到「远端 == 基线」即放行，本地（人工裁定的）内容可以推上去。
+    全部冲突解决完则声明「本地已包含远端最新」，解除 P0-1 过期拦截——
+    否则用户解决完所有冲突仍被拦在门外，只能去加 --force-overwrite。
+    """
+    data = _local_bytes(rel)
+    if data is None:
+        raise SystemExit(f"{rel} 本地不存在")
+    if b"<<<<<<<" in data or b">>>>>>>" in data:
+        raise SystemExit(
+            f"{rel} 里仍有冲突标记（<<<<<<< / >>>>>>>）。\n"
+            f"  请先编辑解决冲突，再运行 --resolve {rel}。"
+        )
+    for suffix in (".remote", ".base"):
+        extra = os.path.join(ROOT, rel + suffix)
+        if os.path.exists(extra):
+            os.unlink(extra)
+    state["conflicts"] = [p for p in (state.get("conflicts") or []) if p != rel]
+    if rstate and rel in rstate:
+        state["files"][rel] = {"mode": rstate[rel][0], "sha": rstate[rel][1]}
+        print(f"  · {rel} 基线已补记为远端当前版本（你的裁定内容会在推送时覆盖远端）")
+    if head_sha and not state["conflicts"]:
+        state["synced_commit"] = head_sha
+        state["base_commit"] = head_sha
+        print("  · 冲突已全部解决，本地视为已包含远端最新")
+    save_state(state)
+    print(f"✅ {rel} 冲突已标记为解决")
+
+
+# ---------------------------------------------------------------- PR 工作流
+
+def _now():
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _days_since(ts):
+    """时间戳 → 距今天数。解析不了返回 None（只影响提示，不阻断）。"""
+    if not ts:
+        return None
+    s = str(ts).replace("T", " ").replace("Z", "").split("+")[0].split(".")[0]
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            # GitHub 的时间戳是 **UTC**（形如 2026-09-01T12:00:00Z）。
+            # time.mktime 按**本地时区**解析，UTC+8 下会偏大约 8 小时，
+            # 让 --prune 的 3 天宽限期提前约 1/3 天触发；东八区之外同样有偏。
+            # calendar.timegm 才是按 UTC 解析，与时间戳语义一致。
+            return (time.time() - calendar.timegm(time.strptime(s, fmt))) / 86400.0
+        except (ValueError, OverflowError):
+            continue
+    return None
+
+
+def _branch_date(binfo):
+    """分支最后一次提交时间（孤儿分支没有 PR，只能靠它判断活动）。"""
+    c = (binfo or {}).get("commit") or {}
+    inner = c.get("commit") or {}
+    return ((inner.get("committer") or {}).get("date")
+            or (inner.get("author") or {}).get("date"))
+
+
+def ref_sha(branch):
+    """取分支 head；分支不存在返回 None —— 404 在这里是正常查询结果。"""
+    r = api("GET", f"/git/ref/heads/{branch}", allow_404=True)
+    return (r or {}).get("object", {}).get("sha")
+
+
+def find_pr(branch, pr_state="all"):
+    """找 head 为该分支的 PR。分支名含 /，进 query 必须转义。"""
+    prs = api("GET", f"/pulls?state={pr_state}"
+                     f"&head={OWNER}:{quote(branch, safe='')}&per_page=100")
+    for p in prs or []:
+        if p.get("head", {}).get("ref") == branch:
+            return p
+    return None
+
+
+def new_branch_name():
+    """每次推送都新建分支：基点永远是当前主干，PR diff 才干净。
+
+    随机后缀防并发撞名（同一秒内两人各推一次会撞纯时间戳）。
+    """
+    return TASK_PREFIX + time.strftime("%Y%m%d-%H%M%S") + "-" + os.urandom(2).hex()
+
+
+def create_branch(branch, main_head):
+    r = api("POST", "/git/refs", {"ref": f"refs/heads/{branch}", "sha": main_head})
+    s = r.get("object", {}).get("sha")
+    if not s:
+        raise SystemExit(f"创建分支 {branch} 失败: {json.dumps(r)[:300]}")
+    return s
+
+
+def ensure_pr(branch, msg):
+    """开 PR。分支是新建的，所以通常是新 PR（--hold 复用分支时才可能命中旧的）。
+
+    **只复用 state == "open" 的 PR**。
+    曾经不检查 state，直接命中 find_pr 的第一个结果。find_pr 默认查
+    state=all，于是已关闭 / 已合并的旧 PR 会被复用：
+      · 已合并：GitHub 对再 PUT /merge 返回 405 not mergeable，
+        被 _NEED_UPDATE_HINTS 误判成「分支不是最新的」，提示完全跑偏
+      · 已关闭：合并必然失败
+    两种情况的后果都是「推送成功、改动不进主干、报错误导」，
+    而用户只是用了同一个 -b 分支名（脚本自己也常提示带 -b）。
+    """
+    pr = find_pr(branch)
+    if pr and pr.get("state") == "open":
+        return pr, False
+    pr = api("POST", "/pulls", {
+        "title": (msg.splitlines()[0][:100] if msg else f"更新 {branch}"),
+        "head": branch, "base": BRANCH,
+        "body": "由 push_api.py 自动创建",
+    })
+    if "number" not in pr:
+        raise SystemExit(f"创建 PR 失败: {json.dumps(pr)[:300]}")
+    return pr, True
+
+
+# GitHub 拒绝合并时的两类原因，处理方式完全不同：
+#   conflict   —— 内容真冲突，要人解决
+#   need_update —— 分支不够新（仓库开了「合并前必须同步主干」保护），
+#                  重新基于最新主干推一次即可，改动本身没冲突
+_NEED_UPDATE_HINTS = (
+    "Base branch was modified",     # 主干在 PR 打开后前进过
+    "not up to date", "up-to-date",
+    "not mergeable",
+    "Required status check",
+)
+
+
+def merge_pr(number, method="squash"):
+    """合并 PR。返回 (结果, 状态)；被拒时结果是 None。
+
+    GitHub 用 409/405 同时表示「内容冲突」和「分支不够新」，
+    不区分的话会把后者当冲突处理，引导人去做根本不需要的冲突解决。
+    """
+    try:
+        r = api("PUT", f"/pulls/{number}/merge", {"merge_method": method})
+    except SystemExit as e:
+        msg = str(e)
+        if "HTTP 409" in msg or "HTTP 405" in msg:
+            if any(h.lower() in msg.lower() for h in _NEED_UPDATE_HINTS):
+                return None, "need_update"
+            return None, "conflict"
+        raise
+    return r, ("merged" if r.get("merged") else (r.get("message") or "unknown"))
+
+
+def delete_branch(branch):
+    api("DELETE", f"/git/refs/heads/{branch}", allow_404=True)
+
+
+def list_branches():
+    return api("GET", "/branches?per_page=100") or []
+
+
+def _refresh_main_baseline(state, new_head, merged_pushed=None):
+    """主干前进后刷新基线：只更新「本地已是主干版本」的文件。
+
+    本地还没合上的**保留旧基线** —— 否则 --pull 会认为主干没变过，
+    再也拉不下来（和推送后刷新基线同一个坑）。
+
+    merged_pushed：本次 PR 推到分支的内容 {path: sha}。
+    合并成功后，主干上这些文件的版本就是（或包含）**我推的内容**，
+    因此可以无条件刷新基线 —— 否则会出现这种误判：
+        --hold 推 v2 → 继续编辑成 v3 → --merge（主干 = v2）
+        本地 v3 ≠ 主干 v2，按「本地落后」处理 → 提示 --pull
+        而 --pull 又拿陈旧的 v1 当 base，把 v2→v3 自己的连续改动判成冲突
+    实际上本地是**领先**主干，不是落后。
+    """
+    new_rstate = remote_state_map(new_head)
+    lmap = local_state_map()
+    lagging = []
+    for p, (m, s) in new_rstate.items():
+        if lmap.get(p) == (m, s):
+            state["files"][p] = {"mode": m, "sha": s}
+            continue
+        if merged_pushed and merged_pushed.get(p) == s:
+            # 主干上这个版本正是我推上去的 → 基线跟进，本地的后续改动
+            # 就落在正确的 base 上，不会再被当成「落后」或假冲突。
+            state["files"][p] = {"mode": m, "sha": s}
+            continue
+        old = state["files"].get(p) or {}
+        if old.get("sha") != s:
+            lagging.append(p)
+    state["base_commit"] = new_head
+    state["synced_commit"] = None if lagging else new_head
+    return lagging
+
+
+def do_merge(state, number, method="squash", yes=False, quiet=False,
+            keep_on_conflict=False):
+    """合并 PR → 刷新主干基线 → 删分支。返回是否成功。
+
+    quiet：自动合并时静音掉「确认 / 已合并」这类交互性输出。
+    """
+    pr = api("GET", f"/pulls/{number}")
+    branch = pr.get("head", {}).get("ref")
+    if pr.get("state") == "closed" and not pr.get("merged"):
+        print(f"PR #{number} 已关闭且未合并")
+        return False
+    if not quiet:
+        print(f"\n合并 PR #{number}：{branch} → {pr.get('base', {}).get('ref')}  [{method}]")
+        if not yes and input("确认合并？(y/N) ").strip().lower() != "y":
+            print("已取消")
+            return False
+
+    r, status = merge_pr(number, method)
+    if r is None:
+        if status == "need_update":
+            # 不是内容冲突，只是分支旧了 —— 保留分支：
+            # 用户可以在 GitHub 网页点「Update branch」就地解决，比本地重推快。
+            print(f"\n❌ PR #{number} 暂不能合并：分支 {branch} 不是最新的。")
+            print("   仓库开了「合并前分支必须与主干同步」的保护规则，改动本身没冲突。")
+            print("\n   二选一：")
+            print("     · 网页上点 PR 的「Update branch」后，再跑 --merge")
+            print("     · 本地：push_api.py --pull   然后   push_api.py（会用新基点重建分支）")
+            print(f"\n   分支 {branch} 与 PR #{number} 已保留，改动也在本地，都没丢。")
+            return False
+        else:
+            print(f"\n❌ PR #{number} 合并冲突：GitHub 无法把 {branch} 自动合进 {BRANCH}。")
+            print("   把主干改动合进本地、解决冲突后重新推送：")
+            print("     python3 push_api.py --pull        # 三方合并主干改动到本地")
+            print("     # 手工解决冲突标记后")
+            print("     python3 push_api.py --resolve <文件>")
+            print("     python3 push_api.py               # 重新推送")
+        print("\n   改动没丢 —— 还在你的本地工作区。")
+        if keep_on_conflict:
+            print(f"\n   分支 {branch} 与 PR #{number} 已保留（--keep-on-conflict）。")
+        else:
+            # 收摊而不是留着：一个合不进去、又没人再推的分支就是僵尸 PR，
+            # 会一直占着列表，也会让 --prune 每次都报一遍。
+            abandon_task(state, branch, number)
+            print(f"\n   已关闭 PR #{number} 并删除分支 {branch}（改动在本地，没丢）。")
+            print("   想留着分支自己处理：加 --keep-on-conflict")
+        return False
+
+    if not quiet:
+        print(f"✅ PR #{number} 已合并（{status}）")
+    # 取出本次 PR 推到分支的内容，让基线能正确跟进（见 _refresh_main_baseline）
+    task = (state.get("tasks") or {}).get(branch) or {}
+    lagging = _refresh_main_baseline(state, ref_sha(BRANCH),
+                                     merged_pushed=task.get("pushed"))
+    delete_branch(branch)
+    if not quiet:
+        print(f"  · 已删除分支 {branch}（内容已在 {BRANCH}）")
+    state.setdefault("tasks", {}).pop(branch, None)
+    if state.get("task_branch") == branch:
+        state["task_branch"] = None
+        state["pr_number"] = None
+    save_state(state)
+    if lagging:
+        print(f"\n  ! {len(lagging)} 个文件本地落后于合并后的 {BRANCH}，改它们前先 --pull")
+    return True
+
+
+def abandon_task(state, branch, pr_number=None):
+    """放弃任务：关 PR + 删分支。
+
+    合并冲突时用。改动本来就在本地工作区，分支只是传输通道，
+    删掉它不会丢任何东西；留着反而会变成僵尸 PR 一直占着列表。
+    """
+    pr = pr_number or (find_pr(branch, pr_state="open") or {}).get("number")
+    if pr:
+        try:
+            api("PATCH", f"/pulls/{pr}", {"state": "closed"})
+        except SystemExit:
+            pass
+    delete_branch(branch)
+    state.setdefault("tasks", {}).pop(branch, None)
+    if state.get("task_branch") == branch:
+        state["task_branch"] = None
+        state["pr_number"] = None
+    save_state(state)
+
+
+def close_pr(state, branch, yes=False):
+    """关闭 PR 并删分支（--hold 的任务确认不做了时用）。"""
+    pr = find_pr(branch, pr_state="open")
+    if not pr:
+        print(f"{branch} 没有开启中的 PR")
+        return
+    n = pr["number"]
+    if not yes:
+        if input(f"关闭 PR #{n}（{branch} → {BRANCH}）并删除分支？(y/N) ").strip().lower() != "y":
+            print("已取消")
+            return
+    api("PATCH", f"/pulls/{n}", {"state": "closed"})
+    print(f"✅ 已关闭 PR #{n}")
+    delete_branch(branch)
+    state.setdefault("tasks", {}).pop(branch, None)
+    if state.get("task_branch") == branch:
+        state["task_branch"] = None
+        state["pr_number"] = None
+    save_state(state)
+    print(f"  · 已删除分支 {branch}")
+
+
+def delete_branch_cmd(state, branch, yes=False):
+    """显式删除分支。
+
+    --prune 只报告不删，真正要删走这里，且必须逐个确认 ——
+    分支是唯一可能存着「没合进主干的改动」的地方，删错不可恢复。
+    """
+    pr = find_pr(branch)
+    if not pr:
+        note = "没有任何 PR（孤儿分支，删除会丢改动！）"
+    elif pr.get("merged_at") or pr.get("merged"):
+        note = f"PR #{pr['number']} 已合并，内容已在 {BRANCH}（删掉无损失）"
+    else:
+        note = f"PR #{pr['number']} 状态 {pr.get('state')}（未合并，删除会丢改动！）"
+    print(f"\n删除分支 {branch}")
+    print(f"  {note}")
+    if not yes:
+        if input("确认删除？(y/N) ").strip().lower() != "y":
+            print("已取消")
+            return
+    delete_branch(branch)
+    state.setdefault("tasks", {}).pop(branch, None)
+    if state.get("task_branch") == branch:
+        state["task_branch"] = None
+        state["pr_number"] = None
+    save_state(state)
+    print(f"✅ 已删除 {branch}")
+
+
+def show_status(state, head_sha):
+    wf = state.get("workflow") or DEFAULT_WORKFLOW
+    print(f"工作流：{'PR（每次新建 → 推送 → 自动合并 → 删分支）' if wf == 'pr' else '直推主干'}")
+    print(f"主干 {BRANCH} = {str(head_sha)[:8]}")
+    print(f"当前任务分支：{state.get('task_branch') or '（无，下次推送会新建）'}")
+    print(f"当前 PR：{state.get('pr_number') or '（无）'}")
+    print("\n常用：")
+    print("  python3 push_api.py            # 新建分支 → 推 → 自动合并 → 删分支")
+    print("  python3 push_api.py --hold     # 先不合并，攒几次改动")
+    print("  python3 push_api.py --merge    # 合并 --hold 留下的 PR")
+    print("  python3 push_api.py --prune    # 分支体检（只报告，不删）")
+
+
+def prune(state, grace_days=MERGED_GRACE_DAYS):
+    """分支体检：**只报告，绝不删除**。
+
+    判据用「合并状态 + 活动状态」，不用「N 天没用」——
+    一个开发到一半的 WIP 分支，恰恰就是「开着、没合并、可能好几天没动」，
+    按时间自动删会最先误杀它。
+
+    已合并但分支仍在的，只有超过 grace_days 天才报告：
+    正常流程合并完立刻就删了，刚合并还没删的多半是流程还在跑，
+    立刻报告会让两个人互相反复刷同一条。
+    """
+    mine = [b for b in list_branches()
+            if (b.get("name") or "").startswith(TASK_PREFIX)]
+    if not mine:
+        print(f"\n没有 {TASK_PREFIX}* 分支，很干净。")
+        return
+
+    merged_stale, merged_recent, opening, orphan, closed = [], [], [], [], []
+    for b in mine:
+        name, last = b.get("name"), _branch_date(b)
+        pr = find_pr(name)
+        if pr is None:
+            orphan.append((name, last))
+        elif pr.get("merged_at") or pr.get("merged"):
+            d = _days_since(pr.get("merged_at"))
+            (merged_stale if (d is not None and d >= grace_days) else merged_recent
+             ).append((name, pr["number"], d))
+        elif pr.get("state") == "closed":
+            closed.append((name, pr["number"], last))
+        else:
+            opening.append((name, pr["number"], pr.get("updated_at") or last))
+
+    print(f"\n{TASK_PREFIX}* 分支 {len(mine)} 个（只报告，不删除任何东西）：")
+
+    if merged_stale:
+        print(f"\n[应当清理] 已合并超过 {grace_days} 天，分支却还在"
+              f"（正常流程早该删了）：")
+        for name, n, d in merged_stale:
+            print(f"   · {name}   PR #{n}   已合并 {d:.0f} 天")
+            print(f"     python3 push_api.py --delete-branch {name}")
+    if merged_recent:
+        print(f"\n[无需处理] 刚合并、分支待删（{grace_days} 天内，属正常流程）："
+              f" {len(merged_recent)} 个")
+    if opening:
+        print("\n[保留] PR 仍开启 —— 可能是进行中的工作，不删：")
+        for name, n, ts in opening:
+            d = _days_since(ts)
+            extra = f"，{d:.0f} 天无更新" if d is not None else ""
+            print(f"   · {name}   PR #{n}   最后活动 {ts or '-'}{extra}")
+        print("   确认不做了：python3 push_api.py --branch <名字> --close-pr")
+    if closed:
+        print("\n[按需删] PR 已关闭且未合并（改动没进主干，但分支还在）：")
+        for name, n, ts in closed:
+            print(f"   · {name}   PR #{n}   最后提交 {ts or '-'}")
+            print(f"     python3 push_api.py --delete-branch {name}")
+    if orphan:
+        print("\n[按需删] 没有任何 PR 的孤儿分支：")
+        for name, ts in orphan:
+            print(f"   · {name}   最后提交 {ts or '-'}")
+            print(f"     python3 push_api.py --delete-branch {name}")
+    if not (merged_stale or opening or closed or orphan):
+        print("   全部无需处理")
+    print("\n（删除一律走 --delete-branch 并逐个确认；--prune 自己不删任何东西）")
 
 
 # ---------------------------------------------------------------- 预览
@@ -511,7 +1941,12 @@ def default_msg(todo):
 
 def parse_args(argv):
     opts = {"dry": False, "yes": False, "init": False, "reset": False,
-            "force": False, "mark_synced": False, "msg": None}
+            "force": False, "mark_synced": False, "msg": None,
+            "pull": False, "resolve": False, "force_files": [],
+            "direct": False, "branch": None, "merge": False, "status": False,
+            "close_pr": False, "prune": False, "new_task": False, "hold": False,
+            "delete_branch": None, "keep_on_conflict": False,
+            "method": "squash", "stale_days": MERGED_GRACE_DAYS}
     rest, i = [], 0
     while i < len(argv):
         a = argv[i]
@@ -525,8 +1960,70 @@ def parse_args(argv):
             opts["reset"] = True
         elif a == "--mark-synced":
             opts["mark_synced"] = True
+        elif a == "--pull":
+            opts["pull"] = True
+        elif a == "--resolve":
+            opts["resolve"] = True
+        elif a == "--direct":
+            opts["direct"] = True
+        elif a == "--status":
+            opts["status"] = True
+        elif a == "--merge":
+            opts["merge"] = True
+        elif a == "--close-pr":
+            opts["close_pr"] = True
+        elif a == "--prune":
+            opts["prune"] = True
+        elif a == "--new-task":
+            opts["new_task"] = True
+        elif a == "--hold":
+            opts["hold"] = True
+        elif a == "--keep-on-conflict":
+            opts["keep_on_conflict"] = True
+        elif a == "--delete-branch":
+            if i + 1 >= len(argv):
+                raise SystemExit("--delete-branch 缺少参数")
+            opts["delete_branch"] = argv[i + 1]
+            i += 1
+        elif a.startswith("--delete-branch="):
+            opts["delete_branch"] = a.split("=", 1)[1]
+        elif a in ("--branch", "-b"):
+            if i + 1 >= len(argv):
+                raise SystemExit("--branch 缺少参数")
+            opts["branch"] = argv[i + 1]
+            i += 1
+        elif a.startswith("--branch="):
+            opts["branch"] = a.split("=", 1)[1]
+        elif a == "--method":
+            if i + 1 >= len(argv):
+                raise SystemExit("--method 缺少参数")
+            opts["method"] = argv[i + 1]
+            i += 1
+        elif a.startswith("--method="):
+            opts["method"] = a.split("=", 1)[1]
+        elif a == "--stale-days":
+            if i + 1 >= len(argv):
+                raise SystemExit("--stale-days 缺少参数")
+            raw = argv[i + 1]
+            try:
+                opts["stale_days"] = int(raw)
+            except ValueError:
+                raise SystemExit(
+                    f"--stale-days 需要一个整数天数，收到 {raw!r}\n"
+                    f"  用法：--stale-days 7")
+            if opts["stale_days"] < 0:
+                raise SystemExit(f"--stale-days 不能为负数：{raw}")
+            i += 1
         elif a == "--force-overwrite":
             opts["force"] = True
+        elif a in ("--force-file", "--allow-overwrite"):
+            # 细粒度放行：只覆盖显式点名的文件，别把所有 blocked 一起放过去。
+            if i + 1 >= len(argv):
+                raise SystemExit("--force-file 缺少参数")
+            opts["force_files"].append(argv[i + 1])
+            i += 1
+        elif a.startswith("--force-file=") or a.startswith("--allow-overwrite="):
+            opts["force_files"].append(a.split("=", 1)[1])
         elif a in ("-m", "--message"):
             if i + 1 >= len(argv):
                 raise SystemExit("-m/--message 缺少参数")
@@ -539,6 +2036,14 @@ def parse_args(argv):
         else:
             rest.append(a)
         i += 1
+
+    # 放在循环后统一校验：--method 和 --method=x 两种写法都能覆盖到，
+    # 不必在两处各写一遍。本地校验比把非法值发给 GitHub 再收一串 422 JSON
+    # 好排查得多。
+    if opts["method"] not in VALID_MERGE_METHODS:
+        raise SystemExit(
+            f"--method 只支持 {' / '.join(VALID_MERGE_METHODS)}，"
+            f"收到 {opts['method']!r}")
     return opts, rest
 
 
@@ -546,6 +2051,11 @@ def parse_args(argv):
 
 def main():
     opts, explicit = parse_args(sys.argv[1:])
+    with StateLock(STATE_PATH, enabled=not opts["dry"]):
+        _main(opts, explicit)
+
+
+def _main(opts, explicit):
     dry, yes = opts["dry"], opts["yes"]
     init, reset, force = opts["init"], opts["reset"], opts["force"]
 
@@ -558,7 +2068,8 @@ def main():
     rstate = remote_state_map(head_sha)
     print(f"远端文件 {len(rstate)} 个")
 
-    state = load_state()
+    # init/reset 用非严格模式：旧基线坏了也要能重建（否则用户得先手工删文件）。
+    state = load_state(strict=not (init or reset))
 
     # -------- 基线建立 / 重设 --------
     if init or reset or state is None:
@@ -593,192 +2104,654 @@ def main():
             f"基线属于另一个仓库：{state.get('remote')}，当前目标是 {OWNER}/{REPO}。\n"
             f"  不是他人改动，是仓库换了。请换用对应的 STATE_PATH，或用 --reset-baseline 重建。"
         )
+    # branch 也一起校验：原来只在 state 里存了却从不比对，改 BRANCH 常量重跑
+    # 会让 A 分支的基线拿去校验 B 分支，所有文件都可能被误判。
+    if state.get("branch") not in (None, BRANCH):
+        raise SystemExit(
+            f"基线记录的是分支 {state.get('branch')}，当前目标是 {BRANCH}。\n"
+            f"  跨分支复用基线会让文件级校验全部失真。请换 STATE_PATH 或 --reset-baseline。"
+        )
 
     # -------- 基线版本迁移 --------
     state, migrated = migrate_state(state, rstate)
     if migrated:
         save_state(state)
         print(f"  · 基线已从 v1 迁移到 v{STATE_VERSION}（补记 mode，取自远端当前值）")
+    state.setdefault("tasks", {})
+    state.setdefault("conflicts", [])
+
+    # -------- 工作流判定 --------
+    wf = "direct" if opts["direct"] else (state.get("workflow") or DEFAULT_WORKFLOW)
+
+    # -------- PR 子命令 --------
+    if opts["prune"]:
+        prune(state, grace_days=opts["stale_days"])
+        return
+    if opts["delete_branch"]:
+        delete_branch_cmd(state, opts["delete_branch"], yes=yes)
+        return
+    if opts["status"]:
+        show_status(state, head_sha)
+        return
+    if opts["close_pr"]:
+        b = opts["branch"] or state.get("task_branch")
+        if not b:
+            raise SystemExit("--close-pr 需要 --branch <名字>，或当前已有任务分支")
+        close_pr(state, b, yes=yes)
+        return
+    if opts["merge"]:
+        n = None
+        if explicit and explicit[0].isdigit():
+            n = int(explicit[0])
+        elif state.get("pr_number"):
+            n = state["pr_number"]
+        if n is None:
+            # 开了多个并行 PR 时，合并完当前那个后 pr_number 就空了，
+            # 第二次 --merge 会直接报错 —— 得把剩下的列出来让人挑，
+            # 否则用户只能去网页上翻 PR 号。
+            open_prs = api("GET", "/pulls?state=open&per_page=100") or []
+            open_prs = [p for p in open_prs
+                        if (p.get("head") or {}).get("ref", "").startswith(TASK_PREFIX)]
+            if not open_prs:
+                raise SystemExit("--merge 需要 PR 号（例：--merge 42）；当前没有开启中的任务 PR")
+            if len(open_prs) == 1:
+                n = open_prs[0]["number"]
+            else:
+                print("\n开启中的任务 PR：")
+                for p in open_prs:
+                    print(f"  #{p['number']}  {p['head']['ref']}   {p.get('title') or ''}")
+                raw = input("输入要合并的 PR 号：").strip()
+                if not raw.isdigit():
+                    print("已取消")
+                    return
+                n = int(raw)
+        do_merge(state, int(n), opts["method"], yes=yes)
+        return
 
     # -------- 标记已同步（解除过期拦截）--------
     if opts["mark_synced"]:
         mark_synced(state, head_sha, rstate)
         return
 
+    # -------- 拉取：三方合并远端改动到本地 --------
+    # 必须紧接在 mark_synced 之后、P0-1 之前：合完本地就包含了远端最新，
+    # 后面的过期校验才有放行依据。
+    if opts["pull"]:
+        pull(state, head_sha, rstate, only=explicit or None, force=force)
+        return
+
+    # -------- 冲突解决 --------
+    if opts["resolve"]:
+        if not explicit:
+            raise SystemExit("--resolve 需要至少一个文件路径")
+        for f in explicit:
+            rel = safe_rel(f)
+            if rel is None:
+                print(f"  ! 忽略越界路径：{f}")
+                continue
+            resolve(state, rel, head_sha, rstate)
+        return
+
+    # -------- 未解决冲突拦截 --------
+    # 带着冲突标记推送 = 把损坏文件推上去，这条不能被 --force 放行。
+    unresolved = state.get("conflicts") or []
+    if unresolved:
+        raise SystemExit(
+            f"有 {len(unresolved)} 个文件的冲突尚未解决：{unresolved[:10]}\n"
+            f"  手工改好后逐个运行：python3 push_api.py --resolve <文件>\n"
+            f"  （冲突文件不适用 --force-overwrite：那是覆盖远端，解决不了本地冲突）"
+        )
+
+    # 细粒度放行清单：只对这些路径网开一面，其余照旧拦。
+    allowed = set()
+    for f in opts["force_files"]:
+        rel = safe_rel(f)
+        if rel is None:
+            raise SystemExit(f"--force-file 路径越出仓库范围：{f}")
+        allowed.add(rel)
+
+    # P0-1 只由**全局** --force-overwrite 放行，--force-file 不行。
+    #
+    # 曾经这里写成 `force or bool(allowed)`，理由是「点名即承担风险」。
+    # 但 P0-1 是全局闸门而非按文件判定：它回答的是「你的本地副本是不是
+    # 从最新主干改的」。用户点名 e1.txt 时，并不知道自己的副本已过期，
+    # 也就无从同意「把 e2 的他人改动回退掉」—— 这个同意是无效的。
+    #
+    # 实测后果：--force-file e1.txt 会让本地旧版的 e2 一并进 diff，
+    # GitHub 三方合并时 theirs==base、ours 变了 → 直接采纳 ours，
+    # 他人对 e2 的改动被静默回退且合并成功、零报错。
+    bypass = force
+
     # -------- 第零层：本地副本是否过期（P0-1）--------
     # 前面几层只能证明「远端没被别人改」，证明不了「本地是从最新版改的」。
     # 本地副本一旦过期（CDN 缓存的 tarball、离线包、未 pull 的旧 clone），
     # 过期的全文 + 你的改动会被整文件覆盖上去，**把远端更新的内容回退掉且不报错**。
+    #
+    # synced 缺失（None）与落后同等危险：那意味着从没证明过本地基于哪个版本
+    # （init 时检出本地≠远端就会留空），必须拦。原来写成 `if synced and ...`
+    # 会让空值悄悄跳过这层防护。
     synced = state.get("synced_commit")
-    if synced and synced != head_sha and not force:
-        print(f"\n❌ 本地副本落后于远端：基线上记录本地基于 {synced[:8]}，远端现在是 {head_sha[:8]}。")
-        print("   此时推送会把远端这段时间的更新整文件回退掉，且不会报错。")
-        print("\n   请先把本地同步到远端最新，然后：")
-        print("     python3 push_api.py --mark-synced")
-        print("   再重新推送。确认本地就是最新（例如刚由本脚本推送过）才加 --force-overwrite。")
+    stale_local = (synced is None) or (synced != head_sha)
+    if stale_local and not bypass:
+        if synced is None:
+            print("\n❌ 基线未记录本地所基于的远端版本（通常因初始化时检出本地 ≠ 远端）。")
+            print("   此时推送会把远端更新整文件回退掉且不报错。")
+        else:
+            print(f"\n❌ 本地副本落后于远端：基线上记录本地基于 {synced[:8]}，远端现在是 {head_sha[:8]}。")
+            print("   此时推送会把远端这段时间的更新整文件回退掉，且不会报错。")
+        if wf == "pr":
+            # PR 工作流下同样必须拦：任务分支是从**最新主干**上建的，
+            # 而你的内容还是旧的 —— 相对分支基点，这等于「把主干改动改回去」，
+            # GitHub 合并时会当成你故意回退，直接采纳，依旧是静默覆盖。
+            # 只有双方都从同一个旧基点出发、各自改动，才是真并发，
+            # 那时 GitHub 才做三方合并并明确报冲突。
+            print("   任务分支基于最新主干，你的内容却是旧的：合并时会被判成「你故意回退」。")
+        print("\n   解除方式（按推荐顺序）：")
+        print("     python3 push_api.py --pull        # 三方合并主干改动到本地（首选）")
+        print("     python3 push_api.py --mark-synced # 确认本地已含远端全部改动时，直接声明同步")
+        print("       · 适用：你确认本地内容与远端一致，只是脚本记录的版本号旧了")
+        print("       · 例：远端删了文件、或改动后内容又等价，--pull 会说「没有需要合并的」")
+        print("       · 这两条不走通时，--pull 空转也会自动标记同步并重推即可")
+        print("     --force-overwrite                 # 全局放行，会回退远端更新，仅在你确知后果时用")
         return
-    if synced and synced != head_sha:
-        print(f"\n  ! 本地副本落后（{synced[:8]} → {head_sha[:8]}），--force-overwrite 已放行，"
-              f"存在回退远端更新的风险")
-
-    # -------- 收集待推文件 --------
-    candidates = explicit or detect_changes()
-    files, rejected = [], []
-    for f in candidates:
-        rel = safe_rel(f)
-        if rel is None:
-            rejected.append(f)
-        elif os.path.isfile(os.path.join(ROOT, rel)) or os.path.islink(os.path.join(ROOT, rel)):
-            files.append(rel)
-    if rejected:
-        print(f"\n❌ 以下路径越出仓库范围或非法，已忽略：{rejected}")
-    if not files:
-        print("\n本地没有待推送的改动。")
-        return
+    if stale_local:
+        print(f"\n  ! 本地副本落后/未声明（{str(synced)[:8] if synced else '未声明'} → {head_sha[:8]}），"
+              f"--force-overwrite 已放行，存在回退远端更新的风险")
 
     lmap = local_state_map()
 
-    # -------- 第一层：文件级基线校验（mode + sha 一起比）--------
-    # 远端某文件必须等于「我们上次推送后记下的状态」，否则说明远端
-    # 被别的通道改过（别人 git push / 网页编辑 / 另一台机器）。
-    # 这是防静默覆盖的关键：ref 级 force=False 管不到这种情况。
-    # 比 (mode, sha) 而非只比 sha：只比 sha 会让「只改了可执行位」的变更
-    # 被判为「内容已一致」而跳过，改了等于没改（T-11）。
-    todo, blocked = [], []
-    for rel in files:
-        lmode, lsha = lmap.get(rel, ("100644", ""))
-        rmode, rsha = rstate.get(rel, (None, None))
-        base = state["files"].get(rel)
-        base_mode = base.get("mode") if isinstance(base, dict) else None
-        base_sha = base.get("sha") if isinstance(base, dict) else base
+    # -------- 任务分支（PR 工作流）--------
+    # 放在 P0-1 之后：P0-1 会拦下「本地副本落后」，被拦时不该留下空分支。
+    # 每次推送都**新建**分支，基点 = 当前主干最新 —— 基点越新，PR diff 越干净，
+    # 合并时三方合并的冲突面越小。--hold 是唯一的例外（攒改动，显式复用）。
+    target_ref, base_sha = BRANCH, head_sha
+    branch_missing = False          # 该分支在远端还不存在，需要创建
+    if wf == "pr":
+        branch = None
+        if opts["branch"]:
+            branch = opts["branch"]
+        elif opts["hold"] and state.get("task_branch"):
+            if opts["new_task"]:
+                # branch 保持 None → 下面新建分支。
+                # 语义：放弃当前任务分支、另起一个。默认已是「每次新建」，
+                # 所以它只在 --hold 攒改动时有区别 —— 那时默认会复用旧分支。
+                print(f"  · --new-task：放弃当前任务分支 "
+                      f"{state.get('task_branch')}，另起一个新分支")
+            else:
+                branch = state["task_branch"]
 
-        if (lmode, lsha) == (rmode, rsha):
-            print(f"  · {rel} 已与远端一致，跳过")
+        if branch is None:
+            # 这一阶段只**取名**、不创建：下面若发现没有待推文件就会直接 return，
+            # 那时建分支只会往远端丢一个空分支。创建推迟到确认有东西要推之后。
+            for _ in range(5):
+                branch = new_branch_name()
+                if ref_sha(branch) is None:      # 撞名就换一个（GET，无副作用）
+                    break
+            else:
+                raise SystemExit("连续 5 次生成的分支名都已存在，请检查远端是否有异常残留")
+            branch_missing = True
+            bhead = head_sha                     # 新分支的内容 = 当前主干
+        else:
+            bhead = ref_sha(branch)
+            if bhead is None:
+                branch_missing = True
+                bhead = head_sha
+            else:
+                base_rec = (state.get("tasks") or {}).get(branch, {}).get("base_commit")
+                if base_rec and base_rec != head_sha:
+                    print(f"\n  ! 分支 {branch} 建在 {base_rec[:8]}，主干已到 {head_sha[:8]}")
+                    print("    本次会把主干已更新的文件一并同步进分支，"
+                          "避免 PR diff 出现「回退主干」的假象")
+        target_ref, base_sha = branch, bhead
+        if opts["new_task"] and state.get("task_branch") \
+                and state["task_branch"] != branch:
+            # 旧分支不再由本次流程接管：从 tasks 里摘掉，让它变成孤儿分支，
+            # 由 --prune 报告并给出删除命令（比悄悄留着更可控）。
+            old = state["task_branch"]
+            (state.get("tasks") or {}).pop(old, None)
+            print(f"  · 旧任务分支 {old} 已不再接管"
+                  f"（远端仍在，可用 --prune 查看、--delete-branch 清理）")
+        state["task_branch"] = branch
+        print(f"任务分支 {branch} = {str(bhead)[:8]}（PR 目标 {BRANCH}）")
+
+    # -------- 收集待推文件 --------
+    # PR 工作流下要扩展为「本地 vs **分支远端**」的差异全集：
+    # 只推用户改动的文件，分支里残留的旧版本会让 PR diff 显示成
+    # 「把主干的改动改回去」，合并时就被当成你故意回退而直接采纳 —— 静默覆盖。
+    #
+    # 还要并入 baseline_changed_files()：git status 的对比基准是本地 HEAD，
+    # 用户先 `git commit` 到本地之后工作区就干净了，status 什么都报不出来，
+    # 改动会静默卡死（git 协议被网关拦成 403 时，用户的直觉反应就是先本地提交）。
+    candidates = explicit or sorted(
+        set(detect_changes()) | set(baseline_changed_files(state, lmap)))
+    files, rejected, dropped = [], [], []
+    unencodable = []
+    for f in candidates:
+        rel = safe_rel(f)
+        if rel is None:
+            rejected.append(f)                  # 越界 / 非法
             continue
-        if base is None:
-            if rsha is None and not force:
-                # 基线没记录**且远端也没这个文件** → 纯新增，不存在覆盖风险。
-                # 只有当「基线没记录、远端却有」时才真的无法确认原状态，那才要拦。
-                todo.append(rel)
-                print(f"  + {rel} 新增文件（远端不存在）")
+        # GitHub API 的 payload 是 JSON，只接受 UTF-8 字符串。
+        # 含 surrogate 的路径（Linux 上文件名是任意字节，可能是非法 UTF-8）
+        # 到 json.dumps 那一步才会炸 —— 而那时分支已在远端建好，
+        # 崩完留下没人管的僵尸分支。必须在建分支之前挑出来。
+        try:
+            rel.encode("utf-8")
+        except UnicodeEncodeError:
+            unencodable.append(rel)
+            continue
+        full = os.path.join(ROOT, rel)
+        if os.path.isfile(full) or os.path.islink(full):
+            files.append(rel)
+        else:
+            # 显式点名却不存在，或是目录。过去二者都被静默丢掉，
+            # 打到「本地没有待推送的改动」上 —— 用户无法区分
+            # 「真的没改」和「我把文件名打错了 / 我点的是目录」。
+            dropped.append(f)
+    if unencodable:
+        show = [p.encode("utf-8", "replace").decode("utf-8", "replace")
+                for p in unencodable[:5]]
+        print(f"\n❌ {len(unencodable)} 个路径含非 UTF-8 字节，"
+              f"无法经 API 推送，已忽略：{show}")
+        print("   请把这些文件改名为 UTF-8 文件名后再推。")
+    if rejected:
+        print(f"\n❌ 以下路径越出仓库范围或非法，已忽略：{rejected}")
+    if dropped:
+        # 部分命中时也要说：点了三个文件、推上去两个，用户往往察觉不到，
+        # 直到后来发现第三个文件根本没上远端。
+        print(f"\n❌ 以下路径不存在或不是普通文件，已忽略：{dropped}")
+        print("   检查拼写；目录需要写成目录下的具体文件。")
+
+    if wf == "pr" and not explicit:
+        brstate = remote_state_map(base_sha)
+
+        extra, skipped_stale = [], []
+        for p in brstate:
+            if lmap.get(p) == brstate[p]:
+                continue                    # 本地已与分支一致
+            if not (os.path.isfile(os.path.join(ROOT, p))
+                    or os.path.islink(os.path.join(ROOT, p))):
                 continue
-            if force:
-                todo.append(rel)
-                print(f"  ! {rel} 基线未记录（--force-overwrite 已放行）")
+            # 关键：本地**没改过**、只是落后的文件，不能进 extra。
+            #
+            # 新分支基点就是最新主干，分支里本不可能残留旧版本 ——
+            # 这里 "lmap != brstate" 其实是「本地旧」，不是「分支旧」。
+            # 把它推上去，等于把主干回退成本地的旧版本；GitHub 三方合并时
+            # theirs==base、ours 变了 → 直接采纳 ours，静默回退他人改动。
+            # 分支保持主干内容即可，本地要更新应当走 --pull。
+            if _local_matches_baseline(state, lmap, p):
+                skipped_stale.append(p)
+                continue
+            extra.append(p)
+
+        if skipped_stale:
+            print(f"  · {len(skipped_stale)} 个文件你没改过、只是本地版本旧，"
+                  f"不纳入本次推送（否则会把主干回退）")
+            print(f"    需要更新本地请跑 --pull：{sorted(skipped_stale)[:5]}"
+                  f"{' …' if len(skipped_stale) > 5 else ''}")
+        if extra:
+            print(f"  · {len(extra)} 个文件在分支上还是旧版本（主干已更新或首次推送），"
+                  f"一并同步，避免 PR diff 出现回退")
+            files = sorted(set(files) | set(extra))
+
+    # -------- .gitignore 屏蔽文件的提示（P1）--------
+    # 「点名即意图，等同 git add -f」这个语义可以辩护，但必须让人知道代价：
+    # 这类文件此后**不受自动检测**——git status 被 .gitignore 屏蔽，
+    # local_state_map 基于 git ls-files 也看不到它，于是后续改动会静默漏推。
+    # 这与当初修的「已 commit 推不上」是同一类静默漏推。
+    if files:
+        ignored = sorted(gitignored_set(files))
+        if ignored:
+            print(f"\n  ! {len(ignored)} 个文件被 .gitignore 屏蔽，本地 git 不跟踪："
+                  f"{ignored[:5]}{' …' if len(ignored) > 5 else ''}")
+            print("    本次会推上去；但之后改动不会被自动检测到，"
+                  "需要再次显式点名推送。")
+
+    if not files:
+        # 显式点名却一个都没匹配上时，必须说清楚：否则「打错文件名」
+        # 和「真的没有改动」在输出上完全一样，用户只能靠猜。
+        if rejected or dropped:
+            print(f"\n❌ 指定的路径都不存在或不是普通文件，已忽略："
+                  f"{sorted(set(rejected) | set(dropped))[:10]}")
+            print("   检查拼写；目录需要写成目录下的具体文件。")
+        elif unencodable:
+            print("   （唯一的推送候选含非 UTF-8 字节，见上方提示。）")
+        print("\n本地没有待推送的改动。")
+        return
+
+    # -------- 真正创建任务分支 --------
+    # 到这里才 POST：确认有东西要推，且不是 --dry-run。
+    # 提前创建会让「无改动」和「预演」都在远端留下一个空分支。
+    #
+    # 但「有东西要推」之后到推送成功之间仍有很长的路：大文件预检、N 次建
+    # blob、建 tree、建 commit、PATCH —— 任一步失败都会留下一个**空分支**，
+    # 而本地状态文件的 tasks 里根本没有它（那要 PATCH 成功之后才写），
+    # 用户只能靠 --prune 才发现。最典型的是改了个 12MB 文件被预检拒绝。
+    #
+    # 所以记住「本次是不是我们建的」，失败时补偿删掉。
+    branch_created_now = None
+    if wf == "pr" and branch_missing:
+        if dry:
+            print(f"\n  · [dry-run] 将新建任务分支 {branch}"
+                  f"（基点 = {BRANCH} {head_sha[:8]}），本次不创建")
+        else:
+            base_sha = create_branch(branch, head_sha)
+            target_ref = branch
+            branch_created_now = branch
+            state.setdefault("tasks", {})[branch] = {"base_commit": head_sha}
+            print(f"\n  · 新建任务分支 {branch}（基点 = {BRANCH} {head_sha[:8]}）")
+
+    risky = []
+
+    # -------- 失败即清理：以下任一步失败都不能留下僵尸分支 --------
+    # 起点在**分支创建之后**尽可能早的位置，把第一层校验和 preview 也覆盖进来。
+    # preview 要拉远端 blob 做 diff，网络一抖就抛错 —— 那时分支已建、
+    # 却还没 PATCH，正是最容易留下僵尸分支的地方（实测）。
+    try:
+        # -------- 第一层：文件级基线校验（mode + sha 一起比）--------
+        # 远端某文件必须等于「我们上次推送后记下的状态」，否则说明远端
+        # 被别的通道改过（别人 git push / 网页编辑 / 另一台机器）。
+        # 这是防静默覆盖的关键：ref 级 force=False 管不到这种情况。
+        # 比 (mode, sha) 而非只比 sha：只比 sha 会让「只改了可执行位」的变更
+        # 被判为「内容已一致」而跳过，改了等于没改（T-11）。
+        todo, blocked = [], []
+        for rel in files:
+            lmode, lsha = lmap.get(rel, ("100644", ""))
+            rmode, rsha = rstate.get(rel, (None, None))
+            base = state["files"].get(rel)
+            # 变量名必须避开 base_sha —— 那是本次推送的 ref 基点（见第二层乐观锁），
+            # 同名覆盖会让它变成「基线里记的文件 sha」，乐观锁随即误报并发并中止。
+            base_mode = base.get("mode") if isinstance(base, dict) else None
+            base_rec_sha = base.get("sha") if isinstance(base, dict) else base
+
+            if (lmode, lsha) == (rmode, rsha):
+                print(f"  · {rel} 已与远端一致，跳过")
+                continue
+            ok = force or rel in allowed
+            if base is None:
+                if rsha is None and not ok:
+                    # 基线没记录**且远端也没这个文件** → 纯新增，不存在覆盖风险。
+                    # 只有当「基线没记录、远端却有」时才真的无法确认原状态，那才要拦。
+                    todo.append(rel)
+                    print(f"  + {rel} 新增文件（远端不存在）")
+                    continue
+                if ok:
+                    todo.append(rel)
+                    risky.append(rel)
+                    print(f"  ! {rel} 基线未记录（已放行，将整文件覆盖，远端原内容丢失）")
+                else:
+                    blocked.append((rel, "基线里没有这个文件、远端却已存在，无法确认远端原状态"))
+                continue
+            if (rmode, rsha) != (base_mode, base_rec_sha):
+                if ok:
+                    todo.append(rel)
+                    risky.append(rel)
+                    print(f"  ! {rel} 远端已被改动（已放行，将整文件覆盖）")
+                else:
+                    detail = f"远端 {str(rsha)[:8]}/{rmode} ≠ 基线 {str(base_rec_sha)[:8]}/{base_mode}"
+                    blocked.append((rel, f"{detail}，可能被他人改动"))
+                continue
+            todo.append(rel)
+
+        if blocked:
+            if wf == "pr":
+                # 主干这些文件动过 ≠ 不能推：推的是任务分支，GitHub 合并时才判定。
+                #
+                # 但「不会静默覆盖」这句话只在**本地确有改动**时成立。
+                # 若本地版本 == 基线（只是落后），三方合并时 theirs==base、
+                # ours 变了 → GitHub 直接采纳 ours，等于把主干回退到你的旧版本，
+                # 且不会报错。这正是 P0-1 想防的情形，必须单独、明确地警告。
+                revert, overlap = [], []
+                for rel, why in blocked:
+                    (revert if _local_matches_baseline(state, lmap, rel)
+                     else overlap).append((rel, why))
+
+                if revert:
+                    print(f"\n❌ 以下文件你没改过、本地仍是旧版本，"
+                          f"推送后 {BRANCH} 会被**回退**到你的旧内容：")
+                    for rel, why in revert:
+                        print(f"   - {rel}: {why}")
+                    print("\n   这不是冲突，是覆盖：GitHub 会判定「你故意回退」并直接采纳。")
+                    print("   先跑 --pull 把主干改动合进本地，再推送。")
+                    if not bypass:
+                        return
+                    print("   --force-overwrite 已放行，上述文件将被回退。")
+
+                if overlap:
+                    print(f"\n  ! 以下文件在 {BRANCH} 上已有新改动，但你本地也改过"
+                          f"（合并时可能冲突，不会静默覆盖）：")
+                    for rel, why in overlap:
+                        print(f"   - {rel}: {why}")
+                    print("   建议先跑 --pull 把主干改动合进本地，PR 会干净很多。")
+
+                # 只有「本地也改过」的才放行；回退类的已在上一步拦下或明确警告。
+                for rel, _ in overlap:
+                    todo.append(rel)
             else:
-                blocked.append((rel, "基线里没有这个文件、远端却已存在，无法确认远端原状态"))
-            continue
-        if (rmode, rsha) != (base_mode, base_sha):
-            if force:
-                todo.append(rel)
-                print(f"  ! {rel} 远端已被改动（--force-overwrite 已放行，将整文件覆盖）")
-            else:
-                detail = f"远端 {str(rsha)[:8]}/{rmode} ≠ 基线 {str(base_sha)[:8]}/{base_mode}"
-                blocked.append((rel, f"{detail}，可能被他人改动"))
-            continue
-        todo.append(rel)
+                print("\n❌ 以下文件可能覆盖他人改动，已中止：")
+                for rel, why in blocked:
+                    print(f"   - {rel}: {why}")
+                print("\n   正确做法：python3 push_api.py --pull        # 三方合并远端改动到本地")
+                print("   确知要覆盖某个文件时，用细粒度放行（别用全局 --force-overwrite），")
+                print("   并显式列出要推的文件（否则其它被拦的文件会一并中止本次推送）：")
+                print("     python3 push_api.py --force-file 可疑文件 要推的文件")
+                return
 
-    if blocked:
-        print("\n❌ 以下文件可能覆盖他人改动，已中止：")
-        for rel, why in blocked:
-            print(f"   - {rel}: {why}")
-        print("\n   确认要覆盖就加 --force-overwrite；否则先同步远端改动到本地再推。")
-        return
-
-    if not todo:
-        print("\n没有需要推送的内容。")
-        return
-
-    # -------- 远端已前进的整体提示 --------
-    prev = state.get("base_commit")
-    if prev and prev != head_sha:
-        print(f"\n⚠️  远端自上次推送后已前进（基线 {prev[:8]} → 现在 {head_sha[:8]}），可能含他人提交。")
-        print("   本次只覆盖下面校验通过的文件，其余文件保持远端原样。")
-
-    # -------- 预览 --------
-    preview(todo, rstate, lmap)
-
-    # -------- 提交信息 --------
-    # 原来复用 `git log -1`，但推送成功后本脚本会在本地补一个同信息的 commit，
-    # 导致从第二次起 log -1 永远拿到同一条 → 所有推送共用同一个提交信息。
-    msg = opts["msg"]
-    if msg is None and not yes:
-        msg = input(f"提交信息（单行，留空则用「{default_msg(todo)}」）：\n> ").strip()
-    if not msg:
-        msg = default_msg(todo)
-    if not opts["msg"]:
-        print(f"提交信息：{msg}")
-
-    if dry:
-        print("\n[dry-run] 未做任何推送")
-        return
-    if not yes:
-        ans = input(f"\n推送到 {OWNER}/{REPO}@{BRANCH}？(y/N) ").strip().lower()
-        if ans != "y":
-            print("已取消")
+        if not todo:
+            print("\n没有需要推送的内容。")
             return
 
-    # -------- 大文件预检 --------
-    for rel in todo:
-        size = os.path.getsize(os.path.join(ROOT, rel))
-        if size > MAX_BLOB_BYTES:
-            raise SystemExit(
-                f"{rel} 有 {size / 1024 / 1024:.1f} MB，超过 {MAX_BLOB_BYTES // 1024 // 1024} MB 上限。"
-                f"base64 后还会再膨胀约 33%，容易超时/被拒。请改走 Git LFS。"
-            )
+        # 放行的必须显式再确认一次：--force-overwrite 是全局开关，
+        # 一行参数就把「可能覆盖他人改动」的文件全放过去，代价太大。
+        if risky and not yes:
+            print(f"\n⚠️  以下 {len(risky)} 个文件将**整文件覆盖**远端内容（远端原版本不可恢复）：")
+            for rel in risky:
+                print(f"   - {rel}")
+            ans = input("确认用本地内容覆盖远端？输入 y 继续 (y/N) ").strip()
+            if ans.lower() != "y":
+                print("已取消（未推送）")
+                return
 
-    # -------- 第二层：ref 乐观锁 --------
-    # 建对象期间若有人又推了提交，head_sha 就不是最新了，重取一次确认。
-    now = api("GET", f"/git/refs/heads/{BRANCH}")["object"]["sha"]
-    if now != head_sha:
-        raise SystemExit(f"远端已前进到 {now}（预期 {head_sha}），出现并发提交，已中止")
+        # -------- 远端已前进的整体提示 --------
+        prev = state.get("base_commit")
+        if prev and prev != head_sha:
+            print(f"\n⚠️  远端自上次推送后已前进（基线 {prev[:8]} → 现在 {head_sha[:8]}），可能含他人提交。")
+            print("   本次只覆盖下面校验通过的文件，其余文件保持远端原样。")
 
-    # -------- 建对象 --------
-    entries = []
-    for rel in todo:
-        mode = lmap.get(rel, ("100644", ""))[0]
-        full = os.path.join(ROOT, rel)
-        if mode == "120000":                      # symlink：blob 内容是目标路径
-            raw = os.readlink(full).encode()
-        else:
-            with open(full, "rb") as f:
-                raw = f.read()
-        blob = api("POST", "/git/blobs",
-                   {"content": base64.b64encode(raw).decode(), "encoding": "base64"},
-                   timeout=_timeout_for(len(raw)))
-        if "sha" not in blob:
-            raise SystemExit(f"创建 blob 失败 {rel}: {json.dumps(blob)[:300]}")
-        # mode 必须跟着走，否则 .sh / 二进制推上去就丢了可执行位。
-        entries.append({"path": rel, "mode": mode, "type": "blob", "sha": blob["sha"]})
-        print(f"  blob {rel} ({mode})")
+        # -------- 预览 --------
+        preview(todo, rstate, lmap)
 
-    tree = api("POST", "/git/trees", {"base_tree": head_sha, "tree": entries})
-    if "sha" not in tree:
-        raise SystemExit(f"创建 tree 失败: {json.dumps(tree)[:300]}")
+        # -------- 大文件预检 --------
+        # 放在 dry-run **之前**：预演的意义就是提前暴露这种阻塞性错误，
+        # 排在后面会导致「--dry-run 一切正常，真推时才报 12MB 超限」。
+        # dry-run 时只警告不中止，让预演能继续走完流程。
+        oversize = []
+        for rel in todo:
+            # 必须兜住 OSError：仓库里可以有指向不存在目标的符号链接
+            # （git 允许提交这种 blob），os.path.getsize 会抛 FileNotFoundError。
+            # 预览那里（见 preview）已经兜了，这里漏了就会裸 traceback，
+            # 而且此时 blob 已建、分支已建、状态未落盘 —— 留下脏远端状态。
+            # symlink 用 lstat：要的是链接自身长度，不是跟随后的目标大小。
+            full = os.path.join(ROOT, rel)
+            try:
+                size = (os.lstat(full).st_size if os.path.islink(full)
+                        else os.path.getsize(full))
+            except OSError:
+                size = 0
+            if size > MAX_BLOB_BYTES:
+                oversize.append((rel, size))
+        if oversize:
+            for rel, size in oversize:
+                print(f"\n❌ {rel} 有 {size / 1024 / 1024:.1f} MB，超过 "
+                      f"{MAX_BLOB_BYTES // 1024 // 1024} MB 上限。"
+                      f"base64 后还会再膨胀约 33%，容易超时/被拒。请改走 Git LFS。")
+            if not dry:
+                raise SystemExit(f"{len(oversize)} 个文件超过大小上限，已中止")
 
-    commit = api("POST", "/git/commits", {"message": msg, "tree": tree["sha"], "parents": [head_sha]})
-    if "sha" not in commit:
-        raise SystemExit(f"创建 commit 失败: {json.dumps(commit)[:300]}")
+        # -------- 提交信息 --------
+        # 原来复用 `git log -1`，但推送成功后本脚本会在本地补一个同信息的 commit，
+        # 导致从第二次起 log -1 永远拿到同一条 → 所有推送共用同一个提交信息。
+        msg = opts["msg"]
+        if msg is None and not yes:
+            msg = input(f"提交信息（单行，留空则用「{default_msg(todo)}」）：\n> ").strip()
+        if not msg:
+            msg = default_msg(todo)
+        if not opts["msg"]:
+            print(f"提交信息：{msg}")
 
-    # -------- 第三层：PATCH 用 force=False，非快进由 GitHub 拒绝 --------
-    upd = api("PATCH", f"/git/refs/heads/{BRANCH}", {"sha": commit["sha"], "force": False})
-    if upd.get("object", {}).get("sha") != commit["sha"]:
-        raise SystemExit(f"更新 ref 失败（可能非快进）: {json.dumps(upd, ensure_ascii=False)[:300]}")
+        if dry:
+            print("\n[dry-run] 未做任何推送")
+            return
+        if not yes:
+            ans = input(f"\n推送到 {OWNER}/{REPO}@{target_ref}？(y/N) ").strip().lower()
+            if ans != "y":
+                print("已取消")
+                return
 
-    # -------- 更新基线 --------
+        # -------- 第二层：ref 乐观锁（分两遍，各司其职）--------
+        #
+        # 只查一遍是不够的：建对象（尤其大文件建 blob）可能耗时几十秒，
+        # 那才是真正的并发窗口。若锁只放在建对象**之前**，窗口完全没盖住 ——
+        # 改动虽仍不丢（PATCH force=False 会挡住非快进，fail-safe），
+        # 但报错变成 GitHub 的 422 原文 "not fast-forward"，
+        # 用户只会往权限/设置上猜，不知道该去 --pull。
+        #
+        # 第一遍（建对象前）：早失败，省掉几十秒的大文件上传。
+        #   新分支尚未创建时 target_ref 不存在，此时要查主干 ——
+        #   新分支的基点就是主干，要确认的正是「主干没前进」。
+        lock_ref = BRANCH if branch_missing else target_ref
+        _recheck_ref(lock_ref, base_sha, "开始建对象前")
+
+        # -------- 建对象 --------
+        entries = []
+        for rel in todo:
+            mode = lmap.get(rel, ("100644", ""))[0]
+            full = os.path.join(ROOT, rel)
+            if mode == "120000":                      # symlink：blob 内容是目标路径
+                raw = os.readlink(full).encode()
+            else:
+                with open(full, "rb") as f:
+                    raw = f.read()
+            blob = api("POST", "/git/blobs",
+                       {"content": base64.b64encode(raw).decode(), "encoding": "base64"},
+                       timeout=_timeout_for(len(raw)))
+            if "sha" not in blob:
+                raise SystemExit(f"创建 blob 失败 {rel}: {json.dumps(blob)[:300]}")
+            # mode 必须跟着走，否则 .sh / 二进制推上去就丢了可执行位。
+            entries.append({"path": rel, "mode": mode, "type": "blob", "sha": blob["sha"]})
+            print(f"  blob {rel} ({mode})")
+
+        tree = api("POST", "/git/trees", {"base_tree": base_sha, "tree": entries})
+        if "sha" not in tree:
+            raise SystemExit(f"创建 tree 失败: {json.dumps(tree)[:300]}")
+
+        commit = api("POST", "/git/commits", {"message": msg, "tree": tree["sha"], "parents": [base_sha]})
+        if "sha" not in commit:
+            raise SystemExit(f"创建 commit 失败: {json.dumps(commit)[:300]}")
+
+        # -------- 第三层：PATCH 用 force=False，非快进由 GitHub 拒绝 --------
+        # 第二遍 ref 检查：覆盖建对象期间的并发窗口（真正的窗口在这里）。
+        _recheck_ref(target_ref, base_sha, "建对象完成后")
+
+        upd = api("PATCH", f"/git/refs/heads/{target_ref}", {"sha": commit["sha"], "force": False})
+        if upd.get("object", {}).get("sha") != commit["sha"]:
+            raise SystemExit(f"更新 ref 失败（可能非快进）: {json.dumps(upd, ensure_ascii=False)[:300]}")
+
+        # 本地也落一个提交，让工作区重回干净（下次 detect_changes 才准）。
+        # 注意：本地历史与远端历史并无父子关系，纯粹当快照基线用。
+        # 只提交 todo 这些路径，避免把别人先前 git add 进暂存区的文件一起卷进来。
+        #
+        # 这两步也要在 try 内：PATCH 成功后分支上就有内容了，此时中断
+        # （Ctrl-C 最容易发生在这里 —— 大文件刚传完）会留下一个**有内容
+        # 但没人知道**的孤儿分支。报告第 8 轮实测确认过这个残留点。
+        git("add", "--", *todo)
+        if git("diff", "--cached", "--name-only", "--", *todo):
+            git("-c", "user.name=yuanbao", "-c", "user.email=yuanbao@users.noreply.github.com",
+                "commit", "-q", "-m", msg, "--", *todo)
+
+    # 清理范围**停在「开 PR」之前**是有意的：PR 一旦建出来就有编号、
+    # 能被 --prune 看见、也能 --merge 继续 —— 那时该做的是提示用户，
+    # 而不是悄悄删掉。
+    except BaseException:
+        _cleanup_failed_branch(branch_created_now)
+        raise
+
+    # -------- PR 工作流：开 PR → 自动合并 → 删分支 --------
+    if wf == "pr":
+        # 推到分支时主干尚未改变：base_commit / synced_commit 都要记**主干**，
+        # 不能记分支上的 commit（旧版记 commit["sha"]，于是 P0-1 拿它与主干
+        # head_sha 比较，必然不等 → 把刚推完的用户又挡在门外）。
+        # 本地确实是「主干 head_sha 的内容 + 已推到分支的改动」，记主干才准确。
+        #
+        # 但**基线 files 不能**记成本次推送的内容：它的语义是「远端该文件的版本」，
+        # 而这里远端还是旧主干。记成推送内容后，--pull 会看到
+        # local == base 而判定「本地无改动」，直接用主干（他人的）版本覆盖本地，
+        # 把你刚推到分支的改动静默抹掉 —— regression 实测过。
+        # 正确时机是 --merge 成功之后，见 do_merge 里的 _refresh_main_baseline。
+        state["base_commit"] = head_sha
+        state["synced_commit"] = head_sha
+        pr, _ = ensure_pr(target_ref, msg)
+        state["workflow"] = "pr"
+        state["pr_number"] = pr["number"]
+        (state.setdefault("tasks", {}).setdefault(target_ref, {})
+         ).update({"pr": pr["number"], "last_push": _now(),
+                   # 记下本次推到分支的内容：--merge 成功后据此判断
+                   # 「主干上这个版本就是我推的」，从而安全地刷新基线。
+                   "pushed": {rel: entries[i]["sha"]
+                              for i, rel in enumerate(todo)}})
+        save_state(state)
+        print(f"\n✅ 已推送到 {target_ref}（{commit['sha'][:8]}）")
+        print(f"   PR #{pr['number']}: {pr.get('html_url') or pr.get('url')}")
+
+        if opts["hold"]:
+            print("\n   --hold：分支与 PR 已保留，未合并。攒够改动后：")
+            print("     python3 push_api.py --merge")
+            return
+
+        # 推送即合并：冲突时 GitHub 返回 409，改动不会丢（还在本地工作区），
+        # 所以可以安全地把分支和 PR 一起收掉，不留僵尸。
+        if do_merge(state, pr["number"], opts["method"], yes=True, quiet=True,
+                    keep_on_conflict=opts["keep_on_conflict"]):
+            print(f"✅ 已合并进 {BRANCH} 并删除分支 {target_ref}")
+        return
+
+    # -------- 更新基线（仅 direct 模式；PR 模式在 merge 成功后刷新）--------
     for i, rel in enumerate(todo):
         state["files"][rel] = {"mode": entries[i]["mode"], "sha": entries[i]["sha"]}
+
+    # 非本次推送、但远端已经变了的文件：只在「本地也已经是远端版本」时刷新基线。
+    #
+    # 无条件刷新的话（旧版行为）会把「本地落后于远端」这个事实抹掉：
+    # 下次再推动该文件，第一层看到 远端 == 基线 就放行，本地旧内容 + 你的改动
+    # 会整文件覆盖上去；同时 --pull 也认为「远端没变」不再处理，彻底锁死。
+    # 不刷新则保持 fail-closed：第一层拦住 → 提示 --pull → 合并后自然解锁。
+    refreshed = []
+    lagging = []
+    for p, (rmode, rsha) in rstate.items():
+        if p in todo:
+            continue
+        cur = state["files"].get(p)
+        if not isinstance(cur, dict) or cur.get("sha") == rsha:
+            continue
+        if lmap.get(p) == (rmode, rsha):
+            state["files"][p] = {"mode": rmode, "sha": rsha}
+            refreshed.append(p)
+        else:
+            lagging.append(p)
+
     state["base_commit"] = commit["sha"]
     state["synced_commit"] = commit["sha"]     # 推送后本地即远端最新
     save_state(state)
 
-    # 本地也落一个提交，让工作区重回干净（下次 detect_changes 才准）。
-    # 注意：本地历史与远端历史并无父子关系，纯粹当快照基线用。
-    # 只提交 todo 这些路径，避免把别人先前 git add 进暂存区的文件一起卷进来。
-    git("add", "--", *todo)
-    if git("diff", "--cached", "--name-only", "--", *todo):
-        git("-c", "user.name=yuanbao", "-c", "user.email=yuanbao@users.noreply.github.com",
-            "commit", "-q", "-m", msg, "--", *todo)
+    if refreshed:
+        print(f"\n  · {len(refreshed)} 个非本次推送的文件远端已更新，本地已是同一版本，基线已跟进")
+    if lagging:
+        print(f"\n⚠️  {len(lagging)} 个文件本地落后于远端（基线**未**刷新，推它们会覆盖远端）：")
+        for p in lagging[:20]:
+            print(f"   - {p}")
+        if len(lagging) > 20:
+            print(f"   … 其余 {len(lagging) - 20} 个")
+        print("   改这些文件前请先：python3 push_api.py --pull")
 
     print(f"\n✅ 已推送 https://github.com/{OWNER}/{REPO}/commit/{commit['sha']}")
     print(f"   基线已同步（{STATE_PATH}），本地已补提交 {git('log', '-1', '--format=%h')}")

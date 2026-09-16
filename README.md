@@ -96,26 +96,25 @@ self-evolving_skill_mechanism/skills/
 
 | 项 | 状态 |
 |---|---|
-| 机扫规则 | 151 条（scan-ts 65 / scan-app 33 / py 13 / cpp 10 / go 10 / java 10 / rust 10） |
-| 判据条目 | 169 条，覆盖 14 个参考文件 |
-| fixture 实测 | 147 条已验证（recall+precision 双 pass）；`rule-registry.py --eval` 可回填 |
+| 机扫规则 | 见 `registry.json`（`--sync` 生成，勿手改）。**以 `--check` 实时输出为准**：上次快照 151 条（scan-ts 65 / scan-app 33 / scan-rust 10 / scan-py 13 / cpp 10 / go 10 / java 10） |
+| 判据条目 | 见 `items.json`（Markdown 是源，JSON 是产物）。上次快照 259 条，覆盖 16 个参考文件 |
+| fixture 实测 | 通过 295 · 失败 0（另有 16 条人工判据无对应机扫规则，未实测、非失败） |
 | CI | `.github/workflows/self-audit.yml`：fixture 实测 + 扫描器自检 + SARIF 上传 |
 
-`rule-registry.py --check` 会实时报覆盖率与 eval 分布，**以它的输出为准** ——
-本表的数字是上次跑 `--sync && --map --apply && --eval` 后的快照，
-改扫描器后必须重跑这三个命令再更新，否则就是「文档说谎」。
+> ⚠ **本表不写死数字**：规则数与判据数随回填变化，写死的口径必然过期
+> （曾出现 README 说 131 条 / registry 只有 93 条 / 语言包自称 20 条自检的三方不一致）。
+> 查当前值用 `python3 scripts/rule-registry.py --check`。
 
-> **改动扫描器后的三步**（漏任何一步都会让 CI 红）：
-> ```bash
-> python3 scripts/rule-registry.py --sync          # 提取规则 → registry.json
-> python3 scripts/rule-registry.py --map --apply   # 机扫规则 → 判据条目映射
-> python3 scripts/rule-registry.py --eval          # 跑 fixture，回填实测结论
-> python3 scripts/rule-registry.py --check         # 应为 exit 0
-> ```
-> 2026-09 前的 registry.json 停在 93 条（只含 scan-ts / scan-app），
-> 五个语言扫描器的 58 条规则从未入表 —— 后果是 `--scanners` 只推导出 2 个，
-> CI 里其余 5 个扫描器的 `--self-test` **一条都没跑**，流水线照样绿。
-> 这正是本仓库自己在 CI 注释里点名要防的失效模式，只是换了条路径发生。
+### 已修复的漂移（2026-09-16）
+
+`registry.json` 曾只收 TS/APP 两族（`--sync` 未跑），导致 `--check` 退出码 1、
+五个语言包的自检在 CI 里一次都没执行。已通过 `--sync` + `--map --apply` 修复：
+规则 93 → **151 条**（7 个扫描器全覆盖），`--check` 退出码 0。
+
+**fixture 目录名必须跟住规则 ID**：改名不留样本会静默退出测试。
+本次修了 12 条失配（`APP-K*` → `K-*`、`TS-D02-*` 并入 `TS-D02` 的 fp2/fp3/fp4），
+并在 `--test` 里加了失配检测 —— 规则改 ID 而 fixture 没跟上，现在会报错而非跳过。
+
 
 ## License
 

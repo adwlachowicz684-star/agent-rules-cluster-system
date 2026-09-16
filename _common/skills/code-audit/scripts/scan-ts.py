@@ -1263,6 +1263,9 @@ def q06(module, files):
 
             if op == 'clear':
                 # 排除③：clear 之前有遍历该 map 并逐个 clear 内部容器
+                # head = clear 之前的上下文（与 prev 同源）；
+                # 此前此处引用了未定义的 `head`，命中即抛 NameError（见 A-01 类缺陷）
+                head = prev
                 if re.search(r'for\s*\([^)]*' + re.escape(var), head):
                     continue
                 hits.append((fn, line,
