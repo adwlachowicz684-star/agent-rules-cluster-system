@@ -270,3 +270,5 @@
 | 2026-09-16 | A-29 | 新增 | 来源：push_api.py 第4轮审查 D5（保护判定用存在性代替语义，误杀纯 CI 保护的仓库） |
 | 2026-09-16 | G-13 | 新增 | 来源：push_api.py 第4轮审查 C2（推完立刻 --merge，不等 checks） |
 | 2026-09-16 | PY-18 | 新增 | 来源：push_api.py 第4轮审查 M1（prune 的 docstring 是死表达式）。注意 PY-16 已被 TimeoutExpired 占用，本条顺延为 PY-18 |
+| 2026-09-16 | A-23 | 补充 | 实测复现（第4轮推送时）：远端 PATCH 已生效后，本地补提交 git add 因 .audit-state.json 被 .gitignore 屏蔽退出码 1，随后 git commit 因 pathspec 不匹配退出码 1，脚本只打印 '!' 警告并仍输出「✅ 已推送」——正是本条「更早期形态」：主体已生效、收尾静默失败、输出还在报成功 |
+| 2026-09-16 | K-42 | 补充 | 实测边界（第4轮）：mergeable_state=unstable（CI 未跑完）而 mergeable=True 时，--merge 实际合并成功。说明 unstable 并非一定阻挡合并；把 unstable 与 behind 一并归 need_update 会给出「去点 Update branch」的无效指引 |
