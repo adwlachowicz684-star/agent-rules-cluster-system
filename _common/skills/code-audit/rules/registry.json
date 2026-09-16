@@ -82,10 +82,10 @@
    ],
    "fixtures": {
     "tp": "tp.js",
-    "fp": null
+    "fp": "fp.js"
    },
    "eval": {
-    "precision": "unverified",
+    "precision": "pass",
     "recall": "pass",
     "verified_at": "2026-09-16",
     "sig": "376238a8"
@@ -110,13 +110,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
     "sig": "2734acd2"
    },
    "cwe": [],
@@ -140,13 +140,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
     "sig": "caaf6dd7"
    },
    "cwe": [],
@@ -170,13 +170,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
     "sig": "3eee6a3b"
    },
    "cwe": [],
@@ -200,19 +200,19 @@
     "json"
    ],
    "fixtures": {
-    "tp": null,
-    "fp": null
+    "tp": "tp.d",
+    "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "verified_at": null,
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
     "sig": "3292c8ba"
    },
    "cwe": [],
    "fix": "统一测试文件的 import 扩展名写法（与同目录一致），或配 tsconfig/vite 的 resolve.extensions",
    "item": null,
-   "item_src": "none:0.27"
+   "item_src": "review"
   },
   {
    "rule_id": "APP-G12",
@@ -2417,6 +2417,32 @@
    ],
    "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）",
    "item": "PY-13",
+   "item_src": "id"
+  },
+  {
+   "rule_id": "PY-18",
+   "native_id": "PY-18",
+   "scanner": "scan-py.py",
+   "level": "P2",
+   "title": "文档字符串不在函数体首位（变成死表达式）",
+   "family": "PY",
+   "scene": "p-python",
+   "languages": [
+    "py"
+   ],
+   "fixtures": {
+    "tp": "tp.py",
+    "fp": "fp.py"
+   },
+   "eval": {
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f94bb862"
+   },
+   "cwe": [],
+   "fix": "把三引号字符串移到 def 之后的第一行；若它其实是注释性质，直接写成 #",
+   "item": "PY-18",
    "item_src": "id"
   },
   {

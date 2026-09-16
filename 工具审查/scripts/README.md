@@ -4,7 +4,8 @@
 
 | 脚本 | 配套审查报告 | 说明 |
 |---|---|---|
-| `push_api.py` | `审查产物/push-api/审查报告.md` | 通过 GitHub Git Data API 推送本地改动。修复后版本（8 条问题已修，含 P0-1 静默回退远端） |
+| `push_api.py` | `审查产物/push-api/审查报告.md` | 通过 GitHub Git Data API 推送本地改动。**已同步到 4403 行版本**（原快照 2864 行，缺第 3 轮之后的修复：`_CI_PENDING_HINTS` / `_refuse_direct_if_protected` / `local_head` 回退检测）。
+  | | | 第 4 轮审查的 7 条变异定义见 `_common/skills/code-audit/rules/mutations.push-api-round4.json`，锚点按本版本校验（`--check` 全部唯一命中） |
 
 ## 为什么单独存一份
 

@@ -481,6 +481,44 @@ def py_cleanup_except_exception(tree, lines, path):
     return out
 
 
+
+def py_dead_docstring(tree, lines, path):
+    """PY-18 (P2) 文档字符串不在函数体首位 → 变成无效果的死表达式
+
+    Python 只把**函数体第一条语句**位置的字符串字面量当作 `__doc__`。
+    若 `def` 之后先写了别的语句（哪怕只是一行调用），后面再写三引号字符串，
+    它就只是一个被求值后丢弃的表达式：`help(f)` / `pydoc` / Sphinx autodoc
+    全部拿不到，而代码读起来"明明写了文档"。
+
+    与 C-01（死代码）的分界：C-01 是"定义了没人引用"；
+    本条是"写在了正确的地方之外"，语法合法、linter 多数不报。
+    """
+    out = []
+    for n in ast.walk(tree):
+        if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = getattr(n, "body", None) or []
+        if not body:
+            continue
+        first = body[0]
+        if (isinstance(first, ast.Expr)
+                and isinstance(getattr(first, "value", None), ast.Constant)
+                and isinstance(first.value.value, str)):
+            continue                                  # 正常 docstring
+        for st in body:
+            if (isinstance(st, ast.Expr)
+                    and isinstance(getattr(st, "value", None), ast.Constant)
+                    and isinstance(st.value.value, str)):
+                if has_pragma(lines, st.lineno):
+                    break
+                out.append((st.lineno,
+                            f"{n.name}() 的文档字符串不在函数体首位 —— "
+                            f"只是被求值后丢弃的死表达式，help()/pydoc 取不到；"
+                            f"把它移到 def 之后的第一行"))
+                break
+    return out
+
+
 def py_naive_datetime(tree, lines, path):
     """PY-12 (P2) 无时区的 datetime.now() —— 跨时区/跨机器比较出错"""
     out = []
@@ -511,6 +549,8 @@ PATTERNS = [
     ("PY-12", "P2", "naive datetime（无时区）", py_naive_datetime),
     ("PY-13", "P1", "清理/回滚用 except Exception（Ctrl-C 时不执行）",
      py_cleanup_except_exception),
+    ("PY-18", "P2", "文档字符串不在函数体首位（变成死表达式）",
+     py_dead_docstring),
 ]
 
 SCENE = {
@@ -519,6 +559,7 @@ SCENE = {
     "PY-07": "s-concurrency", "PY-08": "p-python", "PY-09": "p-python",
     "PY-10": "s-backend", "PY-11": "p-python", "PY-12": "p-python",
     "PY-13": "s-atomicity",
+    "PY-18": "p-python",
 }
 
 
@@ -581,6 +622,10 @@ SELF_TEST_CASES = [
     ("PY-13", "try:\n    commit()\nexcept TimeoutError:\n    cleanup()\n", False),  # 具体类型
     ("PY-13", "try:\n    commit()\nexcept Exception:\n"
               "    logger.error(e)\n", False),                # 只记日志不是清理
+    # PY-18：文档字符串写在了第一条语句之后
+    ("PY-18", "def prune(state):\n    _report()\n    \"\"\"只报告，不删除。\"\"\"\n", True),
+    ("PY-18", "def load(s):\n    \"\"\"读基线。\"\"\"\n    return s\n", False),   # 正常位置
+    ("PY-18", "def f(x):\n    return x + 1\n", False),                      # 没有文档字符串
 ]
 
 

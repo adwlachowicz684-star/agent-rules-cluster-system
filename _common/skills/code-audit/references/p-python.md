@@ -198,6 +198,18 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 
 ---
 
+- **形态扩展：不止 `subprocess`，任意成对 encode / decode 路径都算**
+  同一份数据有「读侧」与「写侧」两条编码路径时，只修一侧等于没修：
+  读侧用 `surrogateescape` 容错、写侧用严格的 `.encode()` /
+  `open(..., encoding="utf-8")`，非法字节会在**写侧**炸。
+  确认：对每条数据列出所有 `encode` / `decode` / `open` / `subprocess` 调用点，
+  逐个比对 `errors=` / `encoding=` 是否一致。
+- **实测**：symlink 目标在算 sha 时用
+  `os.readlink(full).encode("utf-8", "surrogateescape")`，
+  建 blob 上传时却用 `os.readlink(full).encode()`（默认 strict）
+  → 非 UTF-8 目标在建 blob 前抛 `UnicodeEncodeError`。
+
+
 ## 检查方法
 
 ```
@@ -309,3 +321,21 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 - **`shell=True` 但命令是字面量常量** —— 无外部输入拼接 → 降 P2
 - **测试文件里的 assert** —— pytest 依赖 assert，不报
 - **脚本类文件的模块级全局** —— 单进程短生命周期，无并发 → 降 P2
+
+### PY-18 (P2) 文档字符串不在函数体首位 → 变成死表达式
+- **判据**：`def` / `async def` 之后**第一条语句不是字符串字面量**，
+  而函数体里另有一个独立的三引号字符串（通常紧跟在第一行语句后面）
+- **为什么错**：Python 只把**函数体第一条语句位置**的字符串当作 `__doc__`。
+  写在别处的字符串只是被求值后**丢弃的表达式** —— 语法合法、多数 linter 不报，
+  读代码的人却以为「这里有文档」
+- **确认**：`python3 -c "import mod; print(mod.f.__doc__)"` 为 `None` → 命中；
+  机扫 `scan-py.py`（PY-18，AST 驱动）
+- **后果**：`help()` / `pydoc` / Sphinx autodoc 全部拿不到该文档；
+  「查文档」这条路径静默失效
+- **修法**：把三引号字符串移到 `def` 之后的第一行；若其实是注释性质，写成 `#`
+- **定级**：**P2**；该函数是**对外 API / CLI 子命令 / 有文档承诺**时 → **P1**
+- **与 C-08 的分界**：C-08 是「文档与代码矛盾」；本条是「文档**根本没生效**」，
+  代码本身可以完全正确
+- **实测**：某推送工具 `prune(state, grace_days=...)` 的 `def` 之后第一行是
+  `_report_conflict_artifacts()`，其后 10 行三引号文本全部是死表达式 →
+  `help(prune)` 取不到「只报告不删除」这条最重要的约定
