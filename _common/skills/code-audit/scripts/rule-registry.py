@@ -417,8 +417,13 @@ def cmd_check():
                      % (len(nofix_text), ' '.join(nofix_text[:8])))
 
     # fixture 覆盖
-    nofix = [r['rule_id'] for r in reg['rules'] if not r['fixtures'].get('tp')]
-    verified = len(reg['rules']) - len(nofix)
+    # 必须用 live（extract + attach_fixtures 实时算）而不是 reg（registry.json
+    # 的静态字段）：sync 前 registry.json 里 fixtures 全是 null，用 reg 统计
+    # 会稳定输出「有 TP fixture: 0 / 93」——而文件系统里 148 个目录都有 tp。
+    # 自检自己报出一个与事实相反的覆盖率，比不报更糟：它会让人以为 fixture
+    # 一条都没写，实际只差 3 条。
+    nofix = [r['rule_id'] for r in live if not r['fixtures'].get('tp')]
+    verified = len(live) - len(nofix)
 
     print('rule-registry · 检查')
     # 按扫描器分档统计：原来只写死了 scan-ts / scan-app 两个，
@@ -429,7 +434,11 @@ def cmd_check():
         len(reg['rules']),
         ' / '.join('%s %d' % (k.replace('.py', ''), v)
                    for k, v in sorted(per.items()))))
-    print('有 TP fixture: %d / %d' % (verified, len(reg['rules'])))
+    if len(live) != len(reg['rules']):
+        print('  ⚠ 扫描器实际有 %d 条，注册表只有 %d 条 → 跑 --sync'
+              % (len(live), len(reg['rules'])))
+    print('有 TP fixture: %d / %d（按扫描器实际规则计）'
+          % (verified, len(live)))
     # eval 分布：全 unverified 说明这个字段没活起来（跑 --eval 回填）
     evc = Counter()
     for r in reg['rules']:
@@ -499,6 +508,9 @@ def _run_scanner(scanner, src_root, native_id):
     return True, hits, ''
 
 
+SKIPPED_NO_RULE = []
+
+
 def run_all_fixtures(reg, verbose=True):
     """跑全部 fixture，返回 {rid: {'tp': bool|None, 'fp': bool|None, 'errors': [...]}}。
 
@@ -524,8 +536,23 @@ def run_all_fixtures(reg, verbose=True):
         if not files and not trees:
             continue
         meta = next((r for r in reg['rules'] if r['rule_id'] == rid), None)
-        scanner = (meta or {}).get('scanner', 'scan-ts.py')
-        native = (meta or {}).get('native_id', rid.split('-', 1)[-1])
+        # 没有对应规则的 fixture 目录（两类来源），不能再兜底成 scan-ts.py：
+        #   ① 判据条目 ID（A-18~A-23、K-35）—— references/ 里的人工判据，
+        #      不是机扫规则，样本多为 .py，交给只认 TS/JS 的 scan-ts.py 必然
+        #      「未找到可扫描的模块目录」。
+        #   ② 已删除规则的残留 fixture（APP-K03 等 K 族已从 scan-app.py 移除，
+        #      全库无此规则，但目录与 KNOWN_MAP 锚点都还在）。
+        # 兜底的后果：每次 --test 产生 32 项「执行失败」→ errs 非 0 → exit 1
+        # → CI 常红；而真实状态是「这些目录本就不该被机扫」。
+        # 正确做法：显式跳过并列出，让人去决定是补规则还是清目录。
+        if meta is None:
+            SKIPPED_NO_RULE.append(rid)
+            if verbose:
+                print('  - %s：注册表无此规则，跳过机扫'
+                      '（判据条目或已删除规则的残留 fixture）' % rid)
+            continue
+        scanner = meta.get('scanner', 'scan-ts.py')
+        native = meta.get('native_id', rid.split('-', 1)[-1])
         rec = {'tp': None, 'fp': None, 'errors': []}
         for kind in ('tp', 'fp'):
             treedir = os.path.join(d, kind + '.d')
@@ -1006,6 +1033,14 @@ def cmd_test():
     if errs:
         print('  ! 另有 %d 项因扫描器执行失败**未计入**（已排除，勿当作「无问题」）'
               % errs)
+    # 跳过的目录必须显式列出：静默跳过等于把「判据条目没机扫规则」和
+    # 「规则删了 fixture 没清」这两种真实欠账藏起来。
+    if SKIPPED_NO_RULE:
+        print('  - %d 个 fixture 目录在注册表里没有对应规则，已跳过机扫：'
+              % len(SKIPPED_NO_RULE))
+        print('    %s' % ' '.join(sorted(SKIPPED_NO_RULE)))
+        print('    → 判据条目（A-18 等）属正常，需人工判据而非机扫；')
+        print('      已删除规则的残留（APP-K* 等）应补回规则或清理目录。')
     return 1 if (fail or errs) else 0
 
 

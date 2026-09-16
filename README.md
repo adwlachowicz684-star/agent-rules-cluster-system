@@ -63,11 +63,11 @@ _common/skills/code-audit/
 ├── SKILL.md              入口（分层按需加载，不一次读完）
 ├── references/           公共层 common-*.md + 场景 s-*.md + 语言包 p-*.md
 ├── rules/
-│   ├── registry.json    131 条机扫规则（--sync 生成，勿手改）
+│   ├── registry.json    151 条机扫规则（--sync 生成，勿手改）
 │   ├── items.json       169 条判据条目索引（Markdown 是源，JSON 是产物）
 │   ├── cwe-map.json     CWE 映射与修复建议
 │   └── fixtures/        每条规则的 TP（必须命中）/ FP（必须不命中）样本
-├── scripts/              6 个扫描器 + 路由 / 编排 / SARIF / 条目索引
+├── scripts/              7 个扫描器 + 路由 / 编排 / SARIF / 条目索引
 └── assets/               报告模板、检查清单、变更溯源
 
 self-evolving_skill_mechanism/skills/
@@ -96,12 +96,26 @@ self-evolving_skill_mechanism/skills/
 
 | 项 | 状态 |
 |---|---|
-| 机扫规则 | 131 条（scan-ts 61 / scan-app 28 / py 12 / cpp 10 / go 10 / java 10） |
+| 机扫规则 | 151 条（scan-ts 65 / scan-app 33 / py 13 / cpp 10 / go 10 / java 10 / rust 10） |
 | 判据条目 | 169 条，覆盖 14 个参考文件 |
-| fixture 实测 | 87 条规则已验证；`rule-registry.py --eval` 可回填 |
+| fixture 实测 | 147 条已验证（recall+precision 双 pass）；`rule-registry.py --eval` 可回填 |
 | CI | `.github/workflows/self-audit.yml`：fixture 实测 + 扫描器自检 + SARIF 上传 |
 
-`rule-registry.py --check` 会实时报覆盖率与 eval 分布，以它的输出为准。
+`rule-registry.py --check` 会实时报覆盖率与 eval 分布，**以它的输出为准** ——
+本表的数字是上次跑 `--sync && --map --apply && --eval` 后的快照，
+改扫描器后必须重跑这三个命令再更新，否则就是「文档说谎」。
+
+> **改动扫描器后的三步**（漏任何一步都会让 CI 红）：
+> ```bash
+> python3 scripts/rule-registry.py --sync          # 提取规则 → registry.json
+> python3 scripts/rule-registry.py --map --apply   # 机扫规则 → 判据条目映射
+> python3 scripts/rule-registry.py --eval          # 跑 fixture，回填实测结论
+> python3 scripts/rule-registry.py --check         # 应为 exit 0
+> ```
+> 2026-09 前的 registry.json 停在 93 条（只含 scan-ts / scan-app），
+> 五个语言扫描器的 58 条规则从未入表 —— 后果是 `--scanners` 只推导出 2 个，
+> CI 里其余 5 个扫描器的 `--self-test` **一条都没跑**，流水线照样绿。
+> 这正是本仓库自己在 CI 注释里点名要防的失效模式，只是换了条路径发生。
 
 ## License
 

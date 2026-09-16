@@ -29,7 +29,7 @@
   {
    "file": "p-python.md",
    "scene": "p-python",
-   "entries": 13,
+   "entries": 15,
    "sections": 5,
    "preamble": "<!-- oversize-exempt: 语言包，确认候选时需整体对照本包全部判据 -->\n# 语言包：Python（p-python）\n\n**触发**：仓库里有 `.py` 文件（含脚本、服务、工具、测试）。\n**风险**：Python 的缺陷形态与 TS/JS 不同——**不能把 TS 规则翻译一遍了事**。\n\n`overlaps:` 本包只放 **Python 语义特有**的判据。\n通用的归各自场景：不安全反序列化归 `s-backend` K-32、敏感日志归 `s-sandbox` S-10、\n命令注入归 `s-backend` K-08（本包的 PY-10 是它的 Python 形态，同源不重复报）。\n\n> **为什么需要单独一个语言包**：`scan-ts.py` / `scan-app.py` 对 Python 输出\n> `文件: 0　候选: 0`。这不是「没命中」，是**压根没看**（该陷阱见 `route.md` 末节）。\n> 本包配 `scripts/scan-py.py`（AST 驱动），让 Python 真正进入审查范围。\n\n```bash\npython3 scripts/scan-py.py --src=<根> [--p0] [--json] [--sarif=out.sarif]\npython3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20\n```\n\n---",
    "preamble_tokens": 368
@@ -45,7 +45,7 @@
   {
    "file": "s-atomicity.md",
    "scene": "s-atomicity",
-   "entries": 23,
+   "entries": 25,
    "sections": 4,
    "preamble": "<!-- oversize-exempt: 安全判定查表文档，A 族 23 条需整体对照确认\n     （放行类缺陷常是多条判据叠加，单条看都成立）；拆开反而漏判 -->\n# 场景：原子性与安全判定（s-atomicity）\n\n**触发**：多步写操作 / 批处理 / 交易 / 权限或经济判定 / 调试开关。\n**风险**：中间抛错不回滚、空 catch 吞异常、fail-open（校验缺失时放行）、\n调试后门默认启用。\n\n`overlaps:` **只管「判定是否放行」**与「多步写是否整体成功」。\n判定依赖的**数值**是否有限归 `s-numerics`；权限的**隔离边界**归 `s-sandbox`；\n判定函数的**参数是否被使用**归 `s-contracts`。\n\n---",
    "preamble_tokens": 279
@@ -53,7 +53,7 @@
   {
    "file": "s-backend.md",
    "scene": "s-backend",
-   "entries": 35,
+   "entries": 37,
    "sections": 7,
    "preamble": "<!-- oversize-exempt: 后端与外部交互模式表，共 35 条判据，确认候选时需整体对照本场景全部模式 -->\n# 场景：原生后端（s-backend）\n\n**触发**：有 Rust / C++ / Go / C# 后端、文件系统操作、子进程、本地网络服务、FFI。\n**风险**：资源无上限（OOM）、命令注入面、路径黑名单可绕过、锁中毒崩溃、跨设备操作失败。\n\n以 Rust / Tauri 为主，原则同样适用于 Electron 主进程、Go/C++ 后端。\n\n`overlaps:` **只管后端自身的资源与健壮性**。\n后端与前端的**消息契约**归 `s-boundary`；后端的**权限策略**归 `s-sandbox`；\n后端命令是否**被文档正确描述**归 `s-contracts`。\n\n---",
    "preamble_tokens": 279
@@ -1591,6 +1591,83 @@
    "section": ""
   },
   {
+   "id": "PY-14",
+   "level": "P1/P0",
+   "name": "生成器被二次消费 → 第二次恒为空",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`difflib.unified_diff` / `map` / `filter` / `zip` / 生成器表达式 /"
+    ],
+    "确认": [
+     ""
+    ],
+    "定级": [
+     ""
+    ],
+    "修法": [
+     ""
+    ],
+    "实测": [
+     "`old=[a,b,c,d] / new=[a,X,c]`（真实 +1/-2），"
+    ],
+    "同类": [
+     "`any(gen)` 后再 `list(gen)`；`if gen:` 后再遍历（生成器永真）"
+    ]
+   },
+   "keywords": [
+    "difflib.unified_diff",
+    "filter",
+    "map",
+    "zip",
+    "消费",
+    "生成器被二次",
+    "第二次恒为空"
+   ],
+   "body": "- **判据**：`difflib.unified_diff` / `map` / `filter` / `zip` / 生成器表达式 /\n  `re.finditer` 的返回值赋给变量后被**两次以上**消费\n  （两次 `for`、两次 `sum()`、两次 `list()`，或 `if any(...)` 后再 `sum(...)`）。\n  第二次拿到的是**已耗尽**的迭代器 → 恒为空 / 恒为 0\n\n- **确认**：\n  ```bash\n  grep -nE \"=\\s*(difflib\\.|map\\(|filter\\(|zip\\(|re\\.finditer\\()\" <file>\n  # 追踪该变量被用了几次\n  ```\n\n- **定级**：\n  - 结果用于**展示 / 统计** → **P1**（信息失真）\n  - 结果用于**判定 / 校验**（`if not gen`、`sum(...) == 0` 决定流程分支）\n    → **P0**（判定失效，常表现为「永远通过」）\n\n- **修法**：\n  ```python\n  d = list(difflib.unified_diff(old, new, n=0))     # 物化\n  add = sum(1 for l in d if l.startswith(\"+\") and not l.startswith(\"+++\"))\n  sub = sum(1 for l in d if l.startswith(\"-\") and not l.startswith(\"---\"))\n  ```\n\n- **实测**：`old=[a,b,c,d] / new=[a,X,c]`（真实 +1/-2），\n  两次遍历同一生成器 → 输出 `+1 / -0`。\n  该预览是人工确认推送内容的**唯一**内容差异展示环节\n  → 按 common-severity「对外承诺完全失效」定 P0\n\n- **同类**：`any(gen)` 后再 `list(gen)`；`if gen:` 后再遍历（生成器永真）\n\n\n---",
+   "tokens": 436,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "PY-15",
+   "level": "P1",
+   "name": "`subprocess` 的 `errors=` 只配了输出，没配输入",
+   "scene": "p-python",
+   "file": "p-python.md",
+   "fields": {
+    "判据": [
+     "`subprocess.run(..., text=True)` 且存在 `input=` 参数时："
+    ],
+    "确认": [
+     ""
+    ],
+    "修法": [
+     "（三选一）："
+    ],
+    "实测": [
+     "同一文件里 `git()` 正确写了 `errors=\"surrogateescape\"`，"
+    ]
+   },
+   "keywords": [
+    "True",
+    "input",
+    "subprocess.run",
+    "text",
+    "只配了输出",
+    "没配输入"
+   ],
+   "body": "- **判据**：`subprocess.run(..., text=True)` 且存在 `input=` 参数时：\n  - `errors=` 只影响 **stdout/stderr 的解码**（输出方向）\n  - **stdin 的编码**由 `input` 参数走另一条路，`text=True` 下默认**严格 UTF-8**\n  → 传入含 surrogate / 非法字节的字符串时抛 `UnicodeEncodeError`，\n  **崩溃位置比修之前更隐蔽**\n\n- **确认**：\n  ```bash\n  grep -nE \"subprocess\\.run\\(.*text=True.*input=|input=.*text=True\" <file>\n  # 是否有 errors=\n  ```\n\n- **修法**（三选一）：\n  ```python\n  # ① 传 bytes，绕开文本层\n  subprocess.run(cmd, input=data_bytes, capture_output=True)\n\n  # ② 显式双端 errors\n  subprocess.run(cmd, input=s, capture_output=True,\n                 text=True, encoding=\"utf-8\", errors=\"surrogateescape\")\n\n  # ③ 入口处拒绝，给出可诊断的报错\n  if any(0xD800 <= ord(c) <= 0xDFFF for c in s):\n      raise SystemExit(\"路径含非法 UTF-8 字节\")\n  ```\n\n- **实测**：同一文件里 `git()` 正确写了 `errors=\"surrogateescape\"`，\n  甚至配注释警告「只修输出不修输入，崩溃只是换个地方（实测）」；\n  而几十行外的 `local_blob_sha()` 用 `input=os.readlink(full)` 恰恰**漏在输入方向**\n  → symlink 目标含 `\\xff` 时实测抛 `UnicodeEncodeError`。\n  **注释警告的坑就在几十行外真实存在** —— 典型的「局部修复未推广到同族调用点」\n\n---",
+   "tokens": 481,
+   "xrefs": [
+    "UTF-8"
+   ],
+   "source": "entry",
+   "section": ""
+  },
+  {
    "id": "RS-01",
    "level": "P0",
    "name": "unwrap / expect 在外部输入或命令路径上",
@@ -2652,13 +2729,17 @@
      "在每一步注入**中断**（不是注入异常），看残留。**必须逐个步骤测**"
     ],
     "实测": [
-     "同一段代码里，前 3 步（建 blob / tree / commit）中断**无残留**，"
+     "同一段代码里，前 3 步（建 blob / tree / commit）中断**无残留**，",
+     "（某推送工具）：`try` 内 6 处 `return`，其中 4 处在常见路径上；"
     ],
     "定级 P0 的理由": [
      "中断是用户最常触发的失败方式，而这类残留**静默** ——"
     ],
     "修法": [
      "清理 / 回滚代码用 `except BaseException`（清理后 `raise`，不要吞），"
+    ],
+    "A-19 扩展 —— 三类出口都要覆盖": [
+     "（2026-09 回填）："
     ]
    },
    "keywords": [
@@ -2668,8 +2749,8 @@
     "补偿式清理未",
     "覆盖中断路径"
    ],
-   "body": "- **判据**：`KeyboardInterrupt` / `SIGTERM` / `SIGKILL` 在多数语言里\n  **不是普通异常**（Python 中 `KeyboardInterrupt` 是 `BaseException` 子类）。\n  只捕获普通异常的补偿式清理，在用户 Ctrl-C 时**完全不执行**\n- **与 A-18 的分界**：A-18 是「失败后没清理」；本条是\n  「**清理代码写了，但中断时不执行**」。是 A-18 的一个特定成因，\n  但因为**中断是用户最常触发的失败方式**且**完全静默**，单独立条\n- **确认**：在每一步注入**中断**（不是注入异常），看残留。**必须逐个步骤测**\n- **实测**：同一段代码里，前 3 步（建 blob / tree / commit）中断**无残留**，\n  第 4 步（PATCH ref）中断**留孤儿分支** —— 只测一个点会漏。\n  而第 4 步恰恰是用户最易撞的（大文件刚传完按 Ctrl-C）\n- **定级 P0 的理由**：中断是用户最常触发的失败方式，而这类残留**静默** ——\n  用户完全不知道远端多了东西\n- **修法**：清理 / 回滚代码用 `except BaseException`（清理后 `raise`，不要吞），\n  或放 `finally`。Python 形态另见 `p-python` **PY-13**",
-   "tokens": 453,
+   "body": "- **判据**：`KeyboardInterrupt` / `SIGTERM` / `SIGKILL` 在多数语言里\n  **不是普通异常**（Python 中 `KeyboardInterrupt` 是 `BaseException` 子类）。\n  只捕获普通异常的补偿式清理，在用户 Ctrl-C 时**完全不执行**\n- **与 A-18 的分界**：A-18 是「失败后没清理」；本条是\n  「**清理代码写了，但中断时不执行**」。是 A-18 的一个特定成因，\n  但因为**中断是用户最常触发的失败方式**且**完全静默**，单独立条\n- **确认**：在每一步注入**中断**（不是注入异常），看残留。**必须逐个步骤测**\n- **实测**：同一段代码里，前 3 步（建 blob / tree / commit）中断**无残留**，\n  第 4 步（PATCH ref）中断**留孤儿分支** —— 只测一个点会漏。\n  而第 4 步恰恰是用户最易撞的（大文件刚传完按 Ctrl-C）\n- **定级 P0 的理由**：中断是用户最常触发的失败方式，而这类残留**静默** ——\n  用户完全不知道远端多了东西\n- **修法**：清理 / 回滚代码用 `except BaseException`（清理后 `raise`，不要吞），\n  或放 `finally`。Python 形态另见 `p-python` **PY-13**\n\n- **A-19 扩展 —— 三类出口都要覆盖**（2026-09 回填）：\n  用 `try/except` 做清理时，必须覆盖**三类出口**，缺一即成立：\n  1. 异常—普通异常：`except Exception:` 能否捕获\n  2. 异常—中断类：`KeyboardInterrupt` / `SystemExit` 走 `BaseException`\n  3. **正常控制流：`return` / `break` / `continue` / 自然结束**\n     —— **`return` 不触发 `except`**，是最容易漏的一档\n\n  **关键判据**：资源创建点与清理点之间**存在 `return`，且清理挂在 `except`** → 必然残留。\n  ```bash\n  awk 'NR>=<创建行> && NR<=<清理行> && /return|break|continue/' <file>\n  ```\n  **修法**：① 首选 `finally`（覆盖全部三类）；② 次选统一取消异常，\n  让所有提前退出走同一条清理通道：\n  ```python\n  class _Cancel(Exception):\n      \"\"\"正常取消：不提交，但走与失败相同的清理。\"\"\"\n  ```\n  **不要**：`try/except BaseException` + 多处 `return` 混搭 —— 第 3 档必漏。\n\n- **实测**（某推送工具）：`try` 内 6 处 `return`，其中 4 处在常见路径上；\n  用户在确认框输入 `n` 取消推送 → 远端留空分支 → 后续 `--prune` 把它判为\n  「孤儿分支」并警告「删除会丢改动」，而它恰恰是刚才那次取消留下的空分支。\n  **比 Ctrl-C 更常见**：取消确认是日常路径，Ctrl-C 是异常路径",
+   "tokens": 967,
    "xrefs": [
     "A-18",
     "PY-13"
@@ -2822,13 +2903,98 @@
     "部分成功的报",
     "错未区分"
    ],
-   "body": "- **判据**：多步操作中**不可撤销的那一步已成功**，只有收尾步骤\n  （写状态 / 回执 / 更新索引 / 发通知）失败，但报错**没说明主体已生效** →\n  用户认为整体失败 → **重跑** → 重复建对象 / 重复扣款 / 重复发信\n- **与 A-01 / T-09 的分界**：A-01（不回滚）、T-09（写入非原子）都讲**怎么修**；\n  本条讲**怎么报** —— 报错的措辞决定用户下一步动作\n- **确认**：让**收尾步骤单独失败**（磁盘满 / 只读 / 权限），\n  看报错里有没有「xx 已成功，仅 yy 失败」\n- **实测**：推送成功 → 写基线失败 → 只报 `[Errno 28] No space left on device`。\n  用户不知道推送其实已成功，下一跑还被判「本地副本落后」→ 挡在门外。\n  **而撞到这个错误时用户最自然的反应是重置基线** ——\n  那会丢掉防覆盖的参照，把最危险的事做了\n- **修法**：报错写三段 —— ① 哪一步成功了 ② 哪一步失败了\n  ③ **该做什么 / 不该做什么**（上例应显式劝阻重置基线）\n- **定级 P1**：不直接造成损失，但**把用户推向摧毁防护**（与 A-14 同后果）",
-   "tokens": 489,
+   "body": "- **判据**：多步操作中**不可撤销的那一步已成功**，只有收尾步骤\n  （写状态 / 回执 / 更新索引 / 发通知）失败，但报错**没说明主体已生效** →\n  用户认为整体失败 → **重跑** → 重复建对象 / 重复扣款 / 重复发信\n- **与 A-01 / T-09 的分界**：A-01（不回滚）、T-09（写入非原子）都讲**怎么修**；\n  本条讲**怎么报** —— 报错的措辞决定用户下一步动作\n- **确认**：让**收尾步骤单独失败**（磁盘满 / 只读 / 权限），\n  看报错里有没有「xx 已成功，仅 yy 失败」\n- **实测**：推送成功 → 写基线失败 → 只报 `[Errno 28] No space left on device`。\n  用户不知道推送其实已成功，下一跑还被判「本地副本落后」→ 挡在门外。\n  **而撞到这个错误时用户最自然的反应是重置基线** ——\n  那会丢掉防覆盖的参照，把最危险的事做了\n- **修法**：报错写三段 —— ① 哪一步成功了 ② 哪一步失败了\n  ③ **该做什么 / 不该做什么**（上例应显式劝阻重置基线）\n- **定级 P1**：不直接造成损失，但**把用户推向摧毁防护**（与 A-14 同后果）\n\n\n---",
+   "tokens": 491,
    "xrefs": [
     "A-01",
     "A-14",
     "T-09"
    ],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "A-24",
+   "level": "P0",
+   "name": "工具产物与业务数据共用命名空间",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "程序生成的**辅助文件**（备份、转储、冲突副本、临时文件、日志，"
+    ],
+    "与 A-20 的分界": [
+     "A-20 是「自己产生的垃圾越堆越多」（残留累积）；"
+    ],
+    "确认": [
+     ""
+    ],
+    "三反问定级": [
+     "会报错吗（**否**，静默）｜用户会遇到吗（低频但必然有人遇到）"
+    ],
+    "修法": [
+     ""
+    ],
+    "实测": [
+     "（某推送工具）：`pull()` 冲突时写 `rel + \".remote\"`；"
+    ],
+    "同类": [
+     "编辑器/工具把 `.swp` `.DS_Store` `.orig` 写进用户目录；"
+    ]
+   },
+   "keywords": [
+    "务数据共用命",
+    "名空间",
+    "工具产物与业"
+   ],
+   "body": "- **判据**：程序生成的**辅助文件**（备份、转储、冲突副本、临时文件、日志，\n  典型后缀 `.remote` / `.base` / `.orig` / `.bak` / `.tmp` / `-copy`）满足两条：\n  ① 写在**用户数据目录内**（工作区、项目根、用户可编辑目录）\n  ② 命名规则是**用户可能自然采用的模式**（`<原文件名>.<后缀>`）\n  → 会**静默覆盖**用户的同名业务文件\n\n- **与 A-20 的分界**：A-20 是「自己产生的垃圾越堆越多」（残留累积）；\n  本条是「**撞了别人的东西**」（命名空间冲突）。修复动作不同：\n  A-20 加清理，本条改存放位置\n\n- **确认**：\n  ```bash\n  grep -nE \"open\\(.*(\\+ *[\\\"']\\.|%s *\\+ *[\\\"']\\.)\" <file>\n  # 确认：① 写在哪 ② 用户是否可能已有同名文件\n  ```\n\n- **三反问定级**：会报错吗（**否**，静默）｜用户会遇到吗（低频但必然有人遇到）\n  ｜能恢复吗（**数据已永久损坏**）→ **P0**\n\n- **修法**：\n  ```python\n  # ① 首选：物理隔离到专属目录（仓库外 / 系统临时目录）\n  AUX_DIR = \"/var/lib/mytool/aux\"        # 或 tempfile.mkdtemp()\n  open(os.path.join(AUX_DIR, rel + \".remote\"), \"wb\")\n\n  # ② 次选：写入前检查存在性，冲突即中止\n  if os.path.exists(target):\n      raise SystemExit(f\"{target} 已存在，拒绝覆盖（疑似你的业务文件）\")\n  ```\n  **不要**：靠「用户一般不会取这个名字」来假设安全\n\n- **实测**（某推送工具）：`pull()` 冲突时写 `rel + \".remote\"`；\n  用户仓库中真实存在 `config.txt.remote`（远程配置模板是完全正常的命名）\n  → 静默覆盖，无备份、无提示、不可恢复。\n  **同一写入模式还在删除副产物时出现**（按名字匹配删除，可能删掉用户的文件）\n\n- **同类**：编辑器/工具把 `.swp` `.DS_Store` `.orig` 写进用户目录；\n  构建脚本把中间产物输出与源文件同目录且同名不同后缀\n\n\n---",
+   "tokens": 755,
+   "xrefs": [
+    "A-20"
+   ],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "A-25",
+   "level": "P1",
+   "name": "单向属性写入（只升不降）",
+   "scene": "s-atomicity",
+   "file": "s-atomicity.md",
+   "fields": {
+    "判据": [
+     "同步 / 应用函数形如"
+    ],
+    "典型": [
+     "只 `chmod +x` 不 `chmod -x`、只 `enable` 不 `disable`、"
+    ],
+    "确认": [
+     "看同步函数里 `if` 有没有配对的 `else` / 反向操作"
+    ],
+    "后果": [
+     "远端 / 上游已把该属性改回，本地**永远同步不回来** →"
+    ],
+    "修法": [
+     ""
+    ],
+    "实测": [
+     "（某推送工具）：`_write_local()` 只在 `mode == \"100755\"` 时 chmod，"
+    ],
+    "降级": [
+     "属性本身**只允许单向**（如「已读」标记、单调递增计数器）→ 不报"
+    ]
+   },
+   "keywords": [
+    "chmod",
+    "disable",
+    "else",
+    "enable",
+    "单向属性写入",
+    "只升不降"
+   ],
+   "body": "- **判据**：同步 / 应用函数形如\n  ```python\n  if <condition>:\n      apply(state_a)\n  # 缺少 else: apply(state_b)\n  ```\n  属性**只能单向漂移**：满足条件时设置，不满足时沿用旧值，**从不回退**\n\n- **典型**：只 `chmod +x` 不 `chmod -x`、只 `enable` 不 `disable`、\n  只 `set` 不 `unset`、只 `add` 不 `remove`、只 `setEnabled(true)` 不 `setEnabled(false)`\n\n- **确认**：看同步函数里 `if` 有没有配对的 `else` / 反向操作\n\n- **后果**：远端 / 上游已把该属性改回，本地**永远同步不回来** →\n  下次同步又把旧值推上去 → **双向反复**。\n  用户症状是「这个文件每次都显示有改动」，但看 diff 又看不出内容变化\n\n- **修法**：\n  ```python\n  if mode == \"100755\":\n      os.chmod(full, 0o755)\n  else:\n      os.chmod(full, 0o644)          # 必须补反向分支\n  ```\n\n- **实测**（某推送工具）：`_write_local()` 只在 `mode == \"100755\"` 时 chmod，\n  远端把可执行位去掉后本地 0755 文件拉取后**不回退**\n  → `local_state_map()` 仍判 100755 → 与远端永久打架\n\n- **降级**：属性本身**只允许单向**（如「已读」标记、单调递增计数器）→ 不报",
+   "tokens": 447,
+   "xrefs": [],
    "source": "entry",
    "section": ""
   },
@@ -3601,6 +3767,77 @@
    "section": "命令注册与状态管理"
   },
   {
+   "id": "K-36",
+   "level": "P1",
+   "name": "错误分类用宽泛子串匹配，且丢弃原始错误信息",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "把上游错误按**子串匹配**分到若干「处理策略」类目，且："
+    ],
+    "确认": [
+     ""
+    ],
+    "后果": [
+     "给出**不可执行的修复建议**（如提示「去点 Update branch」，"
+    ],
+    "修法": [
+     ""
+    ],
+    "实测": [
+     "某推送工具的 `_NEED_UPDATE_HINTS` 含 `not mergeable` 与"
+    ]
+   },
+   "keywords": [
+    "且丢弃原始错",
+    "泛子串匹配",
+    "误信息",
+    "错误分类用宽"
+   ],
+   "body": "- **判据**：把上游错误按**子串匹配**分到若干「处理策略」类目，且：\n  ① 命中词在语义上**同时覆盖多种真实原因**\n  （如 `not mergeable` 既是「分支旧」也是「真冲突」；\n  `Required status check` 与「分支旧」根本无关）\n  ② 分类后**丢弃原始 message**，只输出预设的模板文案\n\n- **确认**：\n  ```bash\n  grep -nE \"_HINTS|any\\(h in msg|in msg\\.lower\\(\\)\" <file>\n  # 看命中词表是否含语义模糊项；看 except 块是否 re-raise 原文\n  ```\n\n- **后果**：给出**不可执行的修复建议**（如提示「去点 Update branch」，\n  而该按钮在特定状态下不存在）。按 common-severity 文档类判据属 P1；\n  若导致用户销毁防护机制（重置基线 / 加 `--force`），升 P0\n\n- **修法**：\n  ```python\n  # ① 命中词只留语义唯一的\n  _NEED_UPDATE = (\"Base branch was modified\", \"not up to date\")\n\n  # ② 分类后必须保留原文\n  except SystemExit as e:\n      print(f\"上游原文：{e}\")        # 兜底信息，不能丢\n      if any(h in str(e) for h in _NEED_UPDATE):\n          ...\n  ```\n\n- **实测**：某推送工具的 `_NEED_UPDATE_HINTS` 含 `not mergeable` 与\n  `Required status check`；已合并 PR 重跑撞 405，被判 `need_update`\n  → 提示「去网页点 Update branch」，而 PR 已合并，**该按钮不存在**\n\n\n---",
+   "tokens": 488,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "K-37",
+   "level": "P1",
+   "name": "分页接口设了 `per_page` 但不翻页",
+   "scene": "s-backend",
+   "file": "s-backend.md",
+   "fields": {
+    "判据": [
+     "请求带 `per_page=N` / `limit=N` / `page_size=N`，"
+    ],
+    "确认": [
+     ""
+    ],
+    "定级": [
+     ""
+    ],
+    "修法": [
+     ""
+    ],
+    "实测": [
+     "某推送工具三处均设 `per_page=100` 无翻页。"
+    ]
+   },
+   "keywords": [
+    "limit",
+    "page_size",
+    "per_page",
+    "但不翻页",
+    "分页接口设了"
+   ],
+   "body": "- **判据**：请求带 `per_page=N` / `limit=N` / `page_size=N`，\n  但**没有** `page` 递增循环，也没有「结果可能被截断」的提示\n\n- **确认**：\n  ```bash\n  grep -nE \"per_page|limit=|page_size\" <file>\n  grep -nE \"page=|offset=|cursor\" <file>       # 为空即成立\n  ```\n\n- **定级**：\n  - 结果用于**展示 / 统计** → P2\n  - 结果用于**完整性判定**（清理扫描、遗漏检查、全量比对）→ **P1**：\n    漏报比误报更危险，因为「没报」被理解为「没有」\n\n- **修法**：\n  ```python\n  def list_all(path):\n      out, page = [], 1\n      while True:\n          batch = api(\"GET\", f\"{path}&per_page=100&page={page}\") or []\n          out += batch\n          if len(batch) < 100:\n              break\n          page += 1\n      return out\n  ```\n\n- **实测**：某推送工具三处均设 `per_page=100` 无翻页。\n  `--prune` 用于分支清理扫描，超 100 个分支时**静默漏报**，\n  而该命令的全部价值在于不漏\n\n---",
+   "tokens": 334,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
    "id": "B-01",
    "level": "P1",
    "name": "消息监听不校验来源",
@@ -3633,17 +3870,17 @@
   {
    "id": "B-02",
    "level": "P0",
-   "name": "桥接/分发方法无白名单",
+   "name": "破坏性操作的资源标识符无白名单",
    "scene": "s-boundary",
    "file": "s-boundary.md",
    "fields": {},
    "keywords": [
-    "分发方法无白",
-    "名单",
-    "桥接"
+    "白名单",
+    "破坏性操作的",
+    "资源标识符无"
    ],
-   "body": "（与 `s-sandbox` S-02 同源。**若已按 S-02 报，此处不重复**。\n判定角度：S-02 关注「被隔离方能否自授权」，B-02 关注「动态派发本身是否安全」。）",
-   "tokens": 71,
+   "body": "（与 `s-sandbox` S-02 同源。**若已按 S-02 报，此处不重复**。\n判定角度：S-02 关注「被隔离方能否自授权」，B-02 关注「动态派发本身是否安全」。）\n\n**B-02 扩展 —— 从桥接推广到所有破坏性入口**（2026-09 回填）：\n\n凡同时满足以下三条的入口，**必须**有白名单或等价的合法性校验：\n\n1. 接收**外部提供的标识符**（CLI 参数、API 路径段、配置值、消息字段）\n2. 该标识符用于**破坏性操作**：删除 / 覆盖 / 状态改写 / 权限变更\n3. 取值范围在业务上有**受保护成员**（主干分支、系统目录、管理员账户、默认配置）\n\n原判据未覆盖的形态（都是实测确认的）：\n\n| 形态 | 示例 | 后果 |\n|---|---|---|\n| CLI 参数当资源标识符 | `--delete-branch main` | 实测发出 `DELETE /git/refs/heads/main`，删除主干 |\n| 业务标识符伪装绕过流程 | `-b main` 让「任务分支」指向主干 | 绕过整个 PR 流程，直推主干后崩溃 |\n| 状态修改入口不校验成员资格 | `--resolve <任意文件>` | 把任意文件的基线改写成远端值，绕过第一层校验 |\n\n**确认**：\n```bash\ngrep -nE \"delete|remove|drop|truncate|overwrite|reset|force\" <file>\n# 回溯其参数来源：是否来自 argv / 用户输入 / 外部消息\n```\n\n**修法**：入口处拒绝受保护成员，且**提示文案必须反映真实身份**：\n```python\nif branch == PROTECTED_BRANCH:\n    raise SystemExit(f\"不能用 {PROTECTED_BRANCH} 作为任务分支\")\n```\n\n**实测**：`--delete-branch main` 的确认框把主干描述为「孤儿分支，删除会丢改动！」——\n**身份描述错误比缺少校验更危险**：用户在错误信息身份下做确认。",
+   "tokens": 693,
    "xrefs": [
     "S-02"
    ],
@@ -4511,6 +4748,9 @@
     ],
     "同类": [
      "`atexit` / `finally` / 析构函数在 SIGKILL 下**同样不执行** ——"
+    ],
+    "R-08 扩展 —— 持锁期间执行阻塞式用户输入": [
+     "（2026-09 回填）："
     ]
    },
    "keywords": [
@@ -4519,8 +4759,8 @@
     "kill",
     "退出不收敛"
    ],
-   "body": "- **判据**：进程收到 SIGTERM 后，任务队列、定时器、订阅没有收敛到关闭点\n- **确认**：发 SIGTERM 后进程是否立刻退出；退出时是否有数据丢失\n- **典型**：K8s 滚动更新时正在处理的消息被强杀 → 半处理状态\n- **锁的实现：`flock` 在强杀后不释放（易漏）**\n  `flock` 由内核在 **fd 关闭时**释放。进程被 `timeout` / SIGKILL 后 fd 不关 →\n  **锁不释放** → 后续所有运行**永久卡死**。\n  而 `timeout` 与 `&` 后台是常规用法，这个坑很容易踩\n- **修法**：单实例锁改用「写 PID 文件 → 校验 PID 是否存活 →\n  不存活则判定陈旧锁并接管」\n- **确认**：起一个持锁进程，`kill -9` 杀掉，看下一个进程能否获得锁\n- **同类**：`atexit` / `finally` / 析构函数在 SIGKILL 下**同样不执行** ——\n  任何「靠退出钩子清理」的设计在强杀场景下都不可靠（与 A-19 呼应）",
-   "tokens": 387,
+   "body": "- **判据**：进程收到 SIGTERM 后，任务队列、定时器、订阅没有收敛到关闭点\n- **确认**：发 SIGTERM 后进程是否立刻退出；退出时是否有数据丢失\n- **典型**：K8s 滚动更新时正在处理的消息被强杀 → 半处理状态\n- **锁的实现：`flock` 在强杀后不释放（易漏）**\n  `flock` 由内核在 **fd 关闭时**释放。进程被 `timeout` / SIGKILL 后 fd 不关 →\n  **锁不释放** → 后续所有运行**永久卡死**。\n  而 `timeout` 与 `&` 后台是常规用法，这个坑很容易踩\n- **修法**：单实例锁改用「写 PID 文件 → 校验 PID 是否存活 →\n  不存活则判定陈旧锁并接管」\n- **确认**：起一个持锁进程，`kill -9` 杀掉，看下一个进程能否获得锁\n- **同类**：`atexit` / `finally` / 析构函数在 SIGKILL 下**同样不执行** ——\n  任何「靠退出钩子清理」的设计在强杀场景下都不可靠（与 A-19 呼应）\n\n- **R-08 扩展 —— 持锁期间执行阻塞式用户输入**（2026-09 回填）：\n  锁的持有范围内包含 `input()` / 交互式确认 / 无超时的网络等待。\n  ```bash\n  grep -n \"with .*Lock\\|acquire()\" <file>\n  awk 'NR>=<加锁行> && NR<=<释放行> && /input\\(/' <file>\n  ```\n  **后果**：第二个进程在等待期间**无任何进度反馈**，表现为「卡死」。\n  用户常见反应是 Ctrl-C 或重复启动，反而制造并发问题\n  —— **为防并发而加的锁，成了并发问题的诱因**\n  **修法**：① 锁等待可观测（超时轮询 + 定期打印「已等待 N 秒」）；\n  ② 把交互移到锁外（先取完输入再持锁执行）。\n  **实测**：某推送工具的 `StateLock` 覆盖整个主流程，三处 `input()` 均在锁内；\n  文档只说「锁会持有到整次推送结束」，未提交互等待",
+   "tokens": 729,
    "xrefs": [
     "A-19"
    ],
@@ -8230,8 +8470,8 @@
    "is_fp": false,
    "is_required": false,
    "refs": [],
-   "tokens": 88,
-   "body": "- 引入的每个 crate 都要能说清为什么不能用标准库替代\n- 平台特定依赖（Windows 句柄类型）要写明规避理由\n- release profile（`lto` / `panic` / `strip`）与错误处理能力要匹配"
+   "tokens": 90,
+   "body": "- 引入的每个 crate 都要能说清为什么不能用标准库替代\n- 平台特定依赖（Windows 句柄类型）要写明规避理由\n- release profile（`lto` / `panic` / `strip`）与错误处理能力要匹配\n\n---"
   },
   {
    "scene": "s-backend",
