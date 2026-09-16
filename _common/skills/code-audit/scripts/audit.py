@@ -104,6 +104,7 @@ SCENE_SCRIPTS = {
     's-boundary': ['scan-app.py'], 's-sandbox': ['scan-app.py'],
     's-backend': ['scan-app.py'], 's-build': ['scan-app.py'],
     'p-cocos': ['cocos-audit.py'],
+    'p-godot': ['godot-audit.py'],
     # 语言包：早先漏了，导致四语言项目里 p-python/p-go/p-java/p-cpp
     # 永远 0 条候选——因为压根没跑对应扫描器
     'p-python': ['scan-py.py'], 'p-go': ['scan-go.py'],
@@ -113,9 +114,28 @@ SCENE_SCRIPTS = {
 
 # 主循环要跑的扫描器。语言扫描器对 TS 项目输出 0 条，多跑只是白费时间，
 # 所以按源码实际语言挑——用 route.py 命中的语言包来决定。
-ALL_SCANNERS = ('scan-ts.py', 'scan-app.py',
-                'scan-py.py', 'scan-go.py', 'scan-java.py',
-                'scan-cpp.py', 'scan-rust.py')
+# 从 SCENE_SCRIPTS 推导，不硬编码名单。
+#
+# 为什么：硬编码名单是「名单漏一个就静默失效」的第三处
+# （前两处是 CI 的扫描器列表、SCENE_SCRIPTS 自己漏语言包）。
+# 早先这里只写了 7 个 scan-*.py，于是 SCENE_SCRIPTS 里配好的
+# cocos-audit.py / godot-audit.py **永远不会被调用**——
+# 编排器输出"0 条候选，无候选，跳过"，看起来像代码没问题，
+# 实际是扫描器压根没跑。
+ALL_SCANNERS = tuple(sorted({s for v in SCENE_SCRIPTS.values() for s in v}))
+
+# 扫描器 → 场景 的反查表。**只收录「只服务一个场景」的扫描器**。
+#
+# 为什么：引擎专项扫描器（cocos-audit.py / godot-audit.py）的规则
+# 不在 registry.json 里（它们是引擎专有的，不进通用规则表），
+# 于是分组时 scene_of 查不到 → 全部掉进 s-contracts 兜底，
+# 而真正该看它们的 p-cocos / p-godot 场景显示"0 条候选，跳过"。
+# 扫描器明明跑了、候选明明有，报告里却看不到——又一种静默丢失。
+_SCENES_OF = {}
+for _s, _scs in SCENE_SCRIPTS.items():
+    for _x in _scs:
+        _SCENES_OF.setdefault(_x, []).append(_s)
+SOLE_SCANNER_SCENE = {k: v[0] for k, v in _SCENES_OF.items() if len(v) == 1}
 
 # 语言 ID 前缀 → 语言包场景（分组用，见下方 grouped 逻辑）
 LANG_SCENE = {'PY': 'p-python', 'GO': 'p-go',
@@ -583,6 +603,10 @@ def main():
             m = re.match(r'^(PY|GO|JAVA|CPP)-', rid)
             if m:
                 scene = LANG_SCENE[m.group(1)]
+            elif sc in SOLE_SCANNER_SCENE:
+                # 专用扫描器（引擎包等）：候选直接归它的场景。
+                # 见 SOLE_SCANNER_SCENE 处的说明。
+                scene = SOLE_SCANNER_SCENE[sc]
             else:
                 scene = scene_of.get(rid, 's-contracts')
             grouped.setdefault(scene, []).append(it)
@@ -639,7 +663,11 @@ def main():
                 note = ' · 判据 %d 条/%d tokens' % (
                     st['scenes'][scene].get('item_count', 0), itok)
             elif ITEMS and IDX:
-                note = ' · 无候选，跳过判据'
+                # 文案不能写「无候选」：此时候选可能很多（如 p-godot 14 条），
+                # 只是该场景的判据条目没有被 items.json 收录（引擎包用表格
+                # 写规则，不是 `### ID (P级)` 条目格式，索引取不到）。
+                # 写成「无候选」会让人以为扫描器没跑。
+                note = ' · 该场景无已索引判据条目，跳过落盘（候选仍照常报）'
             print('  ✓ %-14s %d 条候选%s（累计已耗 %d）'
                   % (scene, n, note, st['spent']))
             save_state(st)

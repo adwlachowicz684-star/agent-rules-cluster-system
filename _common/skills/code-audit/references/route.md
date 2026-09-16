@@ -30,6 +30,7 @@
 | `s-build` | `package.json` · `.github/` · `.gitignore` | `frontendDist` · `files: [` |
 | `s-concurrency` | — | `Thread(` · `threading` · `asyncio` · `create_task` · `go func` · `WaitGroup` · `chan ` · `ExecutorService` · `synchronized` · `std::thread` · `Lock(` |
 | `p-cocos` | `cc.config.json` · `assets/` | `from 'cc'` · `_decorator` |
+| `p-godot` | `project.godot` | `extends Node2D` · `using Godot;` |
 | `p-python` | `.py` 文件 | `def f(x=[])` · `except:` / `except Exception:` · `requirements.txt` · `pyproject.toml` |
 | `p-go` | `.go` 文件 · `go.mod` | `go func` · `chan` · `make(chan` |
 | `p-java` | `.java` 文件 · `pom.xml` · `build.gradle` | `ExecutorService` · `newFixedThreadPool` · `synchronized` · `catch (Exception` |
@@ -78,6 +79,7 @@
 | `doc-promise.py` | contracts（文档承诺） |
 | `dep-scan.py` | build（依赖合规） |
 | `cocos-audit.py` | p-cocos |
+| `godot-audit.py` | p-godot |
 
 **多语言仓库要跑多个扫描器**，用 TS 侧的 0 命中推断 Python 侧无问题是错的。
 

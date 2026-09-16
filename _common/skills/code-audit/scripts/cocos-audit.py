@@ -628,6 +628,11 @@ def self_test() -> int:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("path", nargs="?", help="Cocos 项目目录或单个 .ts 文件")
+    # --src= 是编排器 audit.py 的调用约定（所有扫描器统一）。
+    # 不加这个参数，编排器调过来会因参数不识别而失败，
+    # 而它把「调用失败」当成「0 条候选」——报告显示"无候选"，
+    # 看起来像"代码没问题"，实际扫描器根本没跑。这个坑踩过一次。
+    ap.add_argument("--src", default="", help="同 path，供 audit.py 编排器调用")
     ap.add_argument("--level", default="", help="只看某级：P0 / P1 / P2")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--top", type=int, default=0, help="只显示前 N 条")
@@ -643,10 +648,11 @@ def main():
         for g, rules in RULE_GROUPS.items():
             print("  %-10s %s" % (g, "、".join(rules)))
         return
-    if not args.path:
-        ap.error("缺少 path（或用 --rules 查看规则分组 / --self-test 自检）")
+    target = args.path or args.src
+    if not target:
+        ap.error("缺少 path / --src（或用 --rules 查看规则分组 / --self-test 自检）")
 
-    root = Path(args.path).expanduser()
+    root = Path(target).expanduser()
     if not root.exists():
         sys.exit("路径不存在：%s" % root)
 

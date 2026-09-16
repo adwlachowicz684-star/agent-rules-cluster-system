@@ -226,6 +226,12 @@ SCENES = [
       ('file', 'project.json', 'cocos project'),
       ('dir', 'assets', 'assets/'),
       ('rx', r"from\s+['\"]cc['\"]|cc\.Class|_decorator", 'cc 导入')]),
+    ('p-godot', 'Godot 平台', 'Godot 4.x 项目（GDScript / C#）',
+     [('file', 'project.godot', 'Godot 工程'),
+      ('ext', '.gd', 'GDScript 文件'),
+      ('rx', r'extends\s+(Node|Node2D|Node3D|Control|CharacterBody|RigidBody)\b',
+       'Godot 脚本'),
+      ('rx', r'using\s+Godot\s*;', 'Godot C#')]),
     ('p-python', 'Python 语言包', 'Python 语义特有缺陷（默认参数/异常隔离/资源配对）',
      [('ext', '.py', 'Python 文件'),
       ('file', 'requirements.txt', '依赖声明'),
@@ -278,7 +284,8 @@ STRUCT_DIRS = {'plugins': 's-sandbox', 'extensions': 's-sandbox',
                '.github': 's-build', 'assets': 'p-cocos'}
 STRUCT_FILES = {'Cargo.toml': 's-backend', 'README.md': 's-contracts',
                 'package.json': 's-build', '.gitignore': 's-build',
-                'cc.config.json': 'p-cocos'}
+                'cc.config.json': 'p-cocos',
+                'project.godot': 'p-godot'}
 
 
 def walk_files(root):

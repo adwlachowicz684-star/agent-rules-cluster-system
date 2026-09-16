@@ -272,3 +272,10 @@
 | 2026-09-16 | PY-18 | 新增 | 来源：push_api.py 第4轮审查 M1（prune 的 docstring 是死表达式）。注意 PY-16 已被 TimeoutExpired 占用，本条顺延为 PY-18 |
 | 2026-09-16 | A-23 | 补充 | 实测复现（第4轮推送时）：远端 PATCH 已生效后，本地补提交 git add 因 .audit-state.json 被 .gitignore 屏蔽退出码 1，随后 git commit 因 pathspec 不匹配退出码 1，脚本只打印 '!' 警告并仍输出「✅ 已推送」——正是本条「更早期形态」：主体已生效、收尾静默失败、输出还在报成功 |
 | 2026-09-16 | K-42 | 补充 | 实测边界（第4轮）：mergeable_state=unstable（CI 未跑完）而 mergeable=True 时，--merge 实际合并成功。说明 unstable 并非一定阻挡合并；把 unstable 与 behind 一并归 need_update 会给出「去点 Update branch」的无效指引 |
+| 2026-09-16 | p-godot.md | 新增 | Godot 4.x 引擎专项语言包（16 节骨架），GDScript + C# 双形态。核心：remove_child 非释放、跨生命周期信号未断、Tween/Timer 失控、3.x 迁移残留 |
+| 2026-09-16 | godot-audit.py | 新增 | Godot 扫描器，GD01~GD15 共 15 条规则，自检 23/23。支持 --src（编排器约定） |
+| 2026-09-16 | audit.py | 修正 | ① ALL_SCANNERS 硬编码只有 7 个 scan-*.py → cocos/godot 扫描器**永远不被调用**，编排器报『0 条候选』看起来像没问题。改为从 SCENE_SCRIPTS 推导 |
+| 2026-09-16 | audit.py | 修正 | ② 分组只看 registry.scene，引擎包规则不在 registry → 候选全掉进 s-contracts，p-cocos/p-godot 显示 0 条。加 SOLE_SCANNER_SCENE 直接归属 |
+| 2026-09-16 | audit.py | 修正 | ③ 文案『无候选，跳过判据』：此时候选可能有十几条，只是判据条目未被 items 索引（引擎包用表格写规则）。改成说明真实原因 |
+| 2026-09-16 | cocos-audit.py | 修正 | 补 --src 参数：编排器用它调用，缺了会静默失败并被当成 0 条候选 |
+| 2026-09-16 | route.py | 新增 | p-godot 场景与信号（project.godot / .gd / extends Node / using Godot） |
