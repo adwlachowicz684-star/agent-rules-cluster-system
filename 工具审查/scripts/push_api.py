@@ -865,6 +865,10 @@ def _exec_bit_reliable():
 
     容器 / 挂载目录常两条都不满足：core.fileMode=false，或权限一律 0777，
     此时推断会把 .md / .json 全判成 100755。
+
+    **fail-closed**：任何「探不出来」的情形（索引为空、没有可参照样本）
+    一律判定为不可靠，回退 100644。宁可丢执行位，也不要把文档推成可执行
+    —— 历史上这里曾是 fail-open，一次性污染过 43 个文件。
     """
     global _EXEC_RELIABLE
     if _EXEC_RELIABLE is not None:
@@ -892,14 +896,31 @@ def _exec_bit_reliable():
         if len(samples) >= 5:
             break
 
-    if samples:
-        flagged = [p for p in samples if _file_is_executable(p)]
-        if len(flagged) == len(samples):
-            _EXEC_RELIABLE = False
-            names = ", ".join(os.path.basename(p) for p in flagged[:3])
-            print(f"  ! 文件系统不区分权限（探测了 {len(samples)} 个文件，"
-                  f"{names} 等全部带执行位）：新文件一律按 100644 处理")
-            return _EXEC_RELIABLE
+    if not samples:
+        # 一个样本都探不到时**绝不能假定环境可靠** —— 这里曾经是 fail-open，
+        # 直接往下走到 `_EXEC_RELIABLE = True`，后果是把所有改动文件按
+        # os.stat() 硬推；容器 / 挂载目录（virtiofs、overlayfs、共享盘）里
+        # 文件常是 0777，于是 .md / .json / .yml 全被推成 100755。
+        #
+        # 实测复现：全新 `git init` 后把文件拷进来但还没 `git add`，
+        # 此时 `git ls-files` 返回空 → samples 为空 → 旧代码返回 True
+        # → 一次性把 36 个新文件 100% 推成 100755，
+        # 同时把 7 个既有文件从 100644 改成 100755。
+        #
+        # 「探测不到」恰恰是最需要保守的时刻：宁可丢执行位。
+        _EXEC_RELIABLE = False
+        print("  ! 探测不到可参照的样本文件（git 索引为空或没有 .md/.txt/"
+              ".json/.py/.yml 文件）：无法确认文件系统是否区分权限，"
+              "新文件一律按 100644 处理")
+        return _EXEC_RELIABLE
+
+    flagged = [p for p in samples if _file_is_executable(p)]
+    if len(flagged) == len(samples):
+        _EXEC_RELIABLE = False
+        names = ", ".join(os.path.basename(p) for p in flagged[:3])
+        print(f"  ! 文件系统不区分权限（探测了 {len(samples)} 个文件，"
+              f"{names} 等全部带执行位）：新文件一律按 100644 处理")
+        return _EXEC_RELIABLE
 
     _EXEC_RELIABLE = True
     return _EXEC_RELIABLE
