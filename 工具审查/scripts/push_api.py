@@ -926,6 +926,32 @@ def _exec_bit_reliable():
     return _EXEC_RELIABLE
 
 
+def _wants_exec_bit(full):
+    """这个文件是否真的该带可执行位：看有没有 shebang。
+
+    比另外两种判断都可靠，因为它是**文件内容自带的声明**：
+
+      · 看扩展名：`.sh` 基本是、`.py` 不一定、无扩展名完全说不准 —— 只能靠猜
+      · 看 `st_mode`：容器 / 挂载目录（本沙盒的 virtiofs）常一律 0777，
+        于是**每个文件**都带执行位，按它推断会把全部新文件推成 100755
+      · 看 shebang：需要被当作程序执行的文件才会有 `#!`，与文件系统无关
+
+    上面 `_exec_bit_reliable()` 已经尽力判断**环境**是否可信（探不到样本
+    走 fail-closed），可它终究是启发式：靠抽样几个已跟踪文件猜，样本恰好
+    全被 chmod +x 就会判错。本函数补的是另一层——不管环境怎么判，
+    文件自己说了算。
+
+    代价不对称，所以宁可漏给：
+      · 漏给（该可执行的推成 100644）→ 用户 chmod +x 后重推，一分钟修好
+      · 误给（不该可执行的推成 100755）→ 污染远端，要逐个文件再推一次才能改回
+    """
+    try:
+        with open(full, "rb") as f:
+            return f.read(2) == b"#!"
+    except OSError:
+        return False
+
+
 def local_state_map():
     """本地 path → (mode, sha)：以 git 索引为唯一权威来源。
 
@@ -2645,6 +2671,7 @@ def _main(opts, explicit):
 
         # -------- 建对象 --------
         entries = []
+        _mode_clamped = []
         for rel in todo:
             mode = lmap.get(rel, ("100644", ""))[0]
             full = os.path.join(ROOT, rel)
@@ -2653,6 +2680,17 @@ def _main(opts, explicit):
             else:
                 with open(full, "rb") as f:
                     raw = f.read()
+                # 最后一道闸：推断说可执行、但文件没有 shebang → 夹回 100644。
+                #
+                # _exec_bit_reliable() 判的是「这个环境能不能信 st_mode」，
+                # 它说能信时我们仍然再看一眼文件内容 —— 因为它是抽样猜测，
+                # 样本恰好全被 chmod +x 就会判错，而判错的代价极不对称
+                #（详见 _wants_exec_bit 的注释）。
+                # 需要可执行的文件必然带 `#!`，没带的一律不给执行位。
+                # 这一道不依赖文件系统、不依赖 git 配置，是设计保证而非猜测。
+                if mode == "100755" and not _wants_exec_bit(full):
+                    mode = "100644"
+                    _mode_clamped.append(rel)
             blob = api("POST", "/git/blobs",
                        {"content": base64.b64encode(raw).decode(), "encoding": "base64"},
                        timeout=_timeout_for(len(raw)))
@@ -2661,6 +2699,17 @@ def _main(opts, explicit):
             # mode 必须跟着走，否则 .sh / 二进制推上去就丢了可执行位。
             entries.append({"path": rel, "mode": mode, "type": "blob", "sha": blob["sha"]})
             print(f"  blob {rel} ({mode})")
+
+        if _mode_clamped:
+            # 明确说出来，别静默改：用户若确实要推可执行脚本，看到这句就知道
+            # 该去加 shebang，而不是以为脚本坏了。
+            print(f"\n  ! {len(_mode_clamped)} 个文件被判定为可执行位来源不可靠，"
+                  f"已按 100644 推送（无 shebang）：")
+            for p in _mode_clamped[:5]:
+                print(f"      {p}")
+            if len(_mode_clamped) > 5:
+                print(f"      …… 另 {len(_mode_clamped) - 5} 个")
+            print("    若其中确有需要可执行的脚本，请在文件首行加 `#!/...` 后重推。")
 
         tree = api("POST", "/git/trees", {"base_tree": base_sha, "tree": entries})
         if "sha" not in tree:
