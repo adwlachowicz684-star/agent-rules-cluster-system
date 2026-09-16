@@ -285,3 +285,4 @@
 | 2026-09-16 | AR-04 | 新增 | 来源：push_api 架构审查 2026-09-17 A9（退出码恒为 1，CI 无法分流） |
 | 2026-09-16 | AR-05 | 新增 | 来源：push_api 架构审查 2026-09-17 A8（17 套测试 0 pytest，断言焊在 stdout 与模块全局） |
 | 2026-09-16 | A-22 | 补充 | 来源：push_api 架构审查回填 2026-09-17（权限位降级）：_exec_bit_reliable() 判定环境不可靠后，降级路径回退到 git 索引，而索引 mode 正是从同一不可靠文件系统推导的——降级无效；且只有 changed 文件那一处出口判了可靠性，ls-files 批量读入的出口没判 |
+| 2026-09-16 | s-architecture | 补充 | 补齐三处场景穷举遗漏：audit.py SCENE_SCRIPTS 缺 s-architecture（编排器恒 0 候选，与漏语言包同一失效模式）· route.py SCENE_SCANNER 误指 scan-app.py（AR 规则实为 scan-py.py）· route.md 逐场景判据表与扫描器对应表缺该场景 |

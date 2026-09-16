@@ -87,7 +87,7 @@ SCENE_SCANNER = {
     's-sandbox': 'scan-app.py', 's-boundary': 'scan-app.py',
     's-backend': 'scan-app.py', 's-build': 'scan-app.py',
     'p-python': 'scan-py.py', 'p-go': 'scan-go.py',
-    's-architecture': 'scan-app.py',
+    's-architecture': 'scan-py.py',
     'p-java': 'scan-java.py', 'p-cpp': 'scan-cpp.py',
     'p-rust': 'scan-rust.py',
 }

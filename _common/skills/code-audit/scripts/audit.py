@@ -110,6 +110,10 @@ SCENE_SCRIPTS = {
     'p-python': ['scan-py.py'], 'p-go': ['scan-go.py'],
     'p-java': ['scan-java.py'], 'p-cpp': ['scan-cpp.py'],
     'p-rust': ['scan-rust.py'],
+    # 架构可演进性：AR-01/03/04/05 四条机扫规则都在 scan-py.py 里
+    # （AR-02 是人工判据，无机扫）。漏掉这一行 = 编排器永远不跑 scan-py，
+    # 该场景恒定 0 条候选 —— 与「SCENE_SCRIPTS 漏语言包」是同一个失效模式。
+    's-architecture': ['scan-py.py'],
 }
 
 # 主循环要跑的扫描器。语言扫描器对 TS 项目输出 0 条，多跑只是白费时间，

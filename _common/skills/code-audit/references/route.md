@@ -29,6 +29,7 @@
 | `s-backend` | `src-tauri/` · `Cargo.toml` | `Command::new` · `std::fs::` · `TcpListener` · `thread::spawn` |
 | `s-build` | `package.json` · `.github/` · `.gitignore` | `frontendDist` · `files: [` |
 | `s-concurrency` | — | `Thread(` · `threading` · `asyncio` · `create_task` · `go func` · `WaitGroup` · `chan ` · `ExecutorService` · `synchronized` · `std::thread` · `Lock(` |
+| `s-architecture` | — | `SystemExit(` / `sys.exit(` · 模块级 `OWNER`/`REPO`/`ROOT`/`STATE_PATH` · `ALL PASS` · `mod.X =` 打补丁 · 无 `conftest.py` |
 | `p-cocos` | `cc.config.json` · `assets/` | `from 'cc'` · `_decorator` |
 | `p-godot` | `project.godot` | `extends Node2D` · `using Godot;` |
 | `p-python` | `.py` 文件 | `def f(x=[])` · `except:` / `except Exception:` · `requirements.txt` · `pyproject.toml` |
@@ -71,7 +72,7 @@
 |---|---|
 | `scan-ts.py` | numerics · structures · lifecycle · atomicity · state · contracts |
 | `scan-app.py` | sandbox · boundary · backend · build · lifecycle |
-| `scan-py.py` | **p-python · concurrency · backend · sandbox**（Python 语义，AST 驱动） |
+| `scan-py.py` | **p-python · concurrency · backend · sandbox · architecture**（Python 语义，AST 驱动；AR-01/03/04/05 在此） |
 | `scan-go.py` | **p-go · s-concurrency**（Go 语义） |
 | `scan-java.py` | **p-java · s-concurrency**（Java 语义） |
 | `scan-cpp.py` | **p-cpp · s-concurrency · s-numerics**（C/C++ 语义） |
