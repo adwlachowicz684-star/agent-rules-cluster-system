@@ -534,6 +534,174 @@ def py_naive_datetime(tree, lines, path):
     return out
 
 
+# ---------------------------------------------------------------- 架构可演进性
+# 这四条判的不是「运行时行为对不对」，而是「下一次改动会不会出错」。
+# 完整判据见 references/s-architecture.md（AR-01 ~ AR-05）。
+
+_JUDGE_NAME_RX = re.compile(
+    r'^(?:check|validate|verify|ensure|guard|is|can|should)_?', re.I)
+
+# 换成 pytest / unittest 之后不该再命中
+_TEST_FRAMEWORK_RX = re.compile(r'^\s*(?:import|from)\s+(?:pytest|unittest)\b', re.M)
+
+_CLI_FILES = {'cli.py', 'main.py', '__main__.py', 'run_all.py'}
+
+# 状态类常量：命中即说明「状态存在哪」是写死的
+_STATE_CONST_NAMES = {'STATE_PATH', 'STATE_FILE', 'DB_PATH', 'CACHE_PATH'}
+# 目标类常量：命中即说明「操作谁」是写死的
+_TARGET_CONST_NAMES = {'OWNER', 'REPO', 'ROOT', 'BASE_DIR', 'WORKDIR'}
+
+
+def _assigned_names(node):
+    """展开 `A, B = 1, 2` 这类元组赋值，返回被赋值的名字集合。"""
+    names = set()
+    stack = list(node.targets)
+    while stack:
+        t = stack.pop()
+        if isinstance(t, ast.Name):
+            names.add(t.id)
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            stack.extend(t.elts)
+    return names
+
+
+def ar_judge_output_coupled(tree, lines, path):
+    """AR-01 (P1) 判定逻辑与输出 / 副作用耦合
+
+    两条独立信号，命中任一即报：
+      · 非 CLI 层直接 `raise SystemExit` —— 判定结论无法结构化复用
+      · `check*` / `validate*` / `is*` 这类**判定函数内部直接 print** —— 输出焊在实现上
+
+    降级：CLI 入口文件（cli.py / main.py）本来就该终止进程与打印，跳过。
+    """
+    if os.path.basename(path) in _CLI_FILES:
+        return []
+    # 入口函数（main / cli / run）本来就该终止进程，不算耦合
+    entry_ranges = [(n.lineno, n.end_lineno or n.lineno)
+                    for n in tree.body
+                    if isinstance(n, ast.FunctionDef)
+                    and n.name in {'main', 'cli', 'cli_main', 'run'}]
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) \
+                and getattr(n.exc.func, 'id', None) == 'SystemExit':
+            if any(a <= n.lineno <= b for a, b in entry_ranges):
+                continue
+            out.append((n.lineno,
+                        '非 CLI 层 raise SystemExit —— 判定结论无法结构化复用'
+                        '（改一处文案就要改测试，见 s-architecture AR-01）'))
+            break
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.FunctionDef):
+            continue
+        # 信号 B（不依赖命名）：函数既 `return True/False` 又 print ——
+        # 它显然在「判定」，却把结论同时写进了 stdout。
+        # 只靠 check*/validate* 这类名字白名单会漏掉全部自定义命名的判定函数
+        # （实测同类教训：TS-O02 白名单内 5/5 命中、白名单外 0/8）。
+        returns_bool = any(
+            isinstance(x, ast.Return) and isinstance(x.value, ast.Constant)
+            and isinstance(x.value.value, bool) for x in ast.walk(n))
+        named_judge = bool(_JUDGE_NAME_RX.match(n.name))
+        if not (named_judge or returns_bool):
+            continue
+        for x in ast.walk(n):
+            if isinstance(x, ast.Call) and getattr(x.func, 'id', None) == 'print':
+                out.append((x.lineno,
+                            f'判定函数 {n.name}() 内部直接 print —— '
+                            '判定与输出耦合，无法 --json / 无法当库调用（AR-01）'))
+                break
+    return out
+
+
+def ar_cross_instance_state(tree, lines, path):
+    """AR-03 (P1) 跨实例 / 跨仓库状态串档
+
+    两条信号：
+      · 状态类常量是**仓库外的绝对路径** → 多实例共用同一份
+      · 目标类常量（OWNER / REPO / ROOT）硬编码 → 换目标只能改源码
+
+    降级：值是 `os.path.join(...)` 等表达式时不报（说明已参数化，不是写死的）。
+    """
+    out = []
+    for n in tree.body:
+        if not isinstance(n, ast.Assign):
+            continue
+        names = _assigned_names(n)
+        # `A, B = 'x', 'y'` 时 n.value 是 Tuple：按位置取值，取不到就跳过
+        vals = n.value.elts if isinstance(n.value, ast.Tuple) else None
+        for nm in sorted(names):
+            if vals is not None:
+                v = vals[0] if len(vals) == 1 else None
+                if v is None:
+                    continue
+            else:
+                v = n.value
+            if not (isinstance(v, ast.Constant) and isinstance(v.value, str)):
+                continue
+            if nm in _STATE_CONST_NAMES and v.value.startswith('/'):
+                out.append((n.lineno,
+                            f'状态路径 {nm} 是仓库外的绝对路径 '
+                            f'{v.value!r} —— 多实例共用会串档（AR-03）'))
+            elif nm in _TARGET_CONST_NAMES:
+                out.append((n.lineno,
+                            f'操作目标 {nm} 硬编码为模块级常量 '
+                            f'{v.value!r} —— 换目标只能改源码（AR-03）'))
+    return out
+
+
+def ar_exit_code_flat(tree, lines, path):
+    """AR-04 (P2) 退出码不分类（生产者侧）
+
+    判据：退出点 ≥3 个，而用到的**数字**退出码不超过 1 种 ——
+    说明「被防护拦下」与「真出错」在自动化眼里是一样的。
+
+    降级：退出点 <3 个不报（小工具没必要分码）。
+    """
+    exits, codes = [], set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) \
+                and getattr(n.exc.func, 'id', None) == 'SystemExit':
+            exits.append(n.lineno)
+            a = n.exc.args
+            if a and isinstance(a[0], ast.Constant) and isinstance(a[0].value, int):
+                codes.add(a[0].value)
+        elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                and n.func.attr == 'exit' \
+                and getattr(n.func.value, 'id', None) == 'sys':
+            exits.append(n.lineno)
+            if n.args and isinstance(n.args[0], ast.Constant) \
+                    and isinstance(n.args[0].value, int):
+                codes.add(n.args[0].value)
+    if len(exits) >= 3 and len(codes) <= 1:
+        return [(exits[0],
+                 f'{len(exits)} 个退出点只用了 {len(codes) or 0} 种数字退出码 —— '
+                 'CI 无法区分「被拦下」与「出错」（见 s-architecture AR-04）')]
+    return []
+
+
+def ar_test_harness_welded(tree, lines, path):
+    """AR-05 (P1) 测试自建 harness，断言焊在实现与输出上
+
+    两条信号（都要「没用测试框架」这个前提）：
+      · stdout 里出现 `ALL PASS` 这类自建通过标记 → 断言焊在输出上
+      · `mod.X = ...` 打补丁替换模块级全局 → 断言焊在实现上
+
+    降级：文件里有 `import pytest` / `import unittest` 时不报（已用框架）。
+    """
+    src = '\n'.join(lines)
+    if _TEST_FRAMEWORK_RX.search(src):
+        return []
+    out = []
+    for i, line in enumerate(lines, 1):
+        if 'ALL PASS' in line:
+            out.append((i, '以 stdout 里的 ALL PASS 判定通过 —— '
+                           '改一句提示文案测试就红（AR-05）'))
+        elif re.search(r'\b(?:mod|m|module)\.[A-Z]\w*\s*=', line):
+            out.append((i, '用 mod.X = ... 打补丁替换模块级全局 —— '
+                           '重构动一处全局就要全量改测试（AR-05）'))
+    return out[:3]
+
+
 PATTERNS = [
     ("PY-01", "P0", "可变默认参数（跨调用累积）", py_mutable_default),
     ("PY-02", "P0", "宽泛异常吞没（未重新抛出）", py_broad_except),
@@ -551,6 +719,12 @@ PATTERNS = [
      py_cleanup_except_exception),
     ("PY-18", "P2", "文档字符串不在函数体首位（变成死表达式）",
      py_dead_docstring),
+    # ---- 架构可演进性（s-architecture）----
+    ("AR-01", "P1", "判定与输出 / 副作用耦合（改不动）", ar_judge_output_coupled),
+    ("AR-03", "P1", "跨实例 / 跨仓库状态串档（改不动）", ar_cross_instance_state),
+    ("AR-04", "P2", "退出码不分类，自动化无法分流", ar_exit_code_flat),
+    ("AR-05", "P1", "测试 harness 焊死实现与输出（债务放大器）",
+     ar_test_harness_welded),
 ]
 
 SCENE = {
@@ -560,6 +734,11 @@ SCENE = {
     "PY-10": "s-backend", "PY-11": "p-python", "PY-12": "p-python",
     "PY-13": "s-atomicity",
     "PY-18": "p-python",
+    # 架构可演进性：判据在 references/s-architecture.md
+    "AR-01": "s-architecture",
+    "AR-03": "s-architecture",
+    "AR-04": "s-architecture",
+    "AR-05": "s-architecture",
 }
 
 
@@ -626,6 +805,27 @@ SELF_TEST_CASES = [
     ("PY-18", "def prune(state):\n    _report()\n    \"\"\"只报告，不删除。\"\"\"\n", True),
     ("PY-18", "def load(s):\n    \"\"\"读基线。\"\"\"\n    return s\n", False),   # 正常位置
     ("PY-18", "def f(x):\n    return x + 1\n", False),                      # 没有文档字符串
+    # ---- 架构可演进性（AR）----
+    ("AR-01", "def validate_state(s):\n    if not s:\n"
+              "        raise SystemExit('bad')\n    print('ok')\n"
+              "    return True\n", True),
+    ("AR-01", "def validate_state(s):\n    return bool(s)\n", False),       # 纯返回，无耦合
+    ("AR-01", "def main():\n    raise SystemExit(0)\n", False),            # CLI 入口允许
+    # 白名单外命名：audit_repo_state 不在 check*/validate* 里，靠 return bool 命中
+    ("AR-01", "def audit_repo_state(s):\n    print('checking')\n"
+              "    return True\n", True),
+    ("AR-01", "def audit_repo_state(s):\n    return bool(s)\n", False),
+    ("AR-03", "STATE_PATH = '/data/workspace/.push-sync.json'\n"
+              "OWNER, REPO = 'a', 'b'\n", True),
+    ("AR-03", "import os\nSTATE_PATH = os.path.join(root, '.state.json')\n",
+     False),                                                                # 已参数化
+    ("AR-04", "def a():\n    raise SystemExit('x')\n"
+              "def b():\n    raise SystemExit('y')\n"
+              "def c():\n    raise SystemExit(1)\n", True),
+    ("AR-04", "def a():\n    raise SystemExit(2)\n"
+              "def b():\n    raise SystemExit(3)\n", False),               # 有分类
+    ("AR-05", "mod.ROOT = '/tmp/x'\nprint('ALL PASS')\n", True),
+    ("AR-05", "import pytest\nmod.ROOT = '/tmp/x'\n", False),              # 已用框架
 ]
 
 

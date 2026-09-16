@@ -72,6 +72,9 @@ PY2SCENE = {
     'PY-04': 's-concurrency', 'PY-05': 's-backend', 'PY-06': 's-sandbox',
     'PY-07': 's-concurrency', 'PY-08': 'p-python', 'PY-09': 'p-python',
     'PY-10': 's-backend', 'PY-11': 'p-python', 'PY-12': 'p-python',
+    # 架构可演进性：判据在 references/s-architecture.md（AR-02 为人工判据，无机扫）
+    'AR-01': 's-architecture', 'AR-03': 's-architecture',
+    'AR-04': 's-architecture', 'AR-05': 's-architecture',
 }
 
 
@@ -125,13 +128,16 @@ def extract():
     psrc = open(os.path.join(HERE, 'scan-py.py'), encoding='utf-8').read()
     pseen = set()
     # PATTERNS 里的四元组：("PY-01", "P0", "标题", fn)
-    for m in re.finditer(r'\(\s*"(PY-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,', psrc):
+    # AR-* 与 PY-* 共用同一套 PATTERNS 四元组写法，一并提取
+    for m in re.finditer(
+            r'\(\s*"((?:PY|AR)-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,', psrc):
         if m.group(1) in pseen:
             continue
         pseen.add(m.group(1))
         out.append({'rule_id': m.group(1), 'native_id': m.group(1),
                     'scanner': 'scan-py.py', 'level': m.group(2), 'title': m.group(3),
-                    'family': 'PY', 'scene': PY2SCENE.get(m.group(1), 'p-python'),
+                    'family': m.group(1)[:2],
+                    'scene': PY2SCENE.get(m.group(1), 'p-python'),
                     'languages': ['py'],
                     'fixtures': {'tp': None, 'fp': None},
                     'eval': {'precision': 'unverified', 'recall': 'unverified'}})

@@ -447,6 +447,10 @@
    "machine": "todo",
    "why": "git -c user.name= / --author= 硬编码工具自身身份",
    "target_scanner": "scan-app.py"
+  },
+  "AR-02": {
+   "machine": "manual",
+   "why": "「多层防护的顺序是否只靠注释约束」必须读懂语义才能判断，正则检不出（跨函数/架构层）"
   }
  }
 }
