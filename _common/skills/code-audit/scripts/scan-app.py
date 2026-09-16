@@ -64,10 +64,6 @@ for _f in _flags:
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
              'docs', 'examples', 'bin', 'obj', '.next', '.cache'}
-# PROJECT_CHECKS（如 _p_orphan）会读这个全局表。此前它只在 main() 里
-# 用 globals() 注入 —— 任何提前调用（单测、复用为库）都会抛 NameError。
-# 模块级预置空表：语义仍是「未加载即视为空」，但不会崩。
-TEXT_BY_FILE = {}
 SKIP_SUFFIX = ('.min.js', '.bundle.js', '.map', '.lock')
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.html')
 MAX_FILE_BYTES = 600 * 1024
@@ -424,7 +420,7 @@ def _p_dead_export(joined, root, _unused_all_text=None):
     DECL = re.compile(
         r'export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)')
     if not root:
-        return []
+        return out if False else []
     exts = ('.js', '.ts', '.tsx', '.mjs', '.jsx')
     exports = {}
     texts = []
@@ -443,6 +439,13 @@ def _p_dead_export(joined, root, _unused_all_text=None):
                 continue
             texts.append((p, raw))
             for mm in DECL.finditer(raw):
+                # 跳过注释里的示例代码。runnerKit.ts:95 的 JSDoc 里写着
+                # `* export async function runXxx(ctx: RunContext)` —— 那是文档示例，
+                # 被当成真导出会误报"零引用"。判断：该行去掉前导空格后以 * 或 // 开头。
+                line_start = raw.rfind('\n', 0, mm.start()) + 1
+                stripped = raw[line_start:mm.start()].lstrip()
+                if stripped.startswith('*') or stripped.startswith('//'):
+                    continue
                 nm = mm.group(1)
                 exports.setdefault(nm, []).append((p, raw[:mm.start()].count('\n') + 1))
     out = []
@@ -465,6 +468,63 @@ def _p_dead_export(joined, root, _unused_all_text=None):
         tag = '（疑似"已实现未接线"）' if lvl == 'P1' else ''
         out.append(('G09', lvl, '导出后零引用：%s%s' % (nm, tag),
                     os.path.relpath(p, root), ln))
+    return out
+
+
+def _p_test_import_ext(joined, root, _u=None):
+    """G11 测试文件里 import 相对路径的扩展名写法与同目录其他文件不一致。
+
+    来源：2026-09-14 nexus-panel。`tests/registry.test.ts` 写
+    `from '../runner.mjs'`，而同目录 `engine.test.ts` / `nodeFailure.test.ts` /
+    `branch.test.ts` 都用无扩展名的 `'../engine/runner'`。
+    它是**唯一**用 `.mjs` 的 → 加载失败 → 该文件测的内容从未执行。
+
+    **测试跑不起来 ≠ 测试失败**，计数上看不出来。
+
+    判据：统计同目录下所有测试文件使用的扩展名写法，
+    少数派（且文件数 >= 3 时才判）标为可疑。
+    """
+    if not root:
+        return []
+    from collections import defaultdict, Counter
+    by_dir = defaultdict(list)
+    for dp, dn, fns in os.walk(root):
+        dn[:] = [d for d in dn if d not in ('node_modules', 'target', '.git', 'dist')]
+        for f in fns:
+            if not re.search(r'\.(test|spec)\.(ts|tsx|js|mjs)$', f):
+                continue
+            p = os.path.join(dp, f)
+            try:
+                raw = open(p, encoding='utf-8', errors='replace').read()
+            except OSError:
+                continue
+            for m in re.finditer(r"""from\s+['"](\.\.[^'"]+)['"]""", raw):
+                spec = m.group(1)
+                ext = os.path.splitext(spec)[1]
+                by_dir[dp].append((p, spec, ext, raw[:m.start()].count('\n') + 1))
+    out = []
+    for dp, items in by_dir.items():
+        if len(items) < 3:
+            continue
+        # 同一 spec 目标（去扩展名）的写法分布
+        by_target = defaultdict(list)
+        for p, spec, ext, ln in items:
+            by_target[os.path.splitext(spec)[0]].append((p, spec, ext, ln))
+        for tgt, group in by_target.items():
+            if len(group) < 2:
+                continue
+            cnt = Counter(ext for _, _, ext, _ in group)
+            if len(cnt) < 2:
+                continue
+            majority, _ = cnt.most_common(1)[0]
+            for p, spec, ext, ln in group:
+                if ext == majority:
+                    continue
+                out.append(('G11', 'P1',
+                            '测试 import 扩展名写法与同目录不一致：%s'
+                            '（多数用 %s，此文件用 %s）'
+                            % (spec, (majority or '无扩展名'), (ext or '无扩展名')),
+                            os.path.relpath(p, root), ln))
     return out
 
 
@@ -633,7 +693,7 @@ def _p_multiconf(files_by_ext, root, all_text):
                  % ', '.join(sorted(set(hits))), pkg, 1)]
     return []
 
-PROJECT_CHECKS = [_p_ci_script, _p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
+PROJECT_CHECKS = [_p_test_import_ext, _p_ci_script, _p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
                   _p_ignore, _p_ci, _p_csp, _p_multiconf]
 
 

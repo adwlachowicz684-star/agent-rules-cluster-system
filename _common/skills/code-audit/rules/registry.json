@@ -17,19 +17,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.js",
+    "tp": null,
     "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "376238a8",
-    "verified_at": null
-   },
-   "cwe": null,
-   "fix": "",
-   "item": null,
-   "item_src": "none:0.31"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-G08",
@@ -51,74 +45,8 @@
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2734acd2",
-    "verified_at": null
-   },
-   "cwe": null,
-   "fix": "",
-   "item": null,
-   "item_src": "none:0.22"
-  },
-  {
-   "rule_id": "APP-G09",
-   "native_id": "G09",
-   "scanner": "scan-app.py",
-   "level": "P2",
-   "title": "导出后零引用（已实现未接线）",
-   "family": "G",
-   "scene": "s-contracts",
-   "languages": [
-    "ts",
-    "js",
-    "rs",
-    "html",
-    "json"
-   ],
-   "fixtures": {
-    "tp": null,
-    "fp": null
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "caaf6dd7",
-    "verified_at": null
-   },
-   "cwe": null,
-   "fix": "",
-   "item": null,
-   "item_src": "review"
-  },
-  {
-   "rule_id": "APP-G10",
-   "native_id": "G10",
-   "scanner": "scan-app.py",
-   "level": "P0",
-   "title": "CI 引用不存在的 npm script",
-   "family": "G",
-   "scene": "s-build",
-   "languages": [
-    "ts",
-    "js",
-    "rs",
-    "html",
-    "json"
-   ],
-   "fixtures": {
-    "tp": null,
-    "fp": null
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3eee6a3b",
-    "verified_at": null
-   },
-   "cwe": null,
-   "fix": "",
-   "item": null,
-   "item_src": "none:0.27"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J01",
@@ -135,21 +63,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "820f95a6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-346"
-   ],
-   "fix": "message/事件先校验 event.origin 或 sender，不匹配直接 return",
-   "item": "B-01",
-   "item_src": "auto:0.92"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J02",
@@ -166,52 +86,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d5eabfaa",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-470"
-   ],
-   "fix": "动态分发走白名单映射，禁止直接 obj[name]()",
-   "item": null,
-   "item_src": "review"
-  },
-  {
-   "rule_id": "APP-J03",
-   "native_id": "J03",
-   "scanner": "scan-app.py",
-   "level": "P1",
-   "title": "postMessage 目标 origin 通配",
-   "family": "J",
-   "scene": "s-boundary",
-   "languages": [
-    "ts",
-    "js",
-    "rs",
-    "html"
-   ],
-   "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "806060c6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-346"
-   ],
-   "fix": "目标 origin 传具体来源（或从受信任配置读取），不要用通配；接收侧同时校验 event.origin",
-   "item": "B-05",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J04",
@@ -228,21 +109,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.js",
-    "fp": "fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a6e8c803",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-502"
-   ],
-   "fix": "存储反序列化加兜底，解析失败用默认值而非崩溃",
-   "item": "K-32",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J05",
@@ -259,21 +132,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1737316d",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "T-02",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J06",
@@ -290,19 +155,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "afcf75c6",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": null,
-   "item_src": "none:0.24"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J07",
@@ -319,21 +178,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "10910104",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-693"
-   ],
-   "fix": "隔离后能力静默失效：改走桥接并显式处理不可用分支",
-   "item": "S-01",
-   "item_src": "auto:0.87"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J08",
@@ -350,21 +201,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.js",
-    "fp": "fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1310589c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-693"
-   ],
-   "fix": "沙箱内取不到宿主单例，改由宿主注入依赖",
-   "item": "S-03",
-   "item_src": "auto:0.89"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J09",
@@ -381,21 +224,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.js",
-    "fp": "fp.js"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d73c61a3",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-01",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J10",
@@ -412,21 +247,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "fd1d09ac",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-02",
-   "item_src": "auto:0.66"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J11",
@@ -443,21 +270,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9bd983eb",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-404"
-   ],
-   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close",
-   "item": null,
-   "item_src": "none:0.30"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J12",
@@ -474,21 +293,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f0dcd68a",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-79"
-   ],
-   "fix": "用 textContent 或对插值做转义，别拼接 innerHTML",
-   "item": null,
-   "item_src": "none:0.27"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-J13",
@@ -506,19 +317,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "af9a6cad",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "C-09",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-P01",
@@ -536,19 +341,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "92ef0d13",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "G-06",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-P02",
@@ -566,19 +365,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "88bc04fa",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "K-26",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-P03",
@@ -596,19 +389,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ef888182",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "G-03",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-P04",
@@ -626,21 +413,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3ba49f32",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-693"
-   ],
-   "fix": "每个入口都套同一份安全策略，别只覆盖主入口",
-   "item": "G-07",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-P05",
@@ -658,19 +437,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5a7ac949",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "G-09",
-   "item_src": "auto:0.98"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R01",
@@ -687,21 +460,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2ded838f",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-400"
-   ],
-   "fix": "边读边截断，别整文件读入后再截断（上限形同虚设）",
-   "item": "K-01",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R02",
@@ -718,21 +483,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ea301b07",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-755"
-   ],
-   "fix": "unwrap 改 match/unwrap_or_else；配 panic=abort 时崩溃即进程退出",
-   "item": "K-22",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R03",
@@ -749,21 +506,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d7b910c7",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "尺寸/次数先校验上界再分配",
-   "item": null,
-   "item_src": "manual-none"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R04",
@@ -780,21 +529,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "94899d6c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-59"
-   ],
-   "fix": "用 symlink_metadata 识别链接，别跟随；或显式跳过",
-   "item": "K-05",
-   "item_src": "auto:0.51"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R05",
@@ -811,21 +552,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "8d751d91",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-22"
-   ],
-   "fix": "路径用 realpath 校验后仍在根内，别用字符串黑名单比较",
-   "item": "S-05",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R06",
@@ -842,21 +575,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3e0aadd0",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-78"
-   ],
-   "fix": "命令用参数数组，禁 shell 解析；可执行文件不来自变量",
-   "item": "S-06",
-   "item_src": "auto:0.60"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R07",
@@ -873,21 +598,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a2e7b794",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-400"
-   ],
-   "fix": "sleep 轮询改事件驱动；连接循环内不要 spawn",
-   "item": "K-24",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R08",
@@ -905,19 +622,13 @@
     "json"
    ],
    "fixtures": {
-    "tp": "tp.d",
-    "fp": "fp.d"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e90b00ea",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "K-26",
-   "item_src": "auto:0.58"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R09",
@@ -934,21 +645,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "374d0c04",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-287"
-   ],
-   "fix": "空凭据必须拒绝而非放行",
-   "item": "K-18",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R10",
@@ -965,19 +668,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f7ff8e1e",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "K-06",
-   "item_src": "auto:0.63"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "APP-R11",
@@ -994,1556 +691,13 @@
     "html"
    ],
    "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f24f46b4",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-22"
-   ],
-   "fix": "文件读取前约束路径，防止越权读到仓库外",
-   "item": "K-07",
-   "item_src": "manual"
-  },
-  {
-   "rule_id": "CPP-01",
-   "native_id": "CPP-01",
-   "scanner": "scan-cpp.py",
-   "level": "P0",
-   "title": "裸资源无释放（异常路径泄漏）",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7b617aed",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "CPP-01",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-02",
-   "native_id": "CPP-02",
-   "scanner": "scan-cpp.py",
-   "level": "P0",
-   "title": "不安全的内存/字符串函数",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "cb189189",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-120"
-   ],
-   "fix": "改 snprintf/std::string；memcpy 长度必须是 sizeof(目标) 或已校验值",
-   "item": "CPP-02",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-03",
-   "native_id": "CPP-03",
-   "scanner": "scan-cpp.py",
-   "level": "P1",
-   "title": "循环边界风险（<= 与 size 混用）",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "422f421f",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-125"
-   ],
-   "fix": "循环用 < 而非 <=，上界用容器 size()",
-   "item": "CPP-03",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-04",
-   "native_id": "CPP-04",
-   "scanner": "scan-cpp.py",
-   "level": "P0",
-   "title": "共享数据无同步（数据竞争）",
-   "family": "CPP",
-   "scene": "s-concurrency",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "794cc219",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "CPP-04",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-05",
-   "native_id": "CPP-05",
-   "scanner": "scan-cpp.py",
-   "level": "P0",
-   "title": "条件变量用 if（虚假唤醒）",
-   "family": "CPP",
-   "scene": "s-concurrency",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "fcc38e52",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-833"
-   ],
-   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前",
-   "item": "CPP-05",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-06",
-   "native_id": "CPP-06",
-   "scanner": "scan-cpp.py",
-   "level": "P1",
-   "title": "析构中的危险操作",
-   "family": "CPP",
-   "scene": "s-concurrency",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bf2cafd9",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-833",
-    "CWE-404"
-   ],
-   "fix": "析构里加锁可能与持锁线程互等；改由持有者显式释放",
-   "item": "CPP-06",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-07",
-   "native_id": "CPP-07",
-   "scanner": "scan-cpp.py",
-   "level": "P0",
-   "title": "悬垂引用/生命周期错误",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a5b1fd79",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-416"
-   ],
-   "fix": "按值返回；string_view 不绑定 std::string 临时对象",
-   "item": "CPP-07",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-08",
-   "native_id": "CPP-08",
-   "scanner": "scan-cpp.py",
-   "level": "P1",
-   "title": "无符号回绕 / 有符号混用",
-   "family": "CPP",
-   "scene": "s-numerics",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0d61e848",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-191"
-   ],
-   "fix": "size()-1 在空容器时下溢；无符号循环用反向迭代器，别用 >= 0",
-   "item": "CPP-08",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-09",
-   "native_id": "CPP-09",
-   "scanner": "scan-cpp.py",
-   "level": "P1",
-   "title": "内置类型未初始化",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ff3c752f",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-457"
-   ],
-   "fix": "成员默认初始化 int count_{0};",
-   "item": "CPP-09",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "CPP-10",
-   "native_id": "CPP-10",
-   "scanner": "scan-cpp.py",
-   "level": "P2",
-   "title": "违反项目运行时策略",
-   "family": "CPP",
-   "scene": "p-cpp",
-   "languages": [
-    "c",
-    "cc",
-    "cpp",
-    "cxx",
-    "h",
-    "hpp"
-   ],
-   "fixtures": {
-    "tp": "tp.cpp",
-    "fp": "fp.cpp"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "81e7481a",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "先读项目规范（如 HotSpot 禁异常/RTTI）再判断是否违反",
-   "item": "CPP-10",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-01",
-   "native_id": "GO-01",
-   "scanner": "scan-go.py",
-   "level": "P0",
-   "title": "goroutine 泄漏（无退出机制）",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "379422a3",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "GO-01",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-02",
-   "native_id": "GO-02",
-   "scanner": "scan-go.py",
-   "level": "P0",
-   "title": "context 未传播到阻塞调用",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ae95922f",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-404"
-   ],
-   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close",
-   "item": "GO-02",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-03",
-   "native_id": "GO-03",
-   "scanner": "scan-go.py",
-   "level": "P0",
-   "title": "channel 使用不当（无缓冲/重复关闭/无人关）",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "da1854ac",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-833"
-   ],
-   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前",
-   "item": "GO-03",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-04",
-   "native_id": "GO-04",
-   "scanner": "scan-go.py",
-   "level": "P0",
-   "title": "map 并发写无同步",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f4cc91fc",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "GO-04",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-05",
-   "native_id": "GO-05",
-   "scanner": "scan-go.py",
-   "level": "P1",
-   "title": "mutex 值拷贝（保护失效）",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "84d17f81",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-543"
-   ],
-   "fix": "用 *sync.Mutex；值拷贝后保护失效（go vet copylocks 可查）",
-   "item": "GO-05",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-06",
-   "native_id": "GO-06",
-   "scanner": "scan-go.py",
-   "level": "P0",
-   "title": "错误返回值被丢弃",
-   "family": "GO",
-   "scene": "p-go",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2a1df70e",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "显式 if err != nil 返回；确实可忽略写 _ = 并注释",
-   "item": "GO-06",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-07",
-   "native_id": "GO-07",
-   "scanner": "scan-go.py",
-   "level": "P1",
-   "title": "WaitGroup 计数不匹配",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4a08db8c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-833"
-   ],
-   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前",
-   "item": "GO-07",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-08",
-   "native_id": "GO-08",
-   "scanner": "scan-go.py",
-   "level": "P1",
-   "title": "循环内 defer（资源累积）",
-   "family": "GO",
-   "scene": "p-go",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4c6fd4b6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "GO-08",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-09",
-   "native_id": "GO-09",
-   "scanner": "scan-go.py",
-   "level": "P1",
-   "title": "select 无退出路径",
-   "family": "GO",
-   "scene": "s-concurrency",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0ccfca3a",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-833"
-   ],
-   "fix": "select 加 ctx.Done 分支；channel 由发送方唯一关闭；Add 必须在 go 之前",
-   "item": "GO-09",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "GO-10",
-   "native_id": "GO-10",
-   "scanner": "scan-go.py",
-   "level": "P1",
-   "title": "goroutine 内无 recover",
-   "family": "GO",
-   "scene": "p-go",
-   "languages": [
-    "go"
-   ],
-   "fixtures": {
-    "tp": "tp.go",
-    "fp": "fp.go"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "148a818d",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-755"
-   ],
-   "fix": "长期 goroutine 加 defer recover + 日志，否则 panic 拖垮整个进程",
-   "item": "GO-10",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-01",
-   "native_id": "JAVA-01",
-   "scanner": "scan-java.py",
-   "level": "P0",
-   "title": "Closeable 未用 try-with-resources",
-   "family": "JAVA",
-   "scene": "p-java",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c307ce0b",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "JAVA-01",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-02",
-   "native_id": "JAVA-02",
-   "scanner": "scan-java.py",
-   "level": "P0",
-   "title": "线程池未 shutdown",
-   "family": "JAVA",
-   "scene": "s-concurrency",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bed2f82c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "JAVA-02",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-03",
-   "native_id": "JAVA-03",
-   "scanner": "scan-java.py",
-   "level": "P0",
-   "title": "InterruptedException 被吞（取消失效）",
-   "family": "JAVA",
-   "scene": "s-concurrency",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9b6159d1",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志",
-   "item": "JAVA-03",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-04",
-   "native_id": "JAVA-04",
-   "scanner": "scan-java.py",
-   "level": "P0",
-   "title": "并发上下文用非线程安全集合",
-   "family": "JAVA",
-   "scene": "s-concurrency",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ff21fc48",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "JAVA-04",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-05",
-   "native_id": "JAVA-05",
-   "scanner": "scan-java.py",
-   "level": "P1",
-   "title": "ThreadLocal 未 remove（跨请求串扰）",
-   "family": "JAVA",
-   "scene": "s-concurrency",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "beb5bb23",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-488"
-   ],
-   "fix": "finally 里 tl.remove()，否则线程池复用会跨请求串数据",
-   "item": "JAVA-05",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-06",
-   "native_id": "JAVA-06",
-   "scanner": "scan-java.py",
-   "level": "P1",
-   "title": "synchronized 锁共享对象/块内 IO",
-   "family": "JAVA",
-   "scene": "s-concurrency",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e7e53a68",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "JAVA-06",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-07",
-   "native_id": "JAVA-07",
-   "scanner": "scan-java.py",
-   "level": "P2",
-   "title": "equals 与 hashCode 不配对",
-   "family": "JAVA",
-   "scene": "p-java",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "932052ca",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "equals 与 hashCode 同时重写（IDE 可生成）；放进 HashMap 才暴露",
-   "item": "JAVA-07",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-08",
-   "native_id": "JAVA-08",
-   "scanner": "scan-java.py",
-   "level": "P1",
-   "title": "static 可变共享状态",
-   "family": "JAVA",
-   "scene": "p-java",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "12548552",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "JAVA-08",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-09",
-   "native_id": "JAVA-09",
-   "scanner": "scan-java.py",
-   "level": "P0",
-   "title": "异常吞没（catch 块为空）",
-   "family": "JAVA",
-   "scene": "p-java",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5a30469c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志",
-   "item": "JAVA-09",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "JAVA-10",
-   "native_id": "JAVA-10",
-   "scanner": "scan-java.py",
-   "level": "P1",
-   "title": "非线程安全的格式化对象被共享",
-   "family": "JAVA",
-   "scene": "p-java",
-   "languages": [
-    "java"
-   ],
-   "fixtures": {
-    "tp": "tp.java",
-    "fp": "fp.java"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "674762e6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "JAVA-10",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-01",
-   "native_id": "PY-01",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "可变默认参数（跨调用累积）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2e9e3ad8",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-665"
-   ],
-   "fix": "默认参数用 None，函数体内再 acc = acc or []",
-   "item": "PY-01",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-02",
-   "native_id": "PY-02",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "宽泛异常吞没（未重新抛出）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "52c3cfc8",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志",
-   "item": "PY-02",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-03",
-   "native_id": "PY-03",
-   "scanner": "scan-py.py",
-   "level": "P1",
-   "title": "资源未用 with（可能未释放）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "83b0444e",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-404"
-   ],
-   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close",
-   "item": "PY-03",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-04",
-   "native_id": "PY-04",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "并发无同步证据（共享状态缺保护）",
-   "family": "PY",
-   "scene": "s-concurrency",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2bb67e23",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362"
-   ],
-   "fix": "加 mutex/atomic 或改用并发容器；条件变量用 while 或谓词重载",
-   "item": "PY-04",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-05",
-   "native_id": "PY-05",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "不安全反序列化（任意代码执行）",
-   "family": "PY",
-   "scene": "s-backend",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3568f6d9",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-502"
-   ],
-   "fix": "改 JSON / yaml.safe_load；必须 pickle 则验签 + 类型 allowlist",
-   "item": "PY-05",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-06",
-   "native_id": "PY-06",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "敏感数据进日志",
-   "family": "PY",
-   "scene": "s-sandbox",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ce43b0a7",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-532"
-   ],
-   "fix": "脱敏后记录（只留前 4 位/哈希），或整个字段移出日志",
-   "item": "PY-06",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-07",
-   "native_id": "PY-07",
-   "scanner": "scan-py.py",
-   "level": "P1",
-   "title": "__del__ 中执行 IO/加锁",
-   "family": "PY",
-   "scene": "s-concurrency",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "39aca959",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-362",
-    "CWE-404"
-   ],
-   "fix": "__del__ 不保证执行，改显式 close + atexit/上下文管理器",
-   "item": "PY-07",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-08",
-   "native_id": "PY-08",
-   "scanner": "scan-py.py",
-   "level": "P1",
-   "title": "模块级可变全局状态",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e1fd62f2",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-567"
-   ],
-   "fix": "改为实例字段或加锁；只读常量（无 mutate）不构成风险",
-   "item": "PY-08",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-09",
-   "native_id": "PY-09",
-   "scanner": "scan-py.py",
-   "level": "P1",
-   "title": "assert 做运行时校验（-O 下失效）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a970b984",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "assert 在 python -O 下被移除，改显式 if + raise",
-   "item": "PY-09",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-10",
-   "native_id": "PY-10",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "subprocess shell=True / os.system（命令注入）",
-   "family": "PY",
-   "scene": "s-backend",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "827d44ef",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-78"
-   ],
-   "fix": "subprocess 传参数数组，不用 shell=True / os.system",
-   "item": "PY-10",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-11",
-   "native_id": "PY-11",
-   "scanner": "scan-py.py",
-   "level": "P0",
-   "title": "裸 except（吞掉 KeyboardInterrupt）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "24d0f8ec",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志",
-   "item": "PY-11",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-12",
-   "native_id": "PY-12",
-   "scanner": "scan-py.py",
-   "level": "P2",
-   "title": "naive datetime（无时区）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "625f624d",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "PY-12",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "PY-13",
-   "native_id": "PY-13",
-   "scanner": "scan-py.py",
-   "level": "P1",
-   "title": "清理/回滚用 except Exception（Ctrl-C 时不执行）",
-   "family": "PY",
-   "scene": "p-python",
-   "languages": [
-    "py"
-   ],
-   "fixtures": {
-    "tp": "tp.py",
-    "fp": "fp.py"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0ca7ac2a",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-460"
-   ],
-   "fix": "清理/回滚改 except BaseException 并在清理后 raise；或把清理放进 finally（中断时同样执行）",
-   "item": "PY-13",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-01",
-   "native_id": "RS-01",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "unwrap/expect 在命令入口（panic 静默化）",
-   "family": "RS",
-   "scene": "p-rust",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2c277342",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-248"
-   ],
-   "fix": "命令入口用 ? 向上传播（Tauri command 支持 Result<T,String>）；或 map_err(|e| e.to_string())? 带上上下文",
-   "item": "RS-01",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-02",
-   "native_id": "RS-02",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "整数溢出（release 静默回绕）",
-   "family": "RS",
-   "scene": "s-numerics",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f459ec16",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-190",
-    "CWE-681"
-   ],
-   "fix": "用 checked_add/checked_mul 并 ? 处理；窄化改 try_into()，溢出显式报错（验证须加 -C overflow-checks=on）",
-   "item": "RS-02",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-03",
-   "native_id": "RS-03",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "unsafe 无 SAFETY 注释（契约不可复核）",
-   "family": "RS",
-   "scene": "p-rust",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "faadfb2e",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-119"
-   ],
-   "fix": "unsafe 紧邻上方写 // SAFETY: <为什么满足安全契约>；指针算术与 from_raw_parts 需断言长度/对齐",
-   "item": "RS-03",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-04",
-   "native_id": "RS-04",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "std 同步锁跨 await（死锁/Send 违反）",
-   "family": "RS",
-   "scene": "s-concurrency",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e57085b8",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-667",
-    "CWE-833"
-   ],
-   "fix": "改 tokio::sync::Mutex；或把 lock() 收进最小作用域，await 前显式 drop(guard)",
-   "item": "RS-04",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-05",
-   "native_id": "RS-05",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "Tauri 命令入参未校验（路径穿越/注入）",
-   "family": "RS",
-   "scene": "s-backend",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d8a353fd",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-22",
-    "CWE-78"
-   ],
-   "fix": "path.canonicalize() 后 starts_with(base_canonical) 校验；命令执行用白名单枚举而非拼字符串",
-   "item": "RS-05",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-06",
-   "native_id": "RS-06",
-   "scanner": "scan-rust.py",
-   "level": "P0",
-   "title": "外部输入驱动的无界分配（OOM）",
-   "family": "RS",
-   "scene": "s-backend",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "29e985af",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770",
-    "CWE-400"
-   ],
-   "fix": "先校验长度上限再分配；流式处理或 take(n) 限制读取量",
-   "item": "RS-06",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-07",
-   "native_id": "RS-07",
-   "scanner": "scan-rust.py",
-   "level": "P1",
-   "title": "错误被 unwrap_or_default / let _ 掩盖",
-   "family": "RS",
-   "scene": "p-rust",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bd1b3a29",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "unwrap_or_default / let _ 把错误转成零值继续跑；显式返回 Result 或至少打日志",
-   "item": "RS-07",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-08",
-   "native_id": "RS-08",
-   "scanner": "scan-rust.py",
-   "level": "P1",
-   "title": "Arc 循环引用 / Rc 跨线程",
-   "family": "RS",
-   "scene": "p-rust",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b3506843",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "反向引用改 Weak<T>；跨线程用 Arc 而非 Rc（Rc 非 Send）",
-   "item": "RS-08",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-09",
-   "native_id": "RS-09",
-   "scanner": "scan-rust.py",
-   "level": "P1",
-   "title": "裸指针 / transmute 未隔离",
-   "family": "RS",
-   "scene": "p-rust",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c5758a37",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-119",
-    "CWE-704"
-   ],
-   "fix": "封装进单一 unsafe 小函数并写 SAFETY 与断言；业务代码不直接出现 transmute/裸指针",
-   "item": "RS-09",
-   "item_src": "id"
-  },
-  {
-   "rule_id": "RS-10",
-   "native_id": "RS-10",
-   "scanner": "scan-rust.py",
-   "level": "P1",
-   "title": "敏感信息进日志",
-   "family": "RS",
-   "scene": "s-sandbox",
-   "languages": [
-    "rs"
-   ],
-   "fixtures": {
-    "tp": "tp.rs",
-    "fp": "fp.rs"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "54180e55",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-532"
-   ],
-   "fix": "打印前脱敏（只留前 4 位或哈希）；敏感字段自定义 Debug 跳过",
-   "item": "RS-10",
-   "item_src": "id"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-A01",
@@ -2562,21 +716,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "657a05e0",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-01",
-   "item_src": "auto:0.90"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-A02",
@@ -2595,21 +741,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f04cd371",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-02",
-   "item_src": "auto:0.65"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-A03",
@@ -2628,21 +766,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a0b3c07b",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-03",
-   "item_src": "auto:0.70"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-A04",
@@ -2661,21 +791,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dd2c4a80",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-04",
-   "item_src": "auto:0.65"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-A05",
@@ -2694,21 +816,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a1b24be5",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-704"
-   ],
-   "fix": "位运算取整对 NaN 静默得 0，先 Number.isFinite 再转",
-   "item": "N-05",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-B01",
@@ -2727,21 +841,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c5f58df5",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-835"
-   ],
-   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while",
-   "item": "N-06",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-B02",
@@ -2760,21 +866,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dcae9402",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-835"
-   ],
-   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while",
-   "item": "N-07",
-   "item_src": "auto:0.98"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-B03",
@@ -2782,7 +880,7 @@
    "scanner": "scan-ts.py",
    "level": "P0",
    "title": "递归无访问集/深度上限（互相引用 → 栈溢出）",
-   "family": "O",
+   "family": "B",
    "scene": "s-numerics",
    "languages": [
     "ts",
@@ -2793,54 +891,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c8061c09",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-674"
-   ],
-   "fix": "递归加访问集与深度上限",
-   "item": "D-17",
-   "item_src": "auto:0.73"
-  },
-  {
-   "rule_id": "TS-B10",
-   "native_id": "B10",
-   "scanner": "scan-ts.py",
-   "level": "P1",
-   "title": "响应成功判定不靠状态码（按字段存在性判成功）",
-   "family": "O",
-   "scene": "s-numerics",
-   "languages": [
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "mjs",
-    "cjs"
-   ],
-   "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2beafa9c",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-754"
-   ],
-   "fix": "命令侧 curl 配 -f/--fail 或 -w \"%{http_code}\"；请求侧判 resp.ok / resp.status，别用字段存在性",
-   "item": "B-10",
-   "item_src": "auto:0.79"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-C01",
@@ -2859,21 +916,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4e914693",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-1321"
-   ],
-   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype",
-   "item": "D-01",
-   "item_src": "auto:0.68"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-C02",
@@ -2892,21 +941,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f4cf652e",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-1321"
-   ],
-   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype",
-   "item": "D-02",
-   "item_src": "auto:0.94"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-C03",
@@ -2925,21 +966,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5106e0da",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-1321"
-   ],
-   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype",
-   "item": "D-03",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-D01",
@@ -2958,19 +991,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d06d3c2b",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "C-05",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-D02",
@@ -2978,8 +1005,8 @@
    "scanner": "scan-ts.py",
    "level": "P0",
    "title": "参数声明但函数体内从未使用（承诺无效）",
-   "family": "O",
-   "scene": "s-numerics",
+   "family": "D",
+   "scene": "s-contracts",
    "languages": [
     "ts",
     "tsx",
@@ -2989,50 +1016,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b7219c9d",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "C-06",
-   "item_src": "auto:0.89"
-  },
-  {
-   "rule_id": "TS-D11",
-   "native_id": "D11",
-   "scanner": "scan-ts.py",
-   "level": "P2",
-   "title": "容器摘除未清内部容器（Map<K, Set<V>> 只删外层）",
-   "family": "O",
-   "scene": "s-numerics",
-   "languages": [
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "mjs",
-    "cjs"
-   ],
-   "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e2121e74",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "删除外层条目前先 clear 内部容器：`m.get(k)?.clear(); m.delete(k)`",
-   "item": "D-11",
-   "item_src": "auto:0.85"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-E01",
@@ -3051,19 +1041,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "897c67db",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-08",
-   "item_src": "auto:0.66"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-E02",
@@ -3071,8 +1055,8 @@
    "scanner": "scan-ts.py",
    "level": "P1",
    "title": "按函数值去重的 Set 配合\"每注册一条\"的数组",
-   "family": "O",
-   "scene": "s-numerics",
+   "family": "E",
+   "scene": "s-contracts",
    "languages": [
     "ts",
     "tsx",
@@ -3082,19 +1066,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c52e918c",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-09",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-F01",
@@ -3113,21 +1091,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6e600bc6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "C-12",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-G01",
@@ -3146,19 +1116,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "756d5967",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "C-11",
-   "item_src": "auto:0.59"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-H01",
@@ -3177,21 +1141,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1f7c34ca",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "C-12",
-   "item_src": "auto:0.92"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-I01",
@@ -3199,8 +1155,8 @@
    "scanner": "scan-ts.py",
    "level": "P1",
    "title": "容量类字段无上限（无限增长）",
-   "family": "O",
-   "scene": "s-numerics",
+   "family": "I",
+   "scene": "s-structures",
    "languages": [
     "ts",
     "tsx",
@@ -3210,21 +1166,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0f5a1fdf",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "尺寸/次数先校验上界再分配",
-   "item": "D-14",
-   "item_src": "auto:0.94"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-I02",
@@ -3243,19 +1191,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6939de7a",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "D-15",
-   "item_src": "auto:0.68"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-J01",
@@ -3274,21 +1216,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dacce2f8",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-664"
-   ],
-   "fix": "多步写先算好再一次性提交，或失败时显式回滚",
-   "item": "A-01",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-J02",
@@ -3307,21 +1241,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4fee35b4",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-390"
-   ],
-   "fix": "至少重新抛出或记日志；中断类异常必须恢复中断标志",
-   "item": "A-02",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-K01",
@@ -3340,19 +1266,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a83fd16f",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-10",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-K02",
@@ -3360,8 +1280,8 @@
    "scanner": "scan-ts.py",
    "level": "P1",
    "title": "clear/reset 遗漏部分容器（清理不彻底）",
-   "family": "O",
-   "scene": "s-numerics",
+   "family": "K",
+   "scene": "s-lifecycle",
    "languages": [
     "ts",
     "tsx",
@@ -3371,19 +1291,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f0789f82",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-11",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-L01",
@@ -3402,21 +1316,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4becca28",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-561"
-   ],
-   "fix": "空 if 块要么补校验逻辑要么删掉",
-   "item": "A-06",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-L02",
@@ -3435,54 +1341,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a219e7ba",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-561"
-   ],
-   "fix": "三元两支返回同值，说明条件无效",
-   "item": "A-07",
-   "item_src": "auto:1.00"
-  },
-  {
-   "rule_id": "TS-L15",
-   "native_id": "L15",
-   "scanner": "scan-ts.py",
-   "level": "P1",
-   "title": "缓存 Map 无上限增长（外部 key 且无 delete）",
-   "family": "O",
-   "scene": "s-numerics",
-   "languages": [
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "mjs",
-    "cjs"
-   ],
-   "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3053782f",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "给 Map 加容量上限或条目 TTL；摘除时 delete，或改用有界结构（LRU / 环形缓冲）",
-   "item": "L-15",
-   "item_src": "auto:0.97"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-M01",
@@ -3501,21 +1366,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5d7b6f8a",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-636"
-   ],
-   "fix": "fail-closed：校验缺失时默认拒绝，不要默认放行",
-   "item": "A-03",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-M02",
@@ -3534,22 +1391,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "964b1137",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-636",
-    "CWE-20"
-   ],
-   "fix": "安全/经济判定前先校验操作数有限，被污染则拒绝",
-   "item": "A-04",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-N01",
@@ -3557,7 +1405,7 @@
    "scanner": "scan-ts.py",
    "level": "P1",
    "title": "硬编码 Date.now / performance.now（时间源不可注入）",
-   "family": "O",
+   "family": "N",
    "scene": "s-numerics",
    "languages": [
     "ts",
@@ -3568,19 +1416,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4fa02373",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "N-19",
-   "item_src": "auto:0.76"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-N02",
@@ -3599,19 +1441,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1a271560",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": null,
-   "item_src": "none:0.30"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-O01",
@@ -3630,21 +1466,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5c8fc79e",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-190"
-   ],
-   "fix": "1 << 31 变负数、1 << 32 变 1；改乘法或 BigInt",
-   "item": "N-17",
-   "item_src": "auto:0.51"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-O02",
@@ -3663,21 +1491,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a2c5d105",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-369"
-   ],
-   "fix": "除法前判零与 NaN",
-   "item": "N-18",
-   "item_src": "auto:0.79"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-O03",
@@ -3696,19 +1516,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1b720e60",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "A-09",
-   "item_src": "manual"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-O04",
@@ -3727,21 +1541,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ebe268ab",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-374"
-   ],
-   "fix": "返回副本或冻结对象，别把内部可变引用交给调用方",
-   "item": "D-16",
-   "item_src": "auto:0.54"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-P01",
@@ -3760,21 +1566,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "17a738a4",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-10",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-P02",
@@ -3793,21 +1591,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f79eeae5",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-11",
-   "item_src": "auto:0.51"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-P03",
@@ -3826,21 +1616,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6a18f50d",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-12",
-   "item_src": "auto:0.73"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-P04",
@@ -3859,21 +1641,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bab1bcff",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-13",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-P05",
@@ -3892,21 +1666,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a63692c6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-704"
-   ],
-   "fix": "运算前 typeof 校验，避免 + 变字符串拼接",
-   "item": "N-14",
-   "item_src": "auto:0.90"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Q01",
@@ -3925,21 +1691,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bf1801ea",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "尺寸/次数先校验上界再分配",
-   "item": "D-08",
-   "item_src": "auto:0.62"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Q02",
@@ -3958,19 +1716,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2b020a8e",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "D-09",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Q03",
@@ -3989,21 +1741,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f717fce8",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "D-10",
-   "item_src": "auto:0.58"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Q04",
@@ -4022,21 +1766,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "53ca9795",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "尺寸/次数先校验上界再分配",
-   "item": "D-12",
-   "item_src": "auto:0.61"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Q05",
@@ -4055,21 +1791,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9c468004",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-770"
-   ],
-   "fix": "尺寸/次数先校验上界再分配",
-   "item": "D-13",
-   "item_src": "auto:0.92"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-R01",
@@ -4088,21 +1816,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2f33a630",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-1321"
-   ],
-   "fix": "查表用 Object.create(null) 或 Map；合并前过滤 __proto__/constructor/prototype",
-   "item": "D-04",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-R02",
@@ -4121,19 +1841,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4f9b20c5",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "D-05",
-   "item_src": "auto:0.65"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-R03",
@@ -4152,19 +1866,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7b95918f",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "D-06",
-   "item_src": "auto:0.56"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-R04",
@@ -4183,21 +1891,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6584dc00",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "复合 key 对分隔符编码，或改用数组/嵌套结构",
-   "item": "D-07",
-   "item_src": "auto:0.98"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-S01",
@@ -4216,21 +1916,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "72138541",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-489"
-   ],
-   "fix": "后门默认关闭，由构建标志剔除",
-   "item": "A-05",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-T01",
@@ -4249,21 +1941,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9518c84b",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-835"
-   ],
-   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while",
-   "item": "N-08",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-T02",
@@ -4282,52 +1966,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f06238fd",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-835"
-   ],
-   "fix": "上界先 clamp 到有限值；角度归一化用取模而非 while",
-   "item": "N-09",
-   "item_src": "auto:0.94"
-  },
-  {
-   "rule_id": "TS-T05",
-   "native_id": "T05",
-   "scanner": "scan-ts.py",
-   "level": "P2",
-   "title": "首屏兜底用内联样式压过后续动态注入",
-   "family": "O",
-   "scene": "s-numerics",
-   "languages": [
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "mjs",
-    "cjs"
-   ],
-   "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
-   },
-   "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "125ec908",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "兜底值写进 <style> 或 CSS 变量，别用 element.style 内联赋值",
-   "item": "T-05",
-   "item_src": "auto:0.85"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-U01",
@@ -4346,21 +1991,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0a9d5fd3",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-15",
-   "item_src": "auto:0.97"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-W01",
@@ -4379,21 +2016,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "de1c50f3",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-20"
-   ],
-   "fix": "校验用 Number.isFinite(x) 而非 x != null / x > 0；哨兵值不要用 Infinity（与合法极值冲突）",
-   "item": "N-16",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X01",
@@ -4412,21 +2041,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "cbcc0d62",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-01",
-   "item_src": "auto:0.62"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X02",
@@ -4445,21 +2066,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1e882dd6",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-02",
-   "item_src": "auto:0.58"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X03",
@@ -4478,21 +2091,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a094eef1",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-03",
-   "item_src": "auto:0.73"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X04",
@@ -4511,21 +2116,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5b3cac54",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-04",
-   "item_src": "auto:0.54"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X05",
@@ -4544,21 +2141,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d6f06f42",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-404"
-   ],
-   "fix": "用 with / try-with-resources / defer 绑定作用域，别依赖手动 close",
-   "item": "L-05",
-   "item_src": "auto:0.86"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-X06",
@@ -4577,21 +2166,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b6bbf368",
-    "verified_at": null
-   },
-   "cwe": [
-    "CWE-401"
-   ],
-   "fix": "成对契约补齐释放侧；容器/线程由生命周期更长的持有者管理",
-   "item": "L-06",
-   "item_src": "auto:1.00"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Y01",
@@ -4610,19 +2191,13 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "821cc958",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-12",
-   "item_src": "auto:0.68"
+    "recall": "unverified"
+   }
   },
   {
    "rule_id": "TS-Y02",
@@ -4641,19 +2216,40 @@
     "cjs"
    ],
    "fixtures": {
-    "tp": "tp.ts",
-    "fp": "fp.ts"
+    "tp": null,
+    "fp": null
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7ba499e8",
-    "verified_at": null
-   },
-   "cwe": [],
-   "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
-   "item": "L-13",
-   "item_src": "auto:0.97"
+    "recall": "unverified"
+   }
+  },
+  {
+   "rule_id": "G09",
+   "name": "导出后零引用（已实现未接线）",
+   "level": "P2",
+   "scanner": "scan-app.py",
+   "kind": "project",
+   "note": "PROJECT_CHECK，--sync 后需手工补回。P1 条件：名字像机制/防护/订阅。已修注释误报（JSDoc 里的 export function 会误判）",
+   "source": "2026-09-14 nexus-panel"
+  },
+  {
+   "rule_id": "G10",
+   "name": "CI 引用不存在的 npm script",
+   "level": "P0",
+   "scanner": "scan-app.py",
+   "kind": "project",
+   "note": "PROJECT_CHECK，手工维护。须收集**所有** package.json 的 scripts 并集（monorepo 里 package.json 在子目录而 .github 在根）",
+   "source": "2026-09-14 nexus-panel ci.yml:38"
+  },
+  {
+   "rule_id": "G11",
+   "name": "测试 import 扩展名写法不一致",
+   "level": "P1",
+   "scanner": "scan-app.py",
+   "kind": "project",
+   "note": "PROJECT_CHECK，手工维护。局限：只比对**同一目标**的不同写法，跨目录的路径错误由 G07 兜。实测零误报",
+   "source": "2026-09-14 nexus-panel tests/registry.test.ts 用了 .mjs（同目录其他用无扩展名）→ 该文件加载失败"
   }
  ]
 }
