@@ -127,6 +127,77 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 
 ---
 
+### PY-14 (P1/P0) 生成器被二次消费 → 第二次恒为空
+
+- **判据**：`difflib.unified_diff` / `map` / `filter` / `zip` / 生成器表达式 /
+  `re.finditer` 的返回值赋给变量后被**两次以上**消费
+  （两次 `for`、两次 `sum()`、两次 `list()`，或 `if any(...)` 后再 `sum(...)`）。
+  第二次拿到的是**已耗尽**的迭代器 → 恒为空 / 恒为 0
+
+- **确认**：
+  ```bash
+  grep -nE "=\s*(difflib\.|map\(|filter\(|zip\(|re\.finditer\()" <file>
+  # 追踪该变量被用了几次
+  ```
+
+- **定级**：
+  - 结果用于**展示 / 统计** → **P1**（信息失真）
+  - 结果用于**判定 / 校验**（`if not gen`、`sum(...) == 0` 决定流程分支）
+    → **P0**（判定失效，常表现为「永远通过」）
+
+- **修法**：
+  ```python
+  d = list(difflib.unified_diff(old, new, n=0))     # 物化
+  add = sum(1 for l in d if l.startswith("+") and not l.startswith("+++"))
+  sub = sum(1 for l in d if l.startswith("-") and not l.startswith("---"))
+  ```
+
+- **实测**：`old=[a,b,c,d] / new=[a,X,c]`（真实 +1/-2），
+  两次遍历同一生成器 → 输出 `+1 / -0`。
+  该预览是人工确认推送内容的**唯一**内容差异展示环节
+  → 按 common-severity「对外承诺完全失效」定 P0
+
+- **同类**：`any(gen)` 后再 `list(gen)`；`if gen:` 后再遍历（生成器永真）
+
+
+---
+
+### PY-15 (P1) `subprocess` 的 `errors=` 只配了输出，没配输入
+
+- **判据**：`subprocess.run(..., text=True)` 且存在 `input=` 参数时：
+  - `errors=` 只影响 **stdout/stderr 的解码**（输出方向）
+  - **stdin 的编码**由 `input` 参数走另一条路，`text=True` 下默认**严格 UTF-8**
+  → 传入含 surrogate / 非法字节的字符串时抛 `UnicodeEncodeError`，
+  **崩溃位置比修之前更隐蔽**
+
+- **确认**：
+  ```bash
+  grep -nE "subprocess\.run\(.*text=True.*input=|input=.*text=True" <file>
+  # 是否有 errors=
+  ```
+
+- **修法**（三选一）：
+  ```python
+  # ① 传 bytes，绕开文本层
+  subprocess.run(cmd, input=data_bytes, capture_output=True)
+
+  # ② 显式双端 errors
+  subprocess.run(cmd, input=s, capture_output=True,
+                 text=True, encoding="utf-8", errors="surrogateescape")
+
+  # ③ 入口处拒绝，给出可诊断的报错
+  if any(0xD800 <= ord(c) <= 0xDFFF for c in s):
+      raise SystemExit("路径含非法 UTF-8 字节")
+  ```
+
+- **实测**：同一文件里 `git()` 正确写了 `errors="surrogateescape"`，
+  甚至配注释警告「只修输出不修输入，崩溃只是换个地方（实测）」；
+  而几十行外的 `local_blob_sha()` 用 `input=os.readlink(full)` 恰恰**漏在输入方向**
+  → symlink 目标含 `\xff` 时实测抛 `UnicodeEncodeError`。
+  **注释警告的坑就在几十行外真实存在** —— 典型的「局部修复未推广到同族调用点」
+
+---
+
 ## 检查方法
 
 ```

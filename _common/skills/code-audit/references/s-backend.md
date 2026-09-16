@@ -238,6 +238,80 @@ symlink 用 `os.lstat` 取长度更符合语义（不跟随链接）。
 - 平台特定依赖（Windows 句柄类型）要写明规避理由
 - release profile（`lto` / `panic` / `strip`）与错误处理能力要匹配
 
+---
+
+### K-36 (P1) 错误分类用宽泛子串匹配，且丢弃原始错误信息
+
+- **判据**：把上游错误按**子串匹配**分到若干「处理策略」类目，且：
+  ① 命中词在语义上**同时覆盖多种真实原因**
+  （如 `not mergeable` 既是「分支旧」也是「真冲突」；
+  `Required status check` 与「分支旧」根本无关）
+  ② 分类后**丢弃原始 message**，只输出预设的模板文案
+
+- **确认**：
+  ```bash
+  grep -nE "_HINTS|any\(h in msg|in msg\.lower\(\)" <file>
+  # 看命中词表是否含语义模糊项；看 except 块是否 re-raise 原文
+  ```
+
+- **后果**：给出**不可执行的修复建议**（如提示「去点 Update branch」，
+  而该按钮在特定状态下不存在）。按 common-severity 文档类判据属 P1；
+  若导致用户销毁防护机制（重置基线 / 加 `--force`），升 P0
+
+- **修法**：
+  ```python
+  # ① 命中词只留语义唯一的
+  _NEED_UPDATE = ("Base branch was modified", "not up to date")
+
+  # ② 分类后必须保留原文
+  except SystemExit as e:
+      print(f"上游原文：{e}")        # 兜底信息，不能丢
+      if any(h in str(e) for h in _NEED_UPDATE):
+          ...
+  ```
+
+- **实测**：某推送工具的 `_NEED_UPDATE_HINTS` 含 `not mergeable` 与
+  `Required status check`；已合并 PR 重跑撞 405，被判 `need_update`
+  → 提示「去网页点 Update branch」，而 PR 已合并，**该按钮不存在**
+
+
+---
+
+### K-37 (P1) 分页接口设了 `per_page` 但不翻页
+
+- **判据**：请求带 `per_page=N` / `limit=N` / `page_size=N`，
+  但**没有** `page` 递增循环，也没有「结果可能被截断」的提示
+
+- **确认**：
+  ```bash
+  grep -nE "per_page|limit=|page_size" <file>
+  grep -nE "page=|offset=|cursor" <file>       # 为空即成立
+  ```
+
+- **定级**：
+  - 结果用于**展示 / 统计** → P2
+  - 结果用于**完整性判定**（清理扫描、遗漏检查、全量比对）→ **P1**：
+    漏报比误报更危险，因为「没报」被理解为「没有」
+
+- **修法**：
+  ```python
+  def list_all(path):
+      out, page = [], 1
+      while True:
+          batch = api("GET", f"{path}&per_page=100&page={page}") or []
+          out += batch
+          if len(batch) < 100:
+              break
+          page += 1
+      return out
+  ```
+
+- **实测**：某推送工具三处均设 `per_page=100` 无翻页。
+  `--prune` 用于分支清理扫描，超 100 个分支时**静默漏报**，
+  而该命令的全部价值在于不漏
+
+---
+
 ## 常见误报
 
 - **「刻意不引第三方 crate」** —— 注释常会解释（如「少一个依赖就少一类编译失败」）

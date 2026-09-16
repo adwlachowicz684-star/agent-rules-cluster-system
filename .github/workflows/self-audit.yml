@@ -43,6 +43,21 @@ jobs:
           python3 scripts/rule-registry.py --scanners | grep -E '^scan-[a-z]+\.py$' > /tmp/scanners.txt
           cat /tmp/scanners.txt
           test -s /tmp/scanners.txt || { echo "扫描器列表为空"; exit 1; }
+          # —— 交叉断言：从注册表推导只堵住了「名单漏写」，堵不住「注册表里没它的
+          # 规则」。2026-09 的实际事故：registry.json 停在 93 条（只有 ts/app），
+          # 五个语言扫描器的 58 条规则从未入表 → --scanners 只推导出 2 个 →
+          # scan-rust.py 等 5 个的 --self-test 一条都没跑，流水线照样绿。
+          # 防复发的正确做法不是换个推导源，而是让「两个清单必须一致」成为断言：
+          # 磁盘上有 scan-*.py，就必须出现在 --scanners 的输出里。
+          ls scripts/scan-*.py | xargs -n1 basename | sort > /tmp/scanners_disk.txt
+          echo "磁盘上的扫描器："; cat /tmp/scanners_disk.txt
+          MISSING=$(comm -23 /tmp/scanners_disk.txt <(sort /tmp/scanners.txt))
+          if [ -n "$MISSING" ]; then
+            echo "✗ 这些扫描器文件存在，但注册表里没有它的规则 → 跑 --sync"
+            echo "$MISSING"
+            exit 1
+          fi
+          echo "✓ 磁盘扫描器与注册表推导结果一致"
           while read -r s; do
             [ -z "$s" ] && continue
             echo "── $s"
