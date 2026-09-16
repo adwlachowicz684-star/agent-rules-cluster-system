@@ -2077,8 +2077,10 @@
     "verified_at": "2026-09-16",
     "sig": "bdbbb417"
    },
-   "cwe": null,
-   "fix": ""
+   "cwe": [],
+   "fix": "判定函数返回 Verdict/Plan 结构体，输出集中到 ui 层；错误用带码异常类型，顶层统一转退出码",
+   "item": "AR-01",
+   "item_src": "id"
   },
   {
    "rule_id": "AR-03",
@@ -2101,8 +2103,10 @@
     "verified_at": "2026-09-16",
     "sig": "bb18d3a9"
    },
-   "cwe": null,
-   "fix": ""
+   "cwe": [],
+   "fix": "状态默认落在目标内（<root>/.git/<tool>.json）；目标收进 Config 显式传递，CLI > 环境变量 > 配置文件 > 默认值",
+   "item": "AR-03",
+   "item_src": "id"
   },
   {
    "rule_id": "AR-04",
@@ -2125,8 +2129,10 @@
     "verified_at": "2026-09-16",
     "sig": "0548cc72"
    },
-   "cwe": null,
-   "fix": ""
+   "cwe": [],
+   "fix": "定义退出码表（0 成功 / 2 被防护拦下 / 3 冲突未解决 / 1 错误 / 130 中断）并写进 --help",
+   "item": "AR-04",
+   "item_src": "id"
   },
   {
    "rule_id": "AR-05",
@@ -2149,8 +2155,10 @@
     "verified_at": "2026-09-16",
     "sig": "11d46ba5"
    },
-   "cwe": null,
-   "fix": ""
+   "cwe": [],
+   "fix": "conftest.py 提供 fake_remote / tmp_repo fixture，在边界层注入而非 patch 模块全局；断言结构化返回值",
+   "item": "AR-05",
+   "item_src": "id"
   },
   {
    "rule_id": "PY-01",
