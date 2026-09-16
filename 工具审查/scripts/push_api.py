@@ -1491,11 +1491,44 @@ def pull(state, head_sha, rstate, only=None, force=False):
     return True
 
 
+def _has_conflict_marker(data):
+    """文件里是否还留着 git 冲突标记（**只认行首，且要求成对**）。
+
+    两条约束各自对应一个真实踩过的坑：
+
+    1. **只看行首。** git 写的冲突标记必定是行首的 `<<<<<<< HEAD` /
+       `>>>>>>> branch`。早先这里用的是全文匹配 `b"<<<<<<<" in data`，
+       于是**任何内容里含该字面量的文件都永远过不了这道检查** —— 而本文件
+       自己就写着这个字面量（第 1508 行附近要检查它），结果
+       `push_api.py --resolve push_api.py` 永远报「仍有冲突标记」，
+       冲突**无法解决**，用户只能绕开脚本手写 API 提交。
+       检查逻辑误伤自身，属于「验证手段失效」的一类。
+
+    2. **要求成对。** 只看 `<<<<<<<` 还不够：`<<<<<<<` 也可能是文档里的
+       示意用法，或 Markdown 的行首装饰。真正的冲突块必定首尾各一个，
+       所以统计两者、都大于 0 才判定 —— 顺带也避免了只删掉一半
+       （比如删了开头忘了结尾）被误判为已解决。
+
+    `=======` 不单独参与判定：它在 Markdown 里是 setext 标题的下划线，
+    合法内容里本就会出现。
+    """
+    opens = closes = 0
+    for line in data.split(b"\n"):
+        s = line.rstrip(b"\r")          # 兼容 CRLF
+        if s.startswith(b"<<<<<<<"):
+            opens += 1
+        elif s.startswith(b">>>>>>>"):
+            closes += 1
+    return opens > 0 and closes > 0
+
+
 def resolve(state, rel, head_sha=None, rstate=None):
     """确认某个冲突文件已手工解决：清冲突标记 + 补基线。
 
-    调用前会检查文件里是否还留着 `<<<<<<<` 标记——带着冲突标记推送等于
+    调用前会检查文件里是否还留着冲突标记——带着冲突标记推送等于
     把一份损坏的文件推上去，这是最该拦的一道。
+    （判定细节见 `_has_conflict_marker`：只认行首且要求成对，
+     否则本文件自己的源码会被自己拦住。）
 
     手工解决意味着人已经看过远端版本并做了决定，所以这里把基线补成远端当前值：
     下一轮第一层校验看到「远端 == 基线」即放行，本地（人工裁定的）内容可以推上去。
@@ -1505,7 +1538,7 @@ def resolve(state, rel, head_sha=None, rstate=None):
     data = _local_bytes(rel)
     if data is None:
         raise SystemExit(f"{rel} 本地不存在")
-    if b"<<<<<<<" in data or b">>>>>>>" in data:
+    if _has_conflict_marker(data):
         raise SystemExit(
             f"{rel} 里仍有冲突标记（<<<<<<< / >>>>>>>）。\n"
             f"  请先编辑解决冲突，再运行 --resolve {rel}。"
