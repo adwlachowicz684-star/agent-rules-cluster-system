@@ -22,10 +22,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a70dd490",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a70dd490"
    },
    "cwe": [
     "CWE-1104"
@@ -54,10 +54,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "42e14cde",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "42e14cde"
    },
    "cwe": [
     "CWE-1188"
@@ -86,9 +86,9 @@
    },
    "eval": {
     "precision": "unverified",
-    "recall": "unverified",
-    "sig": "376238a8",
-    "verified_at": null
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "376238a8"
    },
    "cwe": [],
    "fix": "相对 import 补上正确扩展名或改绝对路径别名；CI 里跑一次真实构建验证模块能加载",
@@ -116,8 +116,8 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified",
-    "sig": "2734acd2",
-    "verified_at": null
+    "verified_at": null,
+    "sig": "2734acd2"
    },
    "cwe": [],
    "fix": "合并重复 import，或从 barrel 文件统一导出",
@@ -146,8 +146,8 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified",
-    "sig": "caaf6dd7",
-    "verified_at": null
+    "verified_at": null,
+    "sig": "caaf6dd7"
    },
    "cwe": [],
    "fix": "确认是死代码则删除；确实要接线就补上引用",
@@ -176,8 +176,8 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified",
-    "sig": "3eee6a3b",
-    "verified_at": null
+    "verified_at": null,
+    "sig": "3eee6a3b"
    },
    "cwe": [],
    "fix": "CI 引用的 script 名补进 package.json，或修正 CI 里的拼写",
@@ -206,8 +206,8 @@
    "eval": {
     "precision": "unverified",
     "recall": "unverified",
-    "sig": "3292c8ba",
-    "verified_at": null
+    "verified_at": null,
+    "sig": "3292c8ba"
    },
    "cwe": [],
    "fix": "统一测试文件的 import 扩展名写法（与同目录一致），或配 tsconfig/vite 的 resolve.extensions",
@@ -234,10 +234,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3746db14",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "3746db14"
    },
    "cwe": [
     "CWE-1104",
@@ -267,10 +267,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "37565d85",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "37565d85"
    },
    "cwe": [
     "CWE-540"
@@ -298,10 +298,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "820f95a6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "820f95a6"
    },
    "cwe": [
     "CWE-346"
@@ -329,10 +329,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d5eabfaa",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d5eabfaa"
    },
    "cwe": [
     "CWE-470"
@@ -360,10 +360,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "806060c6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "806060c6"
    },
    "cwe": [
     "CWE-346"
@@ -391,10 +391,10 @@
     "fp": "fp.js"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a6e8c803",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a6e8c803"
    },
    "cwe": [
     "CWE-502"
@@ -422,10 +422,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1737316d",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1737316d"
    },
    "cwe": [
     "CWE-401"
@@ -453,10 +453,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "afcf75c6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "afcf75c6"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -482,10 +482,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "10910104",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "10910104"
    },
    "cwe": [
     "CWE-693"
@@ -513,10 +513,10 @@
     "fp": "fp.js"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1310589c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1310589c"
    },
    "cwe": [
     "CWE-693"
@@ -544,10 +544,10 @@
     "fp": "fp.js"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d73c61a3",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d73c61a3"
    },
    "cwe": [
     "CWE-401"
@@ -575,10 +575,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "fd1d09ac",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "fd1d09ac"
    },
    "cwe": [
     "CWE-401"
@@ -606,10 +606,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9bd983eb",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "9bd983eb"
    },
    "cwe": [
     "CWE-404"
@@ -637,10 +637,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f0dcd68a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f0dcd68a"
    },
    "cwe": [
     "CWE-79"
@@ -669,10 +669,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "af9a6cad",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "af9a6cad"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -699,10 +699,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "92ef0d13",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "92ef0d13"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -729,10 +729,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "88bc04fa",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "88bc04fa"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -759,10 +759,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ef888182",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ef888182"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -789,10 +789,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3ba49f32",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "3ba49f32"
    },
    "cwe": [
     "CWE-693"
@@ -821,10 +821,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5a7ac949",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5a7ac949"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -850,10 +850,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2ded838f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2ded838f"
    },
    "cwe": [
     "CWE-400"
@@ -881,10 +881,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ea301b07",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ea301b07"
    },
    "cwe": [
     "CWE-755"
@@ -912,10 +912,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d7b910c7",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d7b910c7"
    },
    "cwe": [
     "CWE-770"
@@ -943,10 +943,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "94899d6c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "94899d6c"
    },
    "cwe": [
     "CWE-59"
@@ -974,10 +974,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "8d751d91",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "8d751d91"
    },
    "cwe": [
     "CWE-22"
@@ -1005,10 +1005,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3e0aadd0",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "3e0aadd0"
    },
    "cwe": [
     "CWE-78"
@@ -1036,10 +1036,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a2e7b794",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a2e7b794"
    },
    "cwe": [
     "CWE-400"
@@ -1068,10 +1068,10 @@
     "fp": "fp.d"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e90b00ea",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "e90b00ea"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -1097,10 +1097,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "374d0c04",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "374d0c04"
    },
    "cwe": [
     "CWE-287"
@@ -1128,10 +1128,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f7ff8e1e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f7ff8e1e"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -1157,10 +1157,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f24f46b4",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f24f46b4"
    },
    "cwe": [
     "CWE-22"
@@ -1190,10 +1190,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7b617aed",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "7b617aed"
    },
    "cwe": [
     "CWE-401"
@@ -1223,10 +1223,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "cb189189",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "cb189189"
    },
    "cwe": [
     "CWE-120"
@@ -1256,10 +1256,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "422f421f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "422f421f"
    },
    "cwe": [
     "CWE-125"
@@ -1289,10 +1289,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "794cc219",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "794cc219"
    },
    "cwe": [
     "CWE-362"
@@ -1322,10 +1322,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "fcc38e52",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "fcc38e52"
    },
    "cwe": [
     "CWE-833"
@@ -1355,10 +1355,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bf2cafd9",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bf2cafd9"
    },
    "cwe": [
     "CWE-833",
@@ -1389,10 +1389,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a5b1fd79",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a5b1fd79"
    },
    "cwe": [
     "CWE-416"
@@ -1422,10 +1422,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0d61e848",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0d61e848"
    },
    "cwe": [
     "CWE-191"
@@ -1455,10 +1455,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ff3c752f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ff3c752f"
    },
    "cwe": [
     "CWE-457"
@@ -1488,10 +1488,10 @@
     "fp": "fp.cpp"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "81e7481a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "81e7481a"
    },
    "cwe": [],
    "fix": "先读项目规范（如 HotSpot 禁异常/RTTI）再判断是否违反",
@@ -1514,10 +1514,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "379422a3",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "379422a3"
    },
    "cwe": [
     "CWE-401"
@@ -1542,10 +1542,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ae95922f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ae95922f"
    },
    "cwe": [
     "CWE-404"
@@ -1570,10 +1570,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "da1854ac",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "da1854ac"
    },
    "cwe": [
     "CWE-833"
@@ -1598,10 +1598,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f4cc91fc",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f4cc91fc"
    },
    "cwe": [
     "CWE-362"
@@ -1626,10 +1626,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "84d17f81",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "84d17f81"
    },
    "cwe": [
     "CWE-543"
@@ -1654,10 +1654,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2a1df70e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2a1df70e"
    },
    "cwe": [
     "CWE-390"
@@ -1682,10 +1682,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4a08db8c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4a08db8c"
    },
    "cwe": [
     "CWE-833"
@@ -1710,10 +1710,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4c6fd4b6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4c6fd4b6"
    },
    "cwe": [
     "CWE-401"
@@ -1738,10 +1738,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0ccfca3a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0ccfca3a"
    },
    "cwe": [
     "CWE-833"
@@ -1766,10 +1766,10 @@
     "fp": "fp.go"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "148a818d",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "148a818d"
    },
    "cwe": [
     "CWE-755"
@@ -1794,10 +1794,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c307ce0b",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "c307ce0b"
    },
    "cwe": [
     "CWE-401"
@@ -1822,10 +1822,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bed2f82c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bed2f82c"
    },
    "cwe": [
     "CWE-401"
@@ -1850,10 +1850,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9b6159d1",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "9b6159d1"
    },
    "cwe": [
     "CWE-390"
@@ -1878,10 +1878,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ff21fc48",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ff21fc48"
    },
    "cwe": [
     "CWE-362"
@@ -1906,10 +1906,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "beb5bb23",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "beb5bb23"
    },
    "cwe": [
     "CWE-488"
@@ -1934,10 +1934,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e7e53a68",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "e7e53a68"
    },
    "cwe": [
     "CWE-362"
@@ -1962,10 +1962,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "932052ca",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "932052ca"
    },
    "cwe": [],
    "fix": "equals 与 hashCode 同时重写（IDE 可生成）；放进 HashMap 才暴露",
@@ -1988,10 +1988,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "12548552",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "12548552"
    },
    "cwe": [
     "CWE-362"
@@ -2016,10 +2016,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5a30469c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5a30469c"
    },
    "cwe": [
     "CWE-390"
@@ -2044,10 +2044,10 @@
     "fp": "fp.java"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "674762e6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "674762e6"
    },
    "cwe": [
     "CWE-362"
@@ -2072,10 +2072,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2e9e3ad8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2e9e3ad8"
    },
    "cwe": [
     "CWE-665"
@@ -2100,10 +2100,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "52c3cfc8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "52c3cfc8"
    },
    "cwe": [
     "CWE-390"
@@ -2128,10 +2128,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "83b0444e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "83b0444e"
    },
    "cwe": [
     "CWE-404"
@@ -2156,10 +2156,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2bb67e23",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2bb67e23"
    },
    "cwe": [
     "CWE-362"
@@ -2184,10 +2184,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3568f6d9",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "3568f6d9"
    },
    "cwe": [
     "CWE-502"
@@ -2212,10 +2212,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ce43b0a7",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ce43b0a7"
    },
    "cwe": [
     "CWE-532"
@@ -2240,10 +2240,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "39aca959",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "39aca959"
    },
    "cwe": [
     "CWE-362",
@@ -2269,10 +2269,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e1fd62f2",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "e1fd62f2"
    },
    "cwe": [
     "CWE-567"
@@ -2297,10 +2297,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a970b984",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a970b984"
    },
    "cwe": [
     "CWE-20"
@@ -2325,10 +2325,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "827d44ef",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "827d44ef"
    },
    "cwe": [
     "CWE-78"
@@ -2353,10 +2353,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "24d0f8ec",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "24d0f8ec"
    },
    "cwe": [
     "CWE-390"
@@ -2381,10 +2381,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "625f624d",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "625f624d"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -2407,10 +2407,10 @@
     "fp": "fp.py"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0ca7ac2a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0ca7ac2a"
    },
    "cwe": [
     "CWE-460"
@@ -2435,10 +2435,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2c277342",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2c277342"
    },
    "cwe": [
     "CWE-248"
@@ -2463,10 +2463,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f459ec16",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f459ec16"
    },
    "cwe": [
     "CWE-190",
@@ -2492,10 +2492,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "faadfb2e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "faadfb2e"
    },
    "cwe": [
     "CWE-119"
@@ -2520,10 +2520,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e57085b8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "e57085b8"
    },
    "cwe": [
     "CWE-667",
@@ -2549,10 +2549,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d8a353fd",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d8a353fd"
    },
    "cwe": [
     "CWE-22",
@@ -2578,10 +2578,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "29e985af",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "29e985af"
    },
    "cwe": [
     "CWE-770",
@@ -2607,10 +2607,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bd1b3a29",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bd1b3a29"
    },
    "cwe": [
     "CWE-390"
@@ -2635,10 +2635,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b3506843",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "b3506843"
    },
    "cwe": [
     "CWE-401"
@@ -2663,10 +2663,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c5758a37",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "c5758a37"
    },
    "cwe": [
     "CWE-119",
@@ -2692,10 +2692,10 @@
     "fp": "fp.rs"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "54180e55",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "54180e55"
    },
    "cwe": [
     "CWE-532"
@@ -2725,10 +2725,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "657a05e0",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "657a05e0"
    },
    "cwe": [
     "CWE-20"
@@ -2758,10 +2758,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f04cd371",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f04cd371"
    },
    "cwe": [
     "CWE-20"
@@ -2791,10 +2791,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a0b3c07b",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a0b3c07b"
    },
    "cwe": [
     "CWE-20"
@@ -2824,10 +2824,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dd2c4a80",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "dd2c4a80"
    },
    "cwe": [
     "CWE-20"
@@ -2857,10 +2857,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a1b24be5",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a1b24be5"
    },
    "cwe": [
     "CWE-704"
@@ -2890,10 +2890,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c5f58df5",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "c5f58df5"
    },
    "cwe": [
     "CWE-835"
@@ -2923,10 +2923,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dcae9402",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "dcae9402"
    },
    "cwe": [
     "CWE-835"
@@ -2956,10 +2956,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c8061c09",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "c8061c09"
    },
    "cwe": [
     "CWE-674"
@@ -2989,10 +2989,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2beafa9c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2beafa9c"
    },
    "cwe": [
     "CWE-754"
@@ -3022,10 +3022,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4e914693",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4e914693"
    },
    "cwe": [
     "CWE-1321"
@@ -3055,10 +3055,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f4cf652e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f4cf652e"
    },
    "cwe": [
     "CWE-1321"
@@ -3088,10 +3088,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5106e0da",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5106e0da"
    },
    "cwe": [
     "CWE-1321"
@@ -3121,10 +3121,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d06d3c2b",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d06d3c2b"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3152,10 +3152,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b7219c9d",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "b7219c9d"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3183,10 +3183,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "e2121e74",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "e2121e74"
    },
    "cwe": [],
    "fix": "删除外层条目前先 clear 内部容器：`m.get(k)?.clear(); m.delete(k)`",
@@ -3214,10 +3214,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "897c67db",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "897c67db"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3245,10 +3245,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "c52e918c",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "c52e918c"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3276,10 +3276,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6e600bc6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "6e600bc6"
    },
    "cwe": [
     "CWE-20"
@@ -3309,10 +3309,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "756d5967",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "756d5967"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3340,10 +3340,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1f7c34ca",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1f7c34ca"
    },
    "cwe": [
     "CWE-20"
@@ -3373,10 +3373,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0f5a1fdf",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0f5a1fdf"
    },
    "cwe": [
     "CWE-770"
@@ -3406,10 +3406,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6939de7a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "6939de7a"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3437,10 +3437,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "dacce2f8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "dacce2f8"
    },
    "cwe": [
     "CWE-664"
@@ -3470,10 +3470,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4fee35b4",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4fee35b4"
    },
    "cwe": [
     "CWE-390"
@@ -3503,10 +3503,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a83fd16f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a83fd16f"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3534,10 +3534,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f0789f82",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f0789f82"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3565,10 +3565,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4becca28",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4becca28"
    },
    "cwe": [
     "CWE-561"
@@ -3598,10 +3598,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a219e7ba",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a219e7ba"
    },
    "cwe": [
     "CWE-561"
@@ -3631,10 +3631,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "3053782f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "3053782f"
    },
    "cwe": [
     "CWE-770"
@@ -3664,10 +3664,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5d7b6f8a",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5d7b6f8a"
    },
    "cwe": [
     "CWE-636"
@@ -3697,10 +3697,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "964b1137",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "964b1137"
    },
    "cwe": [
     "CWE-636",
@@ -3731,10 +3731,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4fa02373",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4fa02373"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3762,10 +3762,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1a271560",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1a271560"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3793,10 +3793,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5c8fc79e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5c8fc79e"
    },
    "cwe": [
     "CWE-190"
@@ -3826,10 +3826,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a2c5d105",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a2c5d105"
    },
    "cwe": [
     "CWE-369"
@@ -3859,10 +3859,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1b720e60",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1b720e60"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -3890,10 +3890,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "ebe268ab",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "ebe268ab"
    },
    "cwe": [
     "CWE-374"
@@ -3923,10 +3923,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "17a738a4",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "17a738a4"
    },
    "cwe": [
     "CWE-20"
@@ -3956,10 +3956,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f79eeae5",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f79eeae5"
    },
    "cwe": [
     "CWE-20"
@@ -3989,10 +3989,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6a18f50d",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "6a18f50d"
    },
    "cwe": [
     "CWE-20"
@@ -4022,10 +4022,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bab1bcff",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bab1bcff"
    },
    "cwe": [
     "CWE-20"
@@ -4055,10 +4055,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a63692c6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a63692c6"
    },
    "cwe": [
     "CWE-704"
@@ -4088,10 +4088,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "bf1801ea",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "bf1801ea"
    },
    "cwe": [
     "CWE-770"
@@ -4121,10 +4121,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2b020a8e",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2b020a8e"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -4152,10 +4152,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f717fce8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f717fce8"
    },
    "cwe": [
     "CWE-401"
@@ -4185,10 +4185,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "53ca9795",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "53ca9795"
    },
    "cwe": [
     "CWE-770"
@@ -4218,10 +4218,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9c468004",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "9c468004"
    },
    "cwe": [
     "CWE-770"
@@ -4251,10 +4251,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "2f33a630",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "2f33a630"
    },
    "cwe": [
     "CWE-1321"
@@ -4284,10 +4284,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "4f9b20c5",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "4f9b20c5"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -4315,10 +4315,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7b95918f",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "7b95918f"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -4346,10 +4346,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "6584dc00",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "6584dc00"
    },
    "cwe": [
     "CWE-20"
@@ -4379,10 +4379,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "72138541",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "72138541"
    },
    "cwe": [
     "CWE-489"
@@ -4412,10 +4412,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "9518c84b",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "9518c84b"
    },
    "cwe": [
     "CWE-835"
@@ -4445,10 +4445,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "f06238fd",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "f06238fd"
    },
    "cwe": [
     "CWE-835"
@@ -4478,10 +4478,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "125ec908",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "125ec908"
    },
    "cwe": [],
    "fix": "兜底值写进 <style> 或 CSS 变量，别用 element.style 内联赋值",
@@ -4509,10 +4509,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "0a9d5fd3",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "0a9d5fd3"
    },
    "cwe": [
     "CWE-20"
@@ -4542,10 +4542,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "de1c50f3",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "de1c50f3"
    },
    "cwe": [
     "CWE-20"
@@ -4575,10 +4575,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "cbcc0d62",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "cbcc0d62"
    },
    "cwe": [
     "CWE-401"
@@ -4608,10 +4608,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "1e882dd6",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "1e882dd6"
    },
    "cwe": [
     "CWE-401"
@@ -4641,10 +4641,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "a094eef1",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "a094eef1"
    },
    "cwe": [
     "CWE-401"
@@ -4674,10 +4674,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "5b3cac54",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "5b3cac54"
    },
    "cwe": [
     "CWE-401"
@@ -4707,10 +4707,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "d6f06f42",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "d6f06f42"
    },
    "cwe": [
     "CWE-404"
@@ -4740,10 +4740,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "b6bbf368",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "b6bbf368"
    },
    "cwe": [
     "CWE-401"
@@ -4773,10 +4773,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "821cc958",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "821cc958"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
@@ -4804,10 +4804,10 @@
     "fp": "fp.ts"
    },
    "eval": {
-    "precision": "unverified",
-    "recall": "unverified",
-    "sig": "7ba499e8",
-    "verified_at": null
+    "precision": "pass",
+    "recall": "pass",
+    "verified_at": "2026-09-16",
+    "sig": "7ba499e8"
    },
    "cwe": [],
    "fix": "按场景文档的修法处理；这类不是安全漏洞，不进 blocking 安全视图",
