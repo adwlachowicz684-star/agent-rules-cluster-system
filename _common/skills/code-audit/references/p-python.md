@@ -231,6 +231,35 @@ python3 scripts/scan-py.py --self-test        # 改规则后必跑，20/20
 - **测试文件里的 assert** —— pytest 依赖 assert，不报
 - **脚本类文件的模块级全局** —— 单进程短生命周期，无并发 → 降 P2
 
+### PY-16 (P1) `subprocess.run(timeout=)` 未捕获 `TimeoutExpired`
+- **判据**：`subprocess.run(..., timeout=N)` 没有 `try` 包，
+  或只 `except OSError` —— **`TimeoutExpired` 不是 `OSError` 子类**
+  （它继承 `SubprocessError`），因此抓不到，超时直接裸抛 traceback
+- **同类**：`check=True` 时抛的 `CalledProcessError` **同样**是
+  `SubprocessError` 而非 `OSError`，`except OSError` 也抓不到
+- **确认**：
+  ```bash
+  grep -nE "subprocess\.run\([^)]*timeout=" <file>      # 有没有 try
+  grep -nE "except (OSError|Exception)" <file>            # 抓的是哪一层
+  ```
+  每个带 `timeout=` 的调用点都要单独查 —— **辅助函数里捕获了，
+  不代表所有调用点都安全**（见实测）
+- **实测**：某推送脚本自己封装的 `git()` 辅助函数（行 866）捕获了
+  `TimeoutExpired` 并给出可诊断报错；但另一处**直接调**
+  `subprocess.run(["git","-C",ROOT,"merge-base",...], timeout=120).returncode`
+  没包 `try` → 大仓库里这条命令挂满 120 秒就裸抛堆栈。
+  **同一份代码里两处调 git，一处安全一处不安全** —— 正是 A-22 的形态
+- **修法**：
+  ```python
+  try:
+      rc = subprocess.run([...], timeout=TIMEOUT).returncode
+  except subprocess.TimeoutExpired:
+      # 超时既不是成功，也不是「确定失败」——按 fail-closed 处理
+      return True, (f"...超时（{TIMEOUT}s）\n   无法确认，按最保守方式处理")
+  ```
+- **定级 P1**（裸 traceback，流程中断）；
+  若发生在**写操作之后 / 无法回滚**的位置 → **升 P0**
+
 ### PY-17 (P2) 解析外部时间戳时漏掉负时区偏移
 - **判据**：用 `split("+")[0]` 之类方式剥离时区偏移，只处理了 `+08:00`，
   **剥不掉 `-05:00`** → 后续 `strptime` 全部失败 → 返回 `None` / `0` / 默认值
