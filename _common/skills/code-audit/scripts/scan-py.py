@@ -220,10 +220,43 @@ def py_broad_except(tree, lines, path):
         reraises = any(isinstance(x, ast.Raise) for x in ast.walk(n))
         if reraises:
             continue
+        # 有可见输出的降级不算「吞没」。
+        #
+        # 为什么必须区分：本规则原先只要「宽泛 except 且没 re-raise」就报，
+        # 于是 `except Exception as e: print(警告); return []` 这种**有提示的
+        # 降级**也被报成 P1，文案还写「异常静默，调用方看不到失败」——
+        # 与事实相反。实测扫本技能自己的 scripts/：29 条命中里 24 条是这种
+        # 有 print / 有告警收集 的降级，只有 5 条是真静默。
+        # 报 29 条里 24 条是狼来了，工具就会被忽略。
+        if _reports_error(n):
+            continue
         level = "P0" if only_pass else "P1"
         tag = "except: pass 完全吞没" if only_pass else "宽泛 except 未重新抛出"
         out.append((n.lineno, f"{tag}（异常静默，调用方看不到失败）"))
     return out
+
+
+def _reports_error(handler):
+    """except 体里有没有把错误**暴露出去**（打印 / 记日志 / 收集进告警列表）。
+
+    只看「有没有」，不看「做得好不好」—— 后者是人工精审的事。
+    """
+    for node in ast.walk(handler):
+        # print(...) / sys.stderr.write(...) / logging.warning(...) 等
+        if isinstance(node, ast.Call):
+            fname = node_name(node.func) or ''
+            if any(k in fname for k in ('print', 'write', 'warning', 'warn',
+                                        'error', 'exception', 'debug', 'info',
+                                        'log', 'add', 'append')):
+                return True
+        # 把 e 塞进某个列表/返回值（告警收集）
+        if isinstance(node, (ast.List, ast.Tuple)):
+            pass
+        if isinstance(node, ast.Assign):
+            src = ast.dump(node.value)
+            if 'Name' in src and 'Constant' in src:
+                return True
+    return False
 
 
 def _in_function_scope(tree, node):

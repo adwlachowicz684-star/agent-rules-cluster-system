@@ -41,7 +41,12 @@ try:
     _HERE = os.path.dirname(os.path.abspath(__file__))
     _REG = os.path.join(os.path.dirname(_HERE), 'rules', 'registry.json')
     _REGISTRY = json.load(open(_REG, encoding='utf-8')) if os.path.isfile(_REG) else {'rules': []}
-except Exception:
+except Exception as _e:
+    # 不能静默降级成空表：注册表加载失败 → 导出的每条规则都没有说明与 CWE，
+    # 而输出看起来是「一份正常的 SARIF」。这正是本仓库反复修的
+    # 「配置坏了静默降级」——cwe-map.json 带冲突标记时就是这么丢的 190 条。
+    print('[warn] sarif.py 读不到规则注册表（%s：%s）→ 导出的规则将缺少说明与 CWE'
+          % (_REG, _e), file=sys.stderr)
     _REGISTRY = {'rules': []}
 
 _RULE_INFO = {}

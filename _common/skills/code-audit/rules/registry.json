@@ -4820,8 +4820,8 @@
    "scanner": "scan-ts.py",
    "level": "P0",
    "title": "参数声明但函数体内从未使用（承诺无效）",
-   "family": "D",
-   "scene": "s-contracts",
+   "family": "O",
+   "scene": "s-numerics",
    "languages": [
     "ts",
     "tsx",

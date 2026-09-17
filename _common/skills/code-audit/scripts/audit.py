@@ -204,7 +204,11 @@ def _items_index():
         if not d or not d.get('items'):
             d = II.build()
         return (II, d) if d and d.get('items') else None
-    except Exception:
+    except Exception as e:
+        # 静默返回 None 会让「取不到判据」与「没有候选」混为一谈，
+        # 报告里表现为某场景 0 条判据，看不出是加载失败。
+        print('[warn] 判据索引加载失败（%s：%s）→ 本场景将无判据可精读' % (path, e),
+              file=sys.stderr)
         return None
 
 
