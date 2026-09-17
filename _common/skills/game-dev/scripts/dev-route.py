@@ -265,6 +265,14 @@ DOMAINS = [
      '内置节点四件套 · 不能接管相机 · 无速度 API 需自算 · 抓取速度传递 · 晕动症规避'),
 
 
+    ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change',
+                  'arealight', '面光源', 'hdr输出', 'offset_transform',
+                  'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送',
+                  'texture streaming', 'tween_await', 'device_id', 'jolt'],
+     'references/godot/version-47-48.md',
+     '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
+
+
     ('项目/工程', ['项目设置', '导出', 'debug', '断言',
                   'autoload', 'git', 'publish', '打包', 'gitignore'],
      'references/godot/project.md',

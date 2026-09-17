@@ -137,6 +137,19 @@ LINE_RULES = [
      r"(?:linear_velocity|velocity)\s*=\s*Vector3\.ZERO",
      "释放抓取物时把速度清零 —— 物体掉在手里，VR 手感极假（XRController3D 没有速度 API，需自己算）",
      "用多样本速度追踪器把控制器速度传给刚体（见 xr.md）"),
+    # --- 4.7 迁移（这些 API/语义在 4.7 变了，旧写法静默出错）---
+    ("GD121", "P1", "设备ID", "gd",
+     r"(?<!\w)device\s*==\s*0\b",
+     "4.7 起鼠标/键盘的 device 不再是 0（某些手柄的 device 也可能是 0）—— 判断鼠标会误判成手柄",
+     "改用 InputEvent.DEVICE_ID_MOUSE / DEVICE_ID_KEYBOARD；或按事件类型判断"),
+    ("GD122", "P1", "已移除API", "gd",
+     r"(?<!\w)tap_back_pos\b",
+     "4.7 已从 AudioEffectSpectrumAnalyzer 移除 tap_back_pos —— 音频可视化代码会失效",
+     "改用 4.7 提供的替代方式；查阅 4.7 迁移指南的 Audio 章节"),
+    ("GD123", "P2", "旧发布方式", "gd",
+     r"(?i)(?:google\s*play\s*)?\bobb\b",
+     "4.7 起 Android 移除 Google Play OBB 支持 —— 旧发布流程会失效",
+     "改用 GABE / AAB 等 4.7 支持的方式"),
     ("GD106", "P1", "异步异常", "cs", r"async\s+void\b",
      "`async void` —— 异常会逃离 Godot 调用栈（无法被上层捕获），且生命周期不可控",
      "改为 `async Task`；入口处若必须 void 也要包 try/catch"),
@@ -244,6 +257,14 @@ EXTRA_DOMAIN_RULES = [
      "只有加载半径、全文没有卸载半径 —— 玩家在 chunk 边界来回走会抖动式加载卸载（周期性卡顿）",
      "unload_radius 必须 > load_radius，并加卸载延迟（滞回）",
      r"(?i)unload_radius"),
+    ("GD124", "P1", "朝向基准", "gd", r"LookAtModifier3D",
+     "用了 LookAtModifier3D 但全文没设 relative —— 4.7 起默认从 true 变 false（基于 rest pose 而非当前 pose），头部朝向会变",
+     "显式设 relative=true 恢复 4.6 行为；或按 4.7 新默认重调角度限制基准",
+     r"(?<!\w)relative\s*="),
+    ("GD125", "P2", "摇杆自制", "gd", r"class_name\s+VirtualJoystick|TouchScreenButton",
+     "自己实现虚拟摇杆 —— 4.7 起引擎内置 VirtualJoystick 节点（Fixed/Dynamic/Following 三模式 + action_* 直连）",
+     "优先用内置 VirtualJoystick；仅在需完全自定义外观时才保留自制实现",
+     r"(?<!\w)VirtualJoystick\b(?!\s*\.)"),
 ]
 
 DOMAIN_RULES = [
@@ -1079,6 +1100,35 @@ func _physics_process(delta):
     velocity = Vector2.ZERO
 '''
 
+SELF_V47_BAD = '''extends Node3D
+
+@onready var look: LookAtModifier3D = $LookAt
+@onready var touch: TouchScreenButton = $Jump
+
+func _input(event: InputEvent) -> void:
+    if event.device == 0:
+        print("mouse")
+
+func _ready() -> void:
+    var fx = AudioEffectSpectrumAnalyzer.new()
+    fx.tap_back_pos = 0.5
+    var obb_path := "main.obb"
+    print(obb_path)
+'''
+
+SELF_V47_CLEAN = '''extends Node3D
+
+@onready var look: LookAtModifier3D = $LookAt
+@onready var joystick: VirtualJoystick = $UI/VirtualJoystick
+
+func _ready() -> void:
+    look.relative = true
+
+func _input(event: InputEvent) -> void:
+    if event.device == InputEvent.DEVICE_ID_MOUSE:
+        print("mouse")
+'''
+
 SELF_MISC_BAD = '''extends Node3D
 
 @onready var tree: AnimationTree = $AnimationTree
@@ -1392,6 +1442,7 @@ def self_test() -> int:
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
+            'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'asy.cs': SELF_CS_ASYNC_BAD, 'asyok.cs': SELF_CS_ASYNC_CLEAN,
         }
         res = {}
@@ -1534,6 +1585,11 @@ def self_test() -> int:
         for rid in ('GDS01', 'GDS02', 'GDS03', 'GDS04', 'GDS05',
                     'GDS07', 'GDS08'):
             check(rid not in ids('shok.gdshader'), 'shok.gdshader 不报 %s（干净样本）' % rid)
+        # --- GD12x 4.7 迁移 ---
+        for rid in ('GD121', 'GD122', 'GD123', 'GD124', 'GD125'):
+            check(rid in ids('v47.gd'), 'v47.gd 命中 %s' % rid)
+        for rid in ('GD121', 'GD122', 'GD123', 'GD124', 'GD125'):
+            check(rid not in ids('v47ok.gd'), 'v47ok.gd 不报 %s（干净样本）' % rid)
         # --- GD11x 动画/音频/大世界/XR ---
         for rid in ('GD111', 'GD112', 'GD113', 'GD114', 'GD115',
                     'GD116', 'GD117'):

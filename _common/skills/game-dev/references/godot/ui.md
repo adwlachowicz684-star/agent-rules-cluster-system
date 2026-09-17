@@ -220,6 +220,31 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## 6. 分辨率自适应
 
+⚠ **4.7 起新建项目的 stretch 默认值变了**：
+
+| 设置 | 4.6 及更早 | 4.7 新项目 |
+|---|---|---|
+| `display/window/stretch/mode` | `disabled` | **`canvas_items`** |
+| `display/window/stretch/aspect` | `keep` | **`expand`** |
+
+已有项目设置不受影响，但**新建项目默认就会缩放 UI** ——
+照 4.6 的写法做适配会出现"为什么我的 UI 被拉伸了"。
+
+### 4.7+：容器里的 UI 动画用 offset_transform
+
+⚠ 在 `Container` 下给 Control 做旋转/缩放，容器一排序就把改动覆盖掉。
+4.7 给了独立于布局系统的 `offset_transform_*`（详见 `version-47-48.md`）：
+
+```gdscript
+button.offset_transform_enabled = true
+button.offset_transform_pivot_ratio = Vector2(0.5, 0.5)
+var tween := create_tween()
+tween.tween_property(button, "offset_transform_rotation", 0.0, 0.5).from(-PI / 2)
+```
+
+⚠ `offset_transform_visual_only` 默认 **true**（仅视觉，不影响点击区域）——
+这是刻意的，按钮动画后不会失去 hover。
+
 **项目设置**：
 
 ```

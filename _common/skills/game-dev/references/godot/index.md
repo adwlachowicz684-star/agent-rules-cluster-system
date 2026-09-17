@@ -35,6 +35,7 @@
 | **音频高级** | `audio-advanced.md` | 总线架构 · 音量是分贝不是 0-1 · 音效池轮转 · 动态音乐分层 · 暂停 process_mode |
 | **开放世界** | `openworld.md` | chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置 |
 | **XR/VR** | `xr.md` | 内置节点四件套 · 不能接管相机 · 无速度 API · 抓取速度传递 · 晕动症规避 |
+| **4.7/4.8 版本专项** | `version-47-48.md` | **目标版本** · 4.7.2 稳定 / 4.8 仍 dev · AreaLight3D · HDR · offset_transform · 内置 VirtualJoystick · breaking changes |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |

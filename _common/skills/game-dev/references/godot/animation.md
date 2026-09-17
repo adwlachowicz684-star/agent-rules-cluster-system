@@ -284,6 +284,19 @@ func spawn_damage_number(pos: Vector2, amount: int) -> void:
 
 ⚠ `tween_callback(label.queue_free)` —— 直接传方法引用，不要写 `func(): label.queue_free()`。
 
+### 4.7+：tween_await（异步动画链）
+
+```gdscript
+var tween := create_tween()
+tween.tween_callback(launch)
+tween.tween_await(collided).set_timeout(4.0)
+tween.tween_callback(explode)
+```
+
+⚠ **信号必须无参数**；带参数要用 `set_unbinds()`，否则 tweener 不结束。
+⚠ 等同一 tween 内回调发出的信号时必须保证信号在 await **之后**发，
+无法保证就用 `parallel()` 同时触发。
+
 ## 4. 每帧插值（不走 Tween）
 
 持续跟随用 `lerp`，不要反复建 Tween：

@@ -189,10 +189,58 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## 3. 虚拟摇杆
 
-⚠ **Godot 4 没有内置虚拟摇杆节点**，`TouchScreenButton` 只能做按键
-（它绑定单个 action，没有方向输出、没有死区）。摇杆要自己做。
+### 4.7+ 首选：内置 `VirtualJoystick`
 
-### 浮动摇杆（推荐）
+⚠ **Godot 4.7 起内置了 `VirtualJoystick` 节点**，
+提供 `Fixed`（固定位置）/ `Dynamic`（按下处出现）/ `Following`（底座跟随手指）三种模式。
+**不要再自己写** —— 除非你需要自定义外观到内置节点做不到的程度。
+
+三种模式（`joystick_mode`）：
+
+| 枚举 | 模式 | 行为 |
+|---|---|---|
+| `JOYSTICK_FIXED` (0) | 固定 | 底座位置固定 |
+| `JOYSTICK_DYNAMIC` (1) | 动态 | 按下处出现底座 |
+| `JOYSTICK_FOLLOWING` (2) | 跟随 | 底座跟着手指走 |
+
+**最省事的接法**：它有 `action_left/right/up/down` 四个属性，
+直接填 Input Map 里的动作名，摇杆就成了虚拟按键——移动代码完全不用改。
+
+```gdscript
+# 方式 A：绑 action（推荐，移动逻辑零改动）
+@onready var joystick: VirtualJoystick = $UI/VirtualJoystick
+
+func _ready() -> void:
+    joystick.action_left = &"move_left"
+    joystick.action_right = &"move_right"
+    joystick.action_up = &"move_forward"
+    joystick.action_down = &"move_back"
+    joystick.deadzone_ratio = 0.2
+```
+
+**需要连续向量时**走信号，`input_vector` 已归一化到 `0.0–1.0`：
+
+```gdscript
+# 方式 B：读向量（做摇杆力度/自定义手感时用）
+func _ready() -> void:
+    joystick.flicked.connect(_on_flicked)
+
+func _on_flicked(input_vector: Vector2) -> void:
+    velocity = Vector3(input_vector.x, 0.0, input_vector.y) * speed
+```
+
+⚠ **没有 `output_vector` 这类可轮询属性** —— 输出只通过
+`flicked` / `released` 信号的 `input_vector` 参数给。
+想在 `_process` 里每帧读当前方向，内置节点做不到，要自己缓存信号值或用方式 A。
+
+⚠ 相关属性是 `deadzone_ratio`（死区）与 `clampzone_ratio`（拖动半径），
+不是常见的 `dead_zone` / `radius` 命名。
+
+⚠ 4.6 及更早**没有**这个节点，`TouchScreenButton` 只能做按键
+（绑定单个 action，没有方向输出、没有死区）。
+**若项目锁定在 4.6 或更早，才需要下面这套自制实现。**
+
+### 浮动摇杆（4.6 及以下 / 需要完全自定义时）
 
 按下时底座出现在手指落点，拖动输出方向 —— 手感比固定位置好，也不挡视野。
 
