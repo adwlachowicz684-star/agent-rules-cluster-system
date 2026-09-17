@@ -86,11 +86,11 @@ DOMAINS = [
      '碰撞层位掩码 · intersect_ray 参数对象 · Area 触发 · 施力 · AnimatableBody'),
 
     ('动画/缓动', ['动画', 'tween', '缓动', '过渡', '补间', 'animation',
-                 '状态机', 'animationtree', '淡入淡出'],
+                 '淡入淡出', 'animationplayer'],
      'references/godot/animation.md',
      'AnimationPlayer · AnimationTree 状态机 · Tween 链式 API · kill/bind_node'),
 
-    ('输入/音频', ['输入', '按键', '手柄', '音效', '音乐', 'audio', 'input',
+    ('输入/音频', ['输入', '按键', '手柄', '音频', '声音', 'audio', 'input',
                   'bgm', 'sfx', '改键', 'inputmap', '音量'],
      'references/godot/input-audio.md',
      'Input Map 动作 · 四回调顺序 · 输入缓冲 · AudioServer 总线 · BGM 交叉淡入'),
@@ -182,7 +182,7 @@ DOMAINS = [
      'references/godot/advanced-topics.md',
      '确定性生成 · BSP+连通性校验 · EditorPlugin 生命周期 · 资源三层隔离 · XR 性能预算'),
 
-    ('渲染进阶', ['xr', 'vr', 'openxr', '手部追踪', '抓握', '传送', 'lod',
+    ('渲染进阶', ['openxr', '手部追踪', '抓握', '传送', 'lod',
                 'shader预热', '着色器预热', '变体预热', '头显', '管线编译',
                 '大世界', '分块', 'chunk', '流式加载', 'hloD'],
      'references/godot/rendering-advanced.md',
@@ -236,6 +236,34 @@ DOMAINS = [
                'compute shader', '深度纹理'],
      'references/godot/shaders.md',
      'GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask'),
+
+    ('动画高级', ['animationtree', 'blendspace', 'blend tree', '混合空间',
+                '根运动', 'root motion', 'ik', '反向动力学', 'skeletonik',
+                '骨骼动画', '分层动画', '动画遮罩', 'switch_mode',
+                'travel', '动画状态机深入',
+                'animationtree状态机', '动画树', '混合空间',
+                '动画状态机', '动画树状态机'],
+     'references/godot/animation-advanced.md',
+     'StateMachine/BlendSpace/BlendTree 分工 · travel vs start · switch_mode 是过渡时机 · 根运动双倍位移 · IK 开销'),
+
+    ('音频高级', ['audioserver', '音频总线', 'bus', 'linear_to_db', '分贝',
+                '音效池', '交叉淡入', '动态音乐', '空间音效', '3d音效',
+                'ogg', 'wav', '混响', '响度'],
+     'references/godot/audio-advanced.md',
+     '总线架构 · 音量是分贝不是 0-1 · 音效池轮转 · 动态音乐分层 · 暂停 process_mode'),
+
+    ('开放世界', ['开放世界', '大世界', '流式加载', 'chunk', '地形', 'terrain',
+                'lod', '大世界坐标', '原点重置', 'floating origin', '精度',
+                '剔除', 'culling', '卸载半径', '双精度',
+                '开放世界地形', '大型地形', '地形系统'],
+     'references/godot/openworld.md',
+     'chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置实现'),
+
+    ('XR/VR', ['xr', 'vr', 'ar', 'openxr', '头显', 'quest', '手柄', '控制器',
+              '抓取', '传送', '晕动症', 'xrorigin', 'xrcamera', '手部追踪'],
+     'references/godot/xr.md',
+     '内置节点四件套 · 不能接管相机 · 无速度 API 需自算 · 抓取速度传递 · 晕动症规避'),
+
 
     ('项目/工程', ['项目设置', '导出', 'debug', '断言',
                   'autoload', 'git', 'publish', '打包', 'gitignore'],
@@ -409,7 +437,7 @@ def cmd_self_test():
     d = match_domains('rpc调用')
     chk(bool(d) and d[0][0] == '多人/网络', '"rpc调用" → 多人/网络（中文不阻断 ASCII 词）')
     d = match_domains('VR开发')
-    chk(bool(d) and d[0][0] == '渲染进阶', '"VR开发" → 渲染进阶（已从高级主题划出）')
+    chk(bool(d) and d[0][0] == 'XR/VR', '"VR开发" → XR/VR（XR 已独立成域）')
     d = match_domains('authority迁移')
     chk(bool(d) and d[0][0] == '多人/网络', '"authority迁移" → 多人/网络')
 
@@ -446,6 +474,22 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'C#/.NET', '"C#还是GDScript" → C#/.NET（选型问法压过 gdscript）')
     d = match_domains('TileMap迁移')
     chk(bool(d) and d[0][0] == '版本/迁移', '"TileMap迁移" → 版本/迁移（长组合词压过 tilemap）')
+
+    # 高级主题不被基础域抢走
+    d = match_domains('动画状态机')
+    chk(bool(d) and d[0][0] == '动画高级', '"动画状态机" → 动画高级（不被 AI/寻路 抢走）')
+    d = match_domains('AnimationTree状态机')
+    chk(bool(d) and d[0][0] == '动画高级', '"AnimationTree状态机" → 动画高级')
+    d = match_domains('音效池')
+    chk(bool(d) and d[0][0] == '音频高级', '"音效池" → 音频高级')
+    d = match_domains('大世界坐标精度')
+    chk(bool(d) and d[0][0] == '开放世界', '"大世界坐标精度" → 开放世界')
+    d = match_domains('开放世界地形')
+    chk(bool(d) and d[0][0] == '开放世界', '"开放世界地形" → 开放世界（不被关卡/TileMap 抢走）')
+    d = match_domains('VR抓取')
+    chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
+    d = match_domains('XR传送')
+    chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
 
     # shader 语言类问题归着色器域，不被 3D/2D 域的裸 shader 抢走
     d = match_domains('shader怎么写')

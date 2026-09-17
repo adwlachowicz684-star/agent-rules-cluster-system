@@ -121,6 +121,22 @@ LINE_RULES = [
      r"OS\.(?:execute|create_process)\s*\([^)\n]*(?:\+|\s%\s|\.format\()",
      "系统命令含拼接 —— 路径/参数可控时是命令注入；Godot 导出后路径不可控也是故障源",
      "用数组参数形式而非拼接字符串；外部输入一律白名单校验"),
+    # --- 动画 / 音频 / 大世界 / XR ---
+    ("GD113", "P1", "节点未入树", "gd",
+     r"AudioStreamPlayer3D\.new\(\)",
+     "3D 音频节点创建后未 add_child —— 不在场景树里就没有空间效果，退化成普通播放器",
+     "创建后 add_child 到场景树；或用 @onready 在编辑器里挂好"),    ("GD115", "P1", "坐标累积", "gd",
+     r"global_position\s*\+=\s*\w*(?:world|World)\w*",
+     "直接累加世界坐标 —— 大世界下远离原点会累积单精度误差（小项目测不出来）",
+     "用局部坐标 + 原点重置（见 openworld.md）；或评估双精度构建"),
+    ("GD116", "P1", "相机越权", "gd",
+     r"(?:\$XRCamera|XRCamera3D)[\w/]*\.\s*(?:position|global_position|transform)\s*(?:\+=|=)",
+     "直接改 XRCamera3D 的位置 —— 它每帧被头显覆盖，改了无效且是晕动症头号成因",
+     "移动 XROrigin3D；相机位置永远由头显驱动"),
+    ("GD117", "P1", "无速度传递", "gd",
+     r"(?:linear_velocity|velocity)\s*=\s*Vector3\.ZERO",
+     "释放抓取物时把速度清零 —— 物体掉在手里，VR 手感极假（XRController3D 没有速度 API，需自己算）",
+     "用多样本速度追踪器把控制器速度传给刚体（见 xr.md）"),
     ("GD106", "P1", "异步异常", "cs", r"async\s+void\b",
      "`async void` —— 异常会逃离 Godot 调用栈（无法被上层捕获），且生命周期不可控",
      "改为 `async Task`；入口处若必须 void 也要包 try/catch"),
@@ -211,6 +227,23 @@ SHADER_RULES = [
      r"varying\s+(?:lowp|mediump)\s+\w+\s+\w*(?:world|pos|screen|depth)\w*\s*;",
      "世界坐标/屏幕 UV/深度用低精度 varying —— 桌面正常，真机远处闪烁",
      "世界坐标、屏幕 UV、TIME、深度重建用 `highp`"),
+]
+
+# --- 动画 / 音频 / 大世界：这几条是「有 A 却没 B」型，用 absent 表达 ---
+# 放在 LINE_RULES 里做不到（那边没有 absent），只能放这里。
+EXTRA_DOMAIN_RULES = [
+    ("GD111", "P1", "动画未激活", "gd", r"AnimationTree",
+     "引用了 AnimationTree 但全文没有 active=true —— 配置全对却无任何输出（最常见的没反应）",
+     "在 _ready 里 `animation_tree.active = true`，并用 playback.start() 初始化状态",
+     r"active\s*=\s*true"),
+    ("GD112", "P1", "音量单位", "gd", r"set_bus_volume_db\s*\(",
+     "set_bus_volume_db 收的是**分贝**，全文没有 linear_to_db 说明很可能直接传了 0–1 —— 音量曲线完全不对",
+     "用 `linear_to_db(v)`；静音用 -80 dB 或 set_bus_mute，不是 0 dB",
+     r"linear_to_db"),
+    ("GD114", "P1", "边界抖动", "gd", r"(?i)(?:load|view|stream)_radius\s*[:=]",
+     "只有加载半径、全文没有卸载半径 —— 玩家在 chunk 边界来回走会抖动式加载卸载（周期性卡顿）",
+     "unload_radius 必须 > load_radius，并加卸载延迟（滞回）",
+     r"(?i)unload_radius"),
 ]
 
 DOMAIN_RULES = [
@@ -751,7 +784,7 @@ def scan_file(path: Path, rel: str) -> list[dict]:
 
     # ---- 6.5) 领域规则（物理 / UI / IO / 输入·音频·动画）----
     # 只在文件里能找到该 API 时才逐条查，避免对不相关的文件空转。
-    for rid, level, rule, rlang, pat, msg, fix, absent in DOMAIN_RULES:
+    for rid, level, rule, rlang, pat, msg, fix, absent in (DOMAIN_RULES + EXTRA_DOMAIN_RULES):
         if rlang not in ("any", lang):
             continue
         # MULTILINE 必需：pat 里可能带 $ 锚点
@@ -1046,6 +1079,39 @@ func _physics_process(delta):
     velocity = Vector2.ZERO
 '''
 
+SELF_MISC_BAD = '''extends Node3D
+
+@onready var tree: AnimationTree = $AnimationTree
+
+const LOAD_RADIUS := 200.0
+# 缺 UNLOAD_RADIUS —— 玩家在边界来回走会抖动式加载
+
+func _ready() -> void:
+    AudioServer.set_bus_volume_db(1, $Slider.value)
+    var p3d = AudioStreamPlayer3D.new()
+    p3d.stream = load("res://a.ogg")
+    $XRCamera3D.global_position += Vector3(1, 0, 0)
+
+    var held = $Held
+    held.linear_velocity = Vector3.ZERO
+
+func move(world_delta: Vector3) -> void:
+    global_position += world_delta
+'''
+
+SELF_MISC_CLEAN = '''extends Node3D
+
+@onready var tree: AnimationTree = $AnimationTree
+@onready var p3d: AudioStreamPlayer3D = $Sfx3D
+
+func _ready() -> void:
+    tree.active = true
+    AudioServer.set_bus_volume_db(1, linear_to_db($Slider.value))
+
+func move(local_delta: Vector3) -> void:
+    position += local_delta
+'''
+
 SELF_SHADER_BAD = '''shader_type canvas_item;
 
 uniform sampler2D albedo_tex;
@@ -1325,6 +1391,7 @@ def self_test() -> int:
             'long.gd': SELF_LONG_BAD,
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
+            'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'asy.cs': SELF_CS_ASYNC_BAD, 'asyok.cs': SELF_CS_ASYNC_CLEAN,
         }
         res = {}
@@ -1467,6 +1534,13 @@ def self_test() -> int:
         for rid in ('GDS01', 'GDS02', 'GDS03', 'GDS04', 'GDS05',
                     'GDS07', 'GDS08'):
             check(rid not in ids('shok.gdshader'), 'shok.gdshader 不报 %s（干净样本）' % rid)
+        # --- GD11x 动画/音频/大世界/XR ---
+        for rid in ('GD111', 'GD112', 'GD113', 'GD114', 'GD115',
+                    'GD116', 'GD117'):
+            check(rid in ids('misc.gd'), 'misc.gd 命中 %s' % rid)
+        for rid in ('GD111', 'GD112', 'GD113', 'GD114', 'GD115',
+                    'GD116', 'GD117'):
+            check(rid not in ids('miscok.gd'), 'miscok.gd 不报 %s（干净样本）' % rid)
         # .gdshader 必须被识别（此前完全不识别，shader 在审查里是隐形的）
         check(any(i['id'].startswith('GDS') for i in res['sh.gdshader']),
               '.gdshader 被识别并产生结果（扩展名已接入）')
@@ -1574,7 +1648,7 @@ def main():
         print()
         print("  领域规则（GD2x 物理 / GD3x UI / GD4x IO / GD5x 其他 /"
               " GD6x 3D / GD7x 语言）：")
-        for rid, level, rule, rlang, pat, msg, fix, absent in DOMAIN_RULES:
+        for rid, level, rule, rlang, pat, msg, fix, absent in (DOMAIN_RULES + EXTRA_DOMAIN_RULES):
             if rid in seen:
                 continue
             seen.add(rid)

@@ -31,6 +31,10 @@
 | **C# / .NET** | `csharp.md` | C#/GDScript 选型 · .NET 版本政策 · PascalCase 生命周期 · Signal 委托命名 · await 守卫 |
 | **版本 / 迁移** | `version-migration.md` | 4.x 结构变化 · TileMap 三重迁移 · 3→4 改名对照 · 锁 commit · 升级检查清单 |
 | **插件生态** | `plugins.md` | 决策口诀 · 按环节取舍表 · 绝不引入的 8 种情况 · 引入检查清单 |
+| **动画高级** | `animation-advanced.md` | StateMachine/BlendSpace/BlendTree 分工 · travel vs start · switch_mode 是过渡时机 · 根运动双倍位移 · IK 开销 |
+| **音频高级** | `audio-advanced.md` | 总线架构 · 音量是分贝不是 0-1 · 音效池轮转 · 动态音乐分层 · 暂停 process_mode |
+| **开放世界** | `openworld.md` | chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置 |
+| **XR/VR** | `xr.md` | 内置节点四件套 · 不能接管相机 · 无速度 API · 抓取速度传递 · 晕动症规避 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
