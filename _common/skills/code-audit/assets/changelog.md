@@ -233,7 +233,6 @@
 | 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
 | 2026-09-15 | 规则→判据 显式映射 | 新增 | items.json 按 scene 编号、scan-ts 按族编号，两套体系撞在同一字母上（TS-A05 归一化后与 A-05 同号）。加 registry 的 item 字段存显式映射，item-index 优先读它。116/131 条已映射，15 条确认无对应。此前 41/131 条取到无关判据 |
 | 2026-09-15 | 语言包候选丢失 | 修正 | registry 把 PY-05 标 s-backend、PY-06 标 s-sandbox，按 registry 分组导致这两条被分到路由未命中的场景、候选静默丢失。改为按 ID 前缀归语言包（判据就写在 p-python.md，审 Python 该在 p-python 看到） |
-<<<<<<< 本地
 | 2026-09-15 | CI 扫描器列表改推导式 | 修正 | CI 写死 `for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp`——新增 Rust 语言包后 scan-rust.py 一条自检都没跑，流水线照样绿。同一类「名单漏一个就静默失效」刚在 --map 里修过，CI 里又留了一份。新增 --scanners 从注册表推导，SARIF 步骤同样推导。变异测试：从注册表移除 scan-rust 后会报「有扫描器文件但注册表里没有它的规则」 |
 | 2026-09-15 | scan-ts 静默空转 | 修正 | 无可扫文件时 `return`（退出码 0）→ 不扫描、不写 SARIF，CI 里配 `|| true` 后完全隐形。ts.sarif **从未生成过**。改为退出码 1，并按 --flat 与否分别给提示（原先 --flat 已传入却仍提示「请加 --flat」）。审计确认 audit.py 第 544 行对非零退出有容错，改动安全 |
 | 2026-09-15 | SARIF 忽略规则 | 新增 | 仓库无 .gitignore，CI 生成的 all.sarif / sarif-out/ 与 __pycache__ 会污染仓库（.pyc 已生成）。补进已有的 skill 级 .gitignore（其注释本就声明「跑出来的产物」），不另建根级文件 |
@@ -276,8 +275,6 @@
 | 2026-09-16 | 新增 sarif --self-test | 新增 | 9 条断言固化手工实测发现的 bug（RS/CC/PY 前缀、裸族号补前缀、空 ID、去重、不误合并、指纹稳定、空输入合法） |
 | 2026-09-16 | 新增 check-list-drift.py | 新增 | 硬编码名单 vs 事实源交叉比对。本仓库已六次踩「名单写死 → 漏一个 → 静默少做」。检查项：ALL_SCANNERS⊇SCENE_SCRIPTS、注册表 scanner↔磁盘文件、语言前缀⊇LANG_SCENE 与 p-*.md 判据前缀、SKIP_DIRS 一致性。先红后绿，自检含独立变异验证 |
 | 2026-09-16 | 清单核实偏差 | 说明 | 外部清单引用的 A-19 / PY-13 / A-18 / K-35 在本仓库不存在（判据只到 A-17 / PY-12）；提到的 mutate.py 不存在（对应概念「无 mutate 即跳过」在 scan-py.py PY-08）。标注为「确认没问题」的语言包映射实际是死配置，已修 |
-=======
->>>>>>> 远端
 | 2026-09-15 | H-12 | 修正 | 撞号：s-sandbox 与 s-contracts 各自定义了 H-12，--get H-12 返回两条分不清场景。后加的 s-contracts 那条改为 H-15（先到先得，保留 s-sandbox 的 H-12）  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
 | 2026-09-15 | C-01 | 修正 | 补回被覆盖丢失的 8 行「死参数 / 孤儿键」形态：add_argument 有键但实现从不读，传了无效果且无提示；另 --method bogus 无值校验靠服务端 422 兜底  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
 | 2026-09-15 | PY-13 | 修正 | registry.json 里被清掉的 PY-13 已补回。注意：它由 extract() 自动提取（scan-py.py），**不需要**进 extra 清单——extra 那段 rule_id 硬编码为 APP-%s、scanner 写死 scan-app.py，加进去会生成错误的 APP-PY-13  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |

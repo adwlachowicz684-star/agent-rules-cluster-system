@@ -71,7 +71,6 @@ python3 scripts/audit.py --src=<根> --sarif=out.sarif
 python3 scripts/audit.py --src=<根> --no-gitignore  # 别动被审查项目的 .gitignore
 
 python3 scripts/sarif.py --diff old.sarif new.sarif   # 新增 / 消失 / 持续
-<<<<<<< 本地
 python3 scripts/sarif.py --self-test                  # 前缀映射 / 去重 自检
 # 开发用：给**手写 sys.argv 解析**的脚本加未知 flag 校验，
 # 防止 `--self-test` 这类拼错/不存在的参数被静默忽略后返回 0
@@ -81,9 +80,6 @@ python3 scripts/check-list-drift.py               # 硬编码名单 vs 事实源
 python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture 覆盖率
 python3 scripts/rule-registry.py --cross        # 交叉审计：fp 里有没有藏真缺陷
 python3 scripts/check-list-drift.py              # 硬编码名单 vs 事实源（防「漏一个静默失效」）
-=======
-python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture 覆盖率
->>>>>>> 远端
 python3 scripts/project-rules.py                  # 项目特化规则（按路径绑定）
 ```
 
@@ -100,16 +96,13 @@ python3 scripts/doc-promise.py --src=<根> [--commands-only] [--links-only]
 
 ```bash
 python3 scripts/dep-scan.py --src=<根> [--violations-only]
-<<<<<<< 本地
 
 # Cocos 专项：**位置参数**接路径（不是 --src=），参数风格与其余扫描器不同
 python3 scripts/cocos-audit.py <路径> [--level P0] [--rule memory] [--json]
 python3 scripts/cocos-audit.py <路径> --level P0   # 有 P0 时退出码 1，可接 CI
 # 规则 CC-11~21 已纳入注册表（--check / --test / item-index 都能看到）；
 # 引擎侧的 scripts/cocos_audit.py 是转发壳，指向这里
-=======
 python3 scripts/cocos-audit.py <路径> [--level P0] [--rule memory]
->>>>>>> 远端
 
 # 探针（numerics 实测用）
 cp scripts/probe-template.ts audit/probe_<单元>.ts

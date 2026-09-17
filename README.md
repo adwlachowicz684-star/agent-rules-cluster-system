@@ -96,12 +96,9 @@ self-evolving_skill_mechanism/skills/
 
 | 项 | 状态 |
 |---|---|
-<<<<<<< 本地
 | 机扫规则 | 见 `registry.json`（`--sync` 生成，勿手改）。**以 `--check` 实时输出为准**：上次快照 151 条（scan-ts 65 / scan-app 33 / scan-rust 10 / scan-py 13 / cpp 10 / go 10 / java 10） |
 | 判据条目 | 见 `items.json`（Markdown 是源，JSON 是产物）。上次快照 259 条，覆盖 16 个参考文件 |
 | fixture 实测 | 通过 295 · 失败 0（另有 16 条人工判据无对应机扫规则，未实测、非失败） |
-=======
->>>>>>> 远端
 | 机扫规则 | 见 `registry.json`（`--sync` 生成，勿手改）。**以 `--check` 实时输出为准**：上次快照 157 条（scan-ts 65 / scan-app 38 / scan-rust 10 / scan-py 14 / cpp 10 / go 10 / java 10） |
 | 判据条目 | 见 `items.json`（Markdown 是源，JSON 是产物）。上次快照 272 条，覆盖 16 个参考文件 |
 | fixture 实测 | 通过 314 · 失败 0（另有 26 条人工判据无对应机扫规则，未实测、非失败）；`eval` 已回填：157/157 实测通过，0 条 unverified |
