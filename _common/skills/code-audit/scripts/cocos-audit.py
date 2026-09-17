@@ -176,6 +176,7 @@ def excluded(path: Path, root: Path) -> bool:
         return True
     try:
         rel = path.relative_to(root).as_posix()
+    # audit: ignore —— 转 posix 失败退回原 path，只影响排除判断，不会静默无输出
     except Exception:
         rel = path.as_posix()
     return any(s in rel for s in EXCLUDE_SUBSTR)
@@ -739,6 +740,7 @@ def main():
     for f in files:
         try:
             rel = str(f.relative_to(root)) if f != root else f.name
+        # audit: ignore —— 相对路径计算失败退回绝对路径，只影响报告里的显示
         except Exception:
             rel = str(f)
         all_issues += scan_file(f, rel)

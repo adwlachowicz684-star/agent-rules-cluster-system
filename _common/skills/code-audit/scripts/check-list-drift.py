@@ -164,6 +164,43 @@ def check_all():
                 out.append(('WARN', 'SKIP_DIRS 不一致',
                             '%s 比 %s 少了 %s' % (f, base, ', '.join(diff[:5]))))
 
+    # ── 5. 每个脚本的入口都必须能拒绝未知参数 ────────────────────
+    #
+    # 为什么需要（新建设施的接入率，见 self-verification.md 第七条）：
+    # `_flagguard.py` 造好之后，没有任何机制提醒「还有 17 个入口没接」。
+    # 它稳定处于「有这个东西，但大部分地方没用」的状态，而**没接的地方
+    # 表现与没造之前完全一样**——手写 sys.argv 解析会把拼错的 flag 完全
+    # 无视，脚本照常跑完并返回 0。
+    #
+    # 实测：装守卫前，`route.py --zzz` 退出码 0（照常跑完整路由），
+    # `audit.py --zzz` 退出码 124（跑全量直到超时）。两种都不会说
+    # 「你给的参数我不认识」。
+    #
+    # 判据：脚本要么接入 `_flagguard.guard`，要么用 argparse
+    # （argparse 自带未知参数报错，退出码也是 2）。两者都没有 → 会静默。
+    unguarded = []
+    for f in sorted(os.listdir(HERE)):
+        if not f.endswith('.py') or f == '_flagguard.py':
+            continue
+        src5 = _read(os.path.join(HERE, f))
+        if not src5:
+            continue
+        has_guard = ('from _flagguard import' in src5
+                     or 'import _flagguard' in src5)
+        uses_argparse = ('argparse' in src5 and 'ArgumentParser' in src5)
+        # 第三种合法形态：自己维护一份显式名单（如 KNOWN_FLAGS），
+        # 遇到不认识的就报错。判据是「有名单」且「有拒绝动作」——
+        # 只有名单不报错等于没接；只有报错没有名单无法维护。
+        own_list = (re.search(r'KNOWN[_A-Z]*\s*=', src5) is not None
+                    and ('未知' in src5 or 'unknown' in src5.lower()))
+        if not (has_guard or uses_argparse or own_list):
+            unguarded.append(f)
+    if unguarded:
+        out.append(('ERR', '脚本入口会静默忽略未知参数',
+                    '%s —— 拼错的 flag 会被无视，脚本照常跑完并返回 0；'
+                    '接 `from _flagguard import guard` 或改用 argparse'
+                    % ', '.join(unguarded)))
+
     return out
 
 
@@ -190,6 +227,7 @@ def _parse_tuple(src, name):
                     # 会整段跳过 —— 这道检查自己失效，却无人知晓。
                     try:
                         frag = ast.unparse(node.value)
+                    # audit: ignore —— 反解析失败退回空串当派生式处理，后果是多报而非漏报
                     except Exception:
                         frag = ''
                     if 'SCENE_SCRIPTS' in frag:
@@ -379,6 +417,10 @@ scene = 's-contracts'
 
 
 def main():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _flagguard import guard
+    guard(sys.argv, {'--self-test'})
+
     if '--self-test' in sys.argv:
         return self_test()
     print('check-list-drift · 硬编码名单一致性')

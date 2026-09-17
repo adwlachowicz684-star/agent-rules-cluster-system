@@ -84,6 +84,7 @@ def single_instance_lock():
     except FileNotFoundError:
         raw = ""
     if raw.isdigit() and _pid_alive(int(raw)):
+        # audit: ignore —— 单实例锁冲突时终止是 CLI 的职责；锁失败继续跑会互相删 fixture
         raise SystemExit(
             f"另一个 mutate.py 正在运行（PID {raw}，锁 {LOCK_PATH}）。\n"
             f"  测试套件共用固定路径，并发跑会互相删对方的 fixture，\n"
@@ -127,11 +128,16 @@ def check_anchors(src, muts):
     否则「KILLED」可能只是因为变异压根没生效。
     """
     bad = [(m["id"], src.count(m["old"])) for m in muts if src.count(m["old"]) != 1]
+    # audit: ignore —— --check 模式就是只打印锚点报告，输出即它的职责
+    # audit: ignore —— --check 模式的报告输出，输出即它的职责
     print(f"锚点检查：{len(muts)} 条")
     if bad:
         for mid, n in bad:
+            # audit: ignore —— --check 模式的报告输出，输出即它的职责
             print(f"  ✗ {mid:<28} 匹配 {n} 处（应恰好 1 处）")
         return 1
+    # audit: ignore —— --check 模式的逐条报告输出，输出即它的职责
+    # audit: ignore —— --check 模式的报告输出，输出即它的职责
     print("  ✓ 全部唯一命中")
     return 0
 

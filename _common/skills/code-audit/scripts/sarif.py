@@ -49,6 +49,7 @@ except Exception as _e:
           % (_REG, _e), file=sys.stderr)
     _REGISTRY = {'rules': []}
 
+# audit: ignore —— 模块加载时从注册表一次性填充的只读索引，之后不再写入
 _RULE_INFO = {}
 for _r in _REGISTRY.get('rules', []):
     _RULE_INFO[_r['rule_id']] = (_r.get('title', ''),
@@ -278,6 +279,10 @@ def diff_sarif(old, new):
 
 
 def main():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _flagguard import guard
+    guard(sys.argv, {'--root=', '--out=', '--diff', '--self-test'})
+
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     flags = [a for a in sys.argv[1:] if a.startswith('--')]
     out = None

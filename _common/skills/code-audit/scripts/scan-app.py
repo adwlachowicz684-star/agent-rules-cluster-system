@@ -31,6 +31,11 @@ try:
 except ImportError:
     build_sarif = None
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _flagguard import guard
+guard(sys.argv, {'--src=', '--json', '--text', '--flat', '--bg',
+                 '--pattern=', '--sarif=', '--self-test'})
+
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 
@@ -615,8 +620,11 @@ def _p_ci_script(joined, root, _u=None):
             have |= set(json.loads(
                 open(os.path.join(dp, 'package.json'), encoding='utf-8').read()
             ).get('scripts', {}))
-        except Exception:
-            pass
+        except Exception as e:
+            # 全部解析失败时 have 为空 → 直接 return [] → 这条规则表现为「0 命中」。
+            # 本仓库 H011：工具报 0 不等于没问题 —— 说一声，人能判断要不要管。
+            print('[warn] package.json 解析失败 %s（%s）→ 该目录 script 不计入'
+                  % (os.path.join(dp, 'package.json'), e), file=sys.stderr)
     if not have:
         return []
     out = []

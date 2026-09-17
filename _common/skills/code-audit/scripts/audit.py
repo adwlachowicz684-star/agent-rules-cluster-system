@@ -61,6 +61,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 STATE = '.audit-state.json'
 
+# 未知 flag 必须报错：实测 `audit.py --zzz` 会**照常跑一遍全量审查**，
+# 直到超时（退出码 124）。用户以为指定了某个场景，实际跑的是默认全量 ——
+# 比报错更糟：它给出一个绿色的空信号，还耗掉一整轮时间。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _flagguard import guard
+guard(sys.argv, {'--src=', '--root=', '--out=', '--sarif=', '--json',
+                 '--items', '--items-all', '--item-level=', '--item-limit=',
+                 '--batch=', '--budget=', '--status', '--resume', '--reset',
+                 '--no-gitignore', '--show-toplevel', '--self-test'})
+
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 SRC = None
 BUDGET = 120000
@@ -135,6 +145,7 @@ ALL_SCANNERS = tuple(sorted({s for v in SCENE_SCRIPTS.values() for s in v}))
 # 于是分组时 scene_of 查不到 → 全部掉进 s-contracts 兜底，
 # 而真正该看它们的 p-cocos / p-godot 场景显示"0 条候选，跳过"。
 # 扫描器明明跑了、候选明明有，报告里却看不到——又一种静默丢失。
+# audit: ignore —— 进程内只读缓存（场景→判据映射），单次运行内不变；CLI 每跑一次重新加载
 _SCENES_OF = {}
 for _s, _scs in SCENE_SCRIPTS.items():
     for _x in _scs:
@@ -388,6 +399,7 @@ def ensure_gitignore(root, rel_entries):
             for w in add:
                 f.write(w + '\n')
     except OSError as e:
+        # audit: ignore —— 写 .gitignore 是尽力而为的副作用，失败只告警不影响审查结论
         print('  [warn] 写 .gitignore 失败（不影响审查）: %s' % e, file=sys.stderr)
         return None
     return wanted

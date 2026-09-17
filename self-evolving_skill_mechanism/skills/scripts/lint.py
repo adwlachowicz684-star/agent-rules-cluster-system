@@ -416,6 +416,77 @@ def check_duplicates(cfg, root=None):
     return issues
 
 
+
+def check_exemptions(cfg, root=None):
+    """豁免标记必须**真的接上了**读豁免的代码。
+
+    为什么需要：标记了豁免之后命中数就该下降。若没下降，只有两种可能——
+    豁免没接上，或豁免写错了位置。而这两种都**不会报错**：
+    人会以为"已经处理过了"。
+
+    实测（code-audit 自扫）：给某规则的三处命中加了行级豁免，命中数
+    一条没变——因为那条规则的分支里**根本没调用豁免判断**。
+    加了豁免却不生效，是最容易被忽略的失效：人已经处理过了。
+
+    判据（目录级，避免按行猜实现）：
+      某目录下存在豁免标记，但该目录**所有 .py 里都没有读豁免的代码**
+      → 这些豁免 100% 不生效。
+
+    为什么按目录而不是按文件：读豁免的辅助函数常常集中在 _flagguard.py /
+    scan-XX.py 这类公共文件里，逐个文件比会把正常情况全报成问题。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+
+    # 豁免标记的写法（各语言、各工具不统一，认常见几种）
+    EXEMPT_RX = re.compile(
+        r'#\s*(?:audit|lint|type|noqa|pyright|flake8)\s*:?\s*ignore'
+        r'|#\s*noqa\b|//\s*(?:audit|lint|eslint-disable|ts)\s*:?\s*ignore'
+        r'|#\s*pragma\s*:?\s*ignore', re.I)
+    # 读豁免的代码：函数定义或调用
+    READ_RX = re.compile(
+        r'(?:def\s+\w*pragm\w*|def\s+\w*exempt\w*|has_pragma\s*\('
+        r'|\bpragma\b|\bexempt\b|is_ignored\s*\()', re.I)
+
+    def scan_dir(d, label):
+        files = sorted(d.rglob("*.py")) + sorted(d.rglob("*.ts"))
+        marks = []
+        reads = 0
+        for f in files:
+            if "__pycache__" in str(f) or "fixtures" in str(f):
+                continue
+            try:
+                txt = f.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            for i, line in enumerate(txt.split("\n"), 1):
+                if EXEMPT_RX.search(line):
+                    marks.append("%s:%d" % (
+                        f.relative_to(d) if str(f).startswith(str(d)) else f.name, i))
+            if READ_RX.search(txt):
+                reads += 1
+        return marks, reads, len(files)
+
+    targets = [("引擎自身", base)]
+    # 同一集群里的兄弟 skill：豁免集中在 code-audit，读豁免的代码也在那里，
+    # 只扫引擎自己会漏掉绝大多数真实豁免
+    for sib in ("_common/skills/code-audit", "_common/skills"):
+        cand = base.parent.parent / sib
+        if cand.exists() and cand.is_dir():
+            targets.append((sib, cand))
+
+    for label, d in targets:
+        marks, reads, nfiles = scan_dir(d, label)
+        if marks and reads == 0:
+            issues.append({
+                "level": "error",
+                "file": "%s（%d 个脚本）" % (label, nfiles),
+                "issue": "有 %d 处豁免标记，但整个目录没有任何读豁免的代码"
+                         % len(marks),
+                "hint": "豁免写了却没人读 → 命中数不会下降，而人以为已处理。"
+                        "例：%s" % ", ".join(marks[:3])})
+    return issues
+
 def check_degeneracy(cfg, root=None):
     """标注字段退化：全库同一个值 = 这个字段已经不携带信息。
 
@@ -677,6 +748,32 @@ trigger: 测试
         chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
             '命中数有区分度时不误报')
 
+        # ---- 豁免可验证（第八条）----
+        # 正反两侧：有豁免且有人读 → 不报；有豁免但没人读 → 必须报。
+        # 只造正向会让「检查项能识别豁免」这条从没被验证过。
+        ex = vroot / 'scripts'
+        ex.mkdir(parents=True, exist_ok=True)
+        (ex / 'scan-x.py').write_text(
+            '# -*- coding: utf-8 -*-\n'
+            'def run():\n'
+            '    # audit: ignore —— 这是有理由的豁免\n'
+            '    pass\n'
+            'def has_pragma(lines, n):\n'
+            '    return "audit" in lines[n - 1] and "ignore" in lines[n - 1]\n',
+            encoding='utf-8')
+        chk(not check_exemptions(cfg, vroot),
+            '豁免有人读时不报（有 has_pragma 实现）')
+
+        (ex / 'scan-x.py').write_text(
+            '# -*- coding: utf-8 -*-\n'
+            'def run():\n'
+            '    # audit: ignore —— 没人读的豁免\n'
+            '    pass\n',
+            encoding='utf-8')
+        d2 = check_exemptions(cfg, vroot)
+        chk(bool(d2) and '没有任何读豁免' in d2[0]['issue'],
+            '豁免无人读时必须报（加了却不生效 = 人以为处理过）')
+
         # 扫描范围自报
         sc = scan_scope(cfg)
         chk('engine_files' in sc and 'domain_files' in sc,
@@ -707,7 +804,7 @@ def main():
     issues = (check_root(cfg) + check_size(cfg, limits)
               + check_frontmatter(cfg) + check_landing(cfg)
               + check_refs(cfg) + check_duplicates(cfg)
-              + check_degeneracy(cfg))
+              + check_degeneracy(cfg) + check_exemptions(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

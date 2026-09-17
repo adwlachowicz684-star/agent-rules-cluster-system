@@ -262,8 +262,6 @@ Godot 的 Profiler 能直接分开这几项；C# 侧还要区分托管堆分配�
 | UI / 2D 渲染 | `godot-api/ui.md` | 489 | `Label` · `CanvasGroup` · `TileMap` · `ShaderMaterial` |
 | 资源 / IO / 网络 | `godot-api/io.md` | 1483 | `FileAccess` · `ResourceLoader` · `HTTPRequest` · `user://` |
 | 输入 / 音频 / 动画 / Tween | `godot-api/anim.md` | 1433 | `Input.` · `AnimationTree` · `create_tween` · `AudioStreamPlayer` |
-| 3D / 渲染 | `godot-api/3d.md` | 718 | `Node3D` · `MeshInstance3D` · `Camera3D` · `Light3D` · `Environment` · `SubViewport` · `GPUParticles3D` · `set_shader_parameter` |
-| 语言 / 工程 / 调试 | `godot-api/lang.md` | 633 | `@export` · `@rpc` · `await` · `ProjectSettings` · `Performance.` · `change_scene` · `assert` |
 
 **不要一次全读**（合计 ~3900 行）。跑 `route.py --src=<根>` 会按代码里
 实际出现的 API 名列出命中的领域；也可查 `godot-api/index.md` 的路由表。
@@ -291,32 +289,6 @@ Godot 的 Profiler 能直接分开这几项；C# 侧还要区分托管堆分配�
 | GD52 | **P0** | 动态 `AudioStreamPlayer` 未见 `queue_free()`（Node 累积） |
 | GD53 | P2 | `AnimationTree` 参数路径字面量（拼错静默失效） |
 | GD54 | P2 | 动画名字面量（重命名后静默不播） |
-| GD61 | P2 | 直接赋值 `global_position`（会被物理步/父变换/插值覆盖） |
-| GD62 | P2 | `spot_angle` 超 89°（不生效或异常阴影） |
-| GD63 | P1 | `editor_only=true`（导出后白占性能预算） |
-| GD64 | P2 | `set_shader_parameter` 用字面量名（与 uniform 名不一致时静默失效） |
-| GD65 | P2 | `visibility_aabb`（包围盒不足时粒子被整体剔除，**不报错**） |
-| GD71 | P1 | `assert` 做运行时校验（release 下 assert 不求值，校验整段消失） |
-| GD72 | P2 | `emit_signal()`（3.x 写法，4.x 用 `.emit()`） |
-| GD73 | P1 | `duplicate()` 无参（Array/Dictionary/Resource 是**浅拷贝**） |
-| GD74 | P2 | `print()` 调试输出（release 仍执行） |
-| GD75 | P1 | `await` 后未判 `is_instance_valid`（协程恢复时对象可能已释放） |
-| GD81 | P1 | 加密存档但无签名（AES-CBC 无认证，可被比特翻转，解密不报错） |
-| GD82 | P1 | 密钥/口令明文写在脚本（PCK 可解包，等于没加密） |
-| GD83 | P1 | 用 `get_unix_time_from_system()` 做时间判定（改系统时钟即绕过） |
-| GD84 | P2 | 用 `==` 比对 HMAC（时序侧信道） |
-| GD85 | P1 | `is_debug_build()` 检测后直接退出/弹窗（暴露检查点） |
-| — | 人工 | 客户端加密当防作弊（结构性无效，密钥必在客户端）；联网逻辑必须在服务端 |
-| GD91 | P0 | 帧回调内同步 `load()`（每帧磁盘 I/O） |
-| GD92 | P1 | 帧回调内用字符串字面量查输入动作（应 `&"jump"`） |
-| GD93 | P1 | 浮点值直接 `==` 比较（精度误差，几乎永不成立） |
-| GD94 | P1 | `distance_to()` 做阈值比较（多余开方，应 `distance_squared_to`） |
-| GD95 | P0 | `@export` 的 Resource 未 `duplicate()`（所有实例共享，改一个全变） |
-| GD96 | P0 | `_physics_process` 内 `await`（挂起会跳过物理帧） |
-| GD97 | P2 | 函数体只有 `pass`（占位或应删） |
-| GD98 | P2 | 自赋值 / 自比较（通常是笔误） |
-| GD99 | P2 | 函数体超 80 行（职责过多） |
-| — | 人工 | 物理层与掩码设同值、SubViewport 过度嵌套、未用类型化数组 |
 
 **没进扫描器的**（需要跨文件或运行时对象关系，只能人工看）：
 碰撞层位值混用、`StaticBody` 移动当平台、RigidBody 每帧覆盖 `position`、

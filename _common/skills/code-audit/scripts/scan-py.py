@@ -237,25 +237,49 @@ def py_broad_except(tree, lines, path):
 
 
 def _reports_error(handler):
-    """except 体里有没有把错误**暴露出去**（打印 / 记日志 / 收集进告警列表）。
+    """except 体里有没有把错误**暴露出去**。
+
+    三条通道，任一成立即视为「没有吞没」：
+      ① 打印 / 记日志：print / stderr.write / logging.warning ...
+      ② 收集进告警列表：warns.append(str(e))
+      ③ **把异常信息返回给调用方**：return 3, str(e) / return False, None, '异常：%s' % e
+
+    ③ 为什么必须算：本规则第一版只认 ①，于是
+    `return 3, '', str(e)`（错误码 + 错误信息都交给了调用方）被报成
+    「异常静默，调用方看不到失败」—— 与事实完全相反。实测扫 scripts/
+    又多出 3 条这类误报（audit / rule-registry / cocos-godot 的读取失败告警）。
 
     只看「有没有」，不看「做得好不好」—— 后者是人工精审的事。
     """
+    # 捕获到的异常变量名（except Exception as e → 'e'）
+    ename = handler.name if isinstance(handler.name, str) else None
+
     for node in ast.walk(handler):
-        # print(...) / sys.stderr.write(...) / logging.warning(...) 等
+        # ① 打印 / 记日志
         if isinstance(node, ast.Call):
             fname = node_name(node.func) or ''
             if any(k in fname for k in ('print', 'write', 'warning', 'warn',
                                         'error', 'exception', 'debug', 'info',
-                                        'log', 'add', 'append')):
+                                        'log', 'add', 'append', 'collect',
+                                        'report')):
                 return True
-        # 把 e 塞进某个列表/返回值（告警收集）
-        if isinstance(node, (ast.List, ast.Tuple)):
-            pass
-        if isinstance(node, ast.Assign):
-            src = ast.dump(node.value)
-            if 'Name' in src and 'Constant' in src:
-                return True
+        # ② 收集进告警列表
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr in ('append', 'add', 'error', 'warning')):
+            return True
+        # ③ 把异常信息返回给调用方
+        if isinstance(node, ast.Return) and node.value is not None:
+            if ename:
+                used = {n.id for n in ast.walk(node.value)
+                        if isinstance(n, ast.Name)}
+                if ename in used:
+                    return True
+            # 返回字面量里带「失败/异常/错误」等字样也算（如 return [{"rule": "读取失败"...}]）
+            for n in ast.walk(node.value):
+                if isinstance(n, ast.Constant) and isinstance(n.value, str):
+                    if any(k in n.value for k in ('失败', '异常', '错误', 'error',
+                                                  'fail', 'invalid')):
+                        return True
     return False
 
 
@@ -613,6 +637,7 @@ def py_path_codec_asym(tree, lines, path):
         if isinstance(f, ast.Attribute):
             try:
                 owner = ast.unparse(f.value).lower()
+            # audit: ignore —— 反解析失败退回 node_name()，是降精度不是吞异常
             except Exception:
                 owner = (node_name(f.value) or "").lower()
         if not any(k in owner for k in ("readlink", "path", "name", "target", "entry")):
@@ -686,6 +711,14 @@ def py_path_list_newline_join(tree, lines, path):
 
 
 
+# 必须**整体**是测试数据表的名字。不能裸 search「test」：
+# `latest` 里就含 t-e-s-t，裸匹配会把普通变量当数据表排除掉。
+# 用 ^ / _ 锚定词首，SELF_TEST_CASES 这类才能命中而 latest 不会。
+_TESTDATA_NAME_RX = re.compile(
+    r'(?i)^(?:self[-_]?test|test[-_]?(?:cases?|data|s?)|fixtures?|samples?)'
+    r'|(?:^|_)(?:tests?|cases?|fixtures?|samples?)$')
+
+
 def _non_code_lines(lines, tree):
     """返回「不该被行扫描规则当真代码」的行号集合（1-based）。
 
@@ -734,6 +767,30 @@ def _non_code_lines(lines, tree):
                     and isinstance(first.value.value, str)):
                 for ln in range(first.lineno, (first.end_lineno or first.lineno) + 1):
                     bad.add(ln)
+    # audit: ignore —— 解析失败就不过滤（宁可多报也不静默漏），理由见函数文档
+    except Exception:
+        pass
+
+    # ③ 内嵌测试数据表：SELF_TEST / TEST_CASES / FIXTURES 这类常量里
+    #    存的是**被检样本的内容**，不是执行路径上的代码。
+    #    不排除的话规则会扫到自己定义的样本 —— 实测 AR-05 扫 scan-py.py
+    #    时命中 `("AR-05", "mod.ROOT='/tmp/x'...print('ALL PASS')", True)`
+    #    那一行：样本内容被当成真实输出；K-44 同理会命中样本里的 user.name。
+    #    自检时样本是单独喂给规则的（不在表范围内），排除表本身不影响自检。
+    try:
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                if not isinstance(t, ast.Name):
+                    continue
+                if not _TESTDATA_NAME_RX.search(t.id):
+                    continue
+                end = getattr(node, 'end_lineno', None) or node.lineno
+                for ln in range(node.lineno, end + 1):
+                    bad.add(ln)
+    # audit: ignore —— 测试数据表识别失败就不过滤，宁可多报也不静默漏（同上）
     except Exception:
         pass
     return bad
@@ -809,6 +866,11 @@ def _assigned_names(node):
     return names
 
 
+_SELFTEST_NAME_RX = re.compile(
+    r'(?:^|_)(?:self[-_]?test|run[-_]?tests?|run[-_]?checks?|_selftest)$'
+    r'|^self_test$|^_self_test$')
+
+
 def ar_judge_output_coupled(tree, lines, path):
     """AR-01 (P1) 判定逻辑与输出 / 副作用耦合
 
@@ -820,16 +882,28 @@ def ar_judge_output_coupled(tree, lines, path):
     """
     if os.path.basename(path) in _CLI_FILES:
         return []
-    # 入口函数（main / cli / run）本来就该终止进程，不算耦合
-    entry_ranges = [(n.lineno, n.end_lineno or n.lineno)
-                    for n in tree.body
-                    if isinstance(n, ast.FunctionDef)
-                    and n.name in {'main', 'cli', 'cli_main', 'run'}]
+    # 入口 / 自检函数本来就该终止进程与打印，不算耦合。
+    #
+    # 两处修正（实测扫 scripts/ 的 6 条命中全部落在这些范围里，无一真问题）：
+    #   ① 不只查 tree.body —— `main` 可能在类里或嵌套；自检里常定义
+    #      内层 `def check(cond, msg)`，按顶层查不到，于是 self_test 的
+    #      逐条输出被当成「判定函数内部 print」
+    #   ② 范围用**行号区间**而不是只看直接父函数 —— 自检函数内部嵌套的
+    #      check / report 都该跟着豁免
+    _entry_names = {'main', 'cli', 'cli_main', 'run', 'cmd_main'}
+    entry_ranges = []
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.FunctionDef):
+            continue
+        if n.name in _entry_names or _SELFTEST_NAME_RX.search(n.name):
+            entry_ranges.append((n.lineno, n.end_lineno or n.lineno))
     out = []
     for n in ast.walk(tree):
         if isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) \
                 and getattr(n.exc.func, 'id', None) == 'SystemExit':
             if any(a <= n.lineno <= b for a, b in entry_ranges):
+                continue
+            if has_pragma(lines, n.lineno):
                 continue
             out.append((n.lineno,
                         '非 CLI 层 raise SystemExit —— 判定结论无法结构化复用'
@@ -848,8 +922,18 @@ def ar_judge_output_coupled(tree, lines, path):
         named_judge = bool(_JUDGE_NAME_RX.match(n.name))
         if not (named_judge or returns_bool):
             continue
+        # 自检函数（self_test / run_tests …）本来就该「既判定又展示」：
+        # 它 return 的是通过与否（给退出码用），print 的是逐条结果（给人看）。
+        # 强行拆开只会让它更难读，且没有任何调用方需要它的返回值当库用。
+        # 实测扫 scripts/：6 条命中里 4 条是 self_test 的进度输出。
+        if _SELFTEST_NAME_RX.search(n.name):
+            continue
         for x in ast.walk(n):
             if isinstance(x, ast.Call) and getattr(x.func, 'id', None) == 'print':
+                if any(a <= x.lineno <= b for a, b in entry_ranges):
+                    continue
+                if has_pragma(lines, x.lineno):
+                    continue
                 out.append((x.lineno,
                             f'判定函数 {n.name}() 内部直接 print —— '
                             '判定与输出耦合，无法 --json / 无法当库调用（AR-01）'))
@@ -923,6 +1007,68 @@ def ar_exit_code_flat(tree, lines, path):
     return []
 
 
+
+def _harness_text(line, lines=None, lineno=0):
+    """把一行里「不会进 stdout 的字符串字面量」剔除，返回剩余文本。
+
+    为什么需要：AR-05 原先按**整行原文**匹配 `ALL PASS` / `mod.X =`，
+    于是把「描述这条规则的文字」也当成了被审代码。实测扫 scripts/：
+    6 条命中里 5 条是这种自指 ——
+      · rule-registry.py 规则说明文本里的「ALL PASS / mod.X= 打补丁」
+      · scan-py.py 自己 append 告警文案里的「用 mod.X = ...」
+      · scan-py.py 的 fixture 定义 ("AR-05", "mod.ROOT = '/tmp/x'...", True)
+      · mutate.py 的 PASS_MARKS 常量表、route.py 的检测规则表
+
+    与「注释」同类：注释已在 _non_code_lines 里剔除，字符串字面量是
+    第二条漏网路径。区别在于——**print 的参数确实会进 stdout**，
+    那正是本条规则要抓的，必须保留。
+
+    做法：tokenize 后只保留 ①非字符串 token ②print( 括号内的字符串。
+    多行 print 的续行：往上找 3 行内有未闭合的 print( 也算输出。
+    """
+    import io as _io
+    import tokenize as _tk
+    try:
+        toks = list(_tk.generate_tokens(_io.StringIO(line).readline))
+    except (_tk.TokenError, SyntaxError, IndentationError):
+        # 单行 tokenize 遇到**跨行字符串**必然抛 TokenError ——
+        # 字符串在下一行才闭合。此时原样返回会把文案当输出：
+        # 实测 AR-05 仍命中自己 out.append 里跨两行的告警文案。
+        # 这种行的引号内容一律是文案，直接剔除。
+        return re.sub(r'''"[^"]*"|'[^']*''', ' ', line)
+
+    cont = False
+    if lines and lineno:
+        for k in range(max(0, lineno - 4), lineno - 1):
+            prev = lines[k] if k < len(lines) else ''
+            if 'print(' in prev and prev.count('(') > prev.count(')'):
+                cont = True
+                break
+
+    out = []
+    pending = None
+    stack = []
+    for t in toks:
+        if t.type == _tk.NAME:
+            pending = t.string
+        elif t.type == _tk.OP and t.string == '(':
+            stack.append('print' if pending == 'print' else 'other')
+            pending = None
+        elif t.type == _tk.OP and t.string == ')':
+            if stack:
+                stack.pop()
+            pending = None
+        elif t.type == _tk.STRING:
+            if 'print' in stack or cont:
+                out.append(t.string)
+            continue
+        if t.type not in (_tk.COMMENT, _tk.NL, _tk.NEWLINE, _tk.INDENT,
+                          _tk.DEDENT, _tk.ENCODING, _tk.ENDMARKER):
+            out.append(t.string)
+    return ' '.join(out)
+
+
+
 def ar_test_harness_welded(tree, lines, path):
     """AR-05 (P1) 测试自建 harness，断言焊在实现与输出上
 
@@ -940,10 +1086,13 @@ def ar_test_harness_welded(tree, lines, path):
     for i, line in enumerate(lines, 1):
         if i in skip:
             continue
-        if 'ALL PASS' in line:
+        # 只匹配「会进 stdout 的部分」：规则说明、样本定义、检测目标这些
+        # 字符串字面量不算（见 _harness_text）
+        text = _harness_text(line, lines, i)
+        if 'ALL PASS' in text:
             out.append((i, '以 stdout 里的 ALL PASS 判定通过 —— '
                            '改一句提示文案测试就红（AR-05）'))
-        elif re.search(r'\b(?:mod|m|module)\.[A-Z]\w*\s*=', line):
+        elif re.search(r'\b(?:mod|m|module)\.[A-Z]\w*\s*=', text):
             out.append((i, '用 mod.X = ... 打补丁替换模块级全局 —— '
                            '重构动一处全局就要全量改测试（AR-05）'))
     return out[:3]

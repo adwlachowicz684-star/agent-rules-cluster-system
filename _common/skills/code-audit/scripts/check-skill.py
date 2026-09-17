@@ -340,8 +340,13 @@ def main():
         if os.path.exists(_ix):
             try:
                 _have = {i['id'] for i in json.load(open(_ix, encoding='utf-8'))['items']}
-            except Exception:
-                _have = None
+            except Exception as _e:
+                # 不能静默 None：items.json 坏了会让 IX002（定义了却取不到）
+                # 整项检查跳过，输出里看不出少查了一项 —— 正是 IX002 自己
+                # 要抓的那类「静默少做」。
+                add('error', 'IX002',
+                    '判据索引 items.json 读不出来（%s）→ 本项检查已跳过，'
+                    '下方结果不完整' % _e)
             if _have is not None:
                 _miss = sorted(i for i in _defs if i not in _have)
                 if _miss:
@@ -390,8 +395,10 @@ def main():
                 continue
             try:
                 n = len(open(os.path.join(sdir, f), encoding='utf-8').read().splitlines())
-            except Exception:
-                continue
+            except Exception as _e:
+                # 读不出来就 continue 会让体积检查对该文件静默失效。说一声。
+                print('[warn] 读不到 %s 的行数（%s）→ 跳过体积检查'
+                      % (f, _e), file=sys.stderr)
             if n > MAX_SCRIPT_LINES:
                 infos.append('[INFO] scripts/%s %d 行（%d 为参考值；脚本按需执行不占上下文）'
                              % (f, n, MAX_SCRIPT_LINES))

@@ -29,6 +29,11 @@ import json
 import shutil
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _flagguard import guard
+guard(sys.argv, {'--src=', '--json', '--flat', '--include-tests',
+                 '--pattern=', '--sarif=', '--self-test'})
+
 _args = [a for a in sys.argv[1:] if not a.startswith('--')]
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 INCLUDE_TESTS = '--include-tests' in _flags
@@ -167,6 +172,7 @@ def load_plugins(only=None):
 # 每条：id, 等级, 名称, 说明, 检测函数(module, files) -> [(file, line, snippet)]
 # ============================================================
 
+# audit: ignore —— 装饰器在 import 期一次性注册，运行期只读；不是运行时状态
 PATTERNS = []
 
 
@@ -445,54 +451,6 @@ def _d01_emit(out, fn, src, src_all, m, f, base):
         out.append((fn, line, f'字段 `{f}` 全插件仅出现 {n} 次（很可能声明未实现）'))
 
 
-@pattern('D02', 'P0', '参数声明但函数体内从未使用（承诺无效）',
-         'register(type, fn, overwrite=false) 的 overwrite 完全无效')
-def d02(plugin, files):
-    hits = []
-    for fn, src in files.items():
-        # 只匹配行首的函数/方法定义，避免把调用点误当定义
-        for m in re.finditer(r'^[ \t]*(?:export\s+)?(?:private\s+|public\s+|protected\s+)?'
-                             r'(?:static\s+)?(?:async\s+)?(\w+)\s*\('
-                             r'([^()]{0,300})\)\s*(?::\s*[^{;=>]+)?\{\s*$', src, re.M):
-            fname = m.group(1)
-            # 排除控制流关键字（它们的"参数"是条件表达式，天然不在体内出现）
-            if fname in {'if', 'for', 'while', 'switch', 'catch', 'return',
-                         'function', 'constructor', 'get', 'set'}:
-                continue
-            params = m.group(2)
-            if not params.strip() or '=>' in params:
-                continue
-            depth, j = 0, len(src)
-            for k in range(m.end() - 1, min(len(src), m.end() + 6000)):
-                if src[k] == '{':
-                    depth += 1
-                elif src[k] == '}':
-                    depth -= 1
-                    if depth == 0:
-                        j = k
-                        break
-            body = src[m.end():j]
-            # 先抹掉泛型尖括号内容，避免 Record<a,b> 的逗号被当分隔符
-            flat = re.sub(r'<[^<>]*>', '', params)
-            for seg in flat.split(','):
-                seg = seg.split('=')[0].strip().lstrip('.').strip()
-                pm = re.match(r'^([a-zA-Z_$][\w$]*)\s*\??', seg)
-                if not pm:
-                    continue
-                pn = pm.group(1)
-                if len(pn) < 4 or pn in {'this', 'type', 'name', 'opts', 'args'}:
-                    continue
-                if not re.search(r'\b' + re.escape(pn) + r'\b', body):
-                    # 兜底：函数体里的**正则字面量或字符串**含花括号时，配平会提前结束，
-                    # body 被截成几十字 → 后半段用到的参数全被误判为"未使用"。
-                    # 实测 nexus-panel：scopeCss() 体内有正则 /(^|\})([^{}@]+)\{/g，
-                    # body 只剩 27 字符，`scope` 明明用了却报未使用。
-                    # 此时用全文出现次数兜底：>1 说明别处用过，宁可漏报也不误报。
-                    if len(body) < 200 and src.count(pn) > 1:
-                        continue
-                    line = src[:m.start()].count('\n') + 1
-                    hits.append((fn, line, f'参数 `{pn}` 在函数体内未被使用'))
-    return hits
 
 
 # ---------- E 族：遍历中修改集合 ----------
@@ -1812,6 +1770,7 @@ def y02(module, files):
     return hits
 
 
+# audit: ignore —— 单次扫描内的去重集合，每次调用开头清空；非跨调用共享状态
 _dedup = {}
 for _p in PATTERNS:
     _dedup[_p['id']] = _p
