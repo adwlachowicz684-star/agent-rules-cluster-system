@@ -24,6 +24,7 @@ Godot 的信号自动断开、Tween 绑定、C# lambda 捕获、Resource 缓存�
 运行期对象关系，命中后必须人工确认。本脚本的输出是**候选**，不是结论。
 """
 
+import os
 import re
 import sys
 import json
@@ -111,7 +112,23 @@ FRAME_RULES = [
     ("GD13", "P2", "帧内文本", "cs", r"\.Text\s*=(?!=)",
      "在帧回调中赋值 Label.Text —— 每帧触发重排，仅值变化时赋值",
      "先比较再赋值：`if (label.Text != s) label.Text = s;`"),
+
+    # --- GD9x 热路径（方向来自 godot-correctness-mcp / gdstyle，正则为本仓库实测）---
+    ("GD91", "P0", "热帧加载", "gd", r"(?<!\w)load\s*\(",
+     "在帧回调中同步 load() —— 每帧磁盘 I/O，卡主线程造成掉帧",
+     "改用 preload（路径为常量）或提前加载缓存引用"),
+    ("GD91", "P0", "热帧加载", "cs", r"(?<!\w)(?:GD\.Load|ResourceLoader\.Load)\s*[<(]",
+     "在帧回调中同步 Load() —— 每帧磁盘 I/O，卡主线程造成掉帧",
+     "提前加载并缓存引用"),
+
+    ("GD92", "P1", "热帧字符串", "gd", r'is_action_(?:pressed|just_pressed|just_released)\s*\(\s*"',
+     "帧回调内用字符串字面量查输入动作 —— 每次逐字符比较，热路径应改用 StringName",
+     '改用 StringName 字面量：`Input.is_action_pressed(&"jump")`'),
+    ("GD92", "P1", "热帧字符串", "cs", r'IsAction(?:Pressed|JustPressed)\s*\(\s*"',
+     "帧回调内用字符串字面量查输入动作 —— 每次逐字符比较，热路径应改用 StringName",
+     'C# 用常量 StringName 字段缓存，避免每帧新建字符串'),
 ]
+
 
 # _process 里做物理移动：速率与权威状态不一致
 PROCESS_PHYSICS_GD = r"(move_and_slide|move_and_collide|apply_central_force|apply_force|apply_impulse)"
@@ -237,6 +254,124 @@ DOMAIN_RULES = [
      "动画名用字面量 —— 动画重命名后不报错也不播放",
      "动画名集中为常量；或启动时 has_animation() 校验",
      ""),
+
+    # --- GD6x 3D / 渲染 ---
+    # 只收有明确源码特征、且不依赖运行时对象关系的条目。
+    # 「共享材质被改」这类需要比对 Resource 身份，静态做不到，留在 3d.md 人工看。
+    ("GD61", "P2", "3D", "gd", r"global_position\s*=",
+     "直接赋值 global_position —— 它只是全局变换链的计算结果，"
+     "下一帧可能被物理步/父节点变换/插值覆盖回局部值",
+     "要持续定位就写局部 position，或设 top_level=true；瞬时传送可用 global_position",
+     ""),
+    ("GD61", "P2", "3D", "cs", r"GlobalPosition\s*=",
+     "直接赋值 GlobalPosition —— 会被物理步/父变换/插值覆盖",
+     "写局部 Position，或设 TopLevel=true",
+     ""),
+    ("GD62", "P2", "3D", "any", r"spot_angle\s*=\s*(?:[9]\d|1\d\d|\d{3,})",
+     "SpotLight3D.spot_angle 超过 89° —— 超出范围会不生效或产生异常阴影",
+     "保持在 89° 以内；需要更大范围改用 OmniLight3D",
+     ""),
+    ("GD63", "P1", "3D", "any", r"editor_only\s*=\s*true",
+     "editor_only=true —— 若忘了关，导出后光照/效果仍在但白占性能预算",
+     "确认导出前关闭，或明确这是仅编辑器用途",
+     ""),
+    ("GD64", "P2", "3D", "any", r"set_shader_parameter\s*\(\s*[\"'][^\"']+[\"']",
+     "set_shader_parameter 用字面量名 —— 与 shader 里的 uniform 名不一致时"
+     "**静默失效**（不报错也不生效）",
+     "uniform 名集中为常量；或启动时校验返回值非 null",
+     ""),
+    ("GD65", "P2", "3D", "any", r"visibility_aabb",
+     "用了 GPUParticles3D.visibility_aabb —— 包围盒不足时粒子会被整体剔除，"
+     "**不报错**，表现为粒子在屏幕边缘突然消失",
+     "包围盒要覆盖粒子可能的运动范围；移动发射器注意 local_coords",
+     ""),
+
+    # --- GD7x 语言 / 工程 / 调试 ---
+    ("GD71", "P1", "语言", "gd", r"\bassert\s*\(",
+     "用 assert 做运行时校验 —— release 导出模板下 assert 不被求值，校验会整段消失",
+     "运行时校验改用 if + push_error()；assert 只用于开发期内部不变量",
+     ""),
+    ("GD72", "P2", "语言", "gd", r"emit_signal\s*\(",
+     "emit_signal() 是 3.x 写法 —— 4.x 用 `signal_name.emit()`",
+     "改为 `my_signal.emit(args)`",
+     ""),
+    ("GD73", "P1", "语言", "gd", r"\.duplicate\s*\(\s*\)",
+     "duplicate() 无参 —— Array/Dictionary/Resource 默认是**浅拷贝**，"
+     "嵌套结构仍共享引用，改一个影响另一个",
+     "需要独立副本用 `duplicate(true)`（深拷贝）",
+     r"duplicate\s*\(\s*true\s*\)"),
+    ("GD74", "P2", "语言", "any", r"\bprint\s*\(",
+     "用 print() 输出调试信息 —— release 包里仍会执行，有 I/O 开销且可能泄露信息",
+     "调试用 print_debug()（release 自动剥离），错误用 push_error()",
+     ""),
+    ("GD75", "P1", "语言", "gd", r"await\s+.+\.timeout",
+     "await 期间节点可能已被 queue_free —— 协程恢复时访问已释放对象",
+     "await 后先 `if not is_instance_valid(self): return`；或用 Timer 节点信号",
+     r"is_instance_valid"),
+
+    # --- GD8x 存档安全 / 防作弊 ---
+
+    # --- GD9x 性能与热路径（来源：godot-correctness-mcp / gdstyle 方向，
+    #      正则按本仓库实测收敛，只收低误报的）---
+    ("GD93", "P1", "浮点比较", "any",
+     r"(?:\b(?:position|global_position|rotation|rotation_degrees|scale"
+     r"|velocity|linear_velocity)\s*==\s*)|(?:==\s*-?\d+\.\d+)",
+     "浮点值直接用 == 比较 —— 浮点有精度误差，相等的判断几乎永不成立",
+     "改用距离/范围判断：`if abs(a - b) < 0.001` 或 `is_equal_approx(a, b)`",
+     ""),
+
+    ("GD94", "P1", "距离比较", "any",
+     r"\bdistance_to\s*\([^)]*\)\s*(?:<=|>=|==|<|>)\s*[\d.]+",
+     "distance_to() 用于阈值比较 —— 内部要开方，热路径每秒算几百次是浪费",
+     "比较改用 distance_squared_to()，阈值取平方"
+     "（如 100 米 -> 10000）；真需要实际距离时才用 distance_to()",
+     ""),
+
+    ("GD95", "P0", "共享资源", "gd",
+     r"@export\s+var\s+\w+\s*:\s*\w*(?:Resource|Data)\b",
+     "@export 的 Resource 未在 _ready 内 duplicate —— 所有实例共享同一份，"
+     "改一个实例的数值会让全部实例一起变（Godot 4 最常见的 #1 新手 bug）",
+     "在 _ready 里 `x = x.duplicate()`；嵌套 Resource 要 `duplicate(true)` 深拷贝",
+     r"duplicate\s*\("),
+
+    ("GD97", "P2", "空函数", "gd",
+     r"\bfunc\s+\w+\s*\([^)]*\)[^:]*:\s*pass\s*$",
+     "函数体只有 pass —— 若是占位应标记 TODO，若是回调则可删（引擎不要求空实现）",
+     "删除空回调，或补上实现；确需占位就写明 TODO 原因",
+     ""),
+
+    ("GD98", "P2", "自引用", "any",
+     r"(?<![.\w])([a-z_]\w*)\s*(?:=|==)\s*\1\s*(?:#.*)?$",
+     "自赋值或自比较 —— 通常是笔误（如想写 self.x = x 却写成 x = x），"
+     "逻辑上永远是恒等/no-op",
+     "检查是否笔误；GDScript 里成员赋值应写 `self.x = x` 或改参数名",
+     ""),
+
+    # 只收有明确源码特征的。像"密钥在客户端所以不安全"这类是架构判断，
+    # 静态扫不出来，留在 p-godot.md 里人工看。
+    ("GD81", "P1", "安全", "any", r"open_encrypted(?:_with_pass)?\s*\(",
+     "用了加密存档但未见任何签名/校验 —— AES-CBC 无认证，"
+     "可被比特翻转攻击：不改密钥就能改数值，且解密不报错",
+     "加密之外必须加 HMAC 签名，且**先验签再解密**；比对用 constant_time_compare",
+     r"hmac|verify|constant_time_compare|signature|校验"),
+    ("GD82", "P1", "安全", "gd",
+     r"(?:KEY|SECRET|PASSWORD)\s*[:=]+\s*['\"\w]{8,}",
+     "密钥/口令以明文字符串写在脚本里 —— PCK 可解包、.gdc 可反编译，等于没加密",
+     "主密钥分段藏在不同位置运行时拼接；真要防逆向放 GDExtension",
+     ""),    ("GD83", "P1", "安全", "gd", r"get_unix_time_from_system\s*\(",
+     "用系统时间做时间判定 —— 玩家改系统时钟即可绕过（每日奖励、冷却、签到）",
+     "纯玩内计时改 Time.get_ticks_msec()；跨会话的每日奖励必须用服务端时间",
+     ""),
+    ("GD84", "P2", "安全", "any", r"(?:hmac|mac|sign|digest)\w*\s*==\s*|==\s*\w*(?:hmac|mac|sign|digest)",
+     "用 == 比对 HMAC/签名 —— 提前退出会泄露「前几字节对上了」的信息（时序侧信道）",
+     "改用 Crypto.constant_time_compare()",
+     ""),
+    ("GD85", "P1", "安全", "gd", r"(?:is_debug_build|is_editor_hint)\s*\(",
+     "用 debug 构建检测做安全门禁 —— 仅能挡住最基础的尝试，"
+     "且若检测到就直接崩溃/弹窗，等于帮攻击者定位检查点",
+     "检测到后静默处理（标记/回滚/上报），不要给攻击者任何可观测反馈",
+     ""),
+
 ]
 
 
@@ -431,6 +566,28 @@ def scan_file(path: Path, rel: str) -> list[dict]:
                     add(j, rid, level, rule, msg, fix)
                     break      # 同一规则在同一帧回调内只报一次
 
+    # ---- 2.5) _physics_process 内 await（协程挂起会跳过物理帧）----
+    for name, s0, e0 in methods:
+        if name != "physicsprocess":
+            continue
+        for j in range(s0, e0):
+            if re.search(r"\bawait\b", lines[j]):
+                add(j, "GD96", "P0", "物理帧挂起",
+                    "在 _physics_process 中 await —— 协程挂起会跳过物理帧，"
+                    "恢复后 delta 与物体状态都已不可信",
+                    "改用状态机或 Timer 节点，不要在固定步里 await")
+                break
+
+    # ---- 2.6) 函数体过长（职责过多的信号）----
+    MAX_FUNC_LINES = 80
+    for name, s0, e0 in methods:
+        n = e0 - s0
+        if n > MAX_FUNC_LINES:
+            add(s0, "GD99", "P2", "函数过长",
+                "函数体 %d 行，超过 %d 行 —— 通常意味着职责过多，"
+                "出问题时难以定位" % (n, MAX_FUNC_LINES),
+                "按职责拆成多个私有方法，或把独立职责抽成组件节点")
+
     # ---- 3) _process 内做物理移动 ----
     for name, s, e in methods:
         if name != "process":
@@ -512,10 +669,12 @@ def scan_file(path: Path, rel: str) -> list[dict]:
     for rid, level, rule, rlang, pat, msg, fix, absent in DOMAIN_RULES:
         if rlang not in ("any", lang):
             continue
-        if not re.search(pat, text):
+        # MULTILINE 必需：pat 里可能带 $ 锚点
+        # （如 GD97 空函数、GD98 自赋值），无 M 时 $ 只匹配全文末尾
+        if not re.search(pat, text, re.M):
             continue
         # 「改了 X 却没调 Y」类：Y 在文件里出现过就不报
-        if absent and re.search(absent, text):
+        if absent and re.search(absent, text, re.M):
             continue
         frame_only = rid in ("GD22", "GD31")
         if frame_only:
@@ -720,6 +879,221 @@ func sfx():
     p.finished.connect(p.queue_free)
 '''
 
+SELF_EXTRA_BAD = '''extends Node3D
+
+@export var spd := 1.0
+
+func _ready():
+    $Mesh.global_position = Vector3(1, 2, 3)
+    $Spot.spot_angle = 120
+    $Light.editor_only = true
+    $Mat.set_shader_parameter("u_color", Color.RED)
+    $Par.visibility_aabb = AABB(Vector3.ZERO, Vector3.ONE)
+    assert(spd > 0, "spd must be positive")
+    emit_signal("ready_done")
+    var a = other.duplicate()
+    print("dbg")
+    await get_tree().create_timer(1.0).timeout
+    do_next()
+'''
+
+SELF_EXTRA_CLEAN = '''extends Node3D
+
+const U_COLOR := "u_color"
+@export var spd := 1.0
+
+func _ready():
+    $Mesh.position = Vector3(1, 2, 3)
+    $Spot.spot_angle = 45
+    $Mat.set_shader_parameter(U_COLOR, Color.RED)
+    if spd <= 0:
+        push_error("spd must be positive")
+        return
+    ready_done.emit()
+    var a = other.duplicate(true)
+    print_debug("dbg")
+    await get_tree().create_timer(1.0).timeout
+    if not is_instance_valid(self):
+        return
+    do_next()
+'''
+
+SELF_HOT_BAD = '''extends Node
+
+@export var weapon: WeaponData
+
+func _process(delta):
+    var s = load("res://x.tres")
+    if Input.is_action_pressed("jump"):
+        pass
+    if position == Vector2.ZERO:
+        pass
+    if global_position.distance_to(_target) < 100.0:
+        pass
+    var hp = 10
+    hp = hp
+
+func _physics_process(delta):
+    await get_tree().create_timer(0.1).timeout
+
+func empty_one() -> void: pass
+'''
+
+SELF_HOT_CLEAN = '''extends Node
+
+@export var weapon: WeaponData
+var _target: Node2D
+var _cached: Resource
+
+func _ready():
+    weapon = weapon.duplicate() as WeaponData
+    _cached = preload("res://x.tres")
+
+func _process(delta):
+    if Input.is_action_pressed(&"jump"):
+        pass
+    if global_position.distance_squared_to(_target.global_position) < 10000.0:
+        pass
+    if is_equal_approx(position.x, 0.0):
+        pass
+
+func _physics_process(delta):
+    velocity = Vector2.ZERO
+'''
+
+SELF_LONG_BAD = '''extends Node
+
+func too_long() -> void:
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+    var a = 1
+
+    return
+'''
+
+SELF_SEC_BAD = '''extends Node
+
+const API_KEY := "supersecret12345678"
+
+func save():
+    var f = FileAccess.open_encrypted_with_pass("user://s.dat", FileAccess.WRITE, "pw123456")
+    f.store_string("x")
+    f.close()
+
+func check_daily():
+    return Time.get_unix_time_from_system() - last > 86400
+
+func check_mac(mac):
+    return mac == computed_mac
+
+func guard():
+    if OS.is_debug_build():
+        get_tree().quit()
+'''
+
+SELF_SEC_CLEAN = '''extends Node
+
+const _A := "7f3a"
+var _key: PackedByteArray
+
+func _ready():
+    _key = (_A + _load_blob()).sha256_text().hex_decode()
+
+func save():
+    var mac = Crypto.new().hmac_digest(HashingContext.HASH_SHA256, _key, payload)
+    var f = FileAccess.open_encrypted_with_pass("user://s.dat", FileAccess.WRITE, "pw123456")
+    f.store_buffer(payload)
+    f.close()
+
+func check_daily():
+    return Time.get_ticks_msec() - last_mono > 86400000
+
+func check_mac(mac):
+    return Crypto.new().constant_time_compare(mac, computed_mac)
+'''
+
 SELF_CS_CLEAN = '''using Godot;
 
 public partial class Good : CharacterBody2D
@@ -768,6 +1142,10 @@ def self_test() -> int:
             'bad.gd': SELF_GD_BAD, 'clean.gd': SELF_GD_CLEAN,
             'bad.cs': SELF_CS_BAD, 'clean.cs': SELF_CS_CLEAN,
             'dom.gd': SELF_DOMAIN_BAD, 'domok.gd': SELF_DOMAIN_CLEAN,
+            'ex.gd': SELF_EXTRA_BAD, 'exok.gd': SELF_EXTRA_CLEAN,
+            'sec.gd': SELF_SEC_BAD, 'secok.gd': SELF_SEC_CLEAN,
+            'hot.gd': SELF_HOT_BAD, 'hotok.gd': SELF_HOT_CLEAN,
+            'long.gd': SELF_LONG_BAD,
         }
         res = {}
         for name, src in cases.items():
@@ -855,6 +1233,83 @@ def self_test() -> int:
                            ('GD52', 'AudioStreamPlayer 有 queue_free')):
             check(rid not in ids('domok.gd'), 'domok.gd 不报 %s（%s）' % (rid, label))
 
+        # --- GD6x 3D/渲染 与 GD7x 语言/工程/调试 ---
+        for rid, label in (('GD61', '直接赋值 global_position'),
+                           ('GD62', 'spot_angle 超 89'),
+                           ('GD63', 'editor_only=true'),
+                           ('GD64', 'set_shader_parameter 字面量名'),
+                           ('GD65', 'visibility_aabb'),
+                           ('GD71', 'assert 做运行时校验'),
+                           ('GD72', 'emit_signal 3.x 写法'),
+                           ('GD73', 'duplicate() 浅拷贝'),
+                           ('GD74', 'print() 调试输出'),
+                           ('GD75', 'await 后未判 is_instance_valid')):
+            check(rid in ids('ex.gd'), 'ex.gd 命中 %s（%s）' % (rid, label))
+
+        for rid, label in (('GD61', '写局部 position'),
+                           ('GD62', 'spot_angle 在范围内'),
+                           ('GD63', '未设 editor_only'),
+                           ('GD71', '改用 push_error'),
+                           ('GD72', '用 .emit()'),
+                           ('GD73', 'duplicate(true) 深拷贝'),
+                           ('GD74', '用 print_debug'),
+                           ('GD75', 'await 后判 is_instance_valid')):
+            check(rid not in ids('exok.gd'), 'exok.gd 不报 %s（%s）' % (rid, label))
+
+        # --- GD9x 性能与热路径 ---
+        for rid, label in (('GD91', '热帧内同步 load'),
+                           ('GD92', '热帧内字符串动作查询'),
+                           ('GD93', '浮点相等比较'),
+                           ('GD94', 'distance_to 阈值比较'),
+                           ('GD95', 'Resource 未 duplicate'),
+                           ('GD96', 'physics_process 内 await'),
+                           ('GD97', '空函数体'),
+                           ('GD98', '自赋值')):
+            check(rid in ids('hot.gd'), 'hot.gd 命中 %s（%s）' % (rid, label))
+
+        check('GD99' in ids('long.gd'), 'long.gd 命中 GD99（函数体超 80 行）')
+
+        for rid in ('GD91', 'GD92', 'GD93', 'GD94', 'GD95',
+                    'GD96', 'GD97', 'GD98', 'GD99'):
+            # hotok.gd 是干净样本：preload 在 _ready、&"jump"、
+            # distance_squared_to、有 duplicate
+            check(rid not in ids('hotok.gd'), 'hotok.gd 不报 %s（干净样本）' % rid)
+
+        # --- GD8x 存档安全 / 防作弊 ---
+        for rid, label in (('GD81', '加密但未签名'),
+                           ('GD82', '明文密钥写在脚本里'),
+                           ('GD83', '用系统时间做每日奖励'),
+                           ('GD84', '用 == 比 HMAC'),
+                           ('GD85', 'debug 检测后直接退出')):
+            check(rid in ids('sec.gd'), 'sec.gd 命中 %s（%s）' % (rid, label))
+
+        # GD81 有 absent 模式：出现签名相关代码就不该报
+        check('GD81' not in ids('secok.gd'), 'secok.gd 不报 GD81（有 HMAC 签名）')
+        for rid, label in (('GD83', '改用 get_ticks_msec'),
+                           ('GD84', '改用 constant_time_compare')):
+            check(rid not in ids('secok.gd'), 'secok.gd 不报 %s（%s）' % (rid, label))
+
+        # --rules 必须列出全部规则 ID。
+        # 踩过的坑：加了 DOMAIN_RULES 却没更新 --rules，用户查表只看到 15 条，
+        # 以为 GD21+ 不存在（是 game-dev 交叉引用时才发现的）。
+        # 这种"文档比实现旧"不会报错，只能靠断言钉住。
+        import subprocess
+        _r = subprocess.run([sys.executable,
+                             os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                          'godot-audit.py'), '--rules'],
+                            capture_output=True, text=True)
+        listed = set(re.findall(r'\bGD\d{2}\b', _r.stdout))
+        defined = set()
+        for tbl in (LINE_RULES, FRAME_RULES):
+            defined.update(x[0] for x in tbl)
+        defined.update(x[0] for x in DOMAIN_RULES)
+        # GD96/GD99 走方法体检测，不在 DOMAIN_RULES 里，需显式补
+        defined.update(('GD96', 'GD99'))
+        defined.update(('GD01', 'GD02', 'GD03', 'GD14', 'GD15'))
+        missing = sorted(defined - listed)
+        check(not missing,
+              '--rules 列出全部 %d 条规则（漏: %s）' % (len(defined), missing or '无'))
+
         print('\n自检：%d 通过 / %d 失败' % (ok, len(fail)))
         for f in fail:
             print('  失败：%s' % f)
@@ -900,8 +1355,20 @@ def main():
                                       ("GD02", "P0", "tween泄漏", "create_tween 未保存"),
                                       ("GD03", "P1", "timer失控", "create_timer 未保存"),
                                       ("GD14", "P1", "物理时机", "_process 内做物理移动"),
+                                      ("GD96", "P0", "物理帧挂起", "_physics_process 内 await"),
+                                      ("GD99", "P2", "函数过长", "函数体超 80 行"),
                                       ("GD15", "P1", "信号未断", "清理回调里未 disconnect")):
             print("  %-6s %-4s %-8s %s" % (rid, level, rule, msg))
+        # 领域规则此前没列进来：`--rules` 只显示 15 条，而实际有 44 条，
+        # 用户查规则表会以为 GD21+ 不存在（game-dev 交叉引用时才发现）。
+        print()
+        print("  领域规则（GD2x 物理 / GD3x UI / GD4x IO / GD5x 其他 /"
+              " GD6x 3D / GD7x 语言）：")
+        for rid, level, rule, rlang, pat, msg, fix, absent in DOMAIN_RULES:
+            if rid in seen:
+                continue
+            seen.add(rid)
+            print("  %-6s %-4s %-8s %s" % (rid, level, rule, msg[:52]))
         return
 
     target = args.path or args.src
