@@ -233,6 +233,51 @@
 | 2026-09-15 | 脚本名残留 | 修正 | scan-ts.py 文档头 8 处、dep-scan.py 报错提示仍写 pattern-scan.py（早已改名）。照着做会 command not found |
 | 2026-09-15 | 规则→判据 显式映射 | 新增 | items.json 按 scene 编号、scan-ts 按族编号，两套体系撞在同一字母上（TS-A05 归一化后与 A-05 同号）。加 registry 的 item 字段存显式映射，item-index 优先读它。116/131 条已映射，15 条确认无对应。此前 41/131 条取到无关判据 |
 | 2026-09-15 | 语言包候选丢失 | 修正 | registry 把 PY-05 标 s-backend、PY-06 标 s-sandbox，按 registry 分组导致这两条被分到路由未命中的场景、候选静默丢失。改为按 ID 前缀归语言包（判据就写在 p-python.md，审 Python 该在 p-python 看到） |
+<<<<<<< 本地
+| 2026-09-15 | CI 扫描器列表改推导式 | 修正 | CI 写死 `for s in scan-ts scan-app scan-py scan-go scan-java scan-cpp`——新增 Rust 语言包后 scan-rust.py 一条自检都没跑，流水线照样绿。同一类「名单漏一个就静默失效」刚在 --map 里修过，CI 里又留了一份。新增 --scanners 从注册表推导，SARIF 步骤同样推导。变异测试：从注册表移除 scan-rust 后会报「有扫描器文件但注册表里没有它的规则」 |
+| 2026-09-15 | scan-ts 静默空转 | 修正 | 无可扫文件时 `return`（退出码 0）→ 不扫描、不写 SARIF，CI 里配 `|| true` 后完全隐形。ts.sarif **从未生成过**。改为退出码 1，并按 --flat 与否分别给提示（原先 --flat 已传入却仍提示「请加 --flat」）。审计确认 audit.py 第 544 行对非零退出有容错，改动安全 |
+| 2026-09-15 | SARIF 忽略规则 | 新增 | 仓库无 .gitignore，CI 生成的 all.sarif / sarif-out/ 与 __pycache__ 会污染仓库（.pyc 已生成）。补进已有的 skill 级 .gitignore（其注释本就声明「跑出来的产物」），不另建根级文件 |
+| 2026-09-15 | CI 历史失败根因（scan-ts 静默空转） | 修正 | CI 从首次运行起**每次**都在「上传 SARIF」失败。根因链：scan-ts 无可扫文件时 return（退出码 0）→ ts.sarif 从未生成 → sarif.py 遇缺失输入抛 FileNotFoundError → 被 `|| true` 掩盖 → all.sarif 从未生成 → 上传步因文件缺失失败。修 scan-ts 退出码 + CI 推导式（只合并已生成文件）后，CI 首次全绿（audit + engine 两 job 全 success，SARIF 23 条结果上传成功） |
+| 2026-09-15 | sarif.py 缺失输入改为跳过 | 修正 | 遇到不存在的输入文件直接崩，导致 --out 文件根本不生成，配合调用方的 `|| true` 整条链静默失效。改为跳过 + stderr 告警，仍写出合法空 SARIF |
+| 2026-09-15 | CI 扫描器列表推导化 | 修正 | 写死的 6 个扫描器名单漏掉新增的 scan-rust.py，一条自检都没跑。新增 --scanners 从注册表推导，SARIF 步骤同样推导；grep 过滤告警行，列表为空则退出 1 |
+| 2026-09-15 | .gitignore 补 SARIF | 新增 | 补 *.sarif / sarif-out/ 进已有的 skill 级 .gitignore（不另建根级文件） |
+| 2026-09-15 | p-cocos 393 行 0 条判据 | 修正 | 体量失衡是表象，真因是条目标题写成「### 1. 循环缓动未停止」，不符合 item-index 的 ENTRY_RX（`### CC-01 (P0) 标题`）→ 整份文档一条都没进 items.json（其他语言包 ~140 行产出 10 条）。六大泄漏源改标准格式后产出 CC-01~06 |
+| 2026-09-15 | cocos-audit 未接入注册表 | 修正 | 能报 11 类问题，但注册表里 0 条 cocos 规则——无 fixture、无 eval、无判据映射、不计入覆盖率。给扫描器加 RULE_IDS（中文名→CC-11~21，避开人工判据的 CC-01~06），输出带 id，并在 extract 里从它自己的表提取（不另立清单）。规则 164→175 |
+| 2026-09-15 | cocos-audit 参数风格 | 修正 | 用**位置参数**接路径，--test 统一按 `--src=` 调会让 argparse 直接退出 → 11 条规则全被算成「扫描器没跑起来」。已适配 |
+| 2026-09-15 | 变体目录样本假绿 | 修正 | `TS-D02-dts/long/regex` 是额外 fp 样本目录，但 native 取 rid.split('-',1)[-1]='D02-dts'，扫描器输出的是 'D02' → 永远匹配不上 → fp 恒为 True。三个目录里的额外样本从未验证过任何东西。改为解析出基规则。变异测试：把 fp 改成 tp 形态后正确报「FP 被命中」 |
+| 2026-09-15 | 未覆盖统计失真 | 修正 | 「规则数 − 目录数」相减，3 个变体目录正好抵掉 CC-15/CC-18 两条真实缺口 → 报「未覆盖 0」。改按 rule_id 逐项核对。变异测试：删掉一个样本目录后正确报「未覆盖 1」 |
+| 2026-09-15 | attach_fixtures 不认 tp.d/ | 修正 | 只认 `startswith('tp.')`，项目级规则（J13/P01~P05/R08/G01~G12/K12/K25/K27/C01）与全部 cocos 规则的 tp.d/ 整树形态都被判成「没有样本」 |
+| 2026-09-15 | 缺口补齐批次 9 条项目级规则 | 新增 | G01 打包范围过宽 / G04 依赖与 lock 不一致 / G05 占位资源 / G10 sourcemap 常量 / G12 构建不可复现 / K12 注册表只增不减 / K25 命令未注册 / K27 重复实现 / C01 特性未接线。各配 tp.d/fp.d 整树样本。G01 判据原枚举字面量漏了真实的 `../.`，改归一化判定 |
+| 2026-09-15 | 项目级规则改自动发现 | 修正 | extract 里 PROJECT_CHECKS 是硬编码清单——与 --map 那次同类：新增 9 条后扫描器能报、自检能报，唯独注册表里没有。改为从函数 docstring 自动发现 |
+| 2026-09-15 | common-maintenance 拆分 | 修正 | 221 行超 SK009 上限。映射章节（73 行）下沉为 references/rule-mapping.md，主文件 161→176 行（含新增经验章节）。新文件在 SKILL.md 登记以免判孤儿 |
+| 2026-09-15 | gaps.json 陈旧分类 | 修正 | 23 条补完规则后仍标 todo → 改 covered；stale 判定原本扫全表，把 xref/manual 也算进去，导致补完后提示不消失 |
+| 2026-09-16 | 新增 --cross 交叉审计 | 新增 | --test 只查「tp 命中自己 / fp 不命中自己」，两个方向都有盲区。--cross 查：A. fp 被**别的**规则命中（fp 是「正确写法」示例，会被人照抄，自带缺陷比没有更糟）；B. tp 没命中自己只命中别的（通过是蹭来的）。实测首次跑出 37 条 A。已接进 CI |
+| 2026-09-16 | --cross 自身假绿 | 修正 | 第一版漏 `import subprocess`，NameError 被 `except Exception: return None` 吞掉 → 每个样本都被当成「没跑起来」跳过，恒绿，变异测试也不变红。改为显式打印失败原因，并把「没跑起来」的样本计入失败 |
+| 2026-09-16 | fp 样本自带真缺陷 | 修正 | RS-01 fp 把入参直接喂 fs::read_to_string（自带路径穿越 + 无大小限制，被 RS-05/RS-06 抓到）；RS-05 fp 无 take 上限；APP-K08/K10 fp 丢弃 returncode；APP-R10 fp remove_file 无路径校验；APP-R01 fp 读取无约束。均已重写为真正无缺陷的写法 |
+| 2026-09-16 | PY-03 锁误报 | 修正 | 模块级**共享锁**生命周期与宿主同长，本就不该用 with（用了反而每次新建、失去互斥）。不区分的话 `lock = threading.Lock()` 这种最标准写法被一律误报。改为只报函数内临时创建的锁 |
+| 2026-09-16 | A01 循环条件误报 | 修正 | `while (r < 64)` 里的 r 是循环控制变量（从字面量起步），不是外部输入。按变量名排除不可能穷举 → 改为只判 if 守卫，循环上界交给 B01/B02，职责不重叠 |
+| 2026-09-16 | T02 .length 边界误报 | 修正 | `.length` / `.size` 必然是有限非负整数，不存在 ±Infinity。不豁免的话 `for (let i = 0; i < arr.length; i++)` 被一律误报 |
+| 2026-09-16 | B01/T02/W01 守卫口径不一致 | 修正 | 三处各写一份正则，各自漏各自的。统一到 GUARD_RX（补 Number.isInteger / isSafeInteger / Math.min —— 前者比 isFinite 更严格，后者对循环上界是有效收口） |
+| 2026-09-16 | O02 正则字面量误报 | 修正 | `css.replace(/(^|\})([^{}@]+)\{/g, ...)` 里的 `/` 被当除号 → 任何含正则字面量的文件都误报。改为看 `/` 左侧紧邻字符判断（左侧是标识符/数字/)/] 才是除法）。第一版把判断写反了，两个方向全错 |
+| 2026-09-16 | Q03 扁平容器误报 | 修正 | 只判**值本身是容器**的分桶 Map。扁平容器（pending 表 Map<string, number>）删了条目就没了，不存在空桶。另：`clear + delete` 连桶一起删，也不算 |
+| 2026-09-16 | B03 点号调用误判自递归 | 修正 | `resources.load(...)` 里的 `.load(` 被当成 `function load()` 的自递归（\b 不排除点号）。load/render/update/init 这类通用名在真实代码里极易撞。改用 `(?<![.\w])` |
+| 2026-09-16 | P04 splice 负数误报 | 修正 | 附近已有下标范围校验（Number.isInteger / >=0 / <length）就不算陷阱。新增 RANGE_GUARD_RX，与 GUARD_RX 分开（一个管数值有限，一个管下标区间） |
+| 2026-09-16 | D01 对象字面量误报 | 修正 | 对全文匹配 `name: T;`，配置对象 `export const flags = { debug: false }` 里的 debug 也被当接口字段。改为只取 interface / type 声明块内的字段（配平花括号取块） |
+| 2026-09-16 | C01 小项目误报 | 修正 | 单文件的库入口 export 本就是给外部用的，项目内没人 import 是**正常的**。加「文件数 < 3 不判断」下限。配套的 APP-C01 fixture 补第三个文件以越过阈值 |
+| 2026-09-16 | K16 Tcp bind 误报 | 修正 | `TcpListener::bind` 本身没有超时参数（超时设在 accept 出来的 stream 上），只 bind 不处理的文件不该报。改为：TcpStream::connect 直接要求超时；TcpListener::bind 需**同一文件内**有 incoming/accept。第一版用两个前瞻要求同在一行，漏了换行的场景 → 改用 [\s\S] 跨行 |
+| 2026-09-16 | P0-A 审查结果整包丢失 | 修正 | Cocos 与 Rust 两个语言包的候选**全家丢失**：单独跑扫描器出 4 条/2 条，走 audit.py 编排显示 0 条。三层连环失效：① ALL_SCANNERS 漏 cocos-audit.py → 从不执行 ② 前缀名单漏 RS/CC → 候选被加错前缀归 s-contracts，该场景未命中路由即丢弃（LANG_SCENE['RS'] 因此是死配置）③ cocos-audit 只认位置参数，编排按 --src= 调被拒绝还报「0 条候选」。三层全修，实测 Cocos 0→4、Rust 0→2 |
+| 2026-09-16 | cocos-audit 参数风格 | 修正 | 新增 --src= 支持（位置参数保留），与其余扫描器统一。此前编排调用被 argparse 拒绝却报「0 条候选」而非「调用失败」 |
+| 2026-09-16 | 判据映射回退 | 修正 | _pick_items 命中规则号查不到判据时，改走 registry 的 item 映射。扫描器规则号（CC-11）与人工判据号（CC-02）本就不是一套编号，不做这步平台包判据一条都取不到 |
+| 2026-09-16 | 输出自相矛盾 | 修正 | 曾出现「4 条候选 · 无候选，跳过判据」。有候选却取不到判据时改为明确提示「⚠ N 条候选但对不上判据条目 → 请整读该场景参考文档」 |
+| 2026-09-16 | xrefs 形同虚设 | 修正 | 25 条判据写了互指，其中 20 条因正文够长**永不展开**（expand 只展开指针条目）。改为人工审核时自动带上关联的 P0 条目，上限 3 条控制篇幅 |
+| 2026-09-16 | 未知 flag 静默忽略 | 修正 | 手写 sys.argv 解析的脚本会无视拼错的 flag 照常返回 0。实测 `rule-registry.py --self-test` 跑默认命令退出 0——用户以为跑了自检、CI 以为过了。新增 scripts/_flagguard.py，已接入 check-skill / dep-scan / doc-deliverable / doc-promise / project-rules；rule-registry 加 KNOWN_FLAGS 校验 |
+| 2026-09-16 | SARIF 前缀第三次踩坑 | 修正 | known 前缀写死，Rust 包进来后 RS-01 被改成 TS-RS-01、CC-13 同理 → SARIF 查不到元数据，规则描述与 CWE 全丢。改为从 registry 真实 rule_id 推导，新增语言包自动纳入 |
+| 2026-09-16 | SARIF 合并未去重 | 修正 | --merge 同一条 finding 来自多个输入会翻倍，Code Scanning 里同一处显示两遍。加 fingerprint 去重；同时锁「不同行的同类问题不误合并」，防止有人为去重去掉行号导致漏报 |
+| 2026-09-16 | 新增 sarif --self-test | 新增 | 9 条断言固化手工实测发现的 bug（RS/CC/PY 前缀、裸族号补前缀、空 ID、去重、不误合并、指纹稳定、空输入合法） |
+| 2026-09-16 | 新增 check-list-drift.py | 新增 | 硬编码名单 vs 事实源交叉比对。本仓库已六次踩「名单写死 → 漏一个 → 静默少做」。检查项：ALL_SCANNERS⊇SCENE_SCRIPTS、注册表 scanner↔磁盘文件、语言前缀⊇LANG_SCENE 与 p-*.md 判据前缀、SKIP_DIRS 一致性。先红后绿，自检含独立变异验证 |
+| 2026-09-16 | 清单核实偏差 | 说明 | 外部清单引用的 A-19 / PY-13 / A-18 / K-35 在本仓库不存在（判据只到 A-17 / PY-12）；提到的 mutate.py 不存在（对应概念「无 mutate 即跳过」在 scan-py.py PY-08）。标注为「确认没问题」的语言包映射实际是死配置，已修 |
+=======
+>>>>>>> 远端
 | 2026-09-15 | H-12 | 修正 | 撞号：s-sandbox 与 s-contracts 各自定义了 H-12，--get H-12 返回两条分不清场景。后加的 s-contracts 那条改为 H-15（先到先得，保留 s-sandbox 的 H-12）  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
 | 2026-09-15 | C-01 | 修正 | 补回被覆盖丢失的 8 行「死参数 / 孤儿键」形态：add_argument 有键但实现从不读，传了无效果且无提示；另 --method bogus 无值校验靠服务端 422 兜底  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |
 | 2026-09-15 | PY-13 | 修正 | registry.json 里被清掉的 PY-13 已补回。注意：它由 extract() 自动提取（scan-py.py），**不需要**进 extra 清单——extra 那段 rule_id 硬编码为 APP-%s、scanner 写死 scan-app.py，加进去会生成错误的 APP-PY-13  （来源：push_api.py 第9轮审查 2026-09-16 / 并行任务反馈） |

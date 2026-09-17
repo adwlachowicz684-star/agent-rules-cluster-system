@@ -1,11 +1,22 @@
 package main
 
-import "sync"
+import (
+	"context"
+	"time"
+)
 
-var wg sync.WaitGroup
-
-func f() {
-	wg.Add(1)
-	go func() { defer wg.Done(); work() }()
-	wg.Wait()
+func f(ctx context.Context) {
+	go func() {
+		defer func() { _ = recover() }()   // panic 不掀翻进程
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				poll()
+			case <-ctx.Done():   // 有退出机制
+				return
+			}
+		}
+	}()
 }

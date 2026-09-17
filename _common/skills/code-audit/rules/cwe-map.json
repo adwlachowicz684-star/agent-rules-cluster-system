@@ -192,6 +192,13 @@
    "cwe": [
     "CWE-1104"
    ],
+<<<<<<< 本地
+   "fix": "提交 lock 文件；CI 用 --frozen-lockfile 安装"
+  },
+  "APP-G05": {
+   "cwe": [],
+   "fix": "替换 identifier / productName / 图标为正式值"
+=======
    "fix": "提交对应 lock 文件（package-lock.json / Cargo.lock / go.sum 等），CI 用 --frozen-lockfile 安装"
   },
   "APP-G05": {
@@ -199,6 +206,7 @@
     "CWE-1188"
    ],
    "fix": "把 com.example.* / your-app / CHANGE_ME 换成真实标识；发布前跑一遍全局搜索确认无残留"
+>>>>>>> 远端
   },
   "APP-G07": {
    "cwe": [],
@@ -213,19 +221,31 @@
    "fix": "确认是死代码则删除；确实要接线就补上引用"
   },
   "APP-G10": {
+<<<<<<< 本地
+   "cwe": [
+    "CWE-540"
+   ],
+   "fix": "sourcemap 随 profile 变化；生产不产出 .map，或产出但不同源分发"
+=======
    "cwe": [],
    "fix": "CI 引用的 script 名补进 package.json，或修正 CI 里的拼写"
+>>>>>>> 远端
   },
   "APP-G11": {
    "cwe": [],
    "fix": "统一测试文件的 import 扩展名写法（与同目录一致），或配 tsconfig/vite 的 resolve.extensions"
   },
   "APP-G12": {
+<<<<<<< 本地
+   "cwe": [],
+   "fix": "基础镜像固定 digest；apt install 锁版本；用 SOURCE_DATE_EPOCH 固定时间戳"
+=======
    "cwe": [
     "CWE-1104",
     "CWE-494"
    ],
    "fix": "基础镜像固定到具体版本或 digest（node:20.11.1-alpine / @sha256:...）"
+>>>>>>> 远端
   },
   "APP-G13": {
    "cwe": [
@@ -663,10 +683,110 @@
    "cwe": [],
    "fix": "兜底值写进 <style> 或 CSS 变量，别用 element.style 内联赋值"
   },
+<<<<<<< 本地
+  "APP-G01": {
+   "cwe": [
+    "CWE-538"
+   ],
+   "fix": "frontendDist 指向 dist 产物目录；用 files 白名单限制打包范围"
+  },
+  "APP-K12": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "进程退出回调里 remove 注册表条目；或改用有界结构"
+  },
+  "APP-K25": {
+   "cwe": [],
+   "fix": "把命令加进 tauri::generate_handler!；未注册即死代码，前端调用必失败"
+  },
+  "APP-K27": {
+   "cwe": [],
+   "fix": "合并成一份，或明确标注哪份是权威版本"
+  },
+  "APP-C01": {
+   "cwe": [],
+   "fix": "接线使用，或删除；注意动态引用（注册表/字符串拼接）可能让扫描误判"
+  },
+  "CC-11": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "onDestroy / 组件销毁时 off() 或 targetOff()；回调用类方法以便精确注销"
+  },
+  "CC-12": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "不再使用的动态资源调 decRef() / releaseAsset()"
+  },
+  "CC-13": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "repeatForever 缓动在 onDestroy 调 stop()，或 Tween.stopAllByTarget(node)"
+  },
+  "CC-14": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "事件回调用类方法而非匿名函数，否则无法精确 off"
+  },
+  "CC-15": {
+   "cwe": [
+    "CWE-401"
+   ],
+   "fix": "onDestroy 里清理监听/定时器/资源；确认真无需清理则加注释说明"
+  },
+  "CC-16": {
+   "cwe": [],
+   "fix": "把 find/getComponent/instantiate 移出 update，缓存到 onLoad/start"
+  },
+  "CC-17": {
+   "cwe": [],
+   "fix": "生产移除 console 输出或包在 CC_DEBUG 内；避免 any"
+  },
+  "CC-18": {
+   "cwe": [],
+   "fix": "高频更新的 Label 设 cacheMode = CHAR"
+  },
+  "CC-19": {
+   "cwe": [],
+   "fix": "滚动列表慎用 Mask；考虑用 Sprite 九宫格或裁剪替代"
+  },
+  "CC-20": {
+   "cwe": [],
+   "fix": "2.x 遗留 API 换成 3.x 写法（assetManager / import from cc）"
+  },
+  "CC-21": {
+   "cwe": [],
+   "fix": "确认刚体是否真会移动；静态物体用 Static 以享引擎优化"
+  },
+  "APP-G14": {
+   "cwe": [],
+   "fix": "CI step 调用的 npm script 必须在 package.json 的 scripts 里存在；建议 CI 里改用 `npm run <name> --if-present` 或加一条校验脚本"
+  },
+=======
+>>>>>>> 远端
   "PY-18": {
    "cwe": [],
    "fix": "把三引号字符串移到 def 之后的第一行；若它其实是注释性质，直接写成 #"
   },
+<<<<<<< 本地
+  "PY-19": {
+   "cwe": [],
+   "fix": "路径类字符串编解码要用同一套 errors：编码侧 .encode(\"utf-8\",\"surrogateescape\")，解码侧同样用 surrogateescape；不要用 \"replace\"（非法字节会被永久换成 U+FFFD，写回后指向的不是同一个文件）"
+  },
+  "K-43": {
+   "cwe": [],
+   "fix": "路径列表跨进程传递改用 NUL 分隔（-z / --pathspec-file-nul / -print0）；POSIX 文件名允许含换行，用 \\n 拼接会把一条路径拆成两条"
+  },
+  "K-44": {
+   "cwe": [],
+   "fix": "先读已有 git config（git config --get user.name），读不到再回退到显式默认值，并打印一行说明告知用户将使用什么身份提交"
+  },
+=======
+>>>>>>> 远端
   "AR-01": {
    "cwe": [],
    "fix": "判定函数返回 Verdict/Plan 结构体，输出集中到 ui 层；错误用带码异常类型，顶层统一转退出码"
@@ -684,4 +804,8 @@
    "fix": "conftest.py 提供 fake_remote / tmp_repo fixture，在边界层注入而非 patch 模块全局；断言结构化返回值"
   }
  }
+<<<<<<< 本地
 }
+=======
+}
+>>>>>>> 远端

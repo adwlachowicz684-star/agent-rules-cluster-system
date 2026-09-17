@@ -3,6 +3,14 @@
  "note": "由 scripts/item-index.py --sync 从 references/*.md 提取。不要手改（会被 --check 判为漂移）；改 Markdown 后重新 sync。",
  "files": [
   {
+   "file": "p-cocos.md",
+   "scene": "p-cocos",
+   "entries": 6,
+   "sections": 16,
+   "preamble": "<!-- oversize-exempt: 引擎专项查表文档，含生命周期/迁移/性能/包体四张对照表，需整体查阅 -->\n# Cocos Creator 引擎专项\n\n通用缺陷按场景分见 `s-numerics.md`（数值边界）、`s-structures.md`（数据结构）、`s-lifecycle.md`（成对配对 / 热路径）、`s-contracts.md`（死契约）。\n本文件只写**引擎特有**的规则——换个引擎不成立的部分。\n\n> **本文件是「引擎专项」文档的标准范式。** 要补其他引擎（Godot / Unity / Laya 等）\n> 时照此结构写，见 `references/engine-template.md`（骨架 + Cocos↔Godot 对照）。",
+   "preamble_tokens": 229
+  },
+  {
    "file": "p-cpp.md",
    "scene": "p-cpp",
    "entries": 10,
@@ -140,6 +148,104 @@
   }
  ],
  "items": [
+  {
+   "id": "CC-01",
+   "level": "P0",
+   "name": "循环缓动未停止",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "循环缓动未停"
+   ],
+   "body": "`repeatForever` 等不能自行销毁的缓动，**切换场景后继续驻留**，必须手动停止。\n\n```typescript\nprivate _rot: Tween<Node> = null!;\nonLoad() {\n  this._rot = tween(this.node).repeatForever(tween().to(1, { angle: 360 })).start();\n}\nonDestroy() {\n  this._rot?.stop();\n  Tween.stopAllByTarget(this.node);\n}\n```\n\n| 停止方式 | 作用范围 | 适用 |\n|---|---|---|\n| `t.stop()` | 单个缓动 | 精确控制，推荐 |\n| `Tween.stopAllByTarget(node)` | 该节点上所有缓动 | 组件销毁时批量清理 |\n| `Tween.stopAllByTag(n)` | 指定标签 | 按分组管理 |\n| `Tween.stopAll()` | 全部 | 场景切换，影响面大，慎用 |\n\n**`stop()` vs `clear()`**：`stop()` 只停止（可重新 start）；`clear()` 停止并**释放\nTween 对象**。不再需要的用 `clear()`。",
+   "tokens": 272,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "CC-02",
+   "level": "P0",
+   "name": "事件监听未注销",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "事件监听未注"
+   ],
+   "body": "| 注册 | 清理 | 位置 |\n|---|---|---|\n| `node.on()` | `node.off()` / `targetOff()` | `onDestroy` |\n| `input.on()` | `input.off()` | `onDisable` |\n| `systemEvent.on()` | `systemEvent.off()` | `onDestroy` |\n\n回调必须是**类方法**，不能是匿名函数——`off` 需要同一函数引用。",
+   "tokens": 95,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "CC-03",
+   "level": "P0",
+   "name": "定时器未清理",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "定时器未清理"
+   ],
+   "body": "```typescript\nonDestroy() {\n  this.unscheduleAllCallbacks();   // 只清 this.schedule 注册的\n}\n```\n\n⚠ `this.schedule(cb, ...)` 与 `setInterval` 是**两套机制**，\n`unscheduleAllCallbacks()` 清不掉 `setInterval`，后者要各自 `clearInterval`。",
+   "tokens": 77,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "CC-04",
+   "level": "P0",
+   "name": "动态资源未释放",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "动态资源未释"
+   ],
+   "body": "场景切换的\"自动释放\"**不包括** `resources.load` / `bundle.load` 动态加载的资源。\n\n```typescript\nresources.load('images/bg/spriteFrame', SpriteFrame, (err, sp) => {\n  if (err || !sp) return;\n  this.sp = sp;\n  this.sp.addRef();\n});\nonDestroy() { this.sp?.decRef(); }\n```\n\n**共享资源**：释放前用 `getDependsRecursively` 查完整依赖树，确认无人使用再释放。\n按关卡/模块隔离成独立 Bundle，卸载时整体 `bundle.releaseAll()`，比逐个 release 更稳。",
+   "tokens": 169,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "CC-05",
+   "level": "P1",
+   "name": "对象池假回收",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "对象池假回收"
+   ],
+   "body": "| 正确做法 | 理由 |\n|---|---|\n| `get/put` 严格成对，封装 `spawn()/despawn()` | 只 get 不 put → 池永远空，持续 instantiate |\n| 设 `MAX_POOL_SIZE`，超出直接 destroy | 池无上限 → 内存只增不减 |\n| despawn 时清理位置/状态/监听/tween | put 前不重置 → 状态残留、事件重复绑定 |\n| 场景销毁时 `pool.clear()` | 池持有引用 → 整池无法 GC |\n\n```\ndespawn(node)\n  ├─ node.active = false\n  ├─ 注销该节点上的事件监听\n  ├─ Tween.stopAllByTarget(node)      ← 常漏\n  ├─ unscheduleAllCallbacks()\n  └─ pool.size < MAX ? pool.put(node) : node.destroy()\n```",
+   "tokens": 217,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
+  {
+   "id": "CC-06",
+   "level": "P1",
+   "name": "闭包与全局引用（静态扫不到，必须人工看）",
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "fields": {},
+   "keywords": [
+    "必须人工看",
+    "闭包与全局引",
+    "静态扫不到"
+   ],
+   "body": "```bash\nrg -n \"getInstance|static.*instance|window\\.|globalThis\" <目录>\n```\n\n- 回调里引用了大对象（配置表、纹理数组）\n- 单例/全局变量持有节点或资源引用\n- 循环引用（A 持有 B，B 持有 A，计数永不归零）",
+   "tokens": 94,
+   "xrefs": [],
+   "source": "entry",
+   "section": ""
+  },
   {
    "id": "CPP-01",
    "level": "P0",
@@ -1711,8 +1817,8 @@
     "try",
     "未捕获"
    ],
-   "body": "- **判据**：`subprocess.run(..., timeout=N)` 没有 `try` 包，\n  或只 `except OSError` —— **`TimeoutExpired` 不是 `OSError` 子类**\n  （它继承 `SubprocessError`），因此抓不到，超时直接裸抛 traceback\n- **同类**：`check=True` 时抛的 `CalledProcessError` **同样**是\n  `SubprocessError` 而非 `OSError`，`except OSError` 也抓不到\n- **确认**：\n  ```bash\n  grep -nE \"subprocess\\.run\\([^)]*timeout=\" <file>      # 有没有 try\n  grep -nE \"except (OSError|Exception)\" <file>            # 抓的是哪一层\n  ```\n  每个带 `timeout=` 的调用点都要单独查 —— **辅助函数里捕获了，\n  不代表所有调用点都安全**（见实测）\n- **实测**：某推送脚本自己封装的 `git()` 辅助函数（行 866）捕获了\n  `TimeoutExpired` 并给出可诊断报错；但另一处**直接调**\n  `subprocess.run([\"git\",\"-C\",ROOT,\"merge-base\",...], timeout=120).returncode`\n  没包 `try` → 大仓库里这条命令挂满 120 秒就裸抛堆栈。\n  **同一份代码里两处调 git，一处安全一处不安全** —— 正是 A-22 的形态\n- **修法**：\n  ```python\n  try:\n      rc = subprocess.run([...], timeout=TIMEOUT).returncode\n  except subprocess.TimeoutExpired:\n      # 超时既不是成功，也不是「确定失败」——按 fail-closed 处理\n      return True, (f\"...超时（{TIMEOUT}s）\\n   无法确认，按最保守方式处理\")\n  ```\n- **定级 P1**（裸 traceback，流程中断）；\n  若发生在**写操作之后 / 无法回滚**的位置 → **升 P0**",
-   "tokens": 532,
+   "body": "- **判据**：`subprocess.run(..., timeout=N)` 没有 `try` 包，\n  或只 `except OSError` —— **`TimeoutExpired` 不是 `OSError` 子类**\n  （它继承 `SubprocessError`），因此抓不到，超时直接裸抛 traceback\n- **同类**：`check=True` 时抛的 `CalledProcessError` **同样**是\n  `SubprocessError` 而非 `OSError`，`except OSError` 也抓不到\n- **确认**：\n  ```bash\n  grep -nE \"subprocess\\.run\\([^)]*timeout=\" <file>      # 有没有 try\n  grep -nE \"except (OSError|Exception)\" <file>            # 抓的是哪一层\n  ```\n  每个带 `timeout=` 的调用点都要单独查 —— **辅助函数里捕获了，\n  不代表所有调用点都安全**（见实测）\n- **实测**：某推送脚本自己封装的 `git()` 辅助函数（行 866）捕获了\n  `TimeoutExpired` 并给出可诊断报错；但另一处**直接调**\n  `subprocess.run([\"git\",\"-C\",ROOT,\"merge-base\",...], timeout=120).returncode`\n  没包 `try` → 大仓库里这条命令挂满 120 秒就裸抛堆栈。\n  **同一份代码里两处调 git，一处安全一处不安全** —— 正是 A-22 的形态\n- **修法**：\n  ```python\n  try:\n      rc = subprocess.run([...], timeout=TIMEOUT).returncode\n  except subprocess.TimeoutExpired:\n      # 超时既不是成功，也不是「确定失败」——按 fail-closed 处理\n      return True, (f\"...超时（{TIMEOUT}s）\\n   无法确认，按最保守方式处理\")\n- **定级 P1**（裸 traceback，流程中断）；\n  若发生在**写操作之后 / 无法回滚**的位置 → **升 P0**",
+   "tokens": 530,
    "xrefs": [
     "A-22"
    ],
@@ -3327,8 +3433,8 @@
     "横切关注点在",
     "部分出口漏配"
    ],
-   "body": "- **判据**：同一横切关注点（重试策略、超时、鉴权头、日志埋点、限流、编码处理、\n  错误分类）在**多处重复实现** —— 常见于「主路径 + raw / 流式 / 批量 / 兼容分支」，\n  其中一处**漏配**。**且注释往往声称「两者同一套语义」**\n- **与 A-10 的分界**：A-10 是「成对 API 的**校验**不对称」；\n  本条不限于校验，覆盖**所有横切关注点**，且不限「成对」——\n  可以是 5 个出口漏 1 个\n- **确认**：\n  ① 列出所有「对外部发起调用 / 对外暴露的出口」\n  ② 逐个检查该关注点是否配置\n  ③ 重点看**后加的分支**（raw / 流式 / 兼容 / 批量）—— 它们是漏配高发区\n  ④ **搜注释里声称「与 X 同一套」的地方，逐个比对实现**\n  ⑤ **同一句「声明」有多处实现时，逐个比对它们校验了什么** ——\n     漏配的往往不是配置，而是**校验本身**（见下）\n- **新实例（校验漏配，比配置漏配更隐蔽）**：三处「声明本地已同步」\n  （`init_baseline` / `pull` / `mark_synced`），只有 `init_baseline`\n  真的比过「本地 vs 远端」（不一致直接拒绝建基线）；\n  另两处**只比了「远端 vs 基线」**就声明「本地已与远端一致」——\n  从未比过本地内容。回退场景下远端 == 基线，于是直接放行，\n  本地旧版本静默覆盖主干\n- **为什么这条难发现**：三处的函数名、输出文案都不同，\n  看起来是三件独立的事；只有把「各自校验了什么」并排写出来，\n  才看得出其中两处**校验范围小于声明范围**（与 T-14 同源）\n- **实测**（同一条缺陷在同一处**两次出现**）：\n  第一次 —— `api()` 的 raw 分支不重试 5xx，而注释明确写「raw 也退避重试」，\n  实现没跟上（**raw 只用于拉大文件，大文件恰恰最容易撞 5xx**）；\n  第二次 —— 同一处的重试判定里参数名写成 `p`（函数里叫 `path`），\n  抛 `NameError`，**注释和实现正好相反**\n- **为什么易漏**：主路径有测试覆盖，**后加的分支往往没有**；\n  且这类缺陷只在特定输入下触发（大文件、特定状态码）\n- **修法**：抽成统一的装饰器 / 上下文 / 中间件，所有出口共用；\n  做不到就在每个出口旁写同一句注释并加一条一致性测试\n- **确认**补充 ⑤：**修复是否只补了被发现的那一维** —— 主路径上同一关注点\n  往往不止一项配置（重试 / 退避时长 / 限流提示 / 超时 / 错误分类），\n  修的时候只补了报错的那一维 → 同维度其它项在新分支上依然缺失。\n  **改完要问：这次修的是「这一类」还是「这一项」？**\n  实测第三次复发：429 的 `Retry-After` 退避与限流提示只加在 JSON 分支，\n  raw 分支仍只有固定 `2**attempt` —— 而 raw 恰恰只用于拉大文件，最容易撞 429\n- **新实例（降级路径的前提假设与触发它的判断自相矛盾 —— 比漏配更隐蔽）**：\n  某推送工具探测「本环境能否靠权限位判断可执行」（`_exec_bit_reliable()`：\n  抽查若干 `.md / .json / .py` 样本，若**全部**带执行位则判定环境不可靠）。\n  这个判定有两个出口：\n  ```\n  出口 1  有改动的文件 → 判了可靠性，不可靠时回退「沿用 git 索引的 mode」  ← 有降级\n  出口 2  全部已跟踪文件 → 直接采用 git ls-files 读到的 mode，不判可靠性   ← 无降级\n  ```\n  而出口 1 的降级路径正是**回退到索引**，出口 2 也用索引 ——\n  两条路读的是**同一个来源**。可索引的 mode 恰恰是从那个刚被判定为\n  「不可靠」的文件系统里推导出来的（新建仓库 `git add` 时按 0777 写入）。\n  **降级根本没降级，只是绕了一圈回到同一个坏值。**\n- **实测**（同一工具推另一仓库）：容器里解包的 757 个文件全是 0755、\n  远端全是 0644 → 探测本身**正确报出**「文件系统不区分权限」，\n  但规划里照样列出 757 条 `mode 100644 → 100755`，且**不阻止**。\n  最终由使用者手工改索引 mode 才避免整仓库权限位翻转\n- **为什么这条难发现**：探测**报了**（有一行提示），看起来像已处理；\n  提示的措辞是「新文件一律按 100644 处理」——说的是**新文件**，\n  而实际出问题的是**已跟踪文件**，读提示的人会以为自己不在适用范围\n- **确认**：凡是「探测到环境不可靠 → 降级」的代码，追问一句\n  **降级路径用的那个数据源，是不是就是被判定为不可靠的那个？**\n  是 → 降级无效，等于没防\n- **修法**：降级不能回退到**同一个不可靠来源**。要么改用远端既有 mode\n  （远端是权威），要么在批量 mode 变更时要求显式确认\n- **附带的可执行信号**：一次推送里 **mode-only 变更占比异常高**\n  （实测 757/762）是强特征 —— 正常操作不会一次改几百个文件的权限位。\n  这类变更**值得拦或至少二次确认**，仅仅打印一行是不够的",
-   "tokens": 2138,
+   "body": "- **判据**：同一横切关注点（重试策略、超时、鉴权头、日志埋点、限流、编码处理、\n  错误分类）在**多处重复实现** —— 常见于「主路径 + raw / 流式 / 批量 / 兼容分支」，\n  其中一处**漏配**。**且注释往往声称「两者同一套语义」**\n- **与 A-10 的分界**：A-10 是「成对 API 的**校验**不对称」；\n  本条不限于校验，覆盖**所有横切关注点**，且不限「成对」——\n  可以是 5 个出口漏 1 个\n- **确认**：\n  ① 列出所有「对外部发起调用 / 对外暴露的出口」\n  ② 逐个检查该关注点是否配置\n  ③ 重点看**后加的分支**（raw / 流式 / 兼容 / 批量）—— 它们是漏配高发区\n  ④ **搜注释里声称「与 X 同一套」的地方，逐个比对实现**\n  ⑤ **同一句「声明」有多处实现时，逐个比对它们校验了什么** ——\n     漏配的往往不是配置，而是**校验本身**（见下）\n- **新实例（校验漏配，比配置漏配更隐蔽）**：三处「声明本地已同步」\n  （`init_baseline` / `pull` / `mark_synced`），只有 `init_baseline`\n  真的比过「本地 vs 远端」（不一致直接拒绝建基线）；\n  另两处**只比了「远端 vs 基线」**就声明「本地已与远端一致」——\n  从未比过本地内容。回退场景下远端 == 基线，于是直接放行，\n  本地旧版本静默覆盖主干\n- **为什么这条难发现**：三处的函数名、输出文案都不同，\n  看起来是三件独立的事；只有把「各自校验了什么」并排写出来，\n  才看得出其中两处**校验范围小于声明范围**（与 T-14 同源）\n- **实测**（同一条缺陷在同一处**两次出现**）：\n  第一次 —— `api()` 的 raw 分支不重试 5xx，而注释明确写「raw 也退避重试」，\n  实现没跟上（**raw 只用于拉大文件，大文件恰恰最容易撞 5xx**）；\n  第二次 —— 同一处的重试判定里参数名写成 `p`（函数里叫 `path`），\n  抛 `NameError`，**注释和实现正好相反**\n- **为什么易漏**：主路径有测试覆盖，**后加的分支往往没有**；\n  且这类缺陷只在特定输入下触发（大文件、特定状态码）\n- **修法**：抽成统一的装饰器 / 上下文 / 中间件，所有出口共用；\n  做不到就在每个出口旁写同一句注释并加一条一致性测试\n- **确认**补充 ⑤：**修复是否只补了被发现的那一维** —— 主路径上同一关注点\n  往往不止一项配置（重试 / 退避时长 / 限流提示 / 超时 / 错误分类），\n  修的时候只补了报错的那一维 → 同维度其它项在新分支上依然缺失。\n  **改完要问：这次修的是「这一类」还是「这一项」？**\n  实测第三次复发：429 的 `Retry-After` 退避与限流提示只加在 JSON 分支，\n  raw 分支仍只有固定 `2**attempt` —— 而 raw 恰恰只用于拉大文件，最容易撞 429\n- **新实例（降级路径的前提假设与触发它的判断自相矛盾 —— 比漏配更隐蔽）**：\n  某推送工具探测「本环境能否靠权限位判断可执行」（`_exec_bit_reliable()`：\n  抽查若干 `.md / .json / .py` 样本，若**全部**带执行位则判定环境不可靠）。\n  这个判定有两个出口：\n  ```\n  出口 1  有改动的文件 → 判了可靠性，不可靠时回退「沿用 git 索引的 mode」  ← 有降级\n  出口 2  全部已跟踪文件 → 直接采用 git ls-files 读到的 mode，不判可靠性   ← 无降级\n  而出口 1 的降级路径正是**回退到索引**，出口 2 也用索引 ——\n  两条路读的是**同一个来源**。可索引的 mode 恰恰是从那个刚被判定为\n  「不可靠」的文件系统里推导出来的（新建仓库 `git add` 时按 0777 写入）。\n  **降级根本没降级，只是绕了一圈回到同一个坏值。**\n- **实测**（同一工具推另一仓库）：容器里解包的 757 个文件全是 0755、\n  远端全是 0644 → 探测本身**正确报出**「文件系统不区分权限」，\n  但规划里照样列出 757 条 `mode 100644 → 100755`，且**不阻止**。\n  最终由使用者手工改索引 mode 才避免整仓库权限位翻转\n- **为什么这条难发现**：探测**报了**（有一行提示），看起来像已处理；\n  提示的措辞是「新文件一律按 100644 处理」——说的是**新文件**，\n  而实际出问题的是**已跟踪文件**，读提示的人会以为自己不在适用范围\n- **确认**：凡是「探测到环境不可靠 → 降级」的代码，追问一句\n  **降级路径用的那个数据源，是不是就是被判定为不可靠的那个？**\n  是 → 降级无效，等于没防\n- **修法**：降级不能回退到**同一个不可靠来源**。要么改用远端既有 mode\n  （远端是权威），要么在批量 mode 变更时要求显式确认\n- **附带的可执行信号**：一次推送里 **mode-only 变更占比异常高**\n  （实测 757/762）是强特征 —— 正常操作不会一次改几百个文件的权限位。\n  这类变更**值得拦或至少二次确认**，仅仅打印一行是不够的",
+   "tokens": 2137,
    "xrefs": [
     "A-10",
     "T-14"
@@ -4694,7 +4800,7 @@
     "per_page",
     "列表查询无分"
    ],
-   "body": "- **判据**：`GET /items?per_page=100` 之类一次性取回，不翻页、不循环，\n  也不提示「结果可能被截断」\n- **确认**：该集合的实际规模会不会超过单页上限？会 → 命中\n- **实测**：分支体检的 `list_branches()` / `find_pr()` 都是 `per_page=100` 封顶无翻页；\n  分支数超 100 时**静默漏报** —— 用户看到「很干净」，实际有分支没被检查到\n- **修法**：跟 `Link` 响应头翻页；或至少在结果数 == 单页上限时\n  打印「结果可能不完整」。**静默截断比不分页更糟**\n- **定级 P2** → 若该列表用于**安全 / 清理判定**（漏一个 = 漏检）则升 P1\n\n---",
+   "body": "- **判据**：`GET /items?per_page=100` 之类一次性取回，不翻页、不循环，\n  也不提示「结果可能被截断」\n- **确认**：该集合的实际规模会不会超过单页上限？会 → 命中\n- **实测**：分支体检的 `list_branches()` / `find_pr()` 都是 `per_page=100` 封顶无翻页；\n  分支数超 100 时**静默漏报** —— 用户看到「很干净」，实际有分支没被检查到\n- **修法**：跟 `Link` 响应头翻页；或至少在结果数 == 单页上限时\n  打印「结果可能不完整」。**静默截断比不分页更糟**\n- **定级 P2** → 若该列表用于**安全 / 清理判定**（漏一个 = 漏检）则升 P1\n---",
    "tokens": 270,
    "xrefs": [],
    "source": "entry",
@@ -6410,7 +6516,7 @@
    "section": ""
   },
   {
-   "id": "H-17",
+   "id": "H-12",
    "level": null,
    "name": "根目录配置：扫子目录项目时会整片漏掉",
    "scene": "s-contracts",
@@ -6418,6 +6524,9 @@
    "fields": {
     "改号历史（第三次别再踩）": [
      "本条最初编号 H-12，与 `s-sandbox.md` 的"
+    ],
+    "最终归属": [
+     "本条保留 **H-12**；`s-sandbox.md` 那条改名为 **H-17**。"
     ]
    },
    "keywords": [
@@ -6425,13 +6534,13 @@
     "时会整片漏掉",
     "根目录配置"
    ],
-   "body": "- **改号历史（第三次别再踩）**：本条最初编号 H-12，与 `s-sandbox.md` 的\n  H-12（非日志出口的凭据泄露）撞号，曾改到 H-15；\n  后来 H-15 被「测试文件自己可能没接上」占用，又被改回 H-12 ——\n  **撞号复发**。`check-skill.py` 的 IX001 能抓到，但只在**改名后跑一次**才抓得到。\n  **改判据编号时，必须跑 `check-skill.py` 确认无 IX001**（见 A-26）\n\n**.github / .editorconfig / lint 配置 / 安全策略 / Dockerfile 通常在仓库根目录，\n不在被审的子目录里。** 按子目录过滤会把它们全部跳过。\n\n**实例（我自己的教训）**：审 `tauriTools` 时我只解压 `nexus-panel/` 子目录\n（过滤条件 `'/nexus-panel/' in path`），于是连续六轮报告都写「无 CI」。\n**实际 CI 一直存在** —— `.github/workflows/ci.yml` 在仓库根，\n而且它第一步就挂了（见 H-13）。**\"没有 CI\"和\"CI 是死的\"是完全不同的结论**，\n我因为漏扫给出了后者，还把它当成了前者。\n\n**检查方法**：拿到仓库后先 `tar -tzf` 或列顶层目录**确认完整结构**，\n再决定扫描范围。子目录项目要**额外扫一次根目录**。",
-   "tokens": 470,
+   "body": "- **改号历史（第三次别再踩）**：本条最初编号 H-12，与 `s-sandbox.md` 的\n  H-12（非日志出口的凭据泄露）撞号，曾改到 H-15；\n  后来 H-15 被「测试文件自己可能没接上」占用，又被改回 H-12 ——\n  **撞号复发**。`check-skill.py` 的 IX001 能抓到，但只在**改名后跑一次**才抓得到。\n  **改判据编号时，必须跑 `check-skill.py` 确认无 IX001**（见 A-26）\n- **最终归属**：本条保留 **H-12**；`s-sandbox.md` 那条改名为 **H-17**。\n  合并两条工作线时曾把两个标题并排留下，第二条正文被截成空条目，\n  由 `item-index.py --self-test` 的「条目正文非空」检查抓到。\n\n**.github / .editorconfig / lint 配置 / 安全策略 / Dockerfile 通常在仓库根目录，\n不在被审的子目录里。** 按子目录过滤会把它们全部跳过。\n\n**实例（我自己的教训）**：审 `tauriTools` 时我只解压 `nexus-panel/` 子目录\n（过滤条件 `'/nexus-panel/' in path`），于是连续六轮报告都写「无 CI」。\n**实际 CI 一直存在** —— `.github/workflows/ci.yml` 在仓库根，\n而且它第一步就挂了（见 H-13）。**\"没有 CI\"和\"CI 是死的\"是完全不同的结论**，\n我因为漏扫给出了后者，还把它当成了前者。\n\n**检查方法**：拿到仓库后先 `tar -tzf` 或列顶层目录**确认完整结构**，\n再决定扫描范围。子目录项目要**额外扫一次根目录**。",
+   "tokens": 572,
    "xrefs": [
     "A-26",
-    "H-12",
     "H-13",
-    "H-15"
+    "H-15",
+    "H-17"
    ],
    "source": "entry",
    "section": ""
@@ -6563,8 +6672,8 @@
     "确认的是另一",
     "预览所见"
    ],
-   "body": "- **判据**：`--dry-run` / 预览 / 二次确认界面展示的**对比基准**，\n  与真正执行时用的基准不是同一个对象\n- **确认**：分别打印「预览的基准」与「执行的基准」，看是否指向同一版本/同一分支/同一快照\n- **典型**：预览跑 `git diff HEAD`（本地快照），推送却以 `base_tree=远端最新` 为底 ——\n  远端比本地新时，**用户确认的内容和他推上去的内容不是一回事**\n- **同类形态**：预览按本地时间算、执行按服务端时间算；\n  预览读缓存、执行读实时；预览单条、执行批量\n- **修法**：预览必须与执行共用同一个基准对象；做不到就在预览里**显式标注基准是什么**\n- **定级**：用户据此做**不可逆决定**（覆盖、删除、覆盖他人改动）→ **P0**；否则 P1\n- **为什么易漏**：两边都「看起来合理」，只有把两个基准并排写出来才看得出分叉\n\n- **相邻形态：预览**截断**导致覆盖面小于实际执行**（同类，成因不同）：\n  预览出于成本考虑只做前 N 个（如 `PREVIEW_CAP = 20`、只拉前 100 条、\n  只渲染首屏），其余只报数量 —— 用户看到 N 行正常的 diff 就确认，\n  **第 N+1 个之后的内容完全没看过**。\n  这不是「基准不同」，是「**样本不同**」，但后果一样：确认的是另一件事\n- **确认**：预览有截断时，问「被截断的那部分，用户在别处还能看到吗？」\n- **修法**：把**未预览**的对象**单独列在一屏末尾**并明确标注「未预览」，\n  不要混在「共 N 个」的聚合数字里 —— 聚合数字会让未预览部分彻底消失\n\n---\n\n- **补充：预览的**摘要数字**同样是预览内容**\n  `+N / -M` 这类统计数字失真，与正文 diff 失真同后果——\n  用户据它判断「改了多少」，而它是推送前最后一道人工确认。\n- **同类形态：确认提示的宾语 ≠ 实际执行对象**（见 A-15 的确认粒度形态）。",
-   "tokens": 848,
+   "body": "- **判据**：`--dry-run` / 预览 / 二次确认界面展示的**对比基准**，\n  与真正执行时用的基准不是同一个对象\n- **确认**：分别打印「预览的基准」与「执行的基准」，看是否指向同一版本/同一分支/同一快照\n- **典型**：预览跑 `git diff HEAD`（本地快照），推送却以 `base_tree=远端最新` 为底 ——\n  远端比本地新时，**用户确认的内容和他推上去的内容不是一回事**\n- **同类形态**：预览按本地时间算、执行按服务端时间算；\n  预览读缓存、执行读实时；预览单条、执行批量\n- **修法**：预览必须与执行共用同一个基准对象；做不到就在预览里**显式标注基准是什么**\n- **定级**：用户据此做**不可逆决定**（覆盖、删除、覆盖他人改动）→ **P0**；否则 P1\n- **为什么易漏**：两边都「看起来合理」，只有把两个基准并排写出来才看得出分叉\n\n---\n\n- **相邻形态：预览**截断**导致覆盖面小于实际执行**（同类，成因不同）：\n  预览出于成本考虑只做前 N 个（如 `PREVIEW_CAP = 20`、只拉前 100 条、\n  只渲染首屏），其余只报数量 —— 用户看到 N 行正常的 diff 就确认，\n  **第 N+1 个之后的内容完全没看过**。\n  这不是「基准不同」，是「**样本不同**」，但后果一样：确认的是另一件事\n- **确认**：预览有截断时，问「被截断的那部分，用户在别处还能看到吗？」\n- **修法**：把**未预览**的对象**单独列在一屏末尾**并明确标注「未预览」，\n  不要混在「共 N 个」的聚合数字里 —— 聚合数字会让未预览部分彻底消失\n\n---\n- **补充：预览的**摘要数字**同样是预览内容**\n  `+N / -M` 这类统计数字失真，与正文 diff 失真同后果——\n  用户据它判断「改了多少」，而它是推送前最后一道人工确认。\n- **同类形态：确认提示的宾语 ≠ 实际执行对象**（见 A-15 的确认粒度形态）。",
+   "tokens": 849,
    "xrefs": [
     "A-15"
    ],
@@ -8198,7 +8307,7 @@
    "section": ""
   },
   {
-   "id": "H-12",
+   "id": "H-17",
    "level": null,
    "name": "非日志出口的凭据泄露（报错 / 持久化文件权限）",
    "scene": "s-sandbox",
@@ -9383,6 +9492,166 @@
  ],
  "sections": [
   {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "适用场景",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 116,
+   "body": "**适用**：Cocos Creator 2.x / 3.x 的 TypeScript 脚本。\n\n**不适用**（别硬套）：Cocos2d-x C++ 项目（本文件的规则基于 Creator 组件生命周期与 JS\n内存模型）· 编辑器插件脚本（`editor/` 下，不参与运行时）· 构建产物\n（`build/` `library/`）· 纯 Shader 与美术资源。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "前置依赖",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 124,
+   "body": "```bash\npython3 --version                          # 需 3.7+\npython3 scripts/cocos-audit.py --rules     # 确认脚本可调用\n```\n\n无 Python 3.7+ 或脚本缺失 → 只能按「审核清单」人工逐项检查，效率显著降低。\n无法访问项目路径 → 请用户指名具体文件，不要凭空猜测代码结构。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "第 1 步 · 引擎层静态扫描",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 609,
+   "body": "```bash\npython3 scripts/cocos-audit.py <项目路径或.ts文件>        # 全量\npython3 scripts/cocos-audit.py <路径> --level P0          # 只看阻塞级（CI 卡口）\npython3 scripts/cocos-audit.py <路径> --rule memory       # 只看内存类\npython3 scripts/cocos-audit.py <路径> --rules             # 查看规则分组\npython3 scripts/cocos-audit.py <路径> --json              # 机器可读\npython3 scripts/cocos-audit.py --self-test                # 改规则后必跑\n```\n\n**规则分组**：`memory`（内存）· `perf`（性能）· `migration`（2.x 遗留）· `physics`（物理）\n\n**退出码**：有 P0 返回 1（可直接接 CI），否则 0。\n\n**清理是否算数，看的是位置不是存在**：`off()` / `unschedule()` / `decRef()`\n必须出现在 `onDestroy` 或 `onDisable` 方法体内才算已清理。写在别的方法里\n（哪怕同一个文件）不算——这是「成对」的本意，注册与注销要跨同一个生命周期。\n\n**注册在 `onEnable` 里的，只能由 `onDisable` 清理**：只在 `onDestroy` 里 `off()`\n不算配对。节点 `setActive(false)` 后监听仍然生效，隐藏的节点继续被事件驱动。\n这与引擎是否对重复注册去重无关——即便去重，禁用期间监听仍在生效本身就是缺陷。\n\n**级别定义**：\n\n| 级别 | 含义 | 典型项 |\n|---|---|---|\n| **P0** | 阻塞：内存泄漏，线上累积 | on 无 off、schedule 无 unschedule、资源未释放、repeatForever 未停 |\n| **P1** | 严重：性能或生命周期误用 | update 内 find/new、匿名回调、2.x 废弃 API、Dynamic 静态物体 |\n| **P2** | 建议：代码质量 | console.log、any 类型、Mask/RichText 提示、Label cacheMode |"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "第 2 步 · 生命周期配对（人工，扫描器扫不全）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 366,
+   "body": "顺序：**onLoad → onEnable → start → update → lateUpdate → onDisable → onDestroy**\n\n| 回调 | 该放什么 | 常见误用 |\n|---|---|---|\n| `onLoad` | 自身变量、查找**自身/子节点**、注册**节点自身**事件 | 访问其他节点组件（可能未初始化 → null） |\n| `onEnable` | 注册**全局/输入**事件、启动定时器 | 与 `onDisable` 不配对 |\n| `start` | 依赖其他组件已 onLoad 的逻辑 | 放本该在 onLoad 的自身初始化 |\n| `update` | 移动、计时、输入检测 | 每帧查找/创建对象 |\n| `lateUpdate` | 相机跟随、依赖其他 update 结果 | — |\n| `onDisable` | 注销 onEnable 注册的、停定时器 | 漏掉 → 重复激活时事件多次触发 |\n| `onDestroy` | 清理监听、定时器、tween、资源 | 空实现 |\n\n**关键**：`onEnable` 首次在 `onLoad` 之后、`start` 之前；之后每次激活都触发。\n\"只注册一次\"放 `onLoad`，\"每次激活都要\"放 `onEnable`（并配 `onDisable`）。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "六大泄漏源（按出现频率排序）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 0,
+   "body": ""
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "第 3 步 · 运行时验证（静态扫描 0 项也要做）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 222,
+   "body": "| 工具 | 用法 | 看什么 |\n|---|---|---|\n| Chrome DevTools Memory | 构建 Web 版，操作前后各拍一次堆快照 | 对比 `cc.Node` / `Texture2D` 实例数是否持续增长 |\n| 微信开发者工具 | Memory 面板，JS Heap 波形 | 峰值曲线是否只升不降 |\n| Cocos Profiler | 编辑器内 Profiler，Memory 页签 | JS Heap + Texture Memory 曲线 |\n| PerfDog | 真机录制 | 内存曲线随时间走势 |\n\n**判定标准**：操作 N 次后回到初始状态，内存**应基本回到基线**。\n每次操作后遗留的增量就是泄漏量。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "性能项",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 1371,
+   "body": "### DrawCall 与合批\n\n移动端目标 **<100**。打断合批的原因：\n\n| 原因 | 处理 |\n|---|---|\n| 纹理不同（相邻节点用不同图集/散图） | 打自动图集，让它们共用一张 |\n| **Mask 组件** | 产生额外 DrawCall + Stencil 操作，滚动列表慎用 |\n| **RichText** | 每个样式片段都可能打断合批，能用 Label 就别用 |\n| 材质/Blend 不同 | 同类节点放一起渲染 |\n| Label 穿插 | 调整节点层级，同类聚拢 |\n\n### Label cacheMode 三选一\n\n| 模式 | 内存 | 适用 | 更新频率 |\n|---|---|---|---|\n| `NONE` | 低 | 静态文本（标题、菜单） | 不可动态更新 |\n| `BITMAP` | 中 | 低频更新（倒计时、金币数） | ≤5 次/秒 |\n| `CHAR` | 高 | 高频更新（聊天、伤害数字） | ≤30 次/秒 |\n\n⚠ `BITMAP` 模式下改内容后需 `label.markForUpdateRenderData()` 才生效。\nRichText 是 **JS 层实现**，底层创建大量 Label 节点，主循环中频繁修改会明显掉帧；\n**BMFont 效率最高**。静态文本合并到同一 Label 用 `\\n` 换行。\n\n### 物理\n\n| 优化项 | 做法 |\n|---|---|\n| **静态物体用 Static** | Dynamic 刚体开销是 Collider 的数倍（实测可达 5x） |\n| **善用休眠** | `allowSleep = true` |\n| **碰撞分组掩码** | 最有效手段，直接避免大量不必要的检测对 |\n| **简化碰撞形状** | 能矩形/圆形就别多边形 |\n| **CCD 只在必要时开** | 只给子弹等高速物体 |\n| **远离视口禁用** | `collider.enabled = false` |\n\n引擎选型（影响包体与性能）：`builtin`（最小，只需碰撞检测）· `cannon.js`（~141KB）\n· `bullet/ammo.js`（~1.5MB）· `PhysX`（高稳定性）。不需要物理就整个关掉。\n\n### 多分辨率适配\n\n| 策略 | 效果 | 适用 |\n|---|---|---|\n| `FIXED_HEIGHT` | 高度固定，宽度自适应 | **竖屏推荐** |\n| `FIXED_WIDTH` | 宽度固定，高度自适应 | 横屏 |\n| `SHOW_ALL` | 保持比例，两侧留黑边 | 不希望内容被裁 |\n| `NO_BORDER` | 填满屏幕，可能裁切边缘 | 背景可溢出 |\n| `EXACT_FIT` | 拉伸填满，**会变形** | 不推荐 |\n\n**Widget**：顶部 UI 勾 `Top`；底部按钮勾 `Bottom`；全屏背景四边全勾。\n⚠ 避免同时锁定 Left + Right + Width（会冲突警告）。\n\n**安全区**：`view.getSafeAreaRect()` 返回**物理像素**，需换算到设计分辨率坐标\n再更新 Widget 边距。Web 非原生环境可能返回全屏，真机才暴露问题。\n\n### 其他性能项\n\n- **对象池**：频繁创建销毁的对象必用 `NodePool`（细节见上文泄漏源 5）\n- **update 降频**：非每帧必要的逻辑累加 `dt` 或用 `frameCount % N`\n- **避免在 update 中**：`find`、`getComponent`、`instantiate`、`new`、`destroy`\n- **3D 项目**：面片数移动端建议 <10 万；用 LOD；骨骼动画开 GPU 蒙皮\n\n### 包体（微信小游戏 4MB 硬限制）\n\n| 手段 | 收益 | 做法 |\n|---|---|---|\n| **引擎裁剪** | 省 1.5~3MB | 项目设置→功能裁剪，去掉 3D/物理/视频/Spine 等未用模块 |\n| **分包/Bundle** | 主包直降 | 内容放独立 Bundle，主包只留启动场景 |\n| **引擎插件** | ~1.8MB | 微信小游戏勾选\"启用微信小游戏引擎插件\" |\n| **WASM 分离** | 数百 KB | 开启 WASM 分包 |\n| **纹理压缩** | 视资源量 | Android 用 ETC2/ASTC，iOS 用 PVRTC/ASTC |\n\n⚠ **`resources` 目录会打包全部资源**——大项目应避免滥用，\n优先用自定义 Bundle + 场景引用（引擎自动按需打包）。\n\nBundle 优先级：`internal(21)` > `resources(8)` > `main(7)` > 自定义 bundle(1+)"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "定位思路",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 105,
+   "body": "用 Profiler / Chrome Performance 录制卡顿时段，先看 **Scripting（CPU 逻辑）**\n还是 **Rendering（GPU 渲染）** 耗时过长——两边优化手段完全不同，\n搞反了会白优化。脚本侧能做的是降频与缓存；DrawCall 与图集属渲染侧。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "输出格式",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 91,
+   "body": "按 P0 → P1 → P2 分级，每条含**文件:行号 · 问题 · 为什么 · 怎么改**四项。\n不确定的标\"待确认\"，不硬判。复核时看上下文而非单行：\n\n```bash\nrg -n -B3 -A8 \"\\.on\\(|schedule\\(|repeatForever\" <文件>\n```"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "迁移对照（2.x → 3.x）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 235,
+   "body": "| 操作 | 2.x | 3.x |\n|---|---|---|\n| 查找节点 | `cc.find()` | `import { find } from 'cc'` |\n| 加载资源 | `cc.loader.loadRes()` | `resources.load()` / `assetManager` |\n| 释放资源 | `cc.loader.release()` | `assetManager.releaseAsset()` |\n| 释放依赖树 | 手动遍历 | `assetManager.releaseAllDependencies()`（自动） |\n| 分包 | `loader.downloader.loadSubpackage` | `assetManager.loadBundle()` |\n| 对象池 | `cc.NodePool` | `import { NodePool } from 'cc'` |\n| 缓动 | `cc.tween()` | `import { tween } from 'cc'` |\n| 定时器 | `cc.director.getScheduler()` | `this.schedule` / `unschedule` |\n\n⚠ **加载子资源写法变了**：\n`resources.load('bg', Texture2D)` → `resources.load('bg/texture', Texture2D)`\n`resources.load('bg', SpriteFrame)` → `resources.load('bg/spriteFrame', SpriteFrame)`"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "失败处理",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 320,
+   "body": "| 情况 | 判据 | 动作 |\n|---|---|---|\n| 扫描 0 项 | 不代表没问题 | 闭包/循环引用/全局单例静态扫不出 → 仍需人工第 2、3 步 |\n| 大量误报 | 同一规则报几十条 | `--json` 导出按 rule 聚合；多为同一模式，改一处即可 |\n| 无法判断是否为泄漏 | 组件是全局单例 | 标\"待确认：生命周期长于页面\"，不计 P0 |\n| 需运行时数据才能定论 | 内存曲线、DrawCall 数 | 明说\"静态审核无法确认，建议 Profiler 验证\"，不要猜 |\n| 模拟器流畅真机卡 | 设备性能差异 | 用低端机测；检查纹理压缩、面片数、DrawCall |\n| 卡顿但不知瓶颈 | Profiler 数据不清晰 | 分别禁用逻辑/渲染对比帧率，先分清 CPU 还是 GPU |"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "关键判断依据",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 292,
+   "body": "**为什么内存泄漏定 P0**：随游戏时长**累积**，测试期看不出，上线几十分钟后 OOM，\n定位成本远高于修复成本。性能问题是持续可感知劣化，不会突然崩溃。\n\n**为什么匿名回调单列**：`on(EVT, () => {...})` 之后**无法**精确 off\n（`off` 需同一函数引用）。是\"写了也 off 不掉\"而非\"忘了写\"，成因与改法都不同。\n\n**为什么 DrawCall 不进扫描项**：取决于场景结构与图集配置，静态扫脚本看不出来。\n\n**为什么拆三个包**：内存看引用链，性能看帧耗时，包体看构建产物——排查方法完全不同，\n塞一起会导致每次都加载全部内容。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "扫描器的已知局限",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 538,
+   "body": "改规则前先看这几条，别把扫描器的输出当成定论：\n\n| 局限 | 表现 | 处理 |\n|---|---|---|\n| 只认**成对方法** | 清理写在非 `onDestroy`/`onDisable` 里 → 仍会报 | 是真的该报（生命周期不对称），不是误报 |\n| 无法跟踪**跨文件** | A 组件注册、B 组件清理 → 两边都报 | 人工确认，标\"待确认\" |\n| `Mask` 只在**挂载处**判 | 只在 `addComponent/getComponent(Mask)` 时报；import 类型不报 | 场景里手挂的 Mask 扫不到，看 `.prefab` |\n| 闭包/循环引用/全局单例 | 完全扫不出 | 必须人工第 2、3 步 |\n| `once()` 不报 | 一次性的确实不需要 off | 正确行为，不用管 |\n| **单行方法体** | `onDestroy() { this.x(); }` 这类单行写法曾导致后续方法被吞并 | 已修（按行内花括号判定），但极端嵌套仍可能误判 |\n| 引擎专项**不在 registry** | cocos 的结果没有 CWE / fix / SARIF，也不参与全库统计 | 需要时另做打通，见 `engine-template.md` |\n\n⚠ 早期版本用「全文搜一次 `off(` 就算已清理」，实测一个文件里 3 处 `on()`\n全没清理、只要别处出现过一次 `off()` 就全部不报——**报告说没问题，实际有泄漏**。\n已改为按作用域判定，但如果你看到老报告的结论，别直接采信。"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "已知坑",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 514,
+   "body": "- ⚠ 本能会扫完就报\"没问题\"，但**闭包、循环引用、全局单例**静态扫不出来\n- ⚠ 本能以为\"扫出 0 项=通过\"，但静态扫描**只抓模式明显的问题**\n- ⚠ 本能只查 `onDestroy`，但 **`onEnable` 注册的必须配 `onDisable`**\n- ⚠ 本能以为\"tween 播完就自动没了\"，但 **`repeatForever` 永远不会自己结束**\n- ⚠ 本能以为\"GC 会处理\"，但**只要还有引用 GC 就不回收**——泄漏几乎全是\"引用没断\"\n- ⚠ 本能以为\"场景切换会自动释放资源\"，但**动态加载的不在自动释放范围内**\n- ⚠ 本能以为\"用对象池就不会泄漏\"，但**只 get 不 put / 池无上限 / put 前不清 tween** 都会让它变成泄漏池\n- ⚠ 本能先优化代码逻辑，但**很多时候瓶颈在 DrawCall 而非脚本**——先看 Profiler 再动手\n- ⚠ 本能以为 RichText 好用，但它**每个样式片段都可能打断合批**，频繁改内容明显掉帧\n- ⚠ 本能以为 Label 都一样，但 **CacheMode 选错**会严重掉帧\n- ⚠ 本能以为物理物体设 Dynamic 无所谓，但**静态物体用 Dynamic 浪费数倍性能**\n- ⚠ 本能以为 `resources` 目录方便，但它**会全量打包**，是首包超标常见元凶"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "可复用片段",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 450,
+   "body": "**泄漏安全组件模板**：\n\n```typescript\nimport { _decorator, Component, Node, Tween, tween, resources, SpriteFrame } from 'cc';\nconst { ccclass, property } = _decorator;\n\n@ccclass('SafeComponent')\nexport class SafeComponent extends Component {\n    @property(Node) target: Node = null!;\n    private _tween: Tween<Node> = null!;\n    private _sp: SpriteFrame = null!;\n\n    onLoad() {\n        // 节点自身事件 → onLoad 注册，onDestroy 注销\n        this.node.on(Node.EventType.TOUCH_START, this.onTouch, this);\n    }\n    onEnable() {\n        // 全局/输入事件 → onEnable 注册，onDisable 注销（必须配对）\n        this.target?.on('custom', this.onCustom, this);\n        this._tween = tween(this.node).repeatForever(tween().to(1, { angle: 360 })).start();\n        resources.load('images/bg/spriteFrame', SpriteFrame, (err, sp) => {\n            if (err || !sp) return;\n            this._sp = sp;\n            this._sp.addRef();\n        });\n    }\n    onDisable() { this.target?.off('custom', this.onCustom, this); }\n    onDestroy() {\n        // 与注册顺序严格对称\n        this.node.off(Node.EventType.TOUCH_START, this.onTouch, this);\n        this._tween?.stop();\n        Tween.stopAllByTarget(this.node);\n        this.unscheduleAllCallbacks();\n        this._sp?.decRef();\n    }\n    private onTouch() { }\n    private onCustom() { }\n}\n```\n\n**降频更新模板**：\n\n```typescript\nprivate _acc = 0;\nprivate _interval = 0.2;\nupdate(dt: number) {\n    this._acc += dt;\n    if (this._acc < this._interval) return;\n    this._acc = 0;\n    this.heavyWork();\n}\nprivate heavyWork() { /* 不需要每帧做的逻辑 */ }\n```"
+  },
+  {
+   "scene": "p-cocos",
+   "file": "p-cocos.md",
+   "title": "审核清单（扫描器不可用时的兜底）",
+   "is_fp": false,
+   "is_required": false,
+   "refs": [],
+   "tokens": 324,
+   "body": "```\n□ 每个 on() 都有 off()/targetOff()；onEnable↔onDisable 配对\n□ 事件回调是类方法不是匿名函数\n□ 每个 repeatForever 都有 stop/clear\n□ 每个 schedule/setInterval 都有清理\n□ onDestroy 非空（或确认无需清理）\n□ 动态加载资源有 decRef/release\n□ update 内无 find/getComponent/instantiate/new\n□ 频繁创建对象用了对象池（且有上限）\n□ 无 any 类型；console 已移除或包 CC_DEBUG\n□ 跨节点组件访问放 start（不是 onLoad）\n□ 无 2.x 遗留 API（cc.loader / cc.find / cc.tween）\n□ 静态物体标了 Static 刚体；非活体开了 allowSleep\n□ Label cacheMode 匹配更新频率\n□ 静态文本合并用 \\n；能不用 RichText 就不用\n□ 包体：引擎裁剪、分包、纹理压缩已做\n□ 适配：Widget 对齐 + 安全区已处理\n□ 运行时验证：操作 N 次后内存回到基线\n```"
+  },
+  {
    "scene": "p-cpp",
    "file": "p-cpp.md",
    "title": "核心判据：C/C++ 的问题大多不是\"慢\"，是\"未定义行为\"",
@@ -9575,7 +9844,7 @@
    "is_required": false,
    "refs": [],
    "tokens": 152,
-   "body": "| 工具 | 管什么 |\n|---|---|\n| Flake8 / Ruff | 风格、未用变量、基础质量 |\n| Bandit | 已知安全 CVE 模式（硬编码密钥、`eval` 等） |\n| **本包** | **业务风险**：跨调用累积、静默失败、资源生命周期、并发、测试证据 |\n\n**不重复造轮子**：已有工具能查的不重复报。本包只管它们管不到的业务语义。"
+   "body": "| 工具 | 管什么 |\n|---|---|\n| Flake8 / Ruff | 风格、未用变量、基础质量 |\n| Bandit | 已知安全 CVE 模式（硬编码密钥、`eval` 等） |\n| **本包** | **业务风险**：跨调用累积、静默失败、资源生命周期、并发、测试证据 |\n**不重复造轮子**：已有工具能查的不重复报。本包只管它们管不到的业务语义。"
   },
   {
    "scene": "p-python",
@@ -9599,8 +9868,8 @@
     "PY-15",
     "S-10"
    ],
-   "tokens": 305,
-   "body": "```\n□ 默认值里有没有可变对象？（跨调用累积）\n□ except 之后是 raise 还是 pass？（静默失败）\n□ 资源是 with 还是裸赋值？（异常路径泄漏）\n□ 有没有 assert 在守大门？（-O 下失效）\n□ 起线程的地方，共享状态靠什么保护？（竞态）\n□ 反序列化的输入谁可控？（任意代码执行）\n□ 日志里有没有凭据/PII？（落盘即泄露）\n□ 清理/回滚用的是 except Exception 吗？Ctrl-C 时还执行吗？（PY-13 → P1）\n□ 生成器/迭代器被用了两次吗？第二次是不是恒为空？（PY-14 → P1）\n□ 解析外部时间戳时，负时区偏移（-05:00）也能解析吗？（PY-15 → P2）\n□ 报错里有没有凭据原文？（S-10）\n□ 写进磁盘的凭据/状态文件是 0600 吗？（S-10）\n```"
+   "tokens": 304,
+   "body": "□ 默认值里有没有可变对象？（跨调用累积）\n□ except 之后是 raise 还是 pass？（静默失败）\n□ 资源是 with 还是裸赋值？（异常路径泄漏）\n□ 有没有 assert 在守大门？（-O 下失效）\n□ 起线程的地方，共享状态靠什么保护？（竞态）\n□ 反序列化的输入谁可控？（任意代码执行）\n□ 日志里有没有凭据/PII？（落盘即泄露）\n□ 清理/回滚用的是 except Exception 吗？Ctrl-C 时还执行吗？（PY-13 → P1）\n□ 生成器/迭代器被用了两次吗？第二次是不是恒为空？（PY-14 → P1）\n□ 解析外部时间戳时，负时区偏移（-05:00）也能解析吗？（PY-15 → P2）\n□ 报错里有没有凭据原文？（S-10）\n□ 写进磁盘的凭据/状态文件是 0600 吗？（S-10）\n```"
   },
   {
    "scene": "p-python",

@@ -81,6 +81,13 @@ def _content_match(dirpath, files, name):
 
 
 def main():
+    # 未知 flag 必须报错：手写 sys.argv 解析会**静默忽略**拼错的 flag，
+    # 脚本照常跑完并返回 0 —— `check-skill.py --self-test` 就是这么
+    # 「通过」的，而它压根没有自检。见 scripts/_flagguard.py。
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _flagguard import guard
+    guard(sys.argv, {'--examples', '--json', '--missing-only', '--src=', '--strict', '--tests'})
+
     modules = []
     for d in sorted(os.listdir(SRC)):
         p = os.path.join(SRC, d)

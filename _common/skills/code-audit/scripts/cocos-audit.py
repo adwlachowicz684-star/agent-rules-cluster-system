@@ -21,6 +21,7 @@ Cocos Creator 脚本审核扫描器 (cocos-audit.py)
 它用来缩小人工审查范围，不是替代人工判断。
 """
 
+import os
 import re
 import sys
 import json
@@ -29,6 +30,15 @@ import tempfile
 import shutil
 from pathlib import Path
 
+# 排除目录：构建产物与依赖，扫它们没意义
+EXCLUDE_DIRS = {"node_modules", "library", "build", "temp", ".git",
+                "dist", "assets/scripts/editor", ".creator"}
+# 测试样本目录：本技能自己有 rules/fixtures/**，里面**故意**写着有问题的代码。
+# 不排除的话 self-audit 会把 74 条样本噪声当成真问题上传 Code Scanning
+# （实测：其中 50 条是 CC-17「代码质量」，全是 fixture 里的 console）。
+# 其余扫描器靠 SKIP_DIRS 里的 fixtures / __fixtures__ 跳过，这里此前没有 →
+# 同一个「跳过清单不一致」问题（check-list-drift 会报 WARN）。
+EXCLUDE_DIRS |= {"fixtures", "__fixtures__", "__tests__", "tests", "testdata"}
 # 排除目录：构建产物与依赖，扫它们没意义。
 # 分两类写：EXCLUDE_PARTS 按路径分段精确匹配；EXCLUDE_SUBSTR 按相对路径子串匹配。
 #
@@ -112,6 +122,31 @@ RULE_GROUPS = {
     "physics": ["物理"],
 }
 
+# 规则 ID：中文名 → 稳定 ID。
+#
+# 为什么需要：本扫描器此前**完全不在 rule-registry 里**（注册表 0 条 cocos 规则），
+# 于是这 11 类检测没有 fixture、没有 eval、没有判据映射、不计入覆盖率——
+# 报得出来，但在整套体系里等于不存在。
+#
+# 号段用 CC-11 起，避开 p-cocos.md 人工判据占用的 CC-01~CC-06。
+# 注意同名不同义：`成对缺失` 一条覆盖事件与定时器两类（对应判据 CC-02 / CC-03）。
+RULE_IDS = {
+    "成对缺失": "CC-11", "资源未释放": "CC-12", "tween泄漏": "CC-13",
+    "匿名回调": "CC-14", "空清理": "CC-15",
+    "update 性能": "CC-16", "代码质量": "CC-17", "UI性能": "CC-18",
+    "DrawCall": "CC-19",
+    "2.x遗留": "CC-20",
+    "物理": "CC-21",
+    "读取失败": None,   # 不是规则，是 IO 异常，不进注册表
+}
+
+# 默认级别（同一规则内部还会按具体情形调整，这里只给注册表兜底）
+RULE_LEVELS = {
+    "CC-11": "P0", "CC-12": "P0", "CC-13": "P0", "CC-14": "P1", "CC-15": "P1",
+    "CC-16": "P1", "CC-17": "P2", "CC-18": "P2", "CC-19": "P2",
+    "CC-20": "P1", "CC-21": "P1",
+}
+
 # update 内禁止的操作
 UPDATE_BAN = [
     (r"\b(find|getChildByName|getChildByPath)\s*\(",
@@ -153,6 +188,15 @@ def iter_ts(root: Path):
             yield root
         return
     for p in root.rglob("*.ts"):
+        # 用**相对 root** 的路径段判断，不能用 p.parts（那是绝对路径）。
+        # 用绝对路径的话，只要 root 自身位于某个被排除目录下（例如
+        # 本技能的 rules/fixtures/CC-11/tp.d），整棵树都会被跳过——
+        # fixture 之所以没出事，只是因为 --test 会先把它复制到 /tmp。
+        # 依赖这个巧合太脆弱：哪天改成原地跑，11 条 Cocos 规则会全部静默失效。
+        try:
+            parts = p.relative_to(root).parts
+        except ValueError:
+            parts = p.parts
         if excluded(p, root):
             continue
         if p.name.endswith(".d.ts"):
@@ -274,7 +318,7 @@ def scan_file(path: Path, rel: str) -> list[dict]:
         raw = path.read_text(encoding="utf-8")
     except Exception as e:
         return [{"file": rel, "line": 0, "level": "P2",
-                 "rule": "读取失败", "msg": str(e)}]
+                 "rule": "读取失败", "id": None, "msg": str(e)}]
 
     text = strip_comments(raw)
     lines = text.splitlines()
@@ -283,7 +327,8 @@ def scan_file(path: Path, rel: str) -> list[dict]:
 
     def add(line_no, level, rule, msg):
         issues.append({"file": rel, "line": line_no + 1,
-                       "level": level, "rule": rule, "msg": msg})
+                       "level": level, "rule": rule,
+                       "id": RULE_IDS.get(rule), "msg": msg})
 
     def method_of(idx: int) -> str:
         """判断某行落在哪个方法体内。单行写法的方法，body 就是它自己那一行。"""
@@ -356,7 +401,9 @@ def scan_file(path: Path, rel: str) -> list[dict]:
         if not released:
             for i, l in loads:
                 add(i, "P0", "资源未释放",
-                    f"动态加载了资源但未找到 release/decRef（第 {i+1} 行）")
+                    f"动态加载了资源，但在 onDestroy/onDisable 里没看到 "
+                    f"release/decRef（第 {i+1} 行）—— 加载回调里就地 decRef "
+                    f"不算清理：资源还可能在使用中就被减引用")
 
     # 3) update 方法体内的禁令
     for i, l in enumerate(lines):
@@ -440,6 +487,28 @@ def scan_file(path: Path, rel: str) -> list[dict]:
     return issues
 
 
+def _write_sarif(issues, out, root):
+    # 导出 SARIF 2.1.0。与其余扫描器共用 sarif.py，保证规则元数据一致
+    # （否则 Cocos 规则在 Code Scanning 里没有描述与 CWE）。
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from sarif import build_sarif, write_sarif
+    except Exception as e:
+        sys.stderr.write("sarif.py 不可用，跳过导出：%s\n" % e)
+        return
+    findings = []
+    for it in issues:
+        findings.append({
+            "id": it.get("id"),
+            "level": it.get("level"),
+            "name": it.get("rule", ""),
+            "file": it.get("file", ""),
+            "line": it.get("line", 1),
+            "snippet": it.get("msg", ""),
+            "scanner": "cocos-audit.py",
+        })
+    write_sarif(build_sarif(findings, root=str(root)), out)
+    sys.stderr.write("写出 %s：%d 条结果\n" % (out, len(findings)))
 # ---------- 自检 ----------
 # 为什么必须有：本技能自己的规则写明「永远 0 命中的检查等于没有检查」。
 # 其余 7 个扫描器（scan-ts/app/py/go/java/cpp/rust）都带 --self-test，
@@ -638,6 +707,12 @@ def main():
     ap.add_argument("--top", type=int, default=0, help="只显示前 N 条")
     ap.add_argument("--rule", default="", help="按类扫描：" + "/".join(RULE_GROUPS))
     ap.add_argument("--rules", action="store_true", help="列出规则分组")
+    # --sarif= 供 CI 统一收集。其余扫描器都支持，唯独本脚本没有 →
+    # CI 按统一方式调用时被 argparse 拒绝（退出码 2），
+    # 而调用方带了 `|| true`，于是「Cocos 规则从不进 SARIF」这件事
+    # 从头到尾没有任何人看见（本仓库 H011 的又一次重演）。
+    ap.add_argument("--sarif", dest="sarif", default="",
+                    help="导出 SARIF 2.1.0 到指定文件（供 CI / Code Scanning）")
     ap.add_argument("--self-test", action="store_true", help="跑自检")
     args = ap.parse_args()
 
@@ -708,6 +783,9 @@ def main():
         if not all_issues:
             print("  ✓ 未发现明显问题")
         print("\n提示：静态扫描只抓模式明显的问题，人工复核仍不可省")
+
+    if args.sarif:
+        _write_sarif(all_issues, args.sarif, root)
 
     if any(i["level"] == "P0" for i in all_issues):
         sys.exit(1)

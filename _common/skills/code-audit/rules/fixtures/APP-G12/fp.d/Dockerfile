@@ -1,2 +1,1 @@
-FROM node:20.11.1-alpine
-RUN npm ci
+FROM node@sha256:abc123

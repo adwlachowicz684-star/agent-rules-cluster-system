@@ -38,9 +38,18 @@ jobs:
         run: |
           # 不要写死 for s in scan-ts scan-app ... —— 那是「名单漏一个就静默失效」：
           # 新增 Rust 语言包时 scan-rust.py 一条自检都没跑，流水线照样绿。
+<<<<<<< 本地
+          #
+          # 过滤规则曾写成 `^scan-[a-z]+\.py$`，于是 cocos-audit.py 被过滤掉——
+          # 同一个坑第二次踩（它不在 SARIF 收集里，Cocos 规则从不进 Code Scanning）。
+          # 改成「纯脚本名」的宽匹配：--scanners 正常输出只有文件名，
+          # 告警行带「▲ / 空格」不会误入。
+          python3 scripts/rule-registry.py --scanners | grep -E '^[a-z][a-z0-9-]*\.py$' > /tmp/scanners.txt
+=======
           # grep 过滤：--scanners 正常输出之外还可能带「▲ 有扫描器文件但注册表里
           # 没有它的规则」这类告警行，直接喂给 while read 会被当成扫描器名。
           python3 scripts/rule-registry.py --scanners | grep -E '^scan-[a-z]+\.py$' > /tmp/scanners.txt
+>>>>>>> 远端
           cat /tmp/scanners.txt
           test -s /tmp/scanners.txt || { echo "扫描器列表为空"; exit 1; }
           # —— 交叉断言：从注册表推导只堵住了「名单漏写」，堵不住「注册表里没它的
@@ -61,8 +70,50 @@ jobs:
           while read -r s; do
             [ -z "$s" ] && continue
             echo "── $s"
+<<<<<<< 本地
+            # 不能写 `... || echo "无自检"` —— 那会把**真的失败**也吞成提示，
+            # 正是本仓库 H011（工具报 0 不等于没问题）在 CI 里的重演。
+            # 先判断该脚本是否支持 --self-test：支持就必须通过，不支持才跳过。
+            if grep -qE "self[-_]test" "scripts/$s"; then
+              python3 "scripts/$s" --self-test
+            else
+              echo "  无 --self-test（由 fixture 覆盖）"
+            fi
+          done < /tmp/scanners.txt
+
+      - name: 硬编码名单一致性（防「漏一个 → 静默少做」）
+        working-directory: _common/skills/code-audit
+        run: |
+          python3 scripts/check-list-drift.py --self-test
+          python3 scripts/check-list-drift.py
+      - name: SARIF 导出自检（前缀映射 / 合并去重）
+        run: python3 scripts/sarif.py --self-test
+      - name: fixture 交叉审计（「正确写法」示例本身不能有缺陷）
+        run: python3 scripts/rule-registry.py --cross
+      - name: 引擎专项扫描器自检
+          # 上一步的 `ls scripts/scan-*.py` 只匹配 scan- 前缀，
+          # 匹配不到 cocos-audit.py —— 引擎专项扫描器的 --self-test
+          # 一条都不会跑，流水线照样绿。这与上面注释里记录的 scan-rust 事故
+          # 是同一个失效模式，只是换了个文件名前缀。
+          #
+          # 不放进上一步的清单是因为那条链路与 registry 交叉断言绑定：
+          # 引擎专项规则目前不在 registry 里（extract() 不认它的规则结构），
+          # 加进去会让差集断言直接红。引擎专项与 registry 的打通另做。
+          ls scripts/*-audit.py 2>/dev/null | xargs -n1 basename 2>/dev/null > /tmp/engine_scanners.txt
+          if [ ! -s /tmp/engine_scanners.txt ]; then
+            echo "无引擎专项扫描器，跳过"
+            exit 0
+          fi
+          echo "引擎专项扫描器："; cat /tmp/engine_scanners.txt
+          while read -r s; do
+            [ -z "$s" ] && continue
+            echo "── $s"
+            python3 "scripts/$s" --self-test
+          done < /tmp/engine_scanners.txt
+=======
             python3 "scripts/$s" --self-test
           done < /tmp/scanners.txt
+>>>>>>> 远端
 
       - name: 引擎专项扫描器自检
         working-directory: _common/skills/code-audit

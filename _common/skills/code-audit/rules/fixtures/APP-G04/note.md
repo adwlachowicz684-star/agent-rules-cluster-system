@@ -1,3 +1,14 @@
+<<<<<<< 本地
+# APP-G04 · 缺口补齐
+
+对应判据条目：**G-04**（依赖声明与锁定不一致）
+
+**tp**：有依赖无 lock → 干净环境装不出同一棵树。
+**fp**：有 package-lock.json。
+
+---
+=======
+>>>>>>> 远端
 # APP-G04
 
 有 package.json（或 Cargo.toml / requirements.txt / go.mod）但缺对应 lock 文件 → 依赖版本不可复现。

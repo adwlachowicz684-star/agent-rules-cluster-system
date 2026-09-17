@@ -1,0 +1,3 @@
+CHILDREN.lock().unwrap().insert(id, child);
+// ...
+CHILDREN.lock().unwrap().remove(&id);

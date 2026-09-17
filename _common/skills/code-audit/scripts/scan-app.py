@@ -110,6 +110,202 @@ def strip_comments(src):
 
 # ---------------------------------------------------------------- 模式定义
 # LINE: (id, level, name, langs, regex, guard)  guard = {'absent':rx} | {'present':rx}
+
+
+# ============================================================
+# 并集补回：以下来自另一条工作线（K 族 / G01 / C01），曾在线上版本被覆盖丢失。
+# 按「规则 ID 取并集」补回，ID 冲突的（G04/G05/G10/G12）保留线上已有实现。
+# ============================================================
+
+def _f_k15(path, text, st):
+    """K-15 内容长度直接用于分配。
+
+    单行正则抓不到：`let n = req.content_length();` 与
+    `Vec::with_capacity(n)` 通常分处两行，而 `[^\n]` 跨不过换行。
+    改成文件级：先确认文件里确实读了声明长度，再看分配处有没有收口。
+    """
+    out = []
+    if not re.search(r'content[-_]length|Content-Length', st):
+        return out
+    for m in re.finditer(r'Vec::with_capacity\s*\(|vec!\s*\[[^\]]*;\s*\w*(?:len|size)\w*',
+                         st):
+        line = st[:m.start()].count('\n') + 1
+        ctx = '\n'.join(st.split('\n')[max(0, line - 4):line + 1])
+        # 有收口（min / clamp / 常量上限）→ 不是缺陷
+        if re.search(r'\.min\(|clamp|MAX_|max_bytes|limit', ctx, re.I):
+            continue
+        out.append((line, '按声明长度分配，未见上限收口'))
+    return out
+
+def _p_cmd_registry(files_by_ext, root, all_text):
+    """K12 进程注册表只增不减（spawn/insert 有写入无 remove）"""
+    out = []
+    for p in files_by_ext.get(('rs',), []):
+        t = TEXT_BY_FILE.get(p, '')
+        # 注册表样式：HashMap/Map 存子进程，key 来自 spawn
+        if not re.search(r'(?:CHILDREN|PROCS|children|processes|PROCESS_MAP)\s*\.', t):
+            continue
+        writes = re.findall(r'\b(?:insert|set)\s*\(', t)
+        if not writes:
+            continue
+        if re.search(r'\b(?:remove|retain|clear)\s*\(', t):
+            continue
+        m = re.search(r'\b(?:insert|set)\s*\(', t)
+        out.append(('K12', 'P1', '进程注册表有写入无 remove —— 进程结束后条目残留，内存持续增长',
+                    p, t[:m.start()].count('\n') + 1))
+    return out
+
+def _p_cmd_registered(files_by_ext, root, all_text):
+    """K25 定义了 #[tauri::command] 但没在 invoke_handler 里注册（前端调用必然失败）"""
+    out = []
+    for p in files_by_ext.get(('rs',), []):
+        t = TEXT_BY_FILE.get(p, '')
+        fns = re.findall(r'#\[tauri::command\][\s\S]{0,200}?'
+                         r'(?:pub\s+)?(?:async\s+)?fn\s+(\w+)', t)
+        if not fns:
+            continue
+        # invoke_handler 通常集中在 main.rs / lib.rs
+        handlers = ''
+        for q in files_by_ext.get(('rs',), []):
+            if 'invoke_handler' in TEXT_BY_FILE.get(q, ''):
+                handlers += TEXT_BY_FILE[q]
+        if not handlers:
+            continue
+        miss = [f for f in fns if f not in handlers]
+        if miss:
+            out.append(('K25', 'P0', '定义了 %d 个命令但 invoke_handler 里没有：%s'
+                        % (len(miss), ', '.join(miss[:5])), p, 1))
+    return out
+
+def _p_forked_dup(files_by_ext, root, all_text):
+    """K27 两份内容近似但已分叉的文件（改了不生效）"""
+    out = []
+    # 同名不同路径，或同 basename 带 2/副本/new 后缀
+    groups = {}
+    # files_by_ext 只有 JS_EXT 和 ('rs',) 两个 key——
+    # 我最初写了个 8 元组 ('rs','ts','tsx',...) 去 get，永远返回空，
+    # 于是这条规则一次都没触发过；而自检因为没样本也照样「全过」。
+    # 两个静默失效叠在一起，规则等于没写。
+    # JS_EXT 是 scan() 的局部变量（定义在下方），这里访问不到——
+    # 直接写字面量 tuple，与 _p_js_orphan 的做法一致。
+    pool = (list(files_by_ext.get(('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'), []))
+            + list(files_by_ext.get(('rs',), [])))
+    for p in pool:
+        # 曾按「绝对路径含 fixtures/tests」过滤——但跑 fixture 时
+        # root 就是 .../rules/fixtures/APP-K27/tp.d，绝对路径必然含 fixtures，
+        # 于是样本被自己跳过：tp 永远不命中，而 --test 报「未覆盖」之前
+        # 根本看不出来（自检样本在 tempdir 里，路径干净，照样全过）。
+        # 跳过测试样本是 scan() 的职责（TEST_SKIP_DIRS），这里不重复过滤。
+        base = os.path.splitext(os.path.basename(p))[0]
+        groups.setdefault(base, []).append(p)
+    for base, ps in groups.items():
+        if len(ps) < 2:
+            continue
+        texts = [TEXT_BY_FILE.get(x, '') for x in ps]
+        a, b = texts[0], texts[1]
+        if not a or not b:
+            continue
+        # 内容近似但不是完全一致（完全一致是纯拷贝，分叉才是危险信号）
+        same = sum(1 for x, y in zip(a, b) if x == y)
+        ratio = same / max(len(a), len(b))
+        if 0.55 <= ratio < 0.995:
+            out.append(('K27', 'P1',
+                        '两份近似但已分叉的实现：%s（相似度 %.0f%%，改一处不会同步）'
+                        % (' / '.join(os.path.basename(x) for x in ps), ratio * 100),
+                        ps[0], 1))
+    return out
+
+
+    """读项目根下的 json 配置，失败返回 None（不抛）。"""
+    for n in names:
+        fp = os.path.join(root, n)
+        if os.path.isfile(fp):
+            try:
+                return fp, json.load(open(fp, encoding='utf-8'))
+            except (OSError, ValueError):
+                return fp, None
+    return None, None
+
+
+def _load_json(root, *names):
+    """读项目根下的 json 配置，失败返回 None（不抛）。"""
+    for n in names:
+        fp = os.path.join(root, n)
+        if os.path.isfile(fp):
+            try:
+                return fp, json.load(open(fp, encoding='utf-8'))
+            except (OSError, ValueError):
+                return fp, None
+    return None, None
+
+
+    """G10 sourcemap / minify 是常量，不随 profile 变化"""
+    out = []
+    for name in ('vite.config.ts', 'vite.config.js', 'vite.config.mts',
+                 'webpack.config.js', 'rollup.config.js'):
+        fp = os.path.join(root, name)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for key in ('sourcemap', 'minify'):
+            for m in re.finditer(r'\b%s\s*[:=]\s*(true|false)\b' % key, t):
+                line = t[:m.start()].count('\n') + 1
+                out.append(('G10', 'P2', '%s=%s 是常量 —— 生产会把 .map 一并发布（源码外泄）'
+                            % (key, m.group(1)), fp, line))
+        break
+    return out
+
+def _p_package_scope(files_by_ext, root, all_text):
+    """G01 打包范围过宽（frontendDist / files 指向项目根）"""
+    out = []
+    fp, d = _load_json(root, 'src-tauri/tauri.conf.json', 'tauri.conf.json')
+    if d:
+        dist = ((d.get('build') or {}).get('frontendDist') or '')
+        # 原本枚举字面量 ('.', './', '..', '../')——真实写法还有 '../.'，
+        # 枚举必然漏。改为归一化后判「是不是项目根」，
+        # 同时放行 dist/build/out 这类产物目录（那才是正常用法）。
+        if dist:
+            import posixpath
+            norm = posixpath.normpath(dist.replace('\\', '/'))
+            if norm in ('.', '..'):
+                out.append(('G01', 'P1',
+                            'frontendDist=%r 指向项目根 —— 源码/测试/配置会一起进安装包'
+                            % dist, fp, 1))
+    fp2, pkg = _load_json(root, 'package.json')
+    if pkg and 'files' not in pkg and pkg.get('main'):
+        out.append(('G01', 'P2', 'package.json 无 files 白名单 —— 发布时整个目录都会被打包', fp2, 1))
+    return out
+
+def _p_orphan_feature(files_by_ext, root, all_text):
+    """C01 声明的特性未接线（export 了但全仓库无引用）"""
+    out = []
+    exts = ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs')
+    files = files_by_ext.get(exts, [])
+    # 文件太少时「全仓库无引用」判断不成立：
+    # 单文件的库入口 / 样例里，export 本就是给外部用的，
+    # 项目内没人 import 是**正常的**。不设下限会在小项目里满屏误报
+    #（fixture 场景更是必然命中——每个 fixture 只有一个文件）。
+    if len(files) < 3:
+        return []
+    for p in files:
+        fn = os.path.basename(p)
+        if re.search(r'(?:\.d\.ts$|\.test\.|\.spec\.|config)', fn):
+            continue
+        t = TEXT_BY_FILE.get(p, '')
+        # 有 export 的具名符号（不含类型/接口，那些本就常无人引用）
+        for m in re.finditer(r'export\s+(?:async\s+)?(?:function|const|class)\s+(\w+)', t):
+            name = m.group(1)
+            if len(name) < 5 or name in ('default', 'main'):
+                continue
+            # 只数别的文件里的引用
+            n = sum(len(re.findall(r'\b%s\b' % re.escape(name), tt))
+                    for q, tt in TEXT_BY_FILE.items() if q != p)
+            if n == 0:
+                out.append(('C01', 'P2', 'export %s 全仓库无引用 —— 声明的特性未接线' % name,
+                            p, t[:m.start()].count('\n') + 1))
+    return out
+
+
 LINE_PATTERNS = [
     ('J01', 'P1', 'message 监听未校验来源', ('ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'),
      r'addEventListener\(\s*[\'"]message[\'"]',
@@ -149,6 +345,56 @@ LINE_PATTERNS = [
      r'\b(?:std::fs::read|fs::read_to_string|read_to_string|File::open)\s*\(',
      {'absent': r'(?:resolve_within|canonicalize|\.starts_with|is_within|allowed_root|within_root|check_path)',
       'window': 60}),
+
+# ------------------------------------------------------------ 并集补回
+    # 以下 K 族规则来自另一条工作线（判据缺口补齐批次），曾在线上版本里被
+    # 覆盖丢失（远端 registry 一度只剩 156 条、APP-K 与 CC 全空）。
+    # 合并时按「规则 ID 取并集」补回，避免重蹈「静默少做」。
+    # ---------------------------------------------------------------- 缺口补齐
+    # 以下来自 rules/gaps.json 标为 todo（可机扫但一直没写规则）的判据。
+    # 编号沿用判据条目号（K-17 → K17），便于 --map 对上、也便于回查。
+    # 这些全是 Tauri / Rust 本地工具侧，之前的 28 条只覆盖了 J / P / R 三族。
+    ('K03', 'P0', '删除保护：黑名单未 canonicalize 后比较', ('rs',),
+     r'(?:remove_dir_all|remove_file|fs::remove)\s*\(',
+     {'absent': r'canonicalize|is_within|allowed_root|resolve_within', 'window': 30}),
+    ('K08', 'P0', 'shell 解析：cmd /c + 外部输入', ('rs',),
+     r'Command::new\(\s*"(?:cmd|sh|bash|powershell|zsh)"\s*\)\s*[^;]{0,120}?'
+     r'\.arg\(\s*(?:format!|[a-z_][\w.]*\s*\)|&?[a-z_][\w.]*\s*\))', None),
+    ('K10', 'P1', '参数传递：命令参数用字符串拼接而非数组', ('rs',),
+     r'\.args?\(\s*format!\s*\(|\.args?\(\s*[a-z_]\w*\s*\+\s*', None),
+    ('K14', 'P2', '探测命令：where / which 起子进程（debug 下闪控制台窗口）', ('rs',),
+     r'Command::new\(\s*"(?:where|which|whereis)"\s*\)', None),
+    # K16 超时：只针对**真正会读写**的一端。
+    # `TcpListener::bind` 本身没有超时参数（超时设在 accept 出来的 stream 上），
+    # 把它算进来会让「只负责 bind、stream 交给别处」的文件一律误报——
+    # 实测 APP-K17 的 fp 就因此被误报。
+    # 分两种：
+    #   ① TcpStream::connect(    → 直接要求超时
+    #   ② TcpListener::bind( 且文件里确有 incoming/accept（即在这里处理 stream）
+    #      → 也要求超时
+    ('K16', 'P1', '读写超时：Tcp 连接无 set_read_timeout / set_write_timeout', ('rs',),
+     # 注意 `.*` 不跨行——第一版写成两个前瞻，要求 bind 与 incoming 在**同一行**，
+     # 于是 `bind(...)?;` 换行后再 `for s in l.incoming()` 的场景漏报。
+     # 用 [\s\S] 跨行：bind 之后若干字符内出现 incoming/accept 才算「在这里处理 stream」。
+     r'TcpStream::connect\s*\(|'
+     r'TcpListener::bind\s*\([\s\S]{0,1500}?(?:incoming|accept)',
+     {'absent': r'set_(?:read|write)_timeout|set_timeout|timeout\s*:', 'window': 10 ** 6}),
+    ('K17', 'P1', '绑定地址：0.0.0.0 对局域网开放（应 127.0.0.1）', ('rs', 'ts', 'js'),
+     # 0.0.0.0 后面通常带端口（"0.0.0.0:9000"），不能要求紧跟引号
+     r'(?:bind|listen|host)\s*\(\s*["\']0\.0\.0\.0', None),
+    ('K31', 'P1', '子进程返回码：包装函数丢弃 returncode 只看 stdout', ('rs', 'py'),
+     r'\.output\s*\(\s*\)',
+     {'absent': r'\.status|returncode|\.code\(\)|check_output|check_call', 'window': 25}),
+    # K-34 判定改认 `.unwrap()`：
+    # 原写法是「出现 metadata( 且 ±15 行内没有兜底」，而兜底清单里含裸 `?`——
+    # Rust 里 `?` 遍地都是，于是这条规则在真实 .rs 文件里**永远不报**（自检样本
+    # 所在的 serv.rs 也因同行有 `?` 被 suppress）。改成直接匹配 `metadata(..).unwrap()`
+    # 这种「拿到 Result 就地拆」的写法，语义更准，也不再被无关的 `?` 关掉。
+    ('K34', 'P1', '对可能不存在的路径 stat（无兜底）', ('rs', 'py'),
+     r'(?:fs::metadata|std::fs::metadata|File::metadata)\s*\([^;]{0,80}?\)'
+     r'\s*\.\s*unwrap\s*\(\)'
+     r'|os\.(?:path\.getsize|stat)\s*\(',
+     {'absent': r'try\s*:|except\s|os\.path\.exists', 'window': 15}),
 ]
 COMPILED_LINE = [(p[0], p[1], p[2], p[3], re.compile(p[4]),
                   ({k: (re.compile(v) if k != 'window' else v)
@@ -343,7 +589,7 @@ def _p_dup_import(path, text, st):
 
 
 def _p_ci_script(joined, root, _u=None):
-    """G10 CI 引用的 npm script 在 package.json 中不存在。
+    """G14 CI 引用的 npm script 在 package.json 中不存在。
 
     来源：2026-09-14 nexus-panel。`.github/workflows/ci.yml` 第一步
     `npm run config:check`，而 package.json 没这条 script → 退出码 1 →
@@ -390,7 +636,7 @@ def _p_ci_script(joined, root, _u=None):
                 name = m.group(1)
                 if name in ('npm', 'run') or name in have:
                     continue
-                out.append(('G10', 'P0',
+                out.append(('G14', 'P0',
                             'CI 引用了不存在的 npm script：%s（该 step 退出码 1，'
                             'fail-fast 下后续 step 全部跳过）' % name,
                             os.path.relpath(p, root),
@@ -424,6 +670,13 @@ def _p_dead_export(joined, root, _unused_all_text=None):
     exts = ('.js', '.ts', '.tsx', '.mjs', '.jsx')
     exports = {}
     texts = []
+    # 单文件工程不判：G09 判的是「跨文件无人引用」，而单文件样本
+    # （大量 fixture 就是一个 .ts）里任何 export 都必然零引用 ——
+    # 实测 10 条 J 族的 fp 样本全被它命中，看起来像「正确写法有缺陷」，
+    # 实际是判据在该规模下不成立。门槛设为 2：能覆盖 lib+main 这种最小工程。
+    if sum(1 for dp, dn, fns in os.walk(root)
+           for f in fns if f.endswith(exts)) < 2:
+        return []
     for dp, dn, fns in os.walk(root):
         dn[:] = [d for d in dn if d not in ('node_modules', 'target', '.git',
                                             'dist', 'build', '.venv')]
@@ -539,6 +792,8 @@ FILE_PATTERNS = [
     ('R04', 'P1', '递归遍历未识别符号链接', ('rs',), _f_r04),
     ('G08', 'P2', '重复 import 同一模块', ('ts','tsx','js','jsx','mjs','cjs'), _p_dup_import),
     ('G07', 'P0', '失效相对 import', ('ts','tsx','js','jsx','mjs','cjs'), _f_g07),
+
+    ('K15', 'P0', '请求体上限：按客户端声明的 content-length 直接分配', ('rs',), _f_k15),
 ]
 
 
@@ -804,6 +1059,116 @@ PROJECT_CHECKS = [_p_test_import_ext, _p_ci_script, _p_dead_export, _p_duplicate
                   _p_unpinned_image]
 
 
+def _p_placeholder(files_by_ext, root, all_text):
+    """G05 占位资源未替换（脚手架默认值随包发布）
+
+    只查**配置与清单文件**：代码里的 "example" 大多是正常标识符，
+    而配置文件里的 com.example.* 是脚手架没改的实锤。
+    """
+    CONF = re.compile(r'(?:tauri\.conf\.json|Cargo\.toml|package\.json|'
+                      r'AndroidManifest\.xml|Info\.plist|build\.gradle|'
+                      r'.*\.config\.(?:ts|js|json))$', re.I)
+    PLACE = [
+        (r'com\.example\.', '包名仍是 com.example.* 占位'),
+        (r'"your[-_](?:app|name|company|domain|org)"', 'your-app 类占位名'),
+        (r'\bCHANGE_ME\b|\bREPLACE_ME\b', 'CHANGE_ME 类占位标记'),
+    ]
+    out = []
+    # 自己遍历，不用 TEXT_BY_FILE：那个字典只装「被扫描的语言文件」，
+    # json / toml 这类配置不在里面（G05 第一版因此永远 0 命中）。
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for fn in filenames:
+            if not CONF.search(fn):
+                continue
+            fp = os.path.join(dirpath, fn)
+            try:
+                if os.path.getsize(fp) > 200 * 1024:
+                    continue
+                t = open(fp, encoding='utf-8', errors='replace').read()
+            except OSError:
+                continue
+            for rx, why in PLACE:
+                m = re.search(rx, t)
+                if not m:
+                    continue
+                ln = t[:m.start()].count('\n') + 1
+                out.append(('G05', 'P1', '%s（%s）' % (why, fn), fp, ln))
+                break
+    return out[:5]
+
+
+def _p_build_const(files_by_ext, root, all_text):
+    """G13 sourcemap / minify 写成常量，不随 profile 变化
+
+    为什么是 G13 而不是 G10：G10 在远端已被占用（CI 引用不存在的 npm script）。
+    新规则取号前必须先查 registry 与已有 PATTERNS，撞号会让两条规则互相顶掉。
+    """
+    out = []
+    for fn in ('vite.config.ts', 'vite.config.js', 'vite.config.mts',
+               'webpack.config.js', 'rollup.config.js', 'rsbuild.config.ts'):
+        fp = os.path.join(root, fn)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for key in ('sourcemap', 'minify'):
+            m = re.search(key + r'\s*:\s*(true|false|[\'"][^\'"]*[\'"])\s*[,}\n]', t)
+            if not m:
+                continue
+            if re.search(key + r'\s*:\s*(?:.*\?.*:|mode\s*===|isProd|NODE_ENV)', t):
+                continue
+            ln = t[:m.start()].count('\n') + 1
+            out.append(('G13', 'P2', '%s 固定为 %s——不随 profile 变化，'
+                        '生产包可能带 sourcemap 或未压缩'
+                        % (key, m.group(1)), fp, ln))
+    return out
+
+
+def _p_unpinned_image(files_by_ext, root, all_text):
+    """G12 基础镜像用 latest 或无标签（构建不可复现）"""
+    out = []
+    for name in ('Dockerfile', 'docker-compose.yml', 'docker-compose.yaml',
+                 'Containerfile'):
+        fp = os.path.join(root, name)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for m in re.finditer(r'^\s*(?:FROM|image:)\s+(\S+)', t, re.M):
+            img = m.group(1)
+            if img.startswith('$') or img.startswith('${'):
+                continue
+            tail = img.split('/')[-1]
+            if ':' not in tail or tail.endswith(':latest'):
+                ln = t[:m.start()].count('\n') + 1
+                out.append(('G12', 'P1', '基础镜像 %s 未固定版本（latest 或无标签）'
+                            '——构建不可复现，上游一变结果就变' % img, fp, ln))
+    return out
+
+
+
+def _p_sourcemap(files_by_ext, root, all_text):
+    """G10 sourcemap / minify 是常量，不随 profile 变化"""
+    out = []
+    for name in ('vite.config.ts', 'vite.config.js', 'vite.config.mts',
+                 'webpack.config.js', 'rollup.config.js'):
+        fp = os.path.join(root, name)
+        if not os.path.isfile(fp):
+            continue
+        t = open(fp, encoding='utf-8', errors='replace').read()
+        for key in ('sourcemap', 'minify'):
+            for m in re.finditer(r'\b%s\s*[:=]\s*(true|false)\b' % key, t):
+                line = t[:m.start()].count('\n') + 1
+                out.append(('G10', 'P2', '%s=%s 是常量 —— 生产会把 .map 一并发布（源码外泄）'
+                            % (key, m.group(1)), fp, line))
+        break
+    return out
+
+PROJECT_CHECKS = [_p_test_import_ext, _p_ci_script, _p_dead_export, _p_duplicate_consts, _p_rust_orphan, _p_js_orphan,
+                  _p_ignore, _p_ci, _p_csp, _p_multiconf,
+                  _p_no_lockfile, _p_placeholder, _p_build_const,
+                  _p_unpinned_image,
+                   _p_cmd_registry, _p_cmd_registered, _p_forked_dup, _p_package_scope, _p_orphan_feature,
+                   _p_sourcemap,]
 # ---------------------------------------------------------------- 扫描
 def lang_of(path):
     ext = os.path.splitext(path)[1].lower()

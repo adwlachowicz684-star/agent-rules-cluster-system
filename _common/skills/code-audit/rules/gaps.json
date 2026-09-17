@@ -53,124 +53,101 @@
    "same_as": "GO-02"
   },
   "K-03": {
-   "machine": "todo",
-   "why": "删除黑名单未 canonicalize 后比较",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-08": {
-   "machine": "todo",
-   "why": "`cmd /c` + 外部输入，shell 解析",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-09": {
-   "machine": "todo",
-   "why": "可执行文件来自用户配置任意路径，无白名单",
-   "target_scanner": "scan-app.py"
+   "machine": "xref",
+   "same_as": "S-06",
+   "why": "S-06 判据原文已含「可执行文件完整路径来自用户配置且无白名单」，与 K-09 同一条；APP-R06 已覆盖 → 非缺口（此前误分为 todo）"
   },
   "K-10": {
-   "machine": "todo",
-   "why": "参数用字符串拼接而非数组",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-12": {
-   "machine": "todo",
-   "why": "子进程注册表在进程结束后未 remove",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-14": {
-   "machine": "todo",
-   "why": "where / which 起子进程做探测",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-15": {
-   "machine": "todo",
-   "why": "按客户端声明的 content-length 直接分配",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-16": {
-   "machine": "todo",
-   "why": "TcpStream 无 set_read_timeout / set_write_timeout",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-17": {
-   "machine": "todo",
-   "why": "bind(\"0.0.0.0\") 对局域网开放",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-25": {
-   "machine": "todo",
-   "why": "命令未在 invoke_handler 注册（死代码）",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-27": {
-   "machine": "todo",
-   "why": "两份内容近似但已分叉的重复文件（改了不生效）",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-31": {
-   "machine": "todo",
-   "why": "包装函数丢弃 returncode，只看 stdout",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-34": {
-   "machine": "todo",
-   "why": "os.stat / File::metadata 用在路径列表上且无兜底",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "C-01": {
-   "machine": "todo",
-   "why": "声明的特性全仓库无引用（孤儿组件 / 死代码）",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "G-01": {
-   "machine": "todo",
-   "why": "frontendDist / files 指向项目根，忽略清单未排除源码",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "G-04": {
-   "machine": "todo",
-   "why": "有 package.json 但缺 lock 文件",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "G-05": {
-   "machine": "todo",
-   "why": "占位资源未替换（com.example.* / 脚手架图标）",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "G-10": {
-   "machine": "todo",
-   "why": "sourcemap / minify 是常量，不随 profile 变化",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "G-12": {
-   "machine": "todo",
-   "why": "构建依赖 latest 标签或未固定的基础镜像",
-   "target_scanner": "scan-app.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "B-05": {
-   "machine": "todo",
-   "why": "postMessage(data, '*')，目标 origin 通配",
-   "target_scanner": "scan-ts.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "B-10": {
-   "machine": "todo",
-   "why": "按字段存在性判成功而不看状态码（curl -s 不配 -w）",
-   "target_scanner": "scan-ts.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "L-15": {
-   "machine": "todo",
-   "why": "Map.set(k,v) 无对应 delete 且 key 来自外部",
-   "target_scanner": "scan-ts.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "D-11": {
-   "machine": "todo",
-   "why": "摘除 Map<K,Set<V>> 条目时未先清内部容器",
-   "target_scanner": "scan-ts.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "T-05": {
-   "machine": "todo",
-   "why": "首屏兜底用 element.style.xxx = 而非注入 <style>",
-   "target_scanner": "scan-ts.py"
+   "machine": "covered",
+   "why": "曾被判「可机扫·待写规则」，现已有规则覆盖（自动标记）"
   },
   "K-02": {
    "machine": "manual",
@@ -404,9 +381,196 @@
    "machine": "manual",
    "why": "横切关注点多出口漏配：需列出所有出口逐个比对，重点看后加的分支；注释常声称「与 X 同一套」"
   },
+  "CC-03": {
+   "machine": "xref",
+   "same_as": "CC-11",
+   "why": "CC-11「成对缺失」的 PAIRS 同时覆盖 schedule/unschedule 与 on/off，与 CC-03「定时器未清理」同一条 → 非缺口"
+  },
+  "CC-05": {
+   "machine": "manual",
+   "why": "对象池「假回收」要看取用/归还是否配对的运行时行为，静态扫不出归还路径是否真的被调用"
+  },
+  "G-07": {
+   "machine": "xref",
+   "same_as": "APP-P04",
+   "why": "APP-P04「多入口但安全策略只覆盖其一」已覆盖，非缺口"
+  },
+  "G-09": {
+   "machine": "xref",
+   "same_as": "APP-P05",
+   "why": "APP-P05「多份构建配置合并关系存疑」已覆盖，非缺口"
+  },
+  "PY-14": {
+   "machine": "manual",
+   "why": "生成器被二次消费：需追踪同一生成器对象的多次迭代，静态正则做不到数据流分析"
+  },
+  "PY-15": {
+   "machine": "manual",
+   "why": "subprocess 的 errors= 只配输出没配输入：需比对 encode/decode 两侧参数，属跨参数语义"
+  },
+  "CC-06": {
+   "machine": "manual",
+   "why": "闭包捕获与全局引用需读数据流，静态扫不到"
+  },
+  "A-11": {
+   "machine": "manual",
+   "why": "降级路径被赋予业务语义，需理解业务含义"
+  },
   "A-23": {
    "machine": "manual",
-   "why": "部分成功的报错是否说清「主体已生效」：需让收尾步骤单独失败看措辞"
+   "why": "部分成功的报错措辞，需读输出文案"
+  },
+  "A-24": {
+   "machine": "manual",
+   "why": "产物与业务数据是否共用命名空间，需理解目录约定"
+  },
+  "A-25": {
+   "machine": "manual",
+   "why": "单向属性写入需追踪状态机方向"
+  },
+  "A-27": {
+   "machine": "manual",
+   "why": "三态布尔化需理解返回语义"
+  },
+  "A-28": {
+   "machine": "manual",
+   "why": "中间产物是否被自身流程拾取，需读流程"
+  },
+  "K-35": {
+   "machine": "manual",
+   "why": "value 字符集约束属接口约定，非文本特征"
+  },
+  "K-36": {
+   "machine": "manual",
+   "why": "错误分类是否过宽，需比对语义"
+  },
+  "K-37": {
+   "machine": "manual",
+   "why": "分页是否翻页需读循环控制流"
+  },
+  "K-41": {
+   "machine": "manual",
+   "why": "异常范围与语义匹配需理解错误模型"
+  },
+  "K-38": {
+   "machine": "manual",
+   "why": "符号链接目标越界需路径语义分析"
+  },
+  "K-39": {
+   "machine": "manual",
+   "why": "N+1 需识别循环内外部请求语义"
+  },
+  "K-40": {
+   "machine": "manual",
+   "why": "列表查询是否需分页属接口约定"
+  },
+  "B-02": {
+   "machine": "manual",
+   "why": "破坏性操作标识符白名单属策略"
+  },
+  "B-06": {
+   "machine": "manual",
+   "why": "超时是否清理需生命周期分析"
+  },
+  "R-10": {
+   "machine": "manual",
+   "why": "析构期跨线程访问需时序分析"
+  },
+  "H-03": {
+   "machine": "manual",
+   "why": "安全增强是否打挂测试，需跑测试"
+  },
+  "H-04": {
+   "machine": "manual",
+   "why": "搜同源副本是人工动作"
+  },
+  "H-05": {
+   "machine": "manual",
+   "why": "前后端副本分叉需两处比对"
+  },
+  "H-08": {
+   "machine": "manual",
+   "why": "反向抽查是人工动作"
+  },
+  "H-09": {
+   "machine": "manual",
+   "why": "属性驱动 innerHTML 需属性传播分析"
+  },
+  "H-10": {
+   "machine": "manual",
+   "why": "未接线需人工验证"
+  },
+  "H-11": {
+   "machine": "manual",
+   "why": "新老组件加固一致性需比对"
+  },
+  "H-12": {
+   "machine": "manual",
+   "why": "根目录配置漏扫需理解配置继承"
+  },
+  "H-13": {
+   "machine": "manual",
+   "why": "CI 是否从未成功需实际跑"
+  },
+  "H-14": {
+   "machine": "manual",
+   "why": "工具自身行号准确性需人工核对"
+  },
+  "H-15": {
+   "machine": "manual",
+   "why": "测试是否接上需运行验证"
+  },
+  "H-16": {
+   "machine": "manual",
+   "why": "「另一半」是否接线需人工核对"
+  },
+  "C-14": {
+   "machine": "manual",
+   "why": "预览与实际是否一致需人工比对"
+  },
+  "C-15": {
+   "machine": "manual",
+   "why": "工具自述与实际能力需人工核对"
+  },
+  "H-06": {
+   "machine": "manual",
+   "why": "覆盖盲区需比对新老路径"
+  },
+  "H-07": {
+   "machine": "manual",
+   "why": "脱敏守卫失败行为需读分支"
+  },
+  "H-17": {
+   "machine": "manual",
+   "why": "非日志出口凭据泄露需识别输出通道"
+  },
+  "T-01": {
+   "machine": "manual",
+   "why": "反序列化兜底需读容错分支"
+  },
+  "T-03": {
+   "machine": "manual",
+   "why": "降级后是否重试需读重试策略"
+  },
+  "T-14": {
+   "machine": "manual",
+   "why": "同步声明范围需读锁粒度"
+  },
+  "T-15": {
+   "machine": "manual",
+   "why": "预演开关覆盖范围需比对命令集"
+  },
+  "T-16": {
+   "machine": "xref",
+   "why": "判据正文写明已并入 A-25"
+  },
+  "D-18": {
+   "machine": "manual",
+   "why": "多匹配与状态处理需读查表语义"
+  },
+  "PY-17": {
+   "machine": "manual",
+   "why": "负时区偏移解析需运行验证"
   },
   "K-42": {
    "machine": "manual",
@@ -447,6 +611,14 @@
    "machine": "todo",
    "why": "git -c user.name= / --author= 硬编码工具自身身份",
    "target_scanner": "scan-app.py"
+  },
+  "PY-16": {
+   "machine": "manual",
+   "why": "timeout 未捕获需判断调用点是否真的会超时；subprocess 超时是否处理属策略选择，正则只能抓到 run( 表面"
+  },
+  "A-26": {
+   "machine": "manual",
+   "why": "拦截判据与提示文案是否同步需人工比对，改动语义关联"
   },
   "AR-02": {
    "machine": "manual",

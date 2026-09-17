@@ -142,8 +142,48 @@ for _s, _scs in SCENE_SCRIPTS.items():
 SOLE_SCANNER_SCENE = {k: v[0] for k, v in _SCENES_OF.items() if len(v) == 1}
 
 # 语言 ID 前缀 → 语言包场景（分组用，见下方 grouped 逻辑）
+# Godot（GD-xx / p-godot）随远端新增语言包一起登记。
+# 漏登记的后果实测过：RS 曾漏登记 → RS-05 等候选被加错前缀归到 s-contracts，
+# 而 s-contracts 未命中路由 → 整个 Rust 包审查结果静默丢失（报 0 条）。
 LANG_SCENE = {'PY': 'p-python', 'GO': 'p-go',
-              'JAVA': 'p-java', 'CPP': 'p-cpp', 'RS': 'p-rust'}
+              'JAVA': 'p-java', 'CPP': 'p-cpp', 'RS': 'p-rust',
+              'GD': 'p-godot'}
+
+
+def _lang_prefixes():
+    """应当被当作「已是统一 ID、不再加前缀」的语言前缀集合。
+
+    不能写死：漏一个（如 RS、CC）该语言的候选就被加错前缀 →
+    归到 s-contracts → 该场景没被路由命中时**候选静默丢失**。
+
+    事实源有两个：
+      ① LANG_SCENE 的键 —— 语言包
+      ② references/p-*.md 里的判据 ID 前缀 —— 平台包（p-cocos 用 CC-xx）
+    两个都扫，新增语言包/平台包自动纳入。
+    """
+    import re as _re
+    out = set(LANG_SCENE)
+    refdir = os.path.join(os.path.dirname(HERE), 'references')
+    try:
+        for fn in os.listdir(refdir):
+            if fn.startswith('p-') and fn.endswith('.md'):
+                txt = _read_ref(os.path.join(refdir, fn))
+                for m in _re.finditer(r'^###\s+([A-Z]{2,4})-\d', txt, _re.M):
+                    out.add(m.group(1))
+    except OSError:
+        pass
+    return out
+
+
+def _read_ref(path):
+    try:
+        return open(path, encoding='utf-8').read()
+    except OSError:
+        return ''
+
+
+# TS / APP 是扫描器自带前缀，也要算进去
+_KNOWN_PREFIX = _lang_prefixes() | {'TS', 'APP'}
 
 
 def _items_index():
@@ -184,9 +224,17 @@ def _pick_items(II, d, scene, hit_ids=None, feats=None):
             by_norm.setdefault(n, k)
 
     picked = []
+    imap = _item_map()
     if hit_ids:
         for h in hit_ids:
             k = by_norm.get(II.norm_id(h) or '')
+            # 回退：规则号查不到判据时，走 registry 的 item 映射。
+            # 扫描器规则号（CC-11）与人工判据号（CC-02）本就不是一套编号，
+            # 不做这步，平台包的判据**一条都取不到**。
+            if not k:
+                mapped = imap.get(h) or imap.get('TS-' + h) or imap.get('APP-' + h)
+                if mapped:
+                    k = by_norm.get(II.norm_id(mapped) or '')
             if k and idx[k] not in picked:
                 picked.append(idx[k])
     if not picked and feats:
@@ -217,6 +265,34 @@ def _pick_items(II, d, scene, hit_ids=None, feats=None):
             return []
         picked = [i for i in d['items']
                   if i['scene'] == scene and i['level'] == 'P0']
+    # xrefs 里的 **P0 级**条目一并带上。
+    #
+    # item-index 的 expand() 只在「正文过短的指针条目」时才展开 xrefs，
+    # 于是正文够长的条目（实测 25 条有 xrefs 里 20 条如此）**永远不展开**。
+    # 后果：机扫命中 PY-02（P0）时，它 xrefs 指向的 A-02 不会出现——
+    # 而 A-02 带着 PY-02 没有的判据细节。判据互指就是为了让人看到关联，
+    # 不展开等于白写。
+    #
+    # 只带 P0 且最多 3 条：判据正文是 context 大头，不能无节制扩张
+    #（起步集本来就落 7 条/891 tokens，多 3 条可接受）。
+    if picked:
+        XREF_MAX = 3
+        extra = []
+        for i in list(picked):
+            for xr in (i.get('xrefs') or []):
+                k = by_norm.get(II.norm_id(xr) or '')
+                if not k:
+                    continue
+                tgt = idx[k]
+                if tgt['level'] != 'P0':
+                    continue
+                if tgt in picked or tgt in extra:
+                    continue
+                extra.append(tgt)
+        # 按 ID 排序，保证同一批候选中顺序稳定（便于 diff）
+        extra.sort(key=lambda i: i['id'])
+        picked = picked + extra[:XREF_MAX]
+
     if ITEM_LEVEL:
         picked = [i for i in picked if i['level'] == ITEM_LEVEL]
     picked.sort(key=lambda i: (i['level'], i['id']))
@@ -350,6 +426,27 @@ def _scene_map():
     try:
         return dict((r['rule_id'], r['scene'])
                     for r in json.load(open(reg, encoding='utf-8'))['rules'])
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def _item_map():
+    """规则 ID -> 判据条目 ID。
+
+    为什么需要：扫描器规则号与人工判据号**不是一套编号**。
+    例：cocos-audit 报 CC-11（成对缺失），而 p-cocos.md 的判据是 CC-01~06；
+    registry 里 CC-11 的 item 是 CC-02。
+    若拿 hit_id 直接去 items.json 查，CC-11 查不到 → picked 为空 →
+    显示「无候选，跳过判据」——而实际有 4 条候选。输出自相矛盾，
+    用户以为没东西可看，其实只是没映射上。
+    """
+    reg = os.path.join(SKILL, 'rules', 'registry.json')
+    if not os.path.isfile(reg):
+        return {}
+    try:
+        return dict((r['rule_id'], r['item'])
+                    for r in json.load(open(reg, encoding='utf-8'))['rules']
+                    if r.get('item'))
     except (OSError, ValueError, KeyError):
         return {}
 
@@ -587,7 +684,14 @@ def main():
             native = it.get('id') or it.get('pattern') or ''
             # 语言扫描器输出的已是统一 ID（PY-01 / GO-04），不能再加前缀，
             # 否则变成 TS-PY-01，scene_of 查不到 → 全部归到 s-contracts
-            if re.match(r'^(TS|APP|PY|GO|JAVA|CPP)-', native):
+            # 名单不能写死 —— 漏一个前缀，该语言的候选全被加错前缀归到
+            # s-contracts，而 s-contracts 常常没被路由命中 → **候选静默丢失**。
+            # 实测：RS-05 变成 TS-RS-05、CC-13 变成 TS-CC-13，
+            # 一个 Rust 项目扫出 3 条候选，进报告的 0 条。
+            # 更隐蔽的是 LANG_SCENE['RS'] 因此成了**死配置**：
+            # 静态看它写了、看着对，运行时那条分支永远走不到。
+            # 现在从 LANG_SCENE + 平台包 ID 前缀动态推导。
+            if native.split('-')[0] in _KNOWN_PREFIX:
                 rid = native
             else:
                 rid = ('APP-' if 'app' in sc else 'TS-') + native
@@ -604,15 +708,28 @@ def main():
             #
             # 判据写在 p-python.md 里，审 Python 就该在 p-python 看到它。
             # registry 的 scene 用于风险面统计，不用于分组。
-            m = re.match(r'^(PY|GO|JAVA|CPP)-', rid)
-            if m:
-                scene = LANG_SCENE[m.group(1)]
+            # 前缀不写死：用 _lang_prefixes()（LANG_SCENE 键 + p-*.md 判据前缀）。
+            # 原先写死 `^(PY|GO|JAVA|CPP)-` —— RS / GD / CC 全漏，
+            # 于是 Rust 与 Godot 两个包的候选被加错前缀归到 s-contracts，
+            # 未命中路由时**整包静默丢失**（这是「名单漏一个」第四次出现）。
+            m = re.match(r'^([A-Z]{1,4})-', rid)
+            if m and m.group(1) in _lang_prefixes():
+                scene = LANG_SCENE.get(m.group(1)) or scene_of.get(rid, 's-contracts')
             elif sc in SOLE_SCANNER_SCENE:
                 # 专用扫描器（引擎包等）：候选直接归它的场景。
                 # 见 SOLE_SCANNER_SCENE 处的说明。
                 scene = SOLE_SCANNER_SCENE[sc]
             else:
                 scene = scene_of.get(rid, 's-contracts')
+                # 平台包（p-cocos）不属于任何语言，scene_of 里查不到 →
+                # 会落进 s-contracts。而 s-contracts 常常没被路由命中，
+                # 于是这批候选**一条都进不了报告**（实测 CC-13 全丢）。
+                # 兜底：按「这条候选是哪个扫描器报的」反查它该归哪个场景。
+                if scene == 's-contracts':
+                    for _scn, _scripts in SCENE_SCRIPTS.items():
+                        if sc in _scripts and _scn in todo:
+                            scene = _scn
+                            break
             grouped.setdefault(scene, []).append(it)
 
     # 判据索引（--items 时才需要）。缺失不致命，只是不落盘。

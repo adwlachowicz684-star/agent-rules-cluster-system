@@ -61,6 +61,10 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
   每批 ≤4（可调 `--batch=N`），一批审完再加载下一批
 - **精审中发现新的结构特征 → 回路由层补加载**（增量路由，见 `common.md`）
 
+<<<<<<< 本地
+## 场景表（11 风险面 + 6 语言包）
+=======
+>>>>>>> 远端
 ## 场景表（12 风险面 + 4 语言包）
 
 **风险面**（换个项目还成立）与**语言包**（某种语言的语义特有判据）是并列维度，
@@ -85,7 +89,13 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`p-java.md`** ⭐ | 仓库有 `.java` | 资源未 try-with-resources、线程池不关、中断被吞 |
 | **`p-cpp.md`** ⭐ | 仓库有 `.c/.cpp/.h` | 所有权不清、异常路径泄漏、缓冲区溢出、虚假唤醒 |
 | **`p-rust.md`** ⭐ | 仓库有 `.rs`（`Cargo.toml` / `src-tauri/` 强信号） | panic 静默化、整数 release 回绕、unsafe 无契约、同步锁跨 await、Tauri 入参未校验 |
+<<<<<<< 本地
+| **`p-cocos.md`** | Cocos Creator 项目（配套 `cocos-audit.py`：CC-11~21） | 六大泄漏源、生命周期、迁移、包体 |
 | **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
+| `references/engine-template.md` | **补新引擎时的骨架**（含 Cocos↔Godot 对照） |
+=======
+| **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
+>>>>>>> 远端
 | **`p-godot.md`** | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留；API 级判据见 `godot-api/` |
 
 ⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，对 Python / Go / Java /
@@ -152,11 +162,20 @@ python3 scripts/route.py --src=<根> --items     # 起步：还没跑扫描器�
 | `references/common-reporting.md` | 报告结构、**退出标准（三类清单 + blocking）**、复核 |
 | `references/common-manual-review.md` | 人工精审 10 项清单（**第 8 项「防护的组合与出口」、第 9 项「复验历史修复」、第 10 项「验证手段自检」命中率最高**） |
 | `references/common-global.md` | 跨单元一致性、地基优先 |
+<<<<<<< 本地
+| `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库 |
+| `references/rule-mapping.md` | 映射 `--map` 与缺口 `--gaps` |
+| `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库、自检、fixture 纪律 |
+| `references/route.md` | 场景命中判据（人读版）：信号分级、人工审核清单、增量路由 |
+
+场景配套文件（按需，场景文件内会指明）：`s-numerics-adversarial.md`（对抗性输入）· `s-numerics-fix.md` / `s-numerics-fix-adv.md`
+=======
 | `references/common-maintenance.md` | **维护本技能**：新缺陷如何入库、自检、fixture 纪律 |
 | `references/route.md` | 场景命中判据（人读版）：信号分级、人工审核清单、增量路由 |
 
 场景配套文件（按需，场景文件内会指明）：
 `s-numerics-adversarial.md`（对抗性输入）· `s-numerics-fix.md` / `s-numerics-fix-adv.md`
+>>>>>>> 远端
 / `s-structures-fix.md` / `s-lifecycle-fix.md`（修法）· `s-sandbox-host.md`
 （外壳-扩展契约）· `s-sandbox-security.md`（CSP 合并语义、凭据、外链入口）
 
@@ -188,6 +207,12 @@ python3 scripts/audit.py --src=<根> --items          # 编排 + 判据落盘
 
 ## Troubleshooting
 
+<<<<<<< 本地
+完整表见 `references/troubleshooting.md`（13 条，出问题时才看）。两条最容易误判的：
+
+- **扫描器报「文件 0 · 候选 0」= 不是「没问题」** —— 多半是没扫到该语言，改全人工精审并在报告写明
+- **某模式全库 0 命中** —— 可能是已修好，也可能是模式失效，跑 `--self-test` 区分
+=======
 | 症状 | 原因 | 处理 |
 |---|---|---|
 | 路由命中 8、10 个 | 大项目正常 | 分批审（每批 ≤4），不要截断。截断会漏检 |
@@ -199,3 +224,4 @@ python3 scripts/audit.py --src=<根> --items          # 编排 + 判据落盘
 | 某模式全库 0 命中 | 已修好，或模式失效 | 跑 `--self-test` 区分 |
 | 扫描器报「文件: 0　候选: 0」 | 源码语言不在扫描器支持集（非 TS/JS） | **不是「没问题」**。改全人工精审并在报告写明；见 `references/route.md` 末节 |
 | 报告行号指向错误代码 | 注释剥离未保持行数守恒 | 先跑 `--self-test` 看「✓ 行数守恒」 |
+>>>>>>> 远端

@@ -212,9 +212,13 @@ def _body_of(src, m, limit=None):
          'NaN 参与所有比较恒为 false，守卫失效。应写 !(x>0) 或 Number.isFinite')
 def a01(plugin, files):
     hits = []
-    # if (x <= 0) / if (x < 0) / while (i < n) 类数值守卫
+    # 只判 **if 守卫**，不再判 while 循环条件。
+    # `while (r < 64) { r *= 2 }` 里的 r 是循环控制变量（从字面量 1 起步），
+    # 不是外部输入——按变量名排除不可能穷举（r / n / k / cur … 都能用），
+    # 于是这类最常见的循环写法被一律误报。
+    # 循环上界来自入参的问题交给 B01 / B02（它们专管这个），职责不重叠。
     for fn, i, ln in iter_lines(files):
-        for m in re.finditer(r'\b(?:if|while)\s*\(\s*(?:!?\s*)?([A-Za-z_$][\w.$]*)\s*'
+        for m in re.finditer(r'\bif\s*\(\s*(?:!?\s*)?([A-Za-z_$][\w.$]*)\s*'
                              r'(<=|<|>=|>)\s*([0-9.]+)\s*\)', ln):
             var, op, num = m.groups()
             # 排除明显是下标/长度的（这些是整数循环，不是数值守卫）
@@ -225,14 +229,39 @@ def a01(plugin, files):
     return hits
 
 
+# ---------- 共用：数值收口守卫识别 ----------
+# 「要不要报边界/非有限值问题」取决于附近**有没有收口动作**。
+# 清单不全就会在**真实正确代码**上误报——实测这四条都会漏：
+#   Number.isInteger(v)   —— 同时排除 NaN 与 ±Infinity，比 isFinite 更严格
+#   Number.isSafeInteger(v)
+#   v > 0 / v <= 0 这类比较守卫（配合提前 return）
+# 原先各 pattern 各写一份正则，漏了就各漏各的，且互不知情 → 统一到这一处。
+GUARD_RX = (r'clamp|clampNum|numOr|Math\.min\(|Math\.max\(|isFinite|'
+            r'Number\.is(?:Safe)?Integer|Number\.isFinite')
+
+# 下标/范围校验：slice / splice 的负数陷阱靠它挡。
+# 与 GUARD_RX 分开是因为语义不同——GUARD 管「数值是否有限」，
+# 这条管「下标是否落在合法区间」。P04 原先两者都不认，
+# 于是 `list.splice(i, 1)` 只要 i 是变量就一律报，真实代码里遍地都是。
+RANGE_GUARD_RX = (r'Number\.is(?:Safe)?Integer|isFinite|'
+                  r'>= ?0|> ?-1|< ?=?\s*\w+\.length|'
+                  r'Math\.max\(\s*0|Math\.min\(|clamp')
+
+
 @pattern('A02', 'P0', '?? 默认值未收口（只挡 undefined，不挡 NaN/Infinity）',
          '配置字段用 opts.x ?? d 而非 clampNum/numOr，NaN 长驱直入')
 def a02(plugin, files):
     hits = []
     for fn, i, ln in iter_lines(files):
-        if re.search(r'\?\?\s', ln) and not re.search(r'clampNum|numOr|Math\.max\(', ln):
+        if re.search(r'\?\?\s', ln) and not re.search(GUARD_RX, ln):
             # 排除字符串/布尔默认值
             if re.search(r"''|\"\"|true|false|'[^']*'|\{\}|\[\]", ln):
+                continue
+            # 排除「容器取值兜底」：`m.get(k) ?? 0` / `arr[i] ?? d`。
+            # Map.get 只返回 `V | undefined`，`?? 0` 是**类型正确**的兜底，
+            # 不存在 NaN 传播——值本来就是循环里 set 进去的 number。
+            # 把它当成「配置字段用 ?? 未收口」会淹没真问题。
+            if re.search(r'\.\s*get\s*\([^)]*\)\s*\?\?|\]\s*\?\?', ln):
                 continue
             hits.append((fn, i, ln.strip()[:90]))
     return hits
@@ -296,7 +325,12 @@ def b01(plugin, files):
                 continue
             line = src[:m.start()].count('\n') + 1
             ctx = '\n'.join(src.split('\n')[max(0, line - 10):line])
-            if re.search(r'clamp|Math\.min|isFinite', ctx):
+            # Number.isInteger / isSafeInteger 是**比 isFinite 更严格**的收口
+            # （它同时排除 NaN 与 Infinity，且要求是整数），
+            # 原本只认 clamp|Math.min|isFinite，于是
+            # `if (!Number.isInteger(count) || count <= 0) return;` 这种标准写法
+            # 照样被报 —— 在真实正确代码上误报。
+            if re.search(GUARD_RX, ctx):
                 continue
             hits.append((fn, line, f'for (...; i < {bound}; ...)'))
     return hits
@@ -375,19 +409,89 @@ def d01(plugin, files):
     hits = []
     src_all = '\n'.join(files.values())
     for fn, src in files.items():
-        # 接口里的可选字段
-        for m in re.finditer(r'^\s*(?:readonly\s+)?(\w+)\??\s*:\s*[^;]+;\s*(?://.*)?$',
-                             src, re.M):
-            f = m.group(1)
-            if f.startswith('_') or len(f) < 3:
+        # 只取 **interface / type 声明块** 内的字段。
+        # 原先对全文匹配 `name: T;`，于是对象字面量
+        # `export const flags = { debug: false }` 里的 debug 也被当成接口字段，
+        # 而它只出现 1 次 → 报「死契约」。真实代码里配置对象遍地都是，误报极多。
+        blocks = []
+        for bm in re.finditer(r'\b(?:interface|type)\s+\w[^{]*\{', src):
+            depth, i = 1, bm.end()
+            while i < len(src) and depth > 0:
+                if src[i] == '{':
+                    depth += 1
+                elif src[i] == '}':
+                    depth -= 1
+                i += 1
+            blocks.append((bm.end(), src[bm.end():i - 1]))
+        if not blocks:
+            continue
+        for _base, blk in blocks:
+            for m in re.finditer(r'^\s*(?:readonly\s+)?(\w+)\??\s*:\s*[^;]+;\s*(?://.*)?$',
+                                 blk, re.M):
+                f = m.group(1)
+                _d01_emit(hits, fn, src, src_all, m, f, _base)
+        continue
+    return hits
+
+
+def _d01_emit(out, fn, src, src_all, m, f, base):
+    if f.startswith('_') or len(f) < 3:
+        return
+    # 统计全插件出现次数（声明处算 1 次）
+    n = len(re.findall(r'\b' + re.escape(f) + r'\b', src_all))
+    if n <= 1:
+        # 行号换算回**全文**坐标：块起点 + 块内偏移
+        line = src[:base + m.start()].count('\n') + 1
+        out.append((fn, line, f'字段 `{f}` 全插件仅出现 {n} 次（很可能声明未实现）'))
+
+
+@pattern('D02', 'P0', '参数声明但函数体内从未使用（承诺无效）',
+         'register(type, fn, overwrite=false) 的 overwrite 完全无效')
+def d02(plugin, files):
+    hits = []
+    for fn, src in files.items():
+        # 只匹配行首的函数/方法定义，避免把调用点误当定义
+        for m in re.finditer(r'^[ \t]*(?:export\s+)?(?:private\s+|public\s+|protected\s+)?'
+                             r'(?:static\s+)?(?:async\s+)?(\w+)\s*\('
+                             r'([^()]{0,300})\)\s*(?::\s*[^{;=>]+)?\{\s*$', src, re.M):
+            fname = m.group(1)
+            # 排除控制流关键字（它们的"参数"是条件表达式，天然不在体内出现）
+            if fname in {'if', 'for', 'while', 'switch', 'catch', 'return',
+                         'function', 'constructor', 'get', 'set'}:
                 continue
-            if re.search(r'\b' + re.escape(f) + r'\b', src_all):
-                pass
-            # 统计全插件出现次数（声明处算 1 次）
-            n = len(re.findall(r'\b' + re.escape(f) + r'\b', src_all))
-            if n <= 1:
-                line = src[:m.start()].count('\n') + 1
-                hits.append((fn, line, f'字段 `{f}` 全插件仅出现 {n} 次（很可能声明未实现）'))
+            params = m.group(2)
+            if not params.strip() or '=>' in params:
+                continue
+            depth, j = 0, len(src)
+            for k in range(m.end() - 1, min(len(src), m.end() + 6000)):
+                if src[k] == '{':
+                    depth += 1
+                elif src[k] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        j = k
+                        break
+            body = src[m.end():j]
+            # 先抹掉泛型尖括号内容，避免 Record<a,b> 的逗号被当分隔符
+            flat = re.sub(r'<[^<>]*>', '', params)
+            for seg in flat.split(','):
+                seg = seg.split('=')[0].strip().lstrip('.').strip()
+                pm = re.match(r'^([a-zA-Z_$][\w$]*)\s*\??', seg)
+                if not pm:
+                    continue
+                pn = pm.group(1)
+                if len(pn) < 4 or pn in {'this', 'type', 'name', 'opts', 'args'}:
+                    continue
+                if not re.search(r'\b' + re.escape(pn) + r'\b', body):
+                    # 兜底：函数体里的**正则字面量或字符串**含花括号时，配平会提前结束，
+                    # body 被截成几十字 → 后半段用到的参数全被误判为"未使用"。
+                    # 实测 nexus-panel：scopeCss() 体内有正则 /(^|\})([^{}@]+)\{/g，
+                    # body 只剩 27 字符，`scope` 明明用了却报未使用。
+                    # 此时用全文出现次数兜底：>1 说明别处用过，宁可漏报也不误报。
+                    if len(body) < 200 and src.count(pn) > 1:
+                        continue
+                    line = src[:m.start()].count('\n') + 1
+                    hits.append((fn, line, f'参数 `{pn}` 在函数体内未被使用'))
     return hits
 
 
@@ -652,8 +756,22 @@ def o01(plugin, files):
 def o02(plugin, files):
     hits = []
     for fn, src in files.items():
+        # 排除正则字面量：`css.replace(/(^|\})([^{}@]+)\{/g, ...)` 里的 `/`
+        # 会被当成除号 → O02 在任何含正则字面量的文件里误报
+        #（真实代码里正则极其常见）。
+        # 区分方法：看 `/` **前一个非空白字符**——
+        #   正则起点：= ( , [ : return typeof case 等
+        #   除    法：标识符 / 数字 / ) ] }
         for m in re.finditer(r'/\s*([A-Za-z_$][\w.$]*)\s*[;),]', src):
             v = m.group(1)
+            # 判「除法」还是「正则字面量的起始斜杠」：看 / 左侧紧邻的字符。
+            #   左侧是 标识符/数字/)/]  → 除法（`total / count`）
+            #   左侧是 (、=、,、[、: 或行首 → 正则字面量起点（`replace(/re/g,`）
+            # 第一版把判断写反了（lookbehind 排除了标识符），结果真除法不报、
+            # 正则照样报——两个方向全错。
+            pre = src[:m.start()].rstrip()
+            if not pre or not re.search(r'[\w$)\]]$', pre):
+                continue
             # 判据从「变量名是否属于白名单」改为「分母是不是标识符」。
             # 白名单写法下，分母叫 step / size / denom / qty 一律漏检：
             # 实测白名单内 5/5 命中、白名单外 0/8 命中 —— 而 fixture 用的
@@ -746,13 +864,30 @@ def l15(plugin, files):
             name = m.group(1)
             if name in ('map', 'set'):
                 continue
+            line = src[:m.start()].count('\n') + 1
+            # 只报**长期存活**的容器：实例字段 this.x，或模块级 const x = new Map()。
+            # 函数内 `const c = new Map()` 用于计算后返回（如词频统计）是局部对象，
+            # 随调用结束即释放，不构成「只增不减的缓存」——
+            # 这类写法在真实代码里极其常见，不排除会大量误报。
+            if not re.search(r'\bthis\.' + re.escape(name) + r'\b', src):
+                modmap = re.search(
+                    r'(?:const|let|var)\s+' + re.escape(name) + r'\s*=\s*new\s+Map', src)
+                if not modmap:
+                    continue
+                # 模块级但**在函数内被重新创建** → 仍是局部的
+                if re.search(r'\b(?:const|let|var)\s+' + re.escape(name)
+                             + r'\s*=\s*new\s+Map', src):
+                    # 找该声明缩进：若不在顶层（有缩进）则是局部变量
+                    dm = re.search(r'^(\s*)(?:const|let|var)\s+' + re.escape(name)
+                                   + r'\s*=\s*new\s+Map', src, re.M)
+                    if dm and dm.group(1):
+                        continue
             # 有删除动作 → 有界
             if re.search(re.escape(name) + r'\s*\.\s*(?:delete|clear)\s*\(', src):
                 continue
             # 有整体上限裁剪 → 有界
             if re.search(re.escape(name) + r'\s*\.\s*size\s*[<>]', src):
                 continue
-            line = src[:m.start()].count('\n') + 1
             hits.append((fn, line, '%s 只 set 不 delete（key 无界则无限增长）' % name))
     return hits
 
@@ -817,7 +952,10 @@ def b03(plugin, files):
         for dm in re.finditer(r'\bfunction\s+(\w+)\s*\(([^)]{0,300})\)', src):
             name = dm.group(1)
             body = _body_of(src, dm)
-            if not re.search(r'\b' + re.escape(name) + r'\s*\(', body):
+            # 必须排除 `.name(` —— 否则 `resources.load(...)` 里的 `.load(`
+            # 会被当成 `function load()` 的自递归（\b 不排除点号）。
+            # load / render / update / init 这类通用名在真实代码里极易撞。
+            if not re.search(r'(?<![.\w])' + re.escape(name) + r'\s*\(', body):
                 continue
             if re.search(r'visiting|visited|seen|depth|guard|memo', body):
                 continue
@@ -1040,6 +1178,10 @@ def p04(module, files):
     hits = []
     for fn, i, ln in iter_lines(files):
         if re.search(r'\.(slice|splice)\s*\(\s*[^)]*[A-Za-z_$][\w.$]*\s*[,)]', ln):
+            # 附近已有下标范围校验 → 不是陷阱
+            seg = '\n'.join(files[fn].split('\n')[max(0, i - 8):i])
+            if re.search(RANGE_GUARD_RX, seg):
+                continue
             hits.append((fn, i, ln.strip()[:90]))
     return hits
 
@@ -1100,15 +1242,33 @@ def q02(module, files):
 def q03(module, files):
     hits = []
     for fn, src in files.items():
-        for m in re.finditer(r'new\s+Map\s*(?:<[^>]*>)?\s*\(\s*\)', src):
-            head = src[max(0, m.start() - 160):m.start()].strip()
-            fm = re.search(r'([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*$', head)
+        # 只判**分桶 / 空间索引**：Map 的**值本身是容器**（Set / Array / Map）。
+        # 扁平容器（Map<string, number> 的 pending 表、进程注册表）删了条目就没了，
+        # 不存在「空桶」——原先不区分，TS-L15 的 fp（pending 表有 set 有 delete）
+        # 被报「有 delete 但未见空桶回收」，属于误报。
+        for m in re.finditer(r'new\s+Map\s*(?:<[^>]*(?:Set|Array|Map|[\[\]])[^>]*>)?\s*\(\s*\)',
+                             src):
+            head = src[max(0, m.start() - 220):m.start()]
+            # 类型标注落在声明处（可能跨行），往回找 `f: Map<..., Set<..>> =`
+            fm = re.search(r'([A-Za-z_$][\w$]*)\s*(?::[^=;]*)?=\s*$', head.strip())
             if not fm:
                 continue
             f = fm.group(1)
+            decl = ''
+            dm = re.search(r'([A-Za-z_$][\w$]*)\s*:\s*Map\s*<([^;=]*)>', src)
+            if dm and dm.group(1) == f:
+                decl = dm.group(2)
+            if decl and not re.search(r'Set|Array|Map|\[\]', decl):
+                continue   # 扁平容器，不是分桶
             if not re.search(re.escape(f) + r'\s*\.\s*delete\s*\(', src):
                 continue
             if re.search(r'\.size\s*===?\s*0', src):
+                continue
+            # 「clear + delete」= 连桶一起删掉，桶不存在了，自然没有空桶可回收。
+            # 只有「clear 了却把空桶留在 Map 里」才是真问题——
+            # 不区分的话 `get(k)?.clear(); delete(k);` 这种彻底清理的写法会被误报。
+            if re.search(re.escape(f) + r'\s*\.\s*get\s*\([^)]*\)\s*\?\?*\.?\s*clear\s*\(', src) \
+                    or re.search(re.escape(f) + r'\s*\.\s*get\s*\([^)]*\)\s*\.\s*clear\s*\(', src):
                 continue
             line = src[:m.start()].count('\n') + 1
             hits.append((fn, line, '%s 是分桶 Map，有 delete 但未见空桶回收' % f))
@@ -1404,9 +1564,14 @@ def t02(module, files):
             start_v, bound = m.group(2), m.group(4)
             if re.match(r'^-?\d', start_v.strip()) and re.match(r'^-?\d', bound.strip()):
                 continue
+            # `.length` / `.size` 边界必然是有限非负整数，不存在 ±Infinity。
+            # 不豁免的话 `for (let i = 0; i < arr.length; i++)` —— 最常见的
+            # 循环写法 —— 会被一律误报。
+            if re.search(r'\.\s*(?:length|size)\b', bound):
+                continue
             line = src[:m.start()].count('\n') + 1
             ctx = '\n'.join(src.split('\n')[max(0, line - 10):line + 1])
-            if re.search(r'isFinite|clampNum|Math\.min\(|Math\.max\(', ctx):
+            if re.search(GUARD_RX, ctx):
                 continue
             hits.append((fn, line, 'for (%s = %s; ...; %s) 边界未收口'
                          % (m.group(1), start_v.strip()[:18], bound.strip()[:18])))
@@ -1445,8 +1610,13 @@ def w01(module, files):
             if not pm:
                 continue
             body = _body_of(src, m, 3000)
-            integer = re.search(r'Number\.isInteger|%\s*1|Math\.floor|Math\.trunc|Math\.round', body)
-            positive = re.search(r'>\s*0|<\s*=\s*0|<\s*1|isFinite', body)
+            # 收口认定统一走 GUARD_RX。原 positive 只认 `>0 / <=0 / <1 / isFinite`，
+            # 于是 `const c = Math.min(n, 1024)` 这种**上界收口**不被承认 →
+            # 已经有界的 prewarm 仍被报「未校验有限正整数」。
+            # Math.min 对循环上界是有效收口（NaN→不执行、Infinity→取上界），
+            # B01 / T02 早已认它，W01 不认就是三处口径不一致。
+            integer = re.search(GUARD_RX, body)
+            positive = re.search(GUARD_RX, body)
             if not (integer and positive):
                 line = src[:m.start()].count('\n') + 1
                 hits.append((fn, line, '%s() 的 %s 未校验有限正整数'

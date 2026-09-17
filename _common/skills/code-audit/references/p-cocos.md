@@ -75,7 +75,11 @@ python3 scripts/cocos-audit.py --self-test                # 改规则后必跑
 
 ## 六大泄漏源（按出现频率排序）
 
+<<<<<<< 本地
+### CC-01 (P0) 循环缓动未停止
+=======
 ### 1. 循环缓动未停止
+>>>>>>> 远端
 
 `repeatForever` 等不能自行销毁的缓动，**切换场景后继续驻留**，必须手动停止。
 
@@ -100,7 +104,11 @@ onDestroy() {
 **`stop()` vs `clear()`**：`stop()` 只停止（可重新 start）；`clear()` 停止并**释放
 Tween 对象**。不再需要的用 `clear()`。
 
+<<<<<<< 本地
+### CC-02 (P0) 事件监听未注销
+=======
 ### 2. 事件监听未注销
+>>>>>>> 远端
 
 | 注册 | 清理 | 位置 |
 |---|---|---|
@@ -110,7 +118,11 @@ Tween 对象**。不再需要的用 `clear()`。
 
 回调必须是**类方法**，不能是匿名函数——`off` 需要同一函数引用。
 
+<<<<<<< 本地
+### CC-03 (P0) 定时器未清理
+=======
 ### 3. 定时器未清理
+>>>>>>> 远端
 
 ```typescript
 onDestroy() {
@@ -121,7 +133,11 @@ onDestroy() {
 ⚠ `this.schedule(cb, ...)` 与 `setInterval` 是**两套机制**，
 `unscheduleAllCallbacks()` 清不掉 `setInterval`，后者要各自 `clearInterval`。
 
+<<<<<<< 本地
+### CC-04 (P0) 动态资源未释放
+=======
 ### 4. 动态资源未释放
+>>>>>>> 远端
 
 场景切换的"自动释放"**不包括** `resources.load` / `bundle.load` 动态加载的资源。
 
@@ -137,7 +153,11 @@ onDestroy() { this.sp?.decRef(); }
 **共享资源**：释放前用 `getDependsRecursively` 查完整依赖树，确认无人使用再释放。
 按关卡/模块隔离成独立 Bundle，卸载时整体 `bundle.releaseAll()`，比逐个 release 更稳。
 
+<<<<<<< 本地
+### CC-05 (P1) 对象池假回收
+=======
 ### 5. 对象池假回收
+>>>>>>> 远端
 
 | 正确做法 | 理由 |
 |---|---|
@@ -155,7 +175,11 @@ despawn(node)
   └─ pool.size < MAX ? pool.put(node) : node.destroy()
 ```
 
+<<<<<<< 本地
+### CC-06 (P1) 闭包与全局引用（静态扫不到，必须人工看）
+=======
 ### 6. 闭包与全局引用（静态扫不到，必须人工看）
+>>>>>>> 远端
 
 ```bash
 rg -n "getInstance|static.*instance|window\.|globalThis" <目录>

@@ -6,5 +6,10 @@ var mu sync.Mutex
 var m = map[string]int{}
 
 func f() {
-	go func() { mu.Lock(); m["a"] = 1; mu.Unlock() }()
+	go func() {
+		defer func() { _ = recover() }()
+		mu.Lock()
+		defer mu.Unlock()
+		m["a"] = 1
+	}()
 }

@@ -1,3 +1,13 @@
+# APP-G10 · 缺口补齐
+
+对应判据条目：**G-10**（sourcemap / minify 未按 profile）
+
+**tp**：`sourcemap: true` 是常量 → 生产也产出 .map（源码随产物分发）。
+**fp**：随 profile 变化。
+
+---
+
+> 以下来自并行工作线（合并时保留）
 # APP-G10 CI 引用不存在的 npm script
 
 - **TP 必须命中**：`.github/**/*.yml` 里 `npm run X`，而任一 package.json 的 scripts 都没有 X

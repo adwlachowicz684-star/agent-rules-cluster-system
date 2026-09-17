@@ -2,11 +2,18 @@ package main
 
 import "os"
 
-func f(files []string) {
-	for _, f := range files {
-		func() {
-			fh, _ := os.Open(f)
+func f(files []string) error {
+	for _, name := range files {
+		if err := func() error {
+			fh, err := os.Open(name)
+			if err != nil {
+				return err
+			}
 			defer fh.Close()
-		}()
+			return nil
+		}(); err != nil {
+			return err
+		}
 	}
+	return nil
 }

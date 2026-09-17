@@ -43,6 +43,28 @@ GAPS = os.path.join(SKILL, 'rules', 'gaps.json')
 # ID 撞号阈值说明见 cmd_map 的文档串
 
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
+
+# 未知 flag 必须报错，不能静默忽略。
+#
+# 实测：`rule-registry.py --self-test` 会**跑默认列表命令**并退出 0——
+# 用户以为跑了自检、CI 以为过了，实际什么都没验。
+# 这类「有自检的暗示但静默不执行」比没有自检更危险：
+# 它给出一个绿色的信号，而那个信号是空的。
+# 同源问题：手写 sys.argv 解析的脚本会**静默忽略**不存在的 flag
+# （如 `--self-test`），照常跑完并返回 0 —— 见 scripts/_flagguard.py。
+# 注：仓库里没有 mutate.py，那是外部清单的笔误；对应的概念
+# 「无 mutate 即跳过」实现在 scan-py.py 的 PY-08 里。
+KNOWN_FLAGS = {'--apply', '--check', '--cross', '--eval', '--gaps',
+               '--json', '--map', '--scanners', '--sync', '--test'}
+_unknown = [f for f in _flags if f not in KNOWN_FLAGS]
+if _unknown:
+    sys.stderr.write(
+        '未知参数：%s\n'
+        '本脚本没有 --self-test —— 自检是 `rule-registry.py --test`（跑 fixture）'
+        '与 `--cross`（交叉审计），CI 里两个都跑。\n'
+        '可用参数：%s\n' % (', '.join(_unknown), ' '.join(sorted(KNOWN_FLAGS))))
+    sys.exit(2)
+
 AS_JSON = '--json' in _flags
 SCENE = None
 for f in _flags:
@@ -107,6 +129,7 @@ def extract():
 
     asrc = open(os.path.join(HERE, 'scan-app.py'), encoding='utf-8').read()
     aseen = set()
+    cseen = set()
     # 标题允许单引号或双引号：J03 用的是双引号（`postMessage` 描述里含单引号，
     # 作者改用了双引号），原正则只认单引号 → J03 从未进入注册表。
     # 更麻烦的是 --check 也用同一条正则算「扫描器现有规则」，
@@ -128,15 +151,22 @@ def extract():
     psrc = open(os.path.join(HERE, 'scan-py.py'), encoding='utf-8').read()
     pseen = set()
     # PATTERNS 里的四元组：("PY-01", "P0", "标题", fn)
-    # AR-* 与 PY-* 共用同一套 PATTERNS 四元组写法，一并提取
-    for m in re.finditer(
-            r'\(\s*"((?:PY|AR)-\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,', psrc):
+    #
+    # 原先写死 `PY-\d{2}` —— 于是往 scan-py 里加 K-43 / K-44（判据来自 s-backend，
+    # 实测样本是 .py）时，两条规则**根本进不了注册表**：扫描器能报、自检能过，
+    # 但没有 eval、没有判据映射、不计入覆盖率。和 --map 的语言包名单、
+    # CI 的扫描器名单是同一类「名单漏一个就静默失效」，这是第三次。
+    # 改成通用匹配：任何 `("X-NN", "Pn", "标题",` 形态都收。
+    # AR-*（架构可演进性）与 PY-* 共用同一套 PATTERNS 四元组写法，
+    # 通用正则一并提取，无需另列前缀。
+    for m in re.finditer(r'\(\s*"([A-Z]{1,4}-\d{1,3})"\s*,\s*"(P\d)"\s*,'
+                         r'\s*"([^"]+)"\s*,', psrc):
         if m.group(1) in pseen:
             continue
         pseen.add(m.group(1))
         out.append({'rule_id': m.group(1), 'native_id': m.group(1),
                     'scanner': 'scan-py.py', 'level': m.group(2), 'title': m.group(3),
-                    'family': m.group(1)[:2],
+                    'family': m.group(1).split('-')[0],
                     'scene': PY2SCENE.get(m.group(1), 'p-python'),
                     'languages': ['py'],
                     'fixtures': {'tp': None, 'fp': None},
@@ -184,8 +214,50 @@ def extract():
                         'fixtures': {'tp': None, 'fp': None},
                         'eval': {'precision': 'unverified', 'recall': 'unverified'}})
 
+    # ---------- 项目级检查（PROJECT_CHECKS）----------
+    # 原先是硬编码清单 extra —— 与批次10在 --map 里修掉的是同一类 bug：
+    # 「名单漏一个就静默失效」。新增 G 系列 5 条 + K12/K25/K27/C01 后，
+    # 扫描器能报、自检也能报，唯独注册表里没有它们（无 eval、无判据映射、
+    # 不计入覆盖率）。改为从函数 docstring 自动发现：
+    #   docstring 形如 `G01 打包范围过宽（...）` → id + 标题
+    #   level 从函数体里第一次产出该 id 时用的等级取
+    _pm = re.search(r'PROJECT_CHECKS\s*=\s*\[(.*?)\]', asrc, re.S)
+    if _pm:
+        for _fn in re.findall(r'_p_\w+', _pm.group(1)):
+            # docstring 可能含引号（如 G09 的说明里引了 `'../runner.mjs'`），
+            # 用 [^"]* 会匹配不到 → 该规则**静默不进注册表**（能报、自检也报，
+            # 但无 eval、无判据映射、不计入覆盖率）。改用非贪婪 + DOTALL。
+            _dm = re.search(
+                r'def\s+' + _fn + r'\s*\([^)]*\):\s*\n\s*"{3}(.*?)"{3}',
+                asrc, re.S)
+            if not _dm:
+                continue
+            _doc = _dm.group(1).strip()
+            _idm = re.match(r'([A-Z]\d{2})\s+(.*)', _doc, re.S)
+            if not _idm:
+                continue
+            _pid, _title = _idm.group(1), _idm.group(2).strip().split('\n')[0]
+            if _pid in aseen:
+                continue
+            aseen.add(_pid)
+            _lm = re.search(r"\(\s*'" + _pid + r"'\s*,\s*'(P\d)'", asrc[_dm.end():])
+            _lvl = _lm.group(1) if _lm else 'P2'
+            out.append({'rule_id': 'APP-%s' % _pid, 'native_id': _pid,
+                        'scanner': 'scan-app.py', 'level': _lvl, 'title': _title,
+                        'family': _pid[0], 'scene': APP2SCENE.get(_pid, 's-build'),
+                        'item': None, 'cwe': [], 'fix': ''})
+
     # scan-app 的 FILE_PATTERNS / PROJECT_CHECKS 无法用统一正则提取，按已知清单补齐
-    extra = {'G09': ('P2', '导出后零引用（已实现未接线）', 's-contracts'),
+    # 合并 note：G01/K12/K25/K27 来自另一条工作线（判据缺口补齐批次），
+    # 原在线上版本里被覆盖丢失过一次 —— 远端 registry 一度只剩 156 条、
+    # APP-K 与 CC 全空。--check 现在会拿 PROJECT_CHECKS 与注册表做交叉比对，
+    # 少一条就报，不会再静默。
+    extra = {'C01': ('P2', '孤儿组件 / 死代码（无任何引用）', 's-contracts'),
+             'G01': ('P1', '打包范围过宽 / 无 files 白名单', 's-build'),
+             'K12': ('P1', '进程注册表有写入无 remove（进程结束条目残留）', 's-lifecycle'),
+             'K25': ('P0', '定义了命令但 invoke_handler 里没有（承诺失效）', 's-contracts'),
+             'K27': ('P1', '命令重复实现（同名 handler 多处定义）', 's-contracts'),
+             'G09': ('P2', '导出后零引用（已实现未接线）', 's-contracts'),
              'G10': ('P0', 'CI 引用不存在的 npm script', 's-build'),
              'J13': ('P1', '同名常量清单重复定义且已分叉', 's-contracts'),
              'P01': ('P2', '忽略清单缺常见项', 's-build'),
@@ -203,9 +275,35 @@ def extract():
         if k not in aseen:
             out.append({'rule_id': 'APP-%s' % k, 'native_id': k, 'scanner': 'scan-app.py',
                         'level': lvl, 'title': title, 'family': k[0], 'scene': scene,
-                        'languages': ['ts', 'js', 'rs', 'html', 'json'],
-                        'fixtures': {'tp': None, 'fp': None},
-                        'eval': {'precision': 'unverified', 'recall': 'unverified'}})
+                        'item': None, 'cwe': [], 'fix': ''})
+    # ---------- cocos-audit.py ----------
+    # 长期游离在体系之外：这个扫描器能报 11 类问题，但注册表里 0 条 cocos 规则。
+    # 从它自己的 RULE_IDS 表提取（中文名 → ID），id 与级别都在它那里定义，
+    # 这里只负责搬运——不另立一份清单，避免两处不同步。
+    cpath = os.path.join(HERE, 'cocos-audit.py')
+    if os.path.isfile(cpath):
+        csrc = open(cpath, encoding='utf-8').read()
+        _rm = re.search(r'RULE_IDS\s*=\s*\{(.*?)\}', csrc, re.S)
+        _lm = re.search(r'RULE_LEVELS\s*=\s*\{(.*?)\}', csrc, re.S)
+        if _rm:
+            levels = dict(re.findall(r'"([A-Z]+-\d+)"\s*:\s*"(P\d)"',
+                                     _lm.group(1) if _lm else ''))
+            for name, pid in re.findall(r'"([^"]+)"\s*:\s*"?([A-Z]+-\d+)"?',
+                                        _rm.group(1)):
+                if not re.match(r'^[A-Z]+-\d+$', pid):
+                    continue   # None（如「读取失败」）不是规则
+                if pid in cseen:
+                    continue
+                cseen.add(pid)
+                out.append({'rule_id': pid, 'native_id': pid,
+                            'scanner': 'cocos-audit.py',
+                            'level': levels.get(pid, 'P2'), 'title': name,
+                            'family': 'CC', 'scene': 'p-cocos',
+                            'languages': ['ts', 'js'],
+                            'fixtures': {'tp': None, 'fp': None},
+                            'eval': {'precision': 'unverified',
+                                     'recall': 'unverified'}})
+
     out.sort(key=lambda r: (r['scanner'], r['native_id']))
     return out
 
@@ -232,9 +330,14 @@ def attach_fixtures(rules):
         if not os.path.isdir(d):
             continue
         names = os.listdir(d)
-        # 两种形态：单文件 tp.<ext>（默认）与项目树 tp.d/（项目级规则需要多文件）
-        tp = next((f for f in names if f.startswith('tp.')), None)
-        fp = next((f for f in names if f.startswith('fp.')), None)
+        # 两种形态：单文件 tp.<ext>（默认）与项目树 tp.d/（项目级规则需要多文件）。
+        # 只认 startswith('tp.') 的话，tp.d/ 形态会被判成「没有样本」——
+        # 项目级规则（J13/P01~P05/R08/G01~G12/K12/K25/K27/C01）与全部
+        # cocos 规则都是 tp.d/，它们会被集体误报为未覆盖。
+        tp = (next((f for f in names if f.startswith('tp.')), None)
+              or ('tp.d' if 'tp.d' in names else None))
+        fp = (next((f for f in names if f.startswith('fp.')), None)
+              or ('fp.d' if 'fp.d' in names else None))
         if tp or fp:
             have[rid] = {'tp': tp, 'fp': fp}
     for r in rules:
@@ -533,8 +636,15 @@ def _run_scanner(scanner, src_root, native_id):
     六个扫描器行为一致。
     """
     import subprocess
-    cmd = [sys.executable, os.path.join(HERE, scanner),
-           '--src=' + src_root, '--json']
+    # cocos-audit.py 用**位置参数**接路径（`cocos_audit.py <路径>`），
+    # 不认 --src=。统一按 --src= 调它会让 argparse 报 unrecognized arguments
+    # 直接退出，于是 11 条 cocos 规则全被算成「扫描器没跑起来」——
+    # 又是一次「工具不支持 → 静默当没问题」。
+    if scanner == 'cocos-audit.py':
+        cmd = [sys.executable, os.path.join(HERE, scanner), src_root, '--json']
+    else:
+        cmd = [sys.executable, os.path.join(HERE, scanner),
+               '--src=' + src_root, '--json']
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except Exception as e:
@@ -559,23 +669,20 @@ def _run_scanner(scanner, src_root, native_id):
     return True, hits, ''
 
 
-SKIPPED_NO_RULE = []
+# 变体目录名：`<RULE_ID>-<变体名>`，且 <RULE_ID> 本身是已注册的规则号。
+# 只在注册表里**查得到基规则**时才这么解析，避免把任何带横杠的目录都当变体。
+def _variant_base(rid, reg):
+    m = re.match(r'^(.*?)-([a-z][a-z0-9]*)$', rid)
+    if not m:
+        return None
+    base = m.group(1)
+    if any(r['rule_id'] == base for r in reg['rules']):
+        return base
+    return None
 
 
-def _judge_ids():
-    """判据库里已定义的判据 ID 集合（区分「人工判据」与「ID 失配」）。
+VARIANT_RX = re.compile(r'^(?P<base>[A-Z]{2,4}-[A-Z]?\d{1,2})-[a-z][a-z0-9]*$')
 
-    读不到 items.json 时返回空集 —— 此时所有失配都按「ID 失配」报错，
-    即**从严**处理：宁可误报，不可静默跳过。
-    """
-    try:
-        with open(os.path.join(SKILL, 'rules', 'items.json'), encoding='utf-8') as f:
-            return {i['id'] for i in json.load(f).get('items', [])}
-    except (OSError, ValueError, KeyError):
-        return set()
-
-
-_JUDGE_IDS = _judge_ids()
 
 def run_all_fixtures(reg, verbose=True):
     """跑全部 fixture，返回 {rid: {'tp': bool|None, 'fp': bool|None, 'errors': [...]}}。
@@ -602,34 +709,27 @@ def run_all_fixtures(reg, verbose=True):
         if not files and not trees:
             continue
         meta = next((r for r in reg['rules'] if r['rule_id'] == rid), None)
-        # 没有对应规则的 fixture 目录（两类来源），不能再兜底成 scan-ts.py：
-        #   ① 判据条目 ID（A-18~A-23、K-35）—— references/ 里的人工判据，
-        #      不是机扫规则，样本多为 .py，交给只认 TS/JS 的 scan-ts.py 必然
-        #      「未找到可扫描的模块目录」。
-        #   ② 已删除规则的残留 fixture（APP-K03 等 K 族已从 scan-app.py 移除，
-        #      全库无此规则，但目录与 KNOWN_MAP 锚点都还在）。
-        # 兜底的后果：每次 --test 产生 32 项「执行失败」→ errs 非 0 → exit 1
-        # → CI 常红；而真实状态是「这些目录本就不该被机扫」。
-        # 正确做法：显式跳过并列出，让人去决定是补规则还是清目录。
-        if meta is None:
-            # 在「统一跳过」之上再分一层（两版实现合并）：
-            #   ① 人工判据（判据库里有这条，只是没机扫形态）→ 跳过，不算失败
-            #   ② ID 失配（规则改过名，fixture 目录没跟上）→ **报错并计入 errs**
-            #      只统一跳过的话，「改个 ID 名字」就能让一批样本悄悄退出测试
-            if rid in _JUDGE_IDS:
-                SKIPPED_NO_RULE.append(rid)
-                if verbose:
-                    print('  ○ %s：人工判据，无机扫规则，跳过（未实测，非失败）' % rid)
-                continue
-            res[rid] = {'tp': None, 'fp': None, 'errors': [
-                '%s：fixture 目录名与注册表规则 ID 不匹配（规则改过 ID？）'
-                '——样本未被实测，勿当作通过' % rid]}
-            if verbose:
-                print('  ✗ %s fixture 目录名在注册表里找不到（规则改过 ID？）'
-                      '——样本未被实测，勿当作通过' % rid)
+        # 注册表里没有这条规则 → 这是**判据条目**的样本（如 PY-14/PY-15：
+        # p-python.md 有判据、有样本，但 scan-py.py 没实现机扫规则）。
+        # 不能当失败，也不能静默跳过：记下来统一报，让人一眼看出
+        # 「这是人工判据」还是「规则删了样本没清」。
+        # 变体目录：`TS-D02-dts` 是 TS-D02 的**额外样本**（同一规则、不同写法），
+        # 不是独立规则。原先 native 取 rid.split('-',1)[-1] = 'D02-dts'，
+        # 而扫描器输出的是 'D02' —— 永远匹配不上。
+        # 对 fp 而言 hits 恒为 0 → rec['fp'] 恒为 True → **永远通过**。
+        # 三个变体目录里的额外误报样本，其实一条都没在验证任何东西。
+        if meta is None and VARIANT_RX.match(rid):
+            base = VARIANT_RX.match(rid).group(1)
+            meta = next((r for r in reg['rules'] if r['rule_id'] == base), None)
+            if meta is None and verbose:
+                print('  ! %s：变体目录找不到基规则 %s（样本不会生效）' % (rid, base))
+        # 变体也没匹配上 → 注册表里没有这条规则。
+        # 分两种，都必须显式列出，不能静默跳过：
+        if meta is None and not VARIANT_RX.match(rid):
+            SKIPPED_NO_RULE.add(rid)
             continue
-        scanner = meta.get('scanner', 'scan-ts.py')
-        native = meta.get('native_id', rid.split('-', 1)[-1])
+        scanner = (meta or {}).get('scanner', 'scan-ts.py')
+        native = (meta or {}).get('native_id', rid.split('-', 1)[-1])
         rec = {'tp': None, 'fp': None, 'errors': []}
         for kind in ('tp', 'fp'):
             treedir = os.path.join(d, kind + '.d')
@@ -842,6 +942,20 @@ KNOWN_MAP = {
     'APP-K17': 'K-17',
     'APP-K31': 'K-31',
     'APP-K34': 'K-34',
+    'APP-G01': 'G-01',
+    'APP-G04': 'G-04',
+    'APP-G05': 'G-05',
+    'APP-G10': 'G-10',
+    'APP-G12': 'G-12',
+    'APP-K12': 'K-12',
+    'APP-K25': 'K-25',
+    'APP-K27': 'K-27',
+    'APP-C01': 'C-01',
+    'CC-11': 'CC-02',
+    'CC-12': 'CC-04',
+    'CC-13': 'CC-01',
+    'CC-14': 'CC-02',
+    'CC-15': 'CC-02',
 }
 
 # 明确无对应：候选分最高的也明显不是同一条，别硬塞
@@ -898,7 +1012,17 @@ def cmd_map(apply=False):
             r['_item'], r['_src'] = None, 'no-same-id'
             none_.append(r)
             continue
-        # ② 人工确认表优先（不会被自动打分冲掉）
+        # ② 人工确认表优先（不会被自动打分冲掉）。
+        #
+        # KNOWN_MAP 是**撞号回归锚点**：每一条都曾被打分算错过、人工核对后
+        # 定下来的（如 CC-13 曾被映射到 GO-01）。它和 MANUAL_MAP 一样是人工结论，
+        # 必须同样优先于打分——否则 --map --apply 会用打分结果把它们冲掉，
+        # --check 随即报「已知映射被改坏」，两个命令互相打架。
+        # 实测：合并 Rust 包 + 两侧分支合并后，6 条锚点被冲成 None/错值。
+        if r['rule_id'] in KNOWN_MAP:
+            r['_item'], r['_src'] = KNOWN_MAP[r['rule_id']], 'known'
+            high.append(r)
+            continue
         if r['rule_id'] in MANUAL_MAP:
             tgt, _why = MANUAL_MAP[r['rule_id']]
             r['_item'], r['_src'] = tgt, 'manual'
@@ -1083,13 +1207,149 @@ def cmd_gaps():
         if len(buckets['manual']) > 8:
             print('  … 另有 %d 条' % (len(buckets['manual']) - 8))
 
-    stale = sorted(k for k in cls if k in mapped)
+    # 只针对仍标着 todo 的：xref（与 X 同源）与 manual（机扫做不到）
+    # 本来就可能有规则对应，算它们没意义；covered 是已处理的。
+    # 原先 `k in mapped` 扫全表，把 xref/manual 里被映射的也算成陈旧，
+    # 于是补完规则后这个提示反而不消失——提示本身失去了意义。
+    stale = sorted(k for k, v in cls.items()
+                   if v.get('machine') == 'todo' and k in mapped)
     if stale:
-        print('\n  ! gaps.json 里 %d 条已被映射，分类已陈旧：%s'
+        print('\n  ! gaps.json 里 %d 条仍标 todo 但已被映射（补完规则后应改 covered）：%s'
               % (len(stale), ', '.join(stale[:8])))
     return 0
 
 
+
+def _scan_hits(scanner, src_file):
+    """跑扫描器并**返回完整命中分布** {rule_id: 次数}。
+
+    与 _run_scanner 的区别：
+      · _run_scanner 只回「本规则命中几次」（--test 用）
+      · 这条回**全部**规则的分布（--cross 需要看「还命中了谁」）
+    单文件按「放进一个模块目录」的方式喂给扫描器，与 --test 的做法一致。
+    """
+    import shutil
+    import subprocess
+    tmp = tempfile.mkdtemp(prefix='cross-')
+    try:
+        mod = os.path.join(tmp, 'mod')
+        os.makedirs(mod, exist_ok=True)
+        shutil.copy(src_file, mod)
+        if scanner == 'cocos-audit.py':
+            cmd = [sys.executable, os.path.join(HERE, scanner), tmp, '--json']
+        else:
+            cmd = [sys.executable, os.path.join(HERE, scanner),
+                   '--src=' + tmp, '--json']
+        # 不能 `except Exception: return None` 了事——这正是本仓库最痛恨的
+        # 静默失败：第一版漏了 `import subprocess`，NameError 被吞成 None，
+        # 于是每个样本都被当成「没跑起来」跳过，--cross 恒绿。
+        # 变异测试（把 fp 改回带缺陷的版本）因此也不变红。
+        # 跑不起来的要**说出来**，不计入「通过」。
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        except Exception as e:
+            print('  ! %s 执行异常：%s' % (scanner, e))
+            return None
+        if not (r.stdout or '').strip():
+            print('  ! %s 无输出（stderr：%s）' % (scanner, (r.stderr or '')[:160]))
+            return None
+        try:
+            d = json.loads(r.stdout or '[]')
+        except ValueError:
+            print('  ! %s 输出非 JSON：%s' % (scanner, (r.stdout or '')[:120]))
+            return None
+        items = d.get('items', []) if isinstance(d, dict) else d
+        from collections import Counter
+        c = Counter()
+        for it in items:
+            if isinstance(it, dict):
+                rid = it.get('id') or it.get('pattern') or it.get('rule_id')
+                if rid:
+                    c[rid] += 1
+        return c
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def cmd_cross():
+    """fixture 交叉审计：样本是否**真的在验证**它该验证的东西。
+
+    --test 只查「tp 被自己命中 / fp 不被自己命中」，两个方向都有盲区：
+
+      A. fp 被**别的**规则命中
+         fp 是「正确写法」示例，会被人照抄。若它含真缺陷
+         （如 RS-01 的 fp 自带路径穿越），文档价值直接变成负的。
+      B. tp 没命中自己、却命中了别的
+         该规则的「通过」是蹭来的，样本从没验证过它。
+
+    两种都不影响 --test 的结论，所以长期没人发现——
+    实测首次跑出 37 条 A（其中多条是「正确写法」自带的真漏洞）。
+    """
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    meta = {r['rule_id']: r for r in reg['rules']}
+    bad_a, bad_b, bad_run = [], [], []
+    for rid in sorted(os.listdir(FIXDIR)):
+        if rid not in meta and not VARIANT_RX.match(rid):
+            continue   # 人工判据条目（A-18 等）无对应机扫规则，同 --test
+        d = os.path.join(FIXDIR, rid)
+        if not os.path.isdir(d):
+            continue
+        m = meta.get(rid)
+        scanner = (m or {}).get('scanner', 'scan-ts.py')
+        native = (m or {}).get('native_id') or rid.split('-', 1)[-1]
+        names = os.listdir(d)
+        for kind in ('tp', 'fp'):
+            samples = sorted(f for f in names
+                             if re.fullmatch(kind + r'\d*\.[A-Za-z0-9.]+', f)
+                             and os.path.isfile(os.path.join(d, f)))
+            for smp in samples:
+                hits = _scan_hits(scanner, os.path.join(d, smp))
+                if hits is None:
+                    bad_run.append('%s/%s' % (rid, smp))
+                    continue
+                own = hits.get(native, 0)
+                others = {k: v for k, v in hits.items() if k != native}
+                if kind == 'fp' and others:
+                    bad_a.append((rid, smp, others))
+                if kind == 'tp' and own == 0 and others:
+                    bad_b.append((rid, smp, others))
+
+    print('=' * 66)
+    print('fixture 交叉审计')
+    print('=' * 66)
+    print()
+    if bad_run:
+        print('  ! %d 个样本没跑起来（**未计入**通过，别当成没问题）：%s'
+              % (len(bad_run), ', '.join(bad_run[:6])))
+        return 1
+    if not bad_a and not bad_b:
+        print('  ✓ fp 均未被任何规则命中（「正确写法」示例本身无缺陷）')
+        print('  ✓ tp 均命中自己（没有蹭别条规则的通过）')
+        return 0
+    if bad_a:
+        print('A. fp 被别的规则命中 —— 「正确写法」示例本身有缺陷：\n')
+        for rid, smp, o in bad_a:
+            print('   %-12s %-14s → %s' % (rid, smp, o))
+        print('\n   → fp 会被人当参考照抄，含缺陷比没有更糟')
+    if bad_b:
+        print('\nB. tp 未命中自己、只命中别的 —— 通过是蹭来的：\n')
+        for rid, smp, o in bad_b:
+            print('   %-12s %-14s → %s' % (rid, smp, o))
+        print('\n   → 这类样本从未验证过目标规则')
+    return 1
+
+
+
+
+# 「注册表里没有对应规则」的 fixture 目录。
+# 必须显式列出：静默跳过会把两类真实欠账藏起来——
+#   ① 判据条目（A-18 等）本就没有机扫规则（正常，需人工判据）
+#   ② 规则改名/删除后 fixture 没清（真实遗留）
+# 不区分的话，两者都表现为「没跑」，久了没人知道欠的是什么。
+SKIPPED_NO_RULE = set()
 
 
 def cmd_test():
@@ -1112,11 +1372,35 @@ def cmd_test():
             ok += 1 if v else 0
             fail += 0 if v else 1
         errs += len(r['errors'])
-    total = len([d for d in os.listdir(FIXDIR)
-                 if os.path.isdir(os.path.join(FIXDIR, d))])
-    skip = len(reg['rules']) - total
+    # 未覆盖要**按 rule_id 逐项核对**，不能用「规则数 − 目录数」相减。
+    # 相减法会被变体目录骗到：TS-D02-dts/long/regex 三个额外样本目录
+    # 会被当成 3 条独立规则计入 total，正好抵掉 CC-15/CC-18 两条真实缺口，
+    # 于是报「未覆盖 0」——而实际有 2 条规则一条样本都没有。
+    # 聚合数字代替逐项核对，正是本技能反复出现的失效形态。
+    have_fx = set()
+    if os.path.isdir(FIXDIR):
+        for rid in os.listdir(FIXDIR):
+            d = os.path.join(FIXDIR, rid)
+            if not os.path.isdir(d):
+                continue
+            names = os.listdir(d)
+            if (any(f.startswith('tp.') for f in names) or 'tp.d' in names
+                    or any(f.startswith('fp.') for f in names)
+                    or 'fp.d' in names):
+                have_fx.add(rid)
+                # 变体目录归到基规则名下
+                vb = VARIANT_RX.match(rid)
+                if vb and vb.group('base') not in have_fx:
+                    have_fx.add(vb.group('base'))
+    uncovered = sorted(r['rule_id'] for r in reg['rules']
+                       if r['rule_id'] not in have_fx)
     print('\nfixture 实测：通过 %d · 失败 %d · 未覆盖规则 %d'
-          % (ok, fail, max(0, skip)))
+          % (ok, fail, len(uncovered)))
+    if uncovered:
+        print('  ▲ 无 tp 也无 fp 样本：%s' % ', '.join(uncovered[:12]))
+        if len(uncovered) > 12:
+            print('    …共 %d 条' % len(uncovered))
+        print('    → 加规则请配样本，否则自检对它等于没跑')
     if errs:
         print('  ! 另有 %d 项因扫描器执行失败**未计入**（已排除，勿当作「无问题」）'
               % errs)
@@ -1126,9 +1410,24 @@ def cmd_test():
         print('  - %d 个 fixture 目录在注册表里没有对应规则，已跳过机扫：'
               % len(SKIPPED_NO_RULE))
         print('    %s' % ' '.join(sorted(SKIPPED_NO_RULE)))
-        print('    → 判据条目（A-18 等）属正常，需人工判据而非机扫；')
-        print('      若某目录名在判据库（items.json）里也查不到，则是改名残留，'
-              ' 再出现请用 --test 的 ✗ 行定位。')
+        # 区分「人工判据」与「改名残留」：前者正常，后者是真欠账。
+        # 不区分的话两者都表现为「没跑」，久了没人知道欠的是什么。
+        _idx = set()
+        try:
+            _d = json.load(open(os.path.join(SKILL, 'rules', 'items.json'),
+                                encoding='utf-8'))
+            _idx = {i['id'] for i in _d.get('items', [])}
+        except (OSError, ValueError):
+            pass
+        legit = sorted(x for x in SKIPPED_NO_RULE if x in _idx)
+        stale = sorted(x for x in SKIPPED_NO_RULE if x not in _idx)
+        if legit:
+            print('    人工判据（正常，需人看而非机扫）：%s' % ' '.join(legit[:20]))
+            if len(legit) > 20:
+                print('      …共 %d 个' % len(legit))
+        if stale:
+            print('    ▲ 判据库里也查不到（改名/删除后的残留，请清理）：%s'
+                  % ' '.join(stale[:20]))
     return 1 if (fail or errs) else 0
 
 
@@ -1210,6 +1509,8 @@ def main():
         sys.exit(cmd_gaps())
     if '--scanners' in _flags:
         sys.exit(cmd_scanners())
+    if '--cross' in _flags:
+        sys.exit(cmd_cross())
 
     reg = load()
     if reg is None:

@@ -226,6 +226,17 @@ def py_broad_except(tree, lines, path):
     return out
 
 
+def _in_function_scope(tree, node):
+    """该赋值语句是否在函数/方法体内（True=局部变量，False=模块级/类级）。"""
+    for parent in ast.walk(tree):
+        if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for child in ast.walk(parent):
+                if child is node:
+                    return True
+    return False
+
+
+
 def py_resource_no_with(tree, lines, path):
     """PY-03 (P1) 资源未用 with：open()/socket()/Lock() 直接赋值给变量"""
     out = []
@@ -244,6 +255,12 @@ def py_resource_no_with(tree, lines, path):
         name = node_name(n.value.func)
         if name in RESOURCE_FACTORIES and not has_pragma(lines, n.lineno):
             kind = RESOURCE_FACTORIES[name]
+            # 锁是特例：模块级 / 类级的**共享锁**生命周期与宿主同长，
+            # 本来就不该用 with（用了反而每次都新建一把，失去互斥意义）。
+            # 只有函数内临时创建的锁才可能是「忘了释放」。
+            # 不区分的话，`lock = threading.Lock()` 这种最标准的写法会被一律误报。
+            if kind == 'lock' and not _in_function_scope(tree, n):
+                continue
             out.append((n.lineno, f"{name}() 未用 with（{kind} 可能未关闭/未释放）"))
     return out
 
@@ -534,6 +551,145 @@ def py_naive_datetime(tree, lines, path):
     return out
 
 
+
+def py_path_codec_asym(tree, lines, path):
+    """PY-19 (P1) 非 subprocess 出口的路径编解码不对称
+
+    与 PY-15 的分界：PY-15 判的是 `subprocess.run(input=...)` 的 `errors=`，
+    本条不涉及 subprocess —— 是 os.readlink / 落盘往返上的编解码方向。
+
+    - 编码侧：`.encode()` 未带 `surrogateescape` → 含非法字节的路径直接
+      UnicodeEncodeError 崩溃（POSIX 文件名允许除 `/` 和 NUL 外的任意字节）
+    - 解码侧：`.decode(..., "replace")` → 非法字节被永久换成 U+FFFD，
+      再写回去就**不是同一个文件**了，且这个损坏不可逆
+    """
+    out = []
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.Call):
+            continue
+        nm = node_name(n.func)
+        if nm not in {"encode", "decode"}:
+            continue
+        if has_pragma(lines, n.lineno):
+            continue
+        # 只判路径类表达式，避免把普通字符串编解码全报一遍（会变噪音源）
+        # 被编解码的对象要"像路径"：os.readlink(p) 是 Call，node_name 取不到
+        # 名字（返回空串），所以改用源码文本判断。
+        owner = ""
+        f = n.func
+        if isinstance(f, ast.Attribute):
+            try:
+                owner = ast.unparse(f.value).lower()
+            except Exception:
+                owner = (node_name(f.value) or "").lower()
+        if not any(k in owner for k in ("readlink", "path", "name", "target", "entry")):
+            continue
+        if nm == "encode":
+            # errors 既可能是关键字参数，也可能是第 2 个位置参数
+            # （`.encode("utf-8", "surrogateescape")`）—— 只看 keyword
+            # 会把正确写法判成缺 errors，正是本条要避免的误报方向。
+            has_esc = any(
+                kw.arg == "errors" and isinstance(kw.value, ast.Constant)
+                and "surrogateescape" in str(kw.value.value)
+                for kw in n.keywords)
+            has_esc = has_esc or any(
+                isinstance(a, ast.Constant) and isinstance(a.value, str)
+                and "surrogateescape" in a.value for a in n.args)
+            if not has_esc:
+                out.append((n.lineno,
+                            "路径类字符串 .encode() 未带 errors='surrogateescape'"
+                            " —— 含非法字节的文件名会 UnicodeEncodeError 崩溃"))
+        else:
+            bad = any(isinstance(a, ast.Constant) and str(a.value) == "replace"
+                      for a in n.args)
+            bad = bad or any(
+                kw.arg == "errors" and isinstance(kw.value, ast.Constant)
+                and str(kw.value.value) == "replace" for kw in n.keywords)
+            if bad:
+                out.append((n.lineno,
+                            "路径类字符串 .decode(..., 'replace') —— 非法字节被永久"
+                            "换成 U+FFFD，写回后指向的不是同一个文件（不可逆）"))
+    return out
+
+
+def py_path_list_newline_join(tree, lines, path):
+    """K-43 (P2) 路径列表用换行符拼接后跨进程传递
+
+    POSIX 文件名只排除 `/` 和 NUL —— **允许含换行**。用 `"\n".join(paths)`
+    喂 `--stdin-paths` / 管道，含换行的路径会被拆成两条，条目数对不上。
+
+    只在「同文件别处已用 NUL 分隔」时报：那说明作者知道这个坑，此处是漏网
+    （判据原文的确认手法就是两种写法做差集）。否则批量拼接未必是路径列表，
+    报了就是噪音。
+    """
+    src = "\n".join(lines)
+    if not re.search(r'-z\b|--pathspec-file-nul|--null|-print0', src):
+        return []
+    out = []
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.Call) or node_name(n.func) != "join":
+            continue
+        sep = None
+        if n.args and isinstance(n.args[0], ast.Constant) \
+                and isinstance(n.args[0].value, str):
+            sep, joined = n.args[0].value, n.args[1] if len(n.args) > 1 else None
+        elif isinstance(n.func, ast.Attribute) \
+                and isinstance(n.func.value, ast.Constant) \
+                and isinstance(n.func.value.value, str):
+            # `"\n".join(paths)` —— 分隔符在 func.value，不是 args[0]
+            sep, joined = n.func.value.value, n.args[0] if n.args else None
+        if sep not in ("\n", "\r\n") or joined is None:
+            continue
+        nm = (node_name(joined) or "").lower()
+        if not any(k in nm for k in ("path", "rel", "file", "name", "sha", "entry")):
+            continue
+        if has_pragma(lines, n.lineno):
+            continue
+        out.append((n.lineno,
+                    "路径列表用 %r 拼接后跨进程传递 —— 同文件别处已用 NUL 分隔"
+                    "（-z/--pathspec-file-nul），此处是漏网；含换行的路径会被拆成"
+                    "两条" % sep))
+    return out
+
+
+def py_git_hardcoded_identity(tree, lines, path):
+    """K-44 (P2) 工具代用户做提交 / 签名时硬编码自身身份
+
+    `git -c user.name=... -c user.email=...` / `--author=` / `GIT_AUTHOR_*`
+    的值是工具作者自己的身份 → 会写进用户仓库的历史与贡献归属；
+    出问题时 `git blame` 指向工具作者而不是使用者。
+
+    只报**硬编码字面量**：从 `git config` / 环境变量读出来的不算。
+    """
+    out = []
+    # 命令行常写成 `["git", "-c", "user.name=xxx"]` —— -c 与 user.name 之间
+    # 隔着 `", "`，不能用 `-c\s*user\.` 直接连。
+    pat = re.compile(
+        r'user\.(?:name|email)\s*["\']?\s*[=:]\s*["\']?'
+        r'([A-Za-z0-9_.+-]+@[A-Za-z0-9.-]+|[A-Za-z][A-Za-z0-9 _.-]{1,40})')
+    ctx = re.compile(r'--author|GIT_AUTHOR_(?:NAME|EMAIL)|["\']-c["\']')
+    for i, l in enumerate(lines, 1):
+        if has_pragma(lines, i):
+            continue
+        low = l[:max(0, l.lower().find('user.'))]
+        if re.search(r'\b(?:config|getenv|environ|\.get\(|argv|argparse|input\()', low):
+            continue
+        if not ctx.search(l):
+            continue
+        m = pat.search(l)
+        if not m:
+            continue
+        val = m.group(1).strip()
+        if val.startswith(("{", "$", "%", "<")) or val.lower() in {
+                "none", "self", "user", "name", "email", "true", "false",
+                "default", "value", "identity"}:
+            continue
+        tail = l[m.end():m.end() + 3]
+        if not re.match(r'["\']?\s*[,)\]]|["\']\s*$|["\']\s*,', tail):
+            continue
+        out.append((i, "硬编码了提交者身份 %r —— 会写进用户仓库历史与贡献归属；"
+                       "应优先读已有 git config，回退时才用默认值并告知用户" % val))
+    return out
 # ---------------------------------------------------------------- 架构可演进性
 # 这四条判的不是「运行时行为对不对」，而是「下一次改动会不会出错」。
 # 完整判据见 references/s-architecture.md（AR-01 ~ AR-05）。
@@ -719,6 +875,12 @@ PATTERNS = [
      py_cleanup_except_exception),
     ("PY-18", "P2", "文档字符串不在函数体首位（变成死表达式）",
      py_dead_docstring),
+    ("PY-19", "P1", "路径编解码不对称（非 subprocess 出口）",
+     py_path_codec_asym),
+    ("K-43", "P2", "路径列表用换行拼接后跨进程传递（同文件别处已用 NUL 分隔）",
+     py_path_list_newline_join),
+    ("K-44", "P2", "工具代用户提交时硬编码自身身份",
+     py_git_hardcoded_identity),
     # ---- 架构可演进性（s-architecture）----
     ("AR-01", "P1", "判定与输出 / 副作用耦合（改不动）", ar_judge_output_coupled),
     ("AR-03", "P1", "跨实例 / 跨仓库状态串档（改不动）", ar_cross_instance_state),
@@ -734,6 +896,9 @@ SCENE = {
     "PY-10": "s-backend", "PY-11": "p-python", "PY-12": "p-python",
     "PY-13": "s-atomicity",
     "PY-18": "p-python",
+    "PY-19": "p-python",
+    "K-43": "s-backend",
+    "K-44": "s-backend",
     # 架构可演进性：判据在 references/s-architecture.md
     "AR-01": "s-architecture",
     "AR-03": "s-architecture",
