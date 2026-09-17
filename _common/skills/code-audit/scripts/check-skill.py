@@ -310,7 +310,18 @@ def main():
     # 跨 skill 引用：本集群有两个 skill，互相指向对方 scripts/ 下的文件
     # 是常态（如引擎侧的 cocos_audit.py 转发壳）。从本 skill 解析必然
     # "不存在"。显式登记而非关掉检查——清单受版本控制，可审计。
-    _CROSS = {'self-evolving_skill_mechanism/skills/scripts/cocos_audit.py'}
+    _CROSS = {'self-evolving_skill_mechanism/skills/scripts/cocos_audit.py',
+              # game-dev / code-audit / localization 三 skill 互相指向对方文件是常态
+              # （split-dev-audit.md 定的分工：开发侧指审查侧判据，审查侧指开发侧写法）。
+              # 从本 skill 解析必然"不存在"——显式登记而非关掉检查。
+              'game-dev/references/godot/shaders.md',
+              'game-dev/references/godot/i18n.md',
+              'code-audit/references/p-cocos.md',
+              'code-audit/scripts/route.py',
+              '../code-audit/scripts/route.py',
+              'code-audit/scripts/godot-audit.py',
+              '../../code-audit/scripts/godot-audit.py',
+              '../../code-audit/references/p-godot.md'}
     for _tf in _targets:
         if os.path.basename(_tf) == 'changelog.md':
             continue      # 同上：历史记录里的旧名是合法的

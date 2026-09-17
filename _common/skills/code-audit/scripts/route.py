@@ -83,7 +83,7 @@ SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
 # 实际是路由压根没看 GDScript。与「扫描器不认某语言输出 0 命中」同一类失效。
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.py',
               '.go', '.cpp', '.cc', '.c', '.h', '.java', '.kt', '.cs',
-              '.gd')
+              '.gd', '.gdshader')
 MAX_BYTES = 600 * 1024
 SCAN_LIMIT = 400          # 超过这个文件数就抽样，避免大仓库卡住
 
@@ -242,6 +242,7 @@ SCENES = [
     ('p-godot', 'Godot 平台', 'Godot 4.x 项目（GDScript / C#）',
      [('file', 'project.godot', 'Godot 工程'),
       ('ext', '.gd', 'GDScript 文件'),
+      ('ext', '.gdshader', 'GDShader 文件'),
       ('rx', r'extends\s+(Node|Node2D|Node3D|Control|CharacterBody|RigidBody)\b',
        'Godot 脚本'),
       ('rx', r'using\s+Godot\s*;', 'Godot C#')]),
@@ -311,7 +312,7 @@ STRUCT_FILES = {'Cargo.toml': 's-backend', 'README.md': 's-contracts',
 
 # Godot API 领域二级路由。
 #
-# 为什么需要：四份 Godot API 查表文档（physics/ui/io/anim）合计近 3900 行，
+# 为什么需要：八份 Godot API 查表文档（physics/ui/io/anim/3d/lang/navigation/render2d）合计约 7000 行，
 # 命中 p-godot 就全读不现实。按代码里**实际出现**的 API 名只加载对应领域。
 # 这是文档细化之后必须配套的收敛机制——否则"越详细"会变成"越贵"。
 #
@@ -332,6 +333,17 @@ GODOT_API_DOMAINS = [
                              r'|AnimationPlayer|AnimationTree|Tween|create_tween|SceneTreeTimer'
                              r'|\bTimer\b|_unhandled_input',
      'godot-api/anim.md'),
+    ('3D/渲染', r'Node3D|MeshInstance3D|BaseMaterial3D|StandardMaterial3D|Camera3D'
+               r'|Light3D|DirectionalLight3D|OmniLight3D|SpotLight3D|Environment'
+               r'|WorldEnvironment|ReflectionProbe|VoxelGI|LightmapGI|SubViewport'
+               r'|GPUParticles3D|ParticleProcessMaterial|\bShader\b'
+               r'|set_shader_parameter',
+     'godot-api/3d.md'),
+    ('语言/工程/调试', r'@export|@onready|@tool|@rpc|class_name|emit\(|await\s'
+                      r'|ProjectSettings|OS\.|Engine\.|Performance\.'
+                      r'|change_scene|push_error|push_warning|print_debug'
+                      r'|is_instance_valid|SceneTree',
+     'godot-api/lang.md'),
 ]
 
 
@@ -523,7 +535,7 @@ def main():
     print('─' * 56)
     print('命中 %d 个 —— **全部都要审**，不设上限（截断会漏检）' % len(ranked))
 
-    # Godot API 领域细分：四份查表文档近 3900 行，按实际 API 只加载命中的
+    # Godot API 领域细分：八份查表文档约 7000 行，按实际 API 只加载命中的
     if godom:
         print()
         print('Godot API 领域（按代码里实际出现的 API 名，只加载这些）：')

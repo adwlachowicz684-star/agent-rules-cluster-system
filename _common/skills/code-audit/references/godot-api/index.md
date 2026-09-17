@@ -1,7 +1,7 @@
 <!-- oversize-exempt: 引擎 API 领域索引，路由表 + 核心判据，需整体查阅 -->
 # Godot API 领域索引
 
-四份 API 查表文档合计近 3900 行，**不要一次全读**。
+九份 API 查表文档合计约 7000 行，**不要一次全读**。
 按代码里实际出现的 API 名，只加载对应领域。
 
 > 本文件是 `route.py` 里 `GODOT_API_DOMAINS` 的人类可读版本。
@@ -15,6 +15,10 @@
 | **UI / 2D 渲染** | `Control` · `Label` · `Button` · `TextureRect` · `CanvasItem` · `CanvasGroup` · `CanvasLayer` · `Camera2D` · `Parallax2D` · `TileMap` · `Sprite2D` · `ShaderMaterial` · `queue_redraw` | `godot-api/ui.md` | 489 |
 | **资源 / IO / 网络** | `ResourceLoader` · `ResourceSaver` · `FileAccess` · `DirAccess` · `PackedScene` · `instantiate` · `HTTPRequest` · `ConfigFile` · `JSON.parse` · `var_to_bytes` · `bytes_to_var` · `user://` · `res://` | `godot-api/io.md` | 1483 |
 | **输入 / 音频 / 动画 / Tween / Timer** | `Input.` · `InputEvent` · `InputMap` · `AudioStreamPlayer` · `AudioServer` · `AnimationPlayer` · `AnimationTree` · `Tween` · `create_tween` · `SceneTreeTimer` · `Timer` · `_input` · `_unhandled_input` | `godot-api/anim.md` | 1433 |
+| **3D / 渲染** | `Node3D` · `MeshInstance3D` · `BaseMaterial3D` · `StandardMaterial3D` · `Camera3D` · `Light3D` · `DirectionalLight3D` · `OmniLight3D` · `SpotLight3D` · `Environment` · `WorldEnvironment` · `ReflectionProbe` · `VoxelGI` · `LightmapGI` · `SubViewport` · `GPUParticles3D` · `ParticleProcessMaterial` · `Shader` · `set_shader_parameter` | `godot-api/3d.md` | 718 |
+| **寻路 / AI** | `NavigationAgent` · `NavigationRegion` · `AStarGrid2D` · `velocity_computed` · `get_next_path_position` · `bake_navigation_polygon` · `NavigationServer2D/3D` | `godot-api/navigation.md` | 725 |
+| **2D 渲染 / 特效** | `y_sort_enabled` · `Parallax2D` · `PointLight2D` · `LightOccluder2D` · `CanvasModulate` · `shader_type canvas_item` · `hint_screen_texture` · `SCREEN_UV` · `GPUParticles2D` | `godot-api/render2d.md` | 841 |
+| **语言 / 工程 / 调试** | `@export` · `@onready` · `@tool` · `@rpc` · `class_name` · `signal ` · `await` · `ProjectSettings` · `OS.` · `Engine.` · `Performance.` · `SceneTree` · `change_scene` · `print_debug` · `push_error` · `assert` · `is_instance_valid` | `godot-api/lang.md` | 633 |
 
 **没有命中任何领域** → 说明是纯逻辑脚本，只需 `p-godot.md` 的核心判据，不必加载查表文档。
 
@@ -39,6 +43,8 @@ route 命中 `p-godot` 后，会额外列出检测到的 API 领域与建议加�
 | `GD3*` | UI / 2D 渲染 | `godot-api/ui.md` |
 | `GD4*` | 资源 / IO / 网络 | `godot-api/io.md` |
 | `GD5*` | 输入 / 音频 / 动画 / Tween | `godot-api/anim.md` |
+| `GD6*` | 3D / 渲染 | `godot-api/3d.md` |
+| `GD7*` | 语言 / 工程 / 调试 | `godot-api/lang.md` |
 
 ## 3. 各领域的核心判据（速查）
 
@@ -88,6 +94,28 @@ route 命中 `p-godot` 后，会额外列出检测到的 API 领域与建议加�
 | `AnimationPlayer.play("字面量")` | P2 | 动画名重命名后静默失效，应集中常量 |
 | `create_tween()` 未保存引用 | P0 | 无法 kill，重复触发时旧 Tween 仍持有属性写入权 |
 | `VideoStreamPlayer` 等未停 | P2 | 离场仍在播放 |
+
+### 3D / 渲染
+
+| 判据 | 级别 | 为什么 |
+|---|---|---|
+| 直接赋值 `global_position` | P2 | 它只是变换链的计算结果，下一帧会被物理步/父变换/插值覆盖 |
+| `spot_angle` 超 89° | P2 | 超出范围不生效或产生异常阴影 |
+| `editor_only=true` | P1 | 忘了关 → 导出后仍占性能预算 |
+| `set_shader_parameter` 字面量名 | P2 | 与 shader uniform 名不一致时**静默失效** |
+| `visibility_aabb` 不足 | P2 | 粒子被整体剔除**不报错**，表现为屏幕边缘突然消失 |
+| 共享材质直接改 | 人工 | 改动会跨对象传播；需 `duplicate()`（静态无法判，靠比对 Resource 身份） |
+
+### 语言 / 工程 / 调试
+
+| 判据 | 级别 | 为什么 |
+|---|---|---|
+| `assert` 做运行时校验 | P1 | release 导出模板下 assert **不被求值**，校验整段消失 |
+| `await` 后未判 `is_instance_valid` | P1 | 协程恢复时节点可能已被 `queue_free` |
+| `duplicate()` 无参 | P1 | Array/Dictionary/Resource 默认**浅拷贝**，嵌套仍共享 |
+| `emit_signal()` | P2 | 3.x 写法，4.x 是 `signal.emit()` |
+| `print()` 调试输出 | P2 | release 仍执行；应 `print_debug()` |
+| `Performance` 监视器返回 0 | 人工 | 部分指标在非 debug 构建下恒为 0，不能当"没问题" |
 
 ## 4. 各文档的组织方式
 
