@@ -70,8 +70,12 @@ for f in _flags:
 SKIP_DIRS = {'node_modules', 'dist', 'build', 'target', 'vendor', 'third_party',
              '.git', '.idea', '.vscode', '__pycache__', 'coverage', 'audit',
              '.next', '.cache', 'bin', 'obj'}
+# .gd（GDScript）早先漏了 —— 于是 Godot 项目里 route.py 扫描到 0 个文件，
+# 输出「未命中任何场景」，看起来像"这个项目没什么可审的"，
+# 实际是路由压根没看 GDScript。与「扫描器不认某语言输出 0 命中」同一类失效。
 SOURCE_EXT = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.py',
-              '.go', '.cpp', '.cc', '.c', '.h', '.java', '.kt', '.cs')
+              '.go', '.cpp', '.cc', '.c', '.h', '.java', '.kt', '.cs',
+              '.gd')
 MAX_BYTES = 600 * 1024
 SCAN_LIMIT = 400          # 超过这个文件数就抽样，避免大仓库卡住
 
@@ -297,6 +301,43 @@ STRUCT_FILES = {'Cargo.toml': 's-backend', 'README.md': 's-contracts',
                 'project.godot': 'p-godot'}
 
 
+# Godot API 领域二级路由。
+#
+# 为什么需要：四份 Godot API 查表文档（physics/ui/io/anim）合计近 3900 行，
+# 命中 p-godot 就全读不现实。按代码里**实际出现**的 API 名只加载对应领域。
+# 这是文档细化之后必须配套的收敛机制——否则"越详细"会变成"越贵"。
+#
+# 与 references/godot-api/index.md 的路由表保持一致，改一边要同步改另一边。
+GODOT_API_DOMAINS = [
+    ('物理', r'move_and_slide|CharacterBody|RigidBody|Area2D|AnimatableBody|StaticBody'
+             r'|collision_layer|collision_mask|intersect_ray|intersect_shape|RayCast'
+             r'|apply_impulse|apply_force|is_on_floor',
+     'godot-api/physics.md'),
+    ('UI/2D渲染', r'\bControl\b|\bLabel\b|\bButton\b|TextureRect|CanvasItem|CanvasGroup'
+                  r'|CanvasLayer|Camera2D|Parallax2D|TileMap|Sprite2D|ShaderMaterial|queue_redraw',
+     'godot-api/ui.md'),
+    ('资源/IO/网络', r'ResourceLoader|ResourceSaver|FileAccess|DirAccess|PackedScene'
+                     r'|instantiate|HTTPRequest|ConfigFile|JSON\.parse|var_to_bytes|bytes_to_var'
+                     r'|user://|res://',
+     'godot-api/io.md'),
+    ('输入/音频/动画/Tween', r'Input\.|InputEvent|InputMap|AudioStreamPlayer|AudioServer'
+                             r'|AnimationPlayer|AnimationTree|Tween|create_tween|SceneTreeTimer'
+                             r'|\bTimer\b|_unhandled_input',
+     'godot-api/anim.md'),
+]
+
+
+def godot_domains(blob):
+    """按 blob 里出现的 API 名，返回 [(领域, 命中数, 文件)]。只保留命中的。"""
+    out = []
+    for name, pat, doc in GODOT_API_DOMAINS:
+        n = len(re.findall(pat, blob))
+        if n:
+            out.append((name, n, doc))
+    out.sort(key=lambda x: -x[1])
+    return out
+
+
 def walk_files(root):
     out = []
     for dirpath, dirnames, filenames in os.walk(root):
@@ -369,7 +410,11 @@ def route(root):
         if ev_struct or ev_feat or ev_doc:
             result[sid] = {'name': name, 'desc': desc,
                            'struct': ev_struct, 'feat': ev_feat, 'doc': ev_doc}
-    return files, sampled, result
+
+    # p-godot 命中后才做 API 领域细分（否则白扫）。
+    # 不能塞进 result：main() 会把 result 每项当场景打分，领域条目是 tuple 不是 dict。
+    domains = godot_domains(blob) if 'p-godot' in result else []
+    return files, sampled, result, domains
 
 
 # 结构信号分级：目录/构建配置是强信号，README 这类几乎每个项目都有的是弱信号
@@ -437,7 +482,7 @@ def cmd_self_test():
 def main():
     if '--self-test' in _flags:
         sys.exit(cmd_self_test())
-    files, sampled, hits = route(ROOT)
+    files, sampled, hits, godom = route(ROOT)
     ranked = sorted(hits.items(), key=lambda kv: -score(kv[1]))
     ranked = [(k, v) for k, v in ranked if score(v) >= MIN_HITS or v['struct']]
 
@@ -469,6 +514,14 @@ def main():
     print()
     print('─' * 56)
     print('命中 %d 个 —— **全部都要审**，不设上限（截断会漏检）' % len(ranked))
+
+    # Godot API 领域细分：四份查表文档近 3900 行，按实际 API 只加载命中的
+    if godom:
+        print()
+        print('Godot API 领域（按代码里实际出现的 API 名，只加载这些）：')
+        for name, n, doc in godom:
+            print('  %-22s %3d 处 → references/%s' % (name, n, doc))
+        print('  （未列出的领域说明代码里没用到，不必加载）')
     if len(ranked) <= BATCH:
         print('一批加载：%s' % ', '.join(k for k, _ in ranked))
     else:

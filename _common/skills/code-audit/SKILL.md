@@ -86,7 +86,7 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`p-cpp.md`** ⭐ | 仓库有 `.c/.cpp/.h` | 所有权不清、异常路径泄漏、缓冲区溢出、虚假唤醒 |
 | **`p-rust.md`** ⭐ | 仓库有 `.rs`（`Cargo.toml` / `src-tauri/` 强信号） | panic 静默化、整数 release 回绕、unsafe 无契约、同步锁跨 await、Tauri 入参未校验 |
 | **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
-| **`p-godot.md`** | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留（骨架见 `engine-template.md`） |
+| **`p-godot.md`** | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留；API 级判据见 `godot-api/` |
 
 ⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，对 Python / Go / Java /
 C++ / Rust 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。证明手段各不同：

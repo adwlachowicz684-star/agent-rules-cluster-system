@@ -64,6 +64,9 @@ python3 scripts/godot-audit.py --self-test                 # 改规则后必跑
 | GD14 | P1 | `_process` 内做物理移动 |
 | GD15 | P1 | 有连接但 `_exit_tree` / `_ExitTree` 里无断开 |
 
+**领域规则**（GD2x 物理 / GD3x UI / GD4x IO / GD5x 输入·音频·动画）见下方
+「领域判据」一节，完整 API 级判据在 `references/godot-api/`。
+
 **退出码**：有 P0 返回 1（可直接接 CI），否则 0。
 
 ⚠ **静态扫描的产出是「候选」，不是结论。** Godot 的信号自动断开、Tween 绑定、
@@ -247,6 +250,50 @@ Godot 的 Profiler 能直接分开这几项；C# 侧还要区分托管堆分配�
 
 按 P0 → P1 → P2 分级，每条含**文件:行号 · 问题 · 为什么 · 怎么改**四项。
 不确定的标"待确认"，不硬判——尤其是所有权类条目。
+
+## 领域判据（API 级）
+
+核心判据（GD01–GD15）只覆盖所有权与迁移。**具体 API 的用法错误**在
+`references/godot-api/` 四份查表文档里，按领域分：
+
+| 领域 | 文档 | 行数 | 路由信号 |
+|---|---|---|---|
+| 物理 | `godot-api/physics.md` | 505 | `move_and_slide` · `RigidBody` · `collision_layer` · `intersect_ray` |
+| UI / 2D 渲染 | `godot-api/ui.md` | 489 | `Label` · `CanvasGroup` · `TileMap` · `ShaderMaterial` |
+| 资源 / IO / 网络 | `godot-api/io.md` | 1483 | `FileAccess` · `ResourceLoader` · `HTTPRequest` · `user://` |
+| 输入 / 音频 / 动画 / Tween | `godot-api/anim.md` | 1433 | `Input.` · `AnimationTree` · `create_tween` · `AudioStreamPlayer` |
+
+**不要一次全读**（合计 ~3900 行）。跑 `route.py --src=<根>` 会按代码里
+实际出现的 API 名列出命中的领域；也可查 `godot-api/index.md` 的路由表。
+
+已落进扫描器的领域规则：
+
+| ID | 级别 | 判据 |
+|---|---|---|
+| GD21 | P1 | `velocity *= delta` 后调 `move_and_slide()`（引擎内部已积分 → 二次积分） |
+| GD22 | P1 | 帧/物理回调里 `apply_impulse`（一次性冲击，每帧应改 `apply_force`） |
+| GD23 | P1 | 改 `target_position` 未 `force_raycast_update()`（同帧读旧缓存） |
+| GD24 | P1 | `intersect_ray(from, to, ...)` 位置参数（4.x 只收参数对象） |
+| GD26 | P1 | 连 `body_entered` 但未开 `contact_monitor`（信号永不触发） |
+| GD31 | P1 | 帧回调里 `new ShaderMaterial`（材质碎片化，打断合批） |
+| GD32 | P1 | `CanvasGroup`（禁与 `clip_children` 嵌套，读 backbuffer 有代价） |
+| GD33 | P1 | `set_cell(数字, ...)` 层号优先 = 4.3 前的旧签名 |
+| GD34 | P1 | `Light2D`（3.x 类名，4.x 拆为 Point/Directional/Spot） |
+| GD41 | P1 | `FileAccess.open()` 未见 `close()`（句柄泄漏） |
+| GD43 | P1 | 往 `res://` 写（导出后只读，静默失败） |
+| GD45 | **P0** | `bytes_to_var` / `str_to_var` 反序列化（不可信输入 = 任意对象构造） |
+| GD46 | P1 | `instantiate()` 未见 `add_child()`（不进树不触发 `_ready`） |
+| GD47 | P1 | `HTTPRequest` 未见 `add_child`（不进树不处理请求） |
+| GD48 | P1 | `File.new()` / `Directory.new()`（3.x 写法） |
+| GD51 | P1 | 非输入回调里 `Input.is_action_just_pressed()`（掉帧会漏输入） |
+| GD52 | **P0** | 动态 `AudioStreamPlayer` 未见 `queue_free()`（Node 累积） |
+| GD53 | P2 | `AnimationTree` 参数路径字面量（拼错静默失效） |
+| GD54 | P2 | 动画名字面量（重命名后静默不播） |
+
+**没进扫描器的**（需要跨文件或运行时对象关系，只能人工看）：
+碰撞层位值混用、`StaticBody` 移动当平台、RigidBody 每帧覆盖 `position`、
+`is_on_floor()` 做边沿检测。这些在 `godot-api/physics.md` 里有判据描述，
+但静态命中会大量误报，所以留给人工。
 
 ## 迁移对照（3.x → 4.x）
 

@@ -117,6 +117,128 @@ FRAME_RULES = [
 PROCESS_PHYSICS_GD = r"(move_and_slide|move_and_collide|apply_central_force|apply_force|apply_impulse)"
 PROCESS_PHYSICS_CS = r"(MoveAndSlide|MoveAndCollide|ApplyCentralForce|ApplyForce|ApplyImpulse)"
 
+# ---------- 领域规则（GD2x 物理 / GD3x UI / GD4x IO / GD5x 输入·音频·动画）----------
+# 来源：references/godot-api/ 四份 API 查表文档（physics / ui / io / anim）。
+#
+# 收录原则：只收**有明确源码特征**的条目。需要跨文件或运行时对象关系
+# 才能判的（如"StaticBody 被移动当平台"）不进扫描器，留在文档里人工看。
+# 否则会造出一批"看着有道理但天天误报"的规则，把真正的 P0 淹掉。
+#
+# 字段：(ID, 级别, 类别, 语言, 正则, 说明, 修法, 反例豁免正则 or "")
+#   need_absent：若该正则在整个文件里出现，则本条不报（用于"改了 X 却没调 Y"）
+DOMAIN_RULES = [
+    # --- GD2x 物理 ---
+    ("GD21", "P1", "物理", "gd", r"velocity\s*\*=\s*delta",
+     "velocity *= delta 后调 move_and_slide() —— 引擎内部已做时间积分，再乘是二次积分",
+     "重力按 delta 累加到 velocity.y（`velocity.y += g * delta`），不要整体乘 delta",
+     ""),
+    ("GD22", "P1", "物理", "gd", r"apply_impulse\s*\(",
+     "apply_impulse 出现在帧/物理回调里 —— impulse 是一次性冲击，每帧施加应改 apply_force",
+     "持续力用 apply_force/apply_central_force；一次性冲击才用 apply_impulse",
+     ""),
+    ("GD23", "P1", "物理", "gd", r"target_position\s*=",
+     "改了 RayCast.target_position —— 同帧读取仍是旧缓存，需 force_raycast_update()",
+     "改完立刻 `ray.force_raycast_update()` 再 is_colliding()/get_collider()",
+     r"force_raycast_update"),
+    ("GD23", "P1", "物理", "cs", r"TargetPosition\s*=",
+     "改了 RayCast.TargetPosition —— 同帧读取仍是旧缓存，需 ForceRaycastUpdate()",
+     "改完立刻 `ray.ForceRaycastUpdate()` 再 IsColliding()/GetCollider()",
+     r"ForceRaycastUpdate"),
+    ("GD24", "P1", "物理", "any",
+     r"intersect_ray\s*\(\s*(?:Vector[23]|to\b|from\b|self\.|position|\$)",
+     "intersect_ray 用了位置参数 —— 4.x 只收参数对象（3.x 写法残留）",
+     "`state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to))`",
+     ""),
+    ("GD26", "P1", "物理", "gd", r"body_entered|body_exited",
+     "连了 body_entered/body_exited —— 需 RigidBody.contact_monitor=true 且 max_contacts_reported>0，否则永不触发",
+     "设 `contact_monitor = true` 与 `max_contacts_reported = 4+`",
+     r"contact_monitor"),
+    ("GD26", "P1", "物理", "cs", r"BodyEntered|BodyExited",
+     "订阅了 BodyEntered/BodyExited —— 需 ContactMonitor=true 且 MaxContactsReported>0",
+     "设 `ContactMonitor = true` 与 `MaxContactsReported = 4+`",
+     r"ContactMonitor"),
+
+    # --- GD3x UI / 2D 渲染 ---
+    ("GD31", "P1", "UI", "any", r"ShaderMaterial\s*\.\s*new\s*\(|new\s+ShaderMaterial\s*\(",
+     "帧回调里 new ShaderMaterial —— 材质状态碎片化，打断合批",
+     "共享材质实例，只 `set_shader_parameter()` 改参数",
+     ""),
+    ("GD32", "P1", "UI", "any", r"CanvasGroup",
+     "用了 CanvasGroup —— 它不能与 clip_children 嵌套，且每次都要读 backbuffer（fit_margin/use_mipmaps 有代价）",
+     "确认未嵌套裁剪；fit_margin 与 use_mipmaps 按需开",
+     ""),
+    ("GD33", "P1", "UI", "any", r"set_cell\s*\(\s*\d",
+     "set_cell 第一个参数是数字 —— 4.3+ 已改为坐标优先，层号优先是旧签名（deprecated）",
+     "迁移到 TileMapLayer：`.set_cell(coords, source_id, atlas_coords)`",
+     ""),
+    ("GD34", "P1", "UI", "any", r"\bLight2D\b",
+     "Light2D 是 3.x 类名 —— 4.x 已拆为 PointLight2D / DirectionalLight2D / SpotLight2D",
+     "按用途换成 PointLight2D / DirectionalLight2D / SpotLight2D",
+     ""),
+
+    # --- GD4x 资源 / IO / 网络 ---
+    ("GD41", "P1", "IO", "gd", r"FileAccess\s*\.\s*open\s*\(",
+     "FileAccess.open() 后未见 close() —— 句柄泄漏，导出后文件被占用",
+     "用完后 `f.close()`，或用 `using`/defer 模式确保成对",
+     r"\.\s*close\s*\("),
+    ("GD41", "P1", "IO", "cs", r"FileAccess\s*\.\s*Open\s*\(",
+     "FileAccess.Open() 后未见 Close() —— 句柄泄漏",
+     "用完后 `f.Close()`，或用 `using` 块",
+     r"\.\s*Close\s*\("),
+    ("GD43", "P1", "IO", "any", r"FileAccess\s*\.\s*[Oo]pen\s*\(\s*[\"']res://",
+     "往 res:// 写文件 —— 导出后该路径只读，写盘会静默失败",
+     "存档/用户数据一律写 `user://`",
+     ""),
+    ("GD45", "P0", "IO", "any", r"bytes_to_var\s*\(|str_to_var\s*\(",
+     "反序列化不可信数据 —— 可构造任意对象，等同任意代码执行边界",
+     "只反序列化自己写过的、签名/版本校验过的数据；优先 JSON/ConfigFile",
+     ""),
+    ("GD46", "P1", "IO", "gd", r"\.instantiate\s*\(",
+     "instantiate() 后未见 add_child() —— 节点不在树里，不触发 _ready 也不渲染",
+     "实例化后 `add_child(node)`",
+     r"add_child\s*\("),
+    ("GD46", "P1", "IO", "cs", r"\.Instantiate\s*\(",
+     "Instantiate() 后未见 AddChild() —— 节点不在树里",
+     "实例化后 `AddChild(node)`",
+     r"AddChild\s*\("),
+    ("GD47", "P1", "IO", "any", r"HTTPRequest",
+     "用了 HTTPRequest 但未见 add_child —— 不进树就不会处理请求",
+     "`add_child(http)` 后再 `request(...)`",
+     r"add_child\s*\(|AddChild\s*\("),
+    ("GD48", "P1", "IO", "any", r"\b(File|Directory)\s*\.\s*new\s*\(",
+     "File.new()/Directory.new() 是 3.x 写法 —— 4.x 改为 FileAccess.open()/DirAccess.open()",
+     "`FileAccess.open(path, FileAccess.READ)`（失败返回 null）",
+     ""),
+
+    # --- GD5x 输入 / 音频 / 动画 ---
+    ("GD51", "P1", "输入", "gd",
+     r"Input\s*\.\s*is_action_just_(?:pressed|released)\s*\(",
+     "Input.is_action_just_* 在非输入回调里 —— 一帧内多次调用/掉帧会漏输入",
+     "放 `_unhandled_input(event)`，或在固定步里一次性采样成 bool 字段",
+     ""),
+    ("GD51", "P1", "输入", "cs",
+     r"Input\s*\.\s*IsActionJust(?:Pressed|Released)\s*\(",
+     "Input.IsActionJust* 在非输入回调里 —— 掉帧会漏输入",
+     "放 `_UnhandledInput(InputEvent e)`，或固定步里采样一次",
+     ""),
+    ("GD52", "P0", "音频", "gd", r"AudioStreamPlayer\w*\s*\.\s*new\s*\(",
+     "动态 new AudioStreamPlayer —— 不 queue_free 会在树里累积（每个都是 Node）",
+     "播完 `queue_free()`，或预建固定数量复用；`max_polyphony` 只限声部不限节点",
+     r"queue_free"),
+    ("GD52", "P0", "音频", "cs", r"new\s+AudioStreamPlayer\w*",
+     "动态 new AudioStreamPlayer —— 不 QueueFree 会累积",
+     "播完 `QueueFree()`，或预建复用",
+     r"QueueFree"),
+    ("GD53", "P2", "动画", "any", r"[\"']parameters/",
+     "AnimationTree 参数路径用字面量 —— 拼错**静默失效**（不报错也不生效）",
+     "集中成常量并加断言；或启动时校验 get(\"parameters/...\") 非 null",
+     ""),
+    ("GD54", "P2", "动画", "any", r"\.play\s*\(\s*[\"'][^\"']+[\"']",
+     "动画名用字面量 —— 动画重命名后不报错也不播放",
+     "动画名集中为常量；或启动时 has_animation() 校验",
+     ""),
+]
+
 
 def lang_of(path: Path) -> str:
     s = path.suffix.lower()
@@ -385,6 +507,36 @@ def scan_file(path: Path, rel: str) -> list[dict]:
             "不持有引用就没法 stop，只能等它自然到点",
             "需要停止/复用就保存引用，或改用 Timer 节点（有 start/stop）")
 
+    # ---- 6.5) 领域规则（物理 / UI / IO / 输入·音频·动画）----
+    # 只在文件里能找到该 API 时才逐条查，避免对不相关的文件空转。
+    for rid, level, rule, rlang, pat, msg, fix, absent in DOMAIN_RULES:
+        if rlang not in ("any", lang):
+            continue
+        if not re.search(pat, text):
+            continue
+        # 「改了 X 却没调 Y」类：Y 在文件里出现过就不报
+        if absent and re.search(absent, text):
+            continue
+        frame_only = rid in ("GD22", "GD31")
+        if frame_only:
+            hit = None
+            for name, s, e in methods:
+                if name not in FRAME_METHODS:
+                    continue
+                for j in range(s, e):
+                    if re.search(pat, lines[j]):
+                        hit = j
+                        break
+                if hit is not None:
+                    break
+            if hit is not None:
+                add(hit, rid, level, rule, msg, fix)
+            continue
+        for i, l in enumerate(lines):
+            if re.search(pat, l):
+                add(i, rid, level, rule, msg, fix)
+                break      # 同一规则同文件只报首次
+
     # ---- 7) 信号连接但清理回调里没有断开（跨生命周期）----
     # 只在「有 connect 且文件里有 _exit_tree 但其中没有 disconnect」时报，
     # 避免误伤同树父子连接（那种任一方释放会自动断开）。
@@ -500,6 +652,74 @@ public partial class Bad : Node2D
 }
 '''
 
+SELF_DOMAIN_BAD = '''extends Node2D
+
+func _physics_process(delta):
+    velocity *= delta
+    $Body.apply_impulse(Vector2.UP * 10)
+    var m = ShaderMaterial.new()
+
+func scan():
+    $Ray.target_position = Vector2(100, 0)
+    if $Ray.is_colliding(): pass
+
+func q():
+    var r = get_world_2d().direct_space_state.intersect_ray($A.position, $B.position)
+    return r
+
+func save():
+    var f = FileAccess.open("res://save.dat", FileAccess.WRITE)
+    f.store_string("x")
+
+func load_it():
+    var o = bytes_to_var(f.get_buffer(8))
+    var n = preload("res://e.tscn").instantiate()
+    var h = HTTPRequest.new()
+    h.request("http://x")
+    var old = File.new()
+
+func anim():
+    $Tree.set("parameters/conditions/run", true)
+    $Player.play("run")
+
+func sfx():
+    var p = AudioStreamPlayer.new()
+    p.play()
+'''
+
+SELF_DOMAIN_CLEAN = '''extends Node2D
+
+func _physics_process(delta):
+    velocity.y += 980 * delta
+    $Body.apply_force(Vector2.UP * 10)
+    $Ray.target_position = Vector2(100, 0)
+    $Ray.force_raycast_update()
+    if $Ray.is_colliding(): pass
+
+func q():
+    var p = PhysicsRayQueryParameters2D.create($A.position, $B.position)
+    return get_world_2d().direct_space_state.intersect_ray(p)
+
+func save():
+    var f = FileAccess.open("user://save.dat", FileAccess.WRITE)
+    if f == null: return
+    f.store_string("x")
+    f.close()
+
+func load_it():
+    var n = preload("res://e.tscn").instantiate()
+    add_child(n)
+    var h = HTTPRequest.new()
+    add_child(h)
+    h.request("http://x")
+
+func sfx():
+    var p = AudioStreamPlayer.new()
+    add_child(p)
+    p.play()
+    p.finished.connect(p.queue_free)
+'''
+
 SELF_CS_CLEAN = '''using Godot;
 
 public partial class Good : CharacterBody2D
@@ -547,6 +767,7 @@ def self_test() -> int:
         cases = {
             'bad.gd': SELF_GD_BAD, 'clean.gd': SELF_GD_CLEAN,
             'bad.cs': SELF_CS_BAD, 'clean.cs': SELF_CS_CLEAN,
+            'dom.gd': SELF_DOMAIN_BAD, 'domok.gd': SELF_DOMAIN_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -606,6 +827,33 @@ def self_test() -> int:
               'clean.cs 不报 GD07（CharacterBody2D 是 4.x 正确类名）')
         check('GD11' not in ids('clean.cs'),
               'clean.cs 不报 GD11（_Ready 里 GetNode 是正常用法）')
+
+        # --- 领域规则（GD2x 物理 / GD3x UI / GD4x IO / GD5x 输入·音频·动画）---
+        for rid, label in (('GD21', 'velocity *= delta 二次积分'),
+                           ('GD22', '帧内 apply_impulse'),
+                           ('GD23', '改 target_position 未 force_raycast_update'),
+                           ('GD24', 'intersect_ray 位置参数'),
+                           ('GD31', '帧内 new ShaderMaterial'),
+                           ('GD43', '写 res://'),
+                           ('GD45', 'bytes_to_var 反序列化'),
+                           ('GD46', 'instantiate 未 add_child'),
+                           ('GD47', 'HTTPRequest 未 add_child'),
+                           ('GD48', 'File.new() 3.x 写法'),
+                           ('GD52', '动态 AudioStreamPlayer 未 queue_free'),
+                           ('GD53', 'AnimationTree 参数路径字面量'),
+                           ('GD54', '动画名字面量')):
+            check(rid in ids('dom.gd'), 'dom.gd 命中 %s（%s）' % (rid, label))
+
+        for rid, label in (('GD21', 'velocity.y += g*delta 是正确写法'),
+                           ('GD22', '用 apply_force 不是 impulse'),
+                           ('GD23', '已调 force_raycast_update'),
+                           ('GD24', '用 PhysicsRayQueryParameters'),
+                           ('GD41', 'FileAccess 已 close'),
+                           ('GD43', '写 user://'),
+                           ('GD46', 'instantiate 后 add_child'),
+                           ('GD47', 'HTTPRequest 已 add_child'),
+                           ('GD52', 'AudioStreamPlayer 有 queue_free')):
+            check(rid not in ids('domok.gd'), 'domok.gd 不报 %s（%s）' % (rid, label))
 
         print('\n自检：%d 通过 / %d 失败' % (ok, len(fail)))
         for f in fail:

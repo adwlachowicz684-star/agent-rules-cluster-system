@@ -286,3 +286,8 @@
 | 2026-09-16 | AR-05 | 新增 | 来源：push_api 架构审查 2026-09-17 A8（17 套测试 0 pytest，断言焊在 stdout 与模块全局） |
 | 2026-09-16 | A-22 | 补充 | 来源：push_api 架构审查回填 2026-09-17（权限位降级）：_exec_bit_reliable() 判定环境不可靠后，降级路径回退到 git 索引，而索引 mode 正是从同一不可靠文件系统推导的——降级无效；且只有 changed 文件那一处出口判了可靠性，ls-files 批量读入的出口没判 |
 | 2026-09-16 | s-architecture | 补充 | 补齐三处场景穷举遗漏：audit.py SCENE_SCRIPTS 缺 s-architecture（编排器恒 0 候选，与漏语言包同一失效模式）· route.py SCENE_SCANNER 误指 scan-app.py（AR 规则实为 scan-py.py）· route.md 逐场景判据表与扫描器对应表缺该场景 |
+| 2026-09-17 | godot-api/ | 新增 | 4 份 API 查表文档（physics 505 / ui 489 / io 1483 / anim 1433 行），每条含 GDScript+C# 签名、用途、误用、可正则匹配的源码特征、验证方法、置信度 |
+| 2026-09-17 | godot-api/index.md | 新增 | 领域索引：路由表 + 规则 ID→领域对照 + 各领域核心判据速查。文档细化后必须配套收敛机制，否则『越详细』变成『越贵』 |
+| 2026-09-17 | route.py | 新增 | Godot API 二级路由 GODOT_API_DOMAINS：命中 p-godot 后按实际 API 名只加载对应领域文档 |
+| 2026-09-17 | route.py | 修正 | SOURCE_EXT 漏了 .gd → Godot 项目扫描到 0 个文件，输出『未命中任何场景』看起来像没得审，实际没看 GDScript |
+| 2026-09-17 | godot-audit.py | 新增 | GD21~GD54 共 19 条领域规则（物理/UI/IO/输入·音频·动画），自检 23→45 |
