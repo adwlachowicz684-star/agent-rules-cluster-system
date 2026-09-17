@@ -232,36 +232,79 @@ def main():
               'registry.json', '.audit-rules.json', '.audit-state.json',
               'README.md', 'package.json', '.gitignore', 'Cargo.toml',
               'cc.config.json', 'tauri.conf.json',
-              'SKILL.md', 'AGENTS.md', 'CLAUDE.md'}
+              'SKILL.md', 'AGENTS.md', 'CLAUDE.md',
+              # 以下是**被审项目**的文件名：判据里拿它们当例子讲（「某仓库的
+              # conftest.py 提供了 fixture…」），不是指向本技能的文档。
+              # 挂在警告里会淹没真断链，故显式登记——清单受版本控制，可审计。
+              'conftest.py', 'run_all.py', 'runner.ts', 'crypto.ts',
+              'plugins/foo/bar.md', 'lib/channel.ts', 'tests/crypto.test.ts'}
     _exts = ('.md', '.py', '.ts', '.json')
-    def _exists(name):
+    # 原先只在几个固定目录下查**直接子文件** —— 于是 references 一分层
+    # （如 references/godot-api/）就全查不到：godot-api/physics.md 明明存在，
+    # 却被报成悬挂引用。更糟的是反过来也会发生：子目录里的**真**断链
+    # 因为路径带 / 而从来查不到，这项检查在分层之后等于半失效。
+    # 改成：① 递归收集所有相对路径 ② 按纯文件名索引 ③ 带 / 的按引用文件
+    # 所在目录解析。
+    _allrel = set()
+    for _dp, _dns, _fns in os.walk(SKILL_DIR):
+        _dns[:] = [d for d in _dns if d not in ('.git', '__pycache__',
+                                               'fixtures', '审查产物')]
+        for _f in _fns:
+            _allrel.add(os.path.relpath(os.path.join(_dp, _f), SKILL_DIR))
+    _byname = {}
+    for _r in _allrel:
+        _byname.setdefault(os.path.basename(_r), _r)
+
+    def _exists(name, src_file=None):
         if name in _known:
             return True
-        for d in (SKILL_DIR, os.path.join(SKILL_DIR, 'references'),
-                  os.path.join(SKILL_DIR, 'scripts'),
-                  os.path.join(SKILL_DIR, 'assets'),
-                  os.path.join(SKILL_DIR, 'rules')):
-            if os.path.isfile(os.path.join(d, name)):
-                return True
+        if name in _allrel or name in _byname:
+            return True
+        # 带目录的引用：从引用文件所在目录**逐级向上**找基准。
+        #
+        # 为什么要逐级：`references/godot-api/index.md` 里写的是
+        # `godot-api/physics.md`，基准是 references/ 而不是它自己所在的
+        # godot-api/ —— 只试一层就会把存在的四个文件全报成断链
+        # （实测 4 条假断链）。向上到仓库根，还能覆盖
+        # `self-evolving_skill_mechanism/...` 这种跨 skill 引用。
+        if '/' in name and src_file:
+            d = os.path.dirname(src_file)
+            for _ in range(6):
+                if os.path.isfile(os.path.normpath(os.path.join(d, name))):
+                    return True
+                parent = os.path.dirname(d)
+                if not parent or parent == d:
+                    break
+                d = parent
         return os.path.isfile(name)
     _targets = [os.path.join(SKILL_DIR, 'SKILL.md')]
     for _sub in ('references', 'assets'):
         _dd = os.path.join(SKILL_DIR, _sub)
-        if os.path.isdir(_dd):
-            for f in sorted(os.listdir(_dd)):
+        if not os.path.isdir(_dd):
+            continue
+        # 递归：references 一分层（references/godot-api/），只扫直接子文件
+        # 会让**整个子目录的文档都不在检查范围内** —— 断链查不到、
+        # 撞号也查不到。分层是这两轮才出现的结构，检查得跟着走。
+        for _dp, _dns, _fns in os.walk(_dd):
+            _dns[:] = [d for d in _dns if d not in ('.git', '__pycache__')]
+            for f in sorted(_fns):
                 if not f.endswith('.md'):
                     continue
                 # changelog 记录的是「当时叫什么」，被删掉的文件名在这里出现是合法的
                 if f == 'changelog.md':
                     continue
-                _targets.append(os.path.join(_dd, f))
+                _targets.append(os.path.join(_dp, f))
     for _tf in _targets:
         try:
             _txt = open(_tf, encoding='utf-8').read()
         except OSError:
             continue
-        for _m in set(re.findall(r'`([A-Za-z0-9][A-Za-z0-9\-_.]*\.(?:md|py|ts|json))`', _txt)):
-            if not _exists(_m):
+        # 正则必须认路径分隔符：文档分层后引用写成 `godot-api/physics.md`，
+        # 原先的字符类里没有 `/` → **带路径的引用一条都提取不到**，
+        # 于是 references 一分层，这项检查对新结构就完全失效了
+        # （实测：往 godot-api/index.md 里加一条指向不存在文件的引用，不报）。
+        for _m in set(re.findall(r'`([A-Za-z0-9][A-Za-z0-9\-_./]*\.(?:md|py|ts|json))`', _txt)):
+            if not _exists(_m, _tf):
                 add('warn', 'PD003', '悬挂引用（文件不存在）: %s 内引用 %s'
                     % (os.path.basename(_tf), _m))
 

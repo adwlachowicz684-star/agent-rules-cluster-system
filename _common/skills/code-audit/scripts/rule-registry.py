@@ -54,7 +54,7 @@ _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 # （如 `--self-test`），照常跑完并返回 0 —— 见 scripts/_flagguard.py。
 # 注：仓库里没有 mutate.py，那是外部清单的笔误；对应的概念
 # 「无 mutate 即跳过」实现在 scan-py.py 的 PY-08 里。
-KNOWN_FLAGS = {'--apply', '--check', '--cross', '--eval', '--gaps',
+KNOWN_FLAGS = {'--apply', '--check', '--comment-test', '--cross', '--eval', '--gaps',
                '--json', '--map', '--scanners', '--sync', '--test'}
 _unknown = [f for f in _flags if f not in KNOWN_FLAGS]
 if _unknown:
@@ -1295,6 +1295,77 @@ def _scan_hits(scanner, src_file):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+
+def cmd_comment_test():
+    """注释化测试：把 tp 整段注释掉，必须零命中。
+
+    抓的是一类很隐蔽的失效：**行扫描规则扫到了注释 / 文档字符串里的示例**。
+
+    实测发现过程：用 scan-py 扫自己的 scripts/ 目录，53 条命中里混着
+    K-44 命中「K-44 注释里写的 user.name=xxx 示例」、AR-05 命中
+    「AR-05 文档字符串里的 ALL PASS 说明」—— 规则把**描述自己的文字**
+    当成了被审代码。这类误报在 fixture 里测不出来（fixture 不会有
+    「把规则说明抄进注释」这种形态），只有扫真实代码库才撞得到。
+
+    做法：把每个 tp 的每一行加注释前缀再扫。若还有命中，说明该规则
+    没做注释过滤。AST 驱动的规则天然不受影响（注释进不了 AST），
+    所以只对行扫描规则有信号——这正是要抓的目标。
+    """
+    import shutil, tempfile
+    reg = load()
+    if reg is None:
+        print('没有注册表')
+        return 1
+    meta = {r['rule_id']: r for r in reg['rules']}
+    CM = {'.py': '# ', '.ts': '// ', '.js': '// ', '.tsx': '// ', '.jsx': '// ',
+          '.gd': '# ', '.cs': '// '}
+    SC = {'.py': 'scan-py.py', '.ts': 'scan-ts.py', '.js': 'scan-ts.py',
+          '.tsx': 'scan-ts.py', '.jsx': 'scan-ts.py', '.gd': 'godot-audit.py',
+          '.cs': 'godot-audit.py', '.rs': 'scan-rust.py', '.go': 'scan-go.py',
+          '.java': 'scan-java.py', '.cpp': 'scan-cpp.py'}
+    bad, tested = [], 0
+    for rid in sorted(os.listdir(FIXDIR)):
+        d = os.path.join(FIXDIR, rid)
+        if not os.path.isdir(d):
+            continue
+        tps = [f for f in sorted(os.listdir(d))
+               if re.fullmatch(r'tp\d*\.[A-Za-z0-9.]+', f)]
+        tps = [f for f in tps if not f.endswith('.md')]
+        if not tps:
+            continue
+        ext = os.path.splitext(tps[0])[1]
+        if ext not in SC or ext not in CM:
+            continue
+        scanner = (meta.get(rid) or {}).get('scanner') or SC[ext]
+        tmp = tempfile.mkdtemp()
+        for f in tps:
+            lines = open(os.path.join(d, f), encoding='utf-8').read().split('\n')
+            pref = CM[ext]
+            open(os.path.join(tmp, f), 'w', encoding='utf-8').write(
+                '\n'.join(pref + l if l.strip() else l for l in lines))
+        ok, hits, _err = _run_scanner(scanner, tmp, rid)
+        shutil.rmtree(tmp, ignore_errors=True)
+        tested += 1
+        if hits:
+            ids = sorted({str(h.get('id') or h.get('rule_id') or h.get('rule'))
+                          for h in hits})
+            bad.append((rid, ids))
+    print('=' * 66)
+    print('注释化测试（代码整段注释后应零命中）')
+    print('=' * 66)
+    print('  测试 TP 组数: %d' % tested)
+    if bad:
+        print()
+        print('  ✗ 注释后仍命中 —— 规则没做注释过滤：')
+        for rid, ids in bad:
+            print('      %-12s %s' % (rid, ', '.join(ids)))
+        print()
+        print('  注释 / 文档字符串里描述规则的文字会被当成被审代码，')
+        print('  扫真实代码库时表现为「报了一堆看不懂的命中」。')
+        return 1
+    print('  ✓ 全部 %d 组注释后零命中' % tested)
+    return 0
+
 def cmd_cross():
     """fixture 交叉审计：样本是否**真的在验证**它该验证的东西。
 
@@ -1533,6 +1604,8 @@ def main():
         sys.exit(cmd_gaps())
     if '--scanners' in _flags:
         sys.exit(cmd_scanners())
+    if '--comment-test' in _flags:
+        sys.exit(cmd_comment_test())
     if '--cross' in _flags:
         sys.exit(cmd_cross())
 

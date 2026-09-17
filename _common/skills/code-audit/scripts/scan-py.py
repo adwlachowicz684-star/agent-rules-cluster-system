@@ -652,6 +652,60 @@ def py_path_list_newline_join(tree, lines, path):
     return out
 
 
+
+def _non_code_lines(lines, tree):
+    """返回「不该被行扫描规则当真代码」的行号集合（1-based）。
+
+    两类：
+      · 注释行 —— 用 tokenize 判（引号里的 # 不算注释）
+      · docstring 行 —— 用 AST 取每个函数/类/模块的文档字符串范围
+
+    为什么需要：scan-py 的两条行扫描规则（K-44 / AR-05）原先直接扫原文，
+    于是**描述规则的文字本身会被自己的规则命中**：
+      · K-44 扫到 K-44 注释里的 `user.name=xxx` 示例
+      · AR-05 扫到 AR-05 文档字符串里的 `ALL PASS` / `mod.X = ...` 说明
+    实测（scan-py 扫自己的 scripts/）：注释化测试显示 116 组 TP 里
+    有 2 条规则在代码被整段注释后仍命中，就是这两条。
+
+    AST 驱动的规则天然不受影响（注释进不了 AST），只有行扫描的这两条要过滤。
+    """
+    bad = set()
+    import io as _io
+    import tokenize as _tk
+    src = '\n'.join(lines)
+    code = set()
+    try:
+        for tok in _tk.generate_tokens(_io.StringIO(src).readline):
+            if tok.type in (_tk.COMMENT, _tk.NL, _tk.NEWLINE, _tk.INDENT,
+                            _tk.DEDENT, _tk.ENCODING, _tk.ENDMARKER):
+                continue
+            if not tok.string.strip():
+                continue
+            for ln in range(tok.start[0], tok.end[0] + 1):
+                code.add(ln)
+        bad |= {i for i in range(1, len(lines) + 1) if i not in code}
+    except (_tk.TokenError, IndentationError, SyntaxError):
+        pass                      # 解析失败就不过滤，宁可多报也不静默漏
+
+    try:
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Module, ast.FunctionDef,
+                                     ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            body = getattr(node, 'body', None)
+            if not body:
+                continue
+            first = body[0]
+            if (isinstance(first, ast.Expr)
+                    and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                for ln in range(first.lineno, (first.end_lineno or first.lineno) + 1):
+                    bad.add(ln)
+    except Exception:
+        pass
+    return bad
+
+
 def py_git_hardcoded_identity(tree, lines, path):
     """K-44 (P2) 工具代用户做提交 / 签名时硬编码自身身份
 
@@ -668,8 +722,9 @@ def py_git_hardcoded_identity(tree, lines, path):
         r'user\.(?:name|email)\s*["\']?\s*[=:]\s*["\']?'
         r'([A-Za-z0-9_.+-]+@[A-Za-z0-9.-]+|[A-Za-z][A-Za-z0-9 _.-]{1,40})')
     ctx = re.compile(r'--author|GIT_AUTHOR_(?:NAME|EMAIL)|["\']-c["\']')
+    skip = _non_code_lines(lines, tree)
     for i, l in enumerate(lines, 1):
-        if has_pragma(lines, i):
+        if i in skip or has_pragma(lines, i):
             continue
         low = l[:max(0, l.lower().find('user.'))]
         if re.search(r'\b(?:config|getenv|environ|\.get\(|argv|argparse|input\()', low):
@@ -847,8 +902,11 @@ def ar_test_harness_welded(tree, lines, path):
     src = '\n'.join(lines)
     if _TEST_FRAMEWORK_RX.search(src):
         return []
+    skip = _non_code_lines(lines, tree)
     out = []
     for i, line in enumerate(lines, 1):
+        if i in skip:
+            continue
         if 'ALL PASS' in line:
             out.append((i, '以 stdout 里的 ALL PASS 判定通过 —— '
                            '改一句提示文案测试就红（AR-05）'))

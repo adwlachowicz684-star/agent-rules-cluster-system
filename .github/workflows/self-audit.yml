@@ -83,6 +83,8 @@ jobs:
         run: python3 scripts/sarif.py --self-test
       - name: fixture 交叉审计（「正确写法」示例本身不能有缺陷）
         run: python3 scripts/rule-registry.py --cross
+      - name: 注释化测试（整段注释后应零命中 → 规则没扫注释）
+        run: python3 scripts/rule-registry.py --comment-test
       - name: 引擎专项扫描器自检
         working-directory: _common/skills/code-audit
         run: |

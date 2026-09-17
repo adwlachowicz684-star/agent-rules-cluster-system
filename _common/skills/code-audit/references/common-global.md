@@ -82,7 +82,7 @@ _core.rectOverlaps 用  <=  → 相切算重叠
 
 ## 七、示例与交付物约定
 
-每个单元的交付物约定要一致。用 `scripts/doc-scan.py` 检查。
+每个单元的交付物约定要一致。用 `scripts/doc-deliverable.py` 检查。
 
 注意**先确认该仓库自身的示例组织约定**：
 
