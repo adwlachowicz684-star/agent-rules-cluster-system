@@ -304,6 +304,30 @@ def extract():
                             'eval': {'precision': 'unverified',
                                      'recall': 'unverified'}})
 
+    # ---------- godot-audit.py ----------
+    # 与 cocos 完全同型的幽灵包：34 条 GD 规则一条都不在注册表里 ——
+    # 能报、有 45 条自检，但没有 eval、没有判据映射、不计入覆盖率、
+    # --scanners 里也看不到它（CI 因此不会跑它的自检）。
+    # 根因同前：各处名单按 `scan-` 前缀硬匹配，`*-audit.py` 漏掉。
+    gpath = os.path.join(HERE, 'godot-audit.py')
+    if os.path.isfile(gpath):
+        gsrc = open(gpath, encoding='utf-8').read()
+        gseen = set()
+        # 规则元组形如 ("GD04", "P1", "旧式信号", "gd", r"...", "说明", "修法")
+        for m in re.finditer(r'\(\s*"(GD\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+                             gsrc):
+            gid = 'GD-%s' % m.group(1)[2:]
+            if gid in gseen:
+                continue
+            gseen.add(gid)
+            out.append({'rule_id': gid, 'native_id': m.group(1),
+                        'scanner': 'godot-audit.py', 'level': m.group(2),
+                        'title': m.group(3), 'family': 'GD', 'scene': 'p-godot',
+                        'languages': ['gd', 'cs'],
+                        'fixtures': {'tp': None, 'fp': None},
+                        'eval': {'precision': 'unverified',
+                                 'recall': 'unverified'}})
+
     out.sort(key=lambda r: (r['scanner'], r['native_id']))
     return out
 

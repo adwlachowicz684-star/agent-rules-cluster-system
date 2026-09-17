@@ -75,11 +75,21 @@ def check_all():
                     out.append(('ERR', '注册表指向不存在的扫描器',
                                 '%s —— 规则扫不出来，且 --test 会把它算成「扫描器没跑起来」' % s))
             # 反向：磁盘有、注册表没有
+            # 原先只认 `scan-` 前缀 —— godot-audit.py 因此从未被这道检查看到，
+            # 它的 34 条 GD 规则在注册表里 0 条（能报、有自检，但没有 eval、
+            # 不计入覆盖率、CI 也不跑它）。cocos-audit.py 是当初手工补进
+            # rule-registry 的，才没一起漏掉 —— 靠人记着补，迟早再漏。
+            # 改成按「是不是扫描器」判断：scan-*.py 或 *-audit.py。
             on_disk = {f for f in os.listdir(HERE)
-                       if f.startswith('scan-') and f.endswith('.py')}
+                       if f.endswith('.py')
+                       and (f.startswith('scan-') or f.endswith('-audit.py'))}
             for s in sorted(on_disk - declared):
-                out.append(('WARN', '磁盘上的扫描器未进注册表',
-                            '%s —— 它的规则不会被 --check / --test 统计' % s))
+                # 级别是 ERR 不是 WARN：实测后果是**整个包变成幽灵** ——
+                # godot-audit.py 的 34 条规则因此没有 eval、不计入覆盖率、
+                # --scanners 里看不到（CI 也就不跑它的自检）。
+                out.append(('ERR', '磁盘上的扫描器未进注册表',
+                            '%s —— 它的规则不会被 --check / --test 统计，'
+                            '且 --scanners 推导不到它 → CI 不跑它的自检' % s))
         except (ValueError, OSError) as e:
             out.append(('ERR', 'registry.json 解析失败', str(e)[:80]))
 
