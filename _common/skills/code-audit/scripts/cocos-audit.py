@@ -30,6 +30,9 @@ import tempfile
 import shutil
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import help_text,  OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4（AR-04）
+
 # 排除目录：构建产物与依赖，扫它们没意义
 EXCLUDE_DIRS = {"node_modules", "library", "build", "temp", ".git",
                 "dist", "assets/scripts/editor", ".creator"}
@@ -696,7 +699,9 @@ def self_test() -> int:
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=help_text())
     ap.add_argument("path", nargs="?", help="Cocos 项目目录或单个 .ts 文件")
     # --src= 是编排器 audit.py 的调用约定（所有扫描器统一）。
     # 不加这个参数，编排器调过来会因参数不识别而失败，

@@ -40,11 +40,15 @@
 只出候选，不是结论 —— SURVIVED 要人工判断是真盲区还是测试本来就不该管。
 """
 import argparse
+
 import contextlib
 import json
 import os
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import help_text,  ENV, USAGE, die   # 码表见 exitcode.py（AR-04）
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOCK_PATH = "/tmp/mutate.lock"
@@ -85,7 +89,9 @@ def single_instance_lock():
         raw = ""
     if raw.isdigit() and _pid_alive(int(raw)):
         # audit: ignore —— 单实例锁冲突时终止是 CLI 的职责；锁失败继续跑会互相删 fixture
-        raise SystemExit(
+        # 锁冲突是**环境/并发状态**，不是工具 bug：等一会儿重试即可，
+        # 与「代码有问题」完全不同。用 ENV(3) 区分开（AR-04）。
+        die(ENV,
             f"另一个 mutate.py 正在运行（PID {raw}，锁 {LOCK_PATH}）。\n"
             f"  测试套件共用固定路径，并发跑会互相删对方的 fixture，\n"
             f"  结果不可信。请等它结束；确认是僵死进程后可手动删除锁文件。"
@@ -144,7 +150,7 @@ def check_anchors(src, muts):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="变异测试：注入真实修过的缺陷，验证测试能否发现")
+        description="变异测试：注入真实修过的缺陷，验证测试能否发现", epilog=help_text())
     ap.add_argument("--src", help="被变异的目标源码文件")
     ap.add_argument("--mutations", required=True, help="变异定义 JSON 文件")
     ap.add_argument("--tests-root", default=".", help="测试套件所在目录（默认当前）")
@@ -167,7 +173,8 @@ def main():
         return 0
 
     if not args.src:
-        raise SystemExit("需要 --src=<目标源码>（--list / --check 除外）")
+        # 缺必填参数 = 用法错误，用 USAGE(2) 与真出错分开（AR-04）
+        die(USAGE, "需要 --src=<目标源码>（--list / --check 除外）")
 
     src = open(args.src, encoding="utf-8").read()
     target = os.path.abspath(args.src)

@@ -185,6 +185,15 @@ def check_all():
         src5 = _read(os.path.join(HERE, f))
         if not src5:
             continue
+        # 只查**入口脚本**：不解析 argv 的是库模块（exitcode.py /
+        # _flagguard.py 这类），它没有"命令行参数"这回事，要求装守卫
+        # 属于噪音 —— 噪音会让人把整条检查关掉。
+        #
+        # ⚠ 不能靠 `'argparse' in src` 判断：exitcode.py 的**文档字符串**
+        # 里提到 argparse，会被误判成入口脚本。这与「规则扫到注释/文档串」
+        # 是同一类失效——用 AST 看真实引用，别看文本。
+        if not _is_entry_script(src5):
+            continue
         has_guard = ('from _flagguard import' in src5
                      or 'import _flagguard' in src5)
         uses_argparse = ('argparse' in src5 and 'ArgumentParser' in src5)
@@ -201,10 +210,85 @@ def check_all():
                     '接 `from _flagguard import guard` 或改用 argparse'
                     % ', '.join(unguarded)))
 
+    # ── 6. 退出码码表的接入率（AR-04 的落地守护）──────────────────
+    #
+    # 为什么需要：`exitcode.py` 定义了 0/1/2/3/4/130 的码表，但造好之后
+    # 没人提醒「还有 N 个脚本没接」。没接的脚本继续 `sys.exit(1)` 一把梭，
+    # 表现与没造之前完全一样 —— 新建设施的老问题（见 self-verification
+    # 第七条）。
+    #
+    # 判据：脚本若**有 3 个以上退出点**（说明它有多种失败语义），就该用
+    # 码表里的语义常量，而不是裸数字。
+    #
+    # ⚠ 只统计「退出点 ≥3」的脚本：小工具只有 0/1 两种语义，
+    # 强行要求接码表属于噪音，会让人把这条检查关掉。
+    if not os.path.isfile(os.path.join(HERE, 'exitcode.py')):
+        out.append(('ERR', '码表模块 exitcode.py 不存在',
+                    'AR-04 的落地依赖它；删了会让退出码重新变成一把梭'))
+    else:
+        flat = []
+        for f in sorted(os.listdir(HERE)):
+            if not f.endswith('.py') or f == 'exitcode.py':
+                continue
+            src6 = _read(os.path.join(HERE, f))
+            if not src6:
+                continue
+            try:
+                t6 = ast.parse(src6)
+            except SyntaxError:
+                continue
+            n_exits = 0
+            for n in ast.walk(t6):
+                if isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) \
+                        and getattr(n.exc.func, 'id', None) == 'SystemExit':
+                    n_exits += 1
+                elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                        and n.func.attr == 'exit' \
+                        and getattr(n.func.value, 'id', None) == 'sys':
+                    n_exits += 1
+            if n_exits < 3:
+                continue
+            uses_code = ('from exitcode import' in src6
+                         or 'import exitcode' in src6)
+            if not uses_code:
+                flat.append('%s(%d)' % (f, n_exits))
+        if flat:
+            out.append(('ERR', '多退出点脚本未接退出码码表',
+                        '%s —— 所有失败都返回同一个码，CI 无法区分'
+                        '「被拦下」与「出错」；接 `from exitcode import '
+                        'ERR, USAGE, ENV, BLOCKED, die`' % ', '.join(flat)))
+
     return out
 
 
 # ---------------- 解析辅助（只读 AST / 正则，不 import 被测脚本）----------------
+
+
+def _is_entry_script(src):
+    """是不是命令行入口脚本（会解析 argv）。
+
+    用 AST 判，不用文本匹配：文档字符串里提到 argparse / sys.argv
+    不代表脚本真的解析命令行参数。
+    """
+    try:
+        t = ast.parse(src)
+    except SyntaxError:
+        return False
+    for n in ast.walk(t):
+        # sys.argv / sys.argv[1:] 的引用
+        if isinstance(n, ast.Attribute) and n.attr == 'argv':
+            v = n.value
+            if isinstance(v, ast.Name) and v.id == 'sys':
+                return True
+        # argparse.ArgumentParser()
+        if isinstance(n, ast.Call):
+            f = n.func
+            if isinstance(f, ast.Attribute) and f.attr == 'ArgumentParser':
+                return True
+            if isinstance(f, ast.Name) and f.id == 'ArgumentParser':
+                return True
+    return False
+
 
 def _parse_tuple(src, name):
     """取 `NAME = (...)` 的字符串元组。"""

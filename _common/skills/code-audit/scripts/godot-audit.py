@@ -32,6 +32,10 @@ import tempfile
 import shutil
 from pathlib import Path
 
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import help_text,  OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4（AR-04）
+
 # 构建产物与引擎缓存，扫它们没意义。
 # C# 侧要额外排除 bin/obj/.mono —— Godot 的 C# 构建产物，
 # 里面是 MSBuild 生成代码，扫进去全是噪声。
@@ -864,7 +868,9 @@ def self_test() -> int:
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=help_text())
     ap.add_argument("path", nargs="?", help="Godot 项目目录或单个 .gd/.cs 文件")
     # --src= 是编排器 audit.py 的调用约定（所有扫描器统一）。
     # 不加这个参数，编排器调过来会因为参数不识别而失败——

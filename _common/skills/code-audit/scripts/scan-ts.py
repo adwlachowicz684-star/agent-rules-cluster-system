@@ -31,6 +31,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _flagguard import guard
+from exitcode import USAGE   # 码表见 exitcode.py（AR-04）
 guard(sys.argv, {'--src=', '--json', '--flat', '--include-tests',
                  '--pattern=', '--sarif=', '--self-test'})
 
@@ -2036,6 +2037,9 @@ def main():
         #    SARIF 文件没生成、一条都没扫，流水线照样绿。
         #    这正是 _hot.md H011「工具报 0 命中不等于没问题」的翻版。
         print('未找到可扫描的模块目录（SRC=%s）' % SRC)
+        # 「没扫到文件」与「扫了但有问题」必须分开：前者是
+        # 用法/路径问题（改命令即可）。这是 H011 的落地点
+        # （工具报 0 不等于没问题），用 USAGE(2) 让 CI 能分流。
         if FLAT:
             print('提示：--flat 只读取 SRC 根目录下的 %s 文件（不递归子目录）；'
                   '当前根目录下没有这类文件。' % '/'.join(SOURCE_EXT))
@@ -2043,7 +2047,7 @@ def main():
             print('提示：扁平结构请加 --flat；子目录结构请确认 --src 指向模块根。')
             print('注意：%s 等目录在跳过清单内，不会作为模块被扫描。'
                   % ', '.join(sorted(SKIP_DIRS)[:6]))
-        return 1
+        return USAGE
 
     total = 0
     by_pattern = {}

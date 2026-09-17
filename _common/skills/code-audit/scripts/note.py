@@ -14,10 +14,14 @@
     python3 scripts/note.py --types                 列出全部类型
 """
 
+import os
 import sys
 import argparse
 from pathlib import Path
 from datetime import date
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import ENV, USAGE, die          # 码表见 exitcode.py（AR-04）
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -41,10 +45,13 @@ def _find_domain_dir():
 _d = _find_domain_dir()
 if _d:
     sys.path.insert(0, str(_d))
+
 try:
     from domain import load_config, domain_dir, CONFIG  # noqa: E402
 except ImportError:
-    sys.exit("找不到 domain.py（技能集群引擎模块）。二选一：\n"
+    # 环境/依赖不满足，不是工具 bug —— 用 ENV(3) 而不是 ERR(1)，
+    # 让调用方能区分「照提示配置即可」与「真出错」
+    die(ENV, "找不到 domain.py（技能集群引擎模块）。二选一：\n"
              "  export PYTHONPATH=<repo>/self-evolving_skill_mechanism/skills/scripts\n"
              "  或确保该目录与本技能包在同一父目录下（脚本会自动向上查找）")
 
@@ -63,7 +70,8 @@ HEADER = """# 变更溯源（{title}）
 def target_file(cfg, domain=None):
     if domain:
         if domain not in cfg.get("domains", {}):
-            sys.exit("未注册的大类：%s" % domain)
+            # 取值不在已注册集合内 = 用法错误（AR-04）
+            die(USAGE, "未注册的大类：%s" % domain)
         f = domain_dir(cfg, domain) / "assets" / "changelog.md"
         title = cfg["domains"][domain].get("name", domain)
     else:
@@ -135,10 +143,12 @@ def main():
 
     if not (args.obj and args.kind and args.reason):
         ap.print_help()
-        sys.exit("\n示例：python3 scripts/note.py C047 版本分化 'macOS sed 需空参数'")
+        # 缺必填参数 = 用法错误，用 USAGE(2) 与真出错分开（AR-04）
+        die(USAGE, "\n示例：python3 scripts/note.py C047 版本分化 'macOS sed 需空参数'")
 
     if args.kind not in TYPES:
-        sys.exit("未知类型：%s\n可用：%s" % (args.kind, "/".join(TYPES)))
+        # 参数取值不合法 = 用法错误（AR-04）
+        die(USAGE, "未知类型：%s\n可用：%s" % (args.kind, "/".join(TYPES)))
 
     append(f, args.obj, args.kind, args.reason, args.src)
 

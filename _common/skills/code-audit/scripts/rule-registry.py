@@ -33,6 +33,9 @@ import hashlib
 import tempfile
 import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4（AR-04）
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 REG = os.path.join(SKILL, 'rules', 'registry.json')

@@ -33,6 +33,7 @@ except ImportError:
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _flagguard import guard
+from exitcode import USAGE, die   # 码表见 exitcode.py（AR-04）
 guard(sys.argv, {'--src=', '--json', '--text', '--flat', '--bg',
                  '--pattern=', '--sarif=', '--self-test'})
 
@@ -55,8 +56,9 @@ if '--self-test' not in _flags:
                 SRC = os.path.abspath(cand)
                 break
     if SRC is None or not os.path.isdir(SRC):
-        print('找不到源码目录，请用 --src=<路径> 指定')
-        sys.exit(1)
+        # 没给 --src 或路径不对 = 用法问题，不是工具出错。
+        # 用 USAGE(2) 而不是 1：CI 里「改命令」与「真出错」要分开（AR-04）
+        die(USAGE, '找不到源码目录，请用 --src=<路径> 指定')
 
 FLAT = '--flat' in _flags
 P0_ONLY = '--p0' in _flags

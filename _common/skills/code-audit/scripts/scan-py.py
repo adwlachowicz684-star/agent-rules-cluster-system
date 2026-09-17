@@ -977,6 +977,36 @@ def ar_cross_instance_state(tree, lines, path):
     return out
 
 
+
+# exitcode.py 里的语义常量名 → 码值。只记分类，不 import（避免耦合）。
+_EXIT_CODE_NAMES = {'OK': 0, 'ERR': 1, 'USAGE': 2, 'ENV': 3,
+                    'BLOCKED': 4, 'INTERRUPTED': 130}
+
+
+def _semantic_codes(node):
+    """从一个 AST 节点里抽出「语义退出码」。
+
+    认三种写法：
+      · USAGE              —— 裸常量名（return USAGE）
+      · die(ENV, "...")    —— 第一个位置参数
+      · sys.exit("文案")   —— 字符串退出，Python 恒为 1，不算分类
+    """
+    if isinstance(node, ast.Name):
+        v = _EXIT_CODE_NAMES.get(node.id)
+        return {v} if v is not None else set()
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return {node.value}
+    # `return 1 if fail else 0` —— 极常见的写法，两个分支都是有效码。
+    # 不认 IfExp 会让「成功 0 / 失败 1」这个最基本的分类被判成没分类
+    # （实测 godot-audit.py 的 self_test 就栽在这）。
+    if isinstance(node, ast.IfExp):
+        out = set()
+        for br in (node.body, node.orelse):
+            out |= _semantic_codes(br)
+        return out
+    return set()
+
+
 def ar_exit_code_flat(tree, lines, path):
     """AR-04 (P2) 退出码不分类（生产者侧）
 
@@ -993,6 +1023,8 @@ def ar_exit_code_flat(tree, lines, path):
             a = n.exc.args
             if a and isinstance(a[0], ast.Constant) and isinstance(a[0].value, int):
                 codes.add(a[0].value)
+            elif a:
+                codes.update(_semantic_codes(a[0]))
         elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
                 and n.func.attr == 'exit' \
                 and getattr(n.func.value, 'id', None) == 'sys':
@@ -1000,6 +1032,47 @@ def ar_exit_code_flat(tree, lines, path):
             if n.args and isinstance(n.args[0], ast.Constant) \
                     and isinstance(n.args[0].value, int):
                 codes.add(n.args[0].value)
+            elif n.args:
+                codes.update(_semantic_codes(n.args[0]))
+
+    # `sys.exit(main())` 这类出口：真正的码在被调用函数里。
+    # 不跟进去的话，main 明明返回了 2/3/4，判据却说「只用了 0 种数字码」——
+    # 实测 audit.py 内部就有 return 2 / return 3，仍被报成没分类。
+    # 这会让「把码写进 main」这个正确做法反而被判违规。
+    for n in list(ast.walk(tree)):
+        if not isinstance(n, ast.Call):
+            continue
+        # 注意：sys.exit(...) 的 func 是 Attribute，`getattr(func,'id')` 为 None。
+        # 先判 `if fname is None: continue` 会把**所有** sys.exit 都跳过 ——
+        # 跟进逻辑形同没写（实测：audit.py main 内已有 return 2/3，仍被报）。
+        is_exit = (getattr(n.func, 'id', None) == 'SystemExit') or (
+            isinstance(n.func, ast.Attribute) and n.func.attr == 'exit'
+            and getattr(n.func.value, 'id', None) == 'sys')
+        if not is_exit:
+            continue
+        for arg in n.args:
+            if not isinstance(arg, ast.Call):
+                continue
+            callee = getattr(arg.func, 'id', None)
+            if not callee:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == callee:
+                    for r in ast.walk(node):
+                        if isinstance(r, ast.Return) and r.value is not None:
+                            codes.update(_semantic_codes(r.value))
+
+    # die(ENV, ...) / return USAGE 这类**语义常量**同样完成了分类，
+    # 而且比裸数字更可读。只认字面量会把「正确做法」判成没分类 ——
+    # 逼着人把 return USAGE 改回 return 2，可读性反而变差。
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call) and getattr(n.func, 'id', None) == 'die':
+            exits.append(n.lineno)
+            if n.args:
+                codes.update(_semantic_codes(n.args[0]))
+        # return <语义常量>（裸 Name）
+        if isinstance(n, ast.Return) and isinstance(n.value, ast.Name):
+            codes.update(_semantic_codes(n.value))
     if len(exits) >= 3 and len(codes) <= 1:
         return [(exits[0],
                  f'{len(exits)} 个退出点只用了 {len(codes) or 0} 种数字退出码 —— '

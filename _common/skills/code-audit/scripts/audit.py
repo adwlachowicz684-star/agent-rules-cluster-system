@@ -66,6 +66,9 @@ STATE = '.audit-state.json'
 # 比报错更糟：它给出一个绿色的空信号，还耗掉一整轮时间。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _flagguard import guard
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4（AR-04）
 guard(sys.argv, {'--src=', '--root=', '--out=', '--sarif=', '--json',
                  '--items', '--items-all', '--item-level=', '--item-limit=',
                  '--batch=', '--budget=', '--status', '--resume', '--reset',

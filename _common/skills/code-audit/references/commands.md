@@ -76,6 +76,12 @@ python3 scripts/sarif.py --self-test                  # 前缀映射 / 去重 �
 # 防止 `--self-test` 这类拼错/不存在的参数被静默忽略后返回 0
 # （scripts/_flagguard.py，已被 check-skill / dep-scan / doc-* / project-rules 调用）
 python3 scripts/check-list-drift.py               # 硬编码名单 vs 事实源（防第六次静默漏做）
+python3 scripts/exitcode.py                       # 打印退出码码表（AR-04）
+# 退出码：0 成功 / 1 工具出错 / 2 用法参数错误 / 3 环境依赖不满足 /
+#         4 被防护拦下（改动未丢）/ 130 中断
+# 脚本里 `from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die`，
+# 用 `die(ENV, "…")` 代替裸 `sys.exit(1)` —— 让 CI 只看退出码就能分流。
+# 接入率由 check-list-drift.py 第 6 项守护。
 
 python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture 覆盖率
 python3 scripts/rule-registry.py --cross        # 交叉审计：fp 里有没有藏真缺陷

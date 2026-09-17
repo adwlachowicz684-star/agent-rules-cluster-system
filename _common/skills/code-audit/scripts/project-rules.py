@@ -47,6 +47,9 @@ import sys
 import json
 import fnmatch
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4（AR-04）
+
 _flags = [a for a in sys.argv[1:] if a.startswith('--')]
 SRC = None
 MATCH = None
