@@ -53,6 +53,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `reference/domain-routing.md` | 大类路由协议 | 判定技能归属时 |
 | `reference/loading.md` | 定向加载协议 | 不确定怎么加载时 |
 | `reference/consolidation.md` | 整合协议 | 会话结束时 |
+| `reference/global-rule.md` | **可粘进系统提示词的全局规则片段**（常驻 ≈150 行） | 要让「定向加载 + 捕获沉淀」成为默认行为时 |
 | `pending/draft.md` | 会话内草稿 | 出现捕获信号时追加一行 |
 
 `<root>` = `config.yaml` 的 `root`（默认 `~/.ai/domains`）。
