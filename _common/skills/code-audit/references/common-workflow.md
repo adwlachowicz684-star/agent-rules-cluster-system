@@ -43,7 +43,11 @@ python3 scripts/scan-app.py --src=<根> --json > base.json    # 存基线
 ## 第 3 步：文档一致性扫描（整机审查特有）
 
 ```bash
-python3 scripts/doc-scan.py --src=<根>
+# 原 doc-scan.py 已于 2026-09-14 拆成两个（语义相反，见 changelog）：
+#   doc-deliverable.py —— 交付物三件套（README/测试/示例）
+#   doc-promise.py     —— 文档承诺一致性（文档说的 vs 代码有的）
+python3 scripts/doc-deliverable.py --src=<根>
+python3 scripts/doc-promise.py --src=<根>
 ```
 
 产出三类候选，全部需人工核对：

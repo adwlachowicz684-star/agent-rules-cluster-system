@@ -103,12 +103,12 @@ python3 scripts/doc-promise.py --src=<根> [--commands-only] [--links-only]
 ```bash
 python3 scripts/dep-scan.py --src=<根> [--violations-only]
 
-# Cocos 专项：**位置参数**接路径（不是 --src=），参数风格与其余扫描器不同
+# Cocos / Godot 专项：**位置参数**接路径（不是 --src=），参数风格与其余扫描器不同
 python3 scripts/cocos-audit.py <路径> [--level P0] [--rule memory] [--json]
 python3 scripts/cocos-audit.py <路径> --level P0   # 有 P0 时退出码 1，可接 CI
+python3 scripts/godot-audit.py <路径> [--level P0] [--json]  # Godot 4.x（搭建中，34 条规则尚无样本）
 # 规则 CC-11~21 已纳入注册表（--check / --test / item-index 都能看到）；
-# 引擎侧的 scripts/cocos_audit.py 是转发壳，指向这里
-python3 scripts/cocos-audit.py <路径> [--level P0] [--rule memory]
+# 引擎侧 self-evolving_skill_mechanism/skills/scripts/cocos_audit.py 是转发壳，指向这里
 
 # 探针（numerics 实测用）
 cp scripts/probe-template.ts audit/probe_<单元>.ts

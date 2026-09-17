@@ -594,8 +594,8 @@
    "why": "需列出判据命中的全部出口并逐个比对变异集，正则做不到"
   },
   "PY-19": {
-   "machine": "todo",
-   "why": "readlink().encode() 无 surrogateescape / decode(replace) 写回磁盘",
+   "machine": "covered",
+   "why": "readlink().encode() 无 surrogateescape / decode(replace) 写回磁盘；已补规则 PY-19",
    "target_scanner": "scan-py.py"
   },
   "H-01": {
@@ -603,13 +603,13 @@
    "why": "辅助产物内容敏感度需人工判断；可先用「写 .remote/.base 且无 chmod」做窄召回"
   },
   "K-43": {
-   "machine": "todo",
-   "why": "路径列表用 \\n 分隔跨进程传递，而同文件别处已用 -z",
+   "machine": "covered",
+   "why": "路径列表用 \\n 分隔跨进程传递，而同文件别处已用 -z；已补规则 K-43",
    "target_scanner": "scan-app.py"
   },
   "K-44": {
-   "machine": "todo",
-   "why": "git -c user.name= / --author= 硬编码工具自身身份",
+   "machine": "covered",
+   "why": "git -c user.name= / --author= 硬编码工具自身身份；已补规则 K-44",
    "target_scanner": "scan-app.py"
   },
   "PY-16": {

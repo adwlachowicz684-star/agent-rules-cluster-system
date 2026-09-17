@@ -294,6 +294,41 @@ def main():
                 if f == 'changelog.md':
                     continue
                 _targets.append(os.path.join(_dp, f))
+    # LK002：**代码块里的命令**也必须指向真实脚本。
+    #
+    # 为什么单列：PD003 只认**反引号包裹**的引用 `` `scripts/x.py` ``，
+    # 而文档里最常见的是代码块中的可执行命令：
+    #     python3 scripts/doc-scan.py --src=<根>
+    # 这种写法 PD003 一条都提取不到 —— 实测两条真死链（common-workflow.md
+    # 与 review-checklist.md 里的 doc-scan.py，该脚本 2026-09-14 已拆成
+    # doc-deliverable / doc-promise）因此**长期存在而无人知晓**。
+    # 照着代码块敲命令是新手最典型的用法，这里的死链危害最大。
+    _CMD_RX = re.compile(
+        r'(?:python3?\s+|bash\s+)?'
+        r'((?:scripts|references|assets)/[A-Za-z0-9_][A-Za-z0-9_./-]*\.'
+        r'(?:py|sh|md|json|ts))')
+    # 跨 skill 引用：本集群有两个 skill，互相指向对方 scripts/ 下的文件
+    # 是常态（如引擎侧的 cocos_audit.py 转发壳）。从本 skill 解析必然
+    # "不存在"。显式登记而非关掉检查——清单受版本控制，可审计。
+    _CROSS = {'self-evolving_skill_mechanism/skills/scripts/cocos_audit.py'}
+    for _tf in _targets:
+        if os.path.basename(_tf) == 'changelog.md':
+            continue      # 同上：历史记录里的旧名是合法的
+        try:
+            _ctxt = open(_tf, encoding='utf-8').read()
+        except OSError:
+            continue
+        # 先按**完整跨包路径**过滤掉已登记的引用，再提短路径，
+        # 否则写全路径的跨包引用仍会被当成短路径匹配出来。
+        _ctxt2 = _ctxt
+        for _c in _CROSS:
+            _ctxt2 = _ctxt2.replace(_c, ' ')
+        for _m in sorted(set(_CMD_RX.findall(_ctxt2))):
+            if not _exists(_m, _tf):
+                add('error', 'LK002',
+                    '代码块里的命令指向不存在的脚本: %s 内 %s'
+                    % (os.path.basename(_tf), _m))
+
     for _tf in _targets:
         try:
             _txt = open(_tf, encoding='utf-8').read()

@@ -1,6 +1,6 @@
 ---
 name: code-audit
-description: 代码审查矩阵。对任意代码库做分级审查：先跑场景路由确定本仓库存在哪些风险面，再按需加载对应场景的详细判据，产出分级报告与修复任务清单。Use when the user asks to 审查、审一遍、体检、精审、挑毛病、复核、上线前检查 a codebase，或问「这个代码能用吗、有什么坑」。覆盖数值边界、数据结构、生命周期、契约一致性、状态持久化、原子性与安全判定、跨边界通信、沙箱权限、原生后端、构建交付、架构可演进性十一个风险面。不用于单次走查、纯风格检查、PR diff 审查。
+description: 代码审查矩阵。对任意代码库做分级审查：先跑场景路由确定本仓库存在哪些风险面，再按需加载对应场景的详细判据，产出分级报告与修复任务清单。Use when the user asks to 审查、审一遍、体检、精审、挑毛病、复核、上线前检查 a codebase，或问「这个代码能用吗、有什么坑」。覆盖数值边界、数据结构、生命周期、契约一致性、状态持久化、原子性与安全判定、跨边界通信、沙箱权限、原生后端、构建交付、并发与架构可演进性十二个风险面。不用于单次走查、纯风格检查、PR diff 审查。
 ---
 
 # 代码审查矩阵（code-audit）
@@ -61,7 +61,7 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
   每批 ≤4（可调 `--batch=N`），一批审完再加载下一批
 - **精审中发现新的结构特征 → 回路由层补加载**（增量路由，见 `common.md`）
 
-## 场景表（11 风险面 + 7 语言 / 平台包）
+## 场景表（12 风险面 + 7 语言 / 平台包）
 
 **风险面**（换个项目还成立）与**语言包**（某种语言的语义特有判据）是并列维度，
 不是二选一：Python 项目同样要审状态、并发、边界，只是判据要用 Python 语义去看。
@@ -86,9 +86,10 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`p-cpp.md`** ⭐ | 仓库有 `.c/.cpp/.h` | 所有权不清、异常路径泄漏、缓冲区溢出、虚假唤醒 |
 | **`p-rust.md`** ⭐ | 仓库有 `.rs`（`Cargo.toml` / `src-tauri/` 强信号） | panic 静默化、整数 release 回绕、unsafe 无契约、同步锁跨 await、Tauri 入参未校验 |
 | **`p-cocos.md`** | Cocos Creator 项目（配套 `cocos-audit.py`：CC-11~21） | 六大泄漏源、生命周期、迁移、包体 |
-| **`p-cocos.md`** | Cocos Creator 项目 | 引擎生命周期、泄漏源、迁移、包体 |
-| `references/engine-template.md` | **补新引擎时的骨架**（含 Cocos↔Godot 对照） |
-| **`p-godot.md`** | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留；API 级判据见 `godot-api/` |
+| **`p-godot.md`** ⚠ | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留；API 级判据见 `godot-api/` |
+
+⚠ `p-godot.md` 搭建中：34 条 GD 规则无 TP 样本；6 条判据仍是 `### N. 中文` 旧格式 →
+未进 items.json（`p-cocos.md` 曾栽同坑：393 行产出 0 条）。新引擎骨架见 `engine-template.md`。
 
 ⭐ 共同理由：`scan-ts.py` / `scan-app.py` **只认 TS/JS 语法**，对 Python / Go / Java /
 C++ / Rust 输出 **0 文件 0 候选**——不是"没问题"，是**压根没看**。证明手段各不同：
