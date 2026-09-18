@@ -48,6 +48,8 @@
 | **平台导出/发布** | `platform-export.md` | 六平台速查表 · Web 仅 Compatibility · 多线程需 COOP+COEP · NDK 必须 r28b · keystore 丢了包名报废 |
 | **GDExtension 实战** | `gdextension-deep.md` | pin 到 4.7 同步 commit · entry_symbol 严格匹配 · 只在 SCENE 层注册 · RefCounted 必须 Ref<T> |
 | **编辑器插件开发** | `editor-plugin.md` | enter/exit_tree 对称注销 · is_editor_hint≠跑游戏 · get_undo_redo 按对象选历史 · 4.7 统一 EditorDock |
+| **性能剖析/平台差异** | `perf-profiling.md` | 编辑器 FPS 不代表目标设备 · P99 才是卡顿指标 · Profiler 不覆盖 C# · 移动端要测 10 分钟 |
+| **XR 深入/手部交互** | `xr-deep.md` | XRCamera3D 会滞后几毫秒 · 抓取不能 reparent 刚体 · 控制器无速度 API 需自己差分 · 优先传送 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
