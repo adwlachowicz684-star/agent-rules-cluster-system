@@ -29,6 +29,8 @@ description: 游戏开发技能矩阵。按「引擎 + 功能域」路由：先�
 ```bash
 python3 scripts/dev-route.py --src=<项目根>            # 识别引擎 + 建议功能域入口
 python3 scripts/dev-route.py --src=<根> --need="角色跳跃"  # 按需求描述定位
+python3 scripts/verify.py                                # 列出未验证的待核对项
+python3 scripts/verify.py --verify=V5001 --result=failed  # 运行时录入验证结果
 ```
 
 路由是**二维**的：先引擎，再功能域。与 `code-audit` 的「按风险面路由」不同——
@@ -41,6 +43,7 @@ python3 scripts/dev-route.py --src=<根> --need="角色跳跃"  # 按需求描�
 | `references/common.md` | 跨引擎通用：开发流程、选型原则、项目结构 |
 | `references/godot/` | Godot 4.x 开发包（按功能域分文件） |
 | `scripts/dev-route.py` | 引擎识别 + 功能域路由 |
+| `scripts/verify.py` | 待核对项：收集 · 过滤 · 运行时录入验证结果 |
 
 ## 引擎包状态
 

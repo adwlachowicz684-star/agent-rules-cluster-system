@@ -238,15 +238,21 @@ TextureStreaming  # 单例
 
 ## 4. 待核对（按目标版本实测）
 
-| 项 | 状态 |
-|---|---|
-| `VirtualJoystick` 的 `flicked` 触发频率（每帧？还是仅甩动时？） | 未实测 |
-| HDR 输出对 2D `source_color` 的具体影响 | 需真机/目标平台验证 |
-| `DrawableTexture2D` 的性能与适用场景 | 未实测 |
-| 4.8 texture streaming 的实际 VRAM 收益与设置项名称 | dev 阶段，API 可能变 |
-| `Trail3D` 的参数与性能 | dev 阶段 |
-| MSAA 与注视点渲染在特定 OpenXR 合成层上是否冲突 | 需目标设备实测 |
-| `AreaLight3D` 的实时性能开销 | 需按场景规模实测 |
+表格形式无法追踪验证结果，以下改用可追踪格式（跑 `scripts/verify.py` 列出全部）：
+
+⚠ 待核对：`VirtualJoystick` 的 `flicked` 触发频率（每帧还是仅甩动时） · 验证：打印信号触发次数并观察静止时是否仍在发
+
+⚠ 待核对：HDR 输出对 2D `source_color` 的具体影响 · 验证：开 HDR 前后对比同一 2D 颜色纹理
+
+⚠ 待核对：`DrawableTexture2D` 的性能与适用场景 · 验证：对比 CanvasTexture 的绘制耗时与显存
+
+⚠ 待核对：4.8 texture streaming 的实际 VRAM 收益与设置项名称 · 验证：4.8 稳定版查官方设置项并测 VRAM
+
+⚠ 待核对：`Trail3D` 的参数与性能 · 验证：4.8 稳定版实测，dev 阶段 API 可能变
+
+⚠ 待核对：MSAA 与注视点渲染在特定 OpenXR 合成层上是否冲突 · 验证：目标头显开 MSAA + foveation 实测
+
+⚠ 待核对：`AreaLight3D` 的实时性能开销 · 验证：按场景规模逐档加面光源测帧时间
 
 ## 5. 相关文档
 

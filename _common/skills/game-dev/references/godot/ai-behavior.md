@@ -209,7 +209,7 @@ func clear() -> void:
 
 | 插件 | 特点 | 状态 |
 |---|---|---|
-| **LimboAI** | Godot 官方推荐的行为树插件。`BTPlayer` 节点 + `BehaviorTree` 资源，自定义 Task，黑板，可视化调试 | ⚠ 仓库地址与版本兼容**待核对** |
+| **LimboAI** | Godot 官方推荐的行为树插件。`BTPlayer` 节点 + `BehaviorTree` 资源，自定义 Task，黑板，可视化调试 | ⚠ 待核对：LimboAI 仓库地址与 4.7.2 版本兼容 · 验证：查插件仓库最新 release 并在目标版本导入 demo |
 | **Beehave** | 树就是 Godot 场景树节点，可挂任意节点。生命周期/继承/Inspector 都能沿用 | 官方确认含 3.x / 4.0.x / 4.1.x / 4.5+ |
 
 ⚠ **版本兼容以各仓库的兼容表为准**，本文不推断具体版本支持范围。

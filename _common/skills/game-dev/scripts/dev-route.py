@@ -122,7 +122,7 @@ DOMAINS = [
     ('高级主题', ['程序化生成', '随机地图', '地牢', '噪声', 'plugin', '导入管线', '资源导入', '波前'],
      'references/godot/advanced-topics.md',
      '确定性生成 · BSP+连通性校验 · EditorPlugin 生命周期 · 资源三层隔离 · XR 性能预算'),
-    ('渲染进阶', ['openxr', '手部追踪', '抓握', '传送', 'lod', 'shader预热', '着色器预热', '变体预热', '头显', '管线编译', '大世界', '分块', 'chunk', '流式加载', 'hloD'],
+    ('渲染进阶', ['传送', 'lod', 'shader预热', '着色器预热', '变体预热', '头显', '管线编译', '大世界', '分块', 'chunk', '流式加载', 'hloD'],
      'references/godot/rendering-advanced.md',
      'XR 手部/抓握/传送 · LOD 四层 · visibility_range · 着色器管线预热 · 分块流式'),
     ('AI行为/决策', ['行为树', 'bt', 'goap', '效用', 'limboai', 'beehave', '黑板', 'blackboard', '决策', 'selector', 'sequence'],
@@ -158,7 +158,7 @@ DOMAINS = [
     ('开放世界', ['开放世界', '大世界', '流式加载', 'chunk', '地形', 'terrain', 'lod', '大世界坐标', '原点重置', 'floating origin', '精度', '剔除', 'culling', '卸载半径', '双精度', '开放世界地形', '大型地形', '地形系统'],
      'references/godot/openworld.md',
      'chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置实现'),
-    ('XR/VR', ['xr', 'vr', 'ar', 'openxr', '头显', 'quest', '手柄', '控制器', '抓取', '传送', '晕动症', 'xrorigin', 'xrcamera', '手部追踪'],
+    ('XR/VR', ['xr', 'vr', 'ar', 'openxr', '头显', 'quest', '手柄', '控制器', '传送', 'xrorigin', 'xrcamera', '手部追踪', 'xr基础', 'xr场景', '头显基础'],
      'references/godot/xr.md',
      '内置节点四件套 · 不能接管相机 · 无速度 API 需自算 · 抓取速度传递 · 晕动症规避'),
     ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change', 'arealight', '面光源', 'hdr输出', 'offset_transform', 'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送', 'texture streaming', 'tween_await', 'device_id', 'jolt'],
@@ -203,6 +203,12 @@ DOMAINS = [
     ('项目/工程', ['项目设置', '导出', 'debug', '断言', 'autoload', 'git', 'publish', '打包', 'gitignore'],
      'references/godot/project.md',
      '项目设置关键项 · Autoload · 导出清单 · gitignore'),
+    ('XR深入/手部交互', ['xr深入', '手部追踪', '手部', '关节', '捏合', 'pinch', '抓取', 'grab', 'openxr', 'xrtools', 'steamvr', 'quest', '头显', '晕动症', '传送', 'snap turn', '隧道视野', '空间ui', 'xr性能', '6dof', 'xrcontroller', '手部追踪', '手部交互', '捏合检测', '抓取物体', 'grab系统', 'xr抓取'],
+     'references/godot/xr-deep.md',
+     'XRCamera3D会滞后几毫秒 · 抓取不能reparent刚体 · 控制器无速度API需自己差分 · 优先传送'),
+    ('性能剖析/平台差异', ['性能剖析', 'profiler', '剖析', 'monitors', '监视器', '帧预算', 'p99', '掉帧', '热节流', 'throttling', 'tile gpu', 'gpu bound', 'cpu bound', 'drawcall预算', '显存', 'vram', '性能优化深入', '瓶颈定位', '过温', '降频', 'profiler怎么用', '性能剖析', '剖析器', '热节流', 'throttling', 'drawcall预算', 'gpu bound', 'cpu bound', '瓶颈定位', 'p99', '掉帧分析'],
+     'references/godot/perf-profiling.md',
+     '编辑器FPS不代表目标设备 · P99才是卡顿指标 · Profiler不覆盖C# · 移动端要测10分钟'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -377,7 +383,7 @@ def cmd_self_test():
 
     # 新增三域
     d = match_domains('手部追踪抓握')
-    chk(bool(d) and d[0][0] == '渲染进阶', '"手部追踪抓握" → 渲染进阶')
+    chk(bool(d) and d[0][0] == 'XR深入/手部交互', '"手部追踪抓握" → XR深入/手部交互')
     d = match_domains('shader预热卡顿')
     chk(bool(d) and d[0][0] == '渲染进阶', '"shader预热卡顿" → 渲染进阶')
     d = match_domains('LOD分层')
@@ -424,6 +430,20 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # XR深入 / 性能剖析 不被基础域抢走
+    for need, want in (('手部追踪', 'XR深入/手部交互'), ('抓取物体', 'XR深入/手部交互'),
+                       ('晕动症', 'XR深入/手部交互'), ('XR性能', 'XR深入/手部交互')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('profiler怎么用', '性能剖析/平台差异'), ('热节流', '性能剖析/平台差异'),
+                       ('drawcall预算', '性能剖析/平台差异')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（不被通用性能域抢走）' % (need, want))
+    d = match_domains('XR基础场景')
+    chk(bool(d) and d[0][0] == 'XR/VR', '"XR基础场景" → XR/VR（基础域未被深入域抢走）')
+    d = match_domains('性能优化')
+    chk(bool(d) and d[0][0] == '性能/优化', '"性能优化" → 性能/优化（通用域未被剖析域抢走）')
 
     # 平台导出 / GDExtension实战 / 编辑器插件 不被旧域抢走
     for need, want in (('iOS上架', '平台导出/发布'), ('签名公证', '平台导出/发布'),
