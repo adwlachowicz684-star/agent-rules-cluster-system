@@ -50,292 +50,157 @@ ENGINES = [
 # ---------- 第 2 维：功能域 ----------
 # keywords 命中即算相关；命中多的排前面。
 DOMAINS = [
-    ('角色控制', ['跳跃', '移动', '控制器', 'platformer', '手感', '冲刺',
-                 '爬墙', '二段跳', '角色', 'controller', 'movement', 'jump',
-                 '第一人称', '第三人称', 'fps', 'tps'],
+    ('角色控制', ['跳跃', '移动', '控制器', 'platformer', '手感', '冲刺', '爬墙', '二段跳', '角色', 'controller', 'movement', 'jump', '第一人称', '第三人称', 'fps', 'tps'],
      'references/godot/character.md',
      'CharacterBody2D/3D · velocity · move_and_slide · 土狼时间 · 跳跃缓冲'),
-
-    ('UI/菜单', ['ui', '界面', '菜单', 'hud', '血条', '背包', '物品栏',
-                '对话框', '按钮', '设置面板', 'inventory', 'dialog', 'menu'],
+    ('UI/菜单', ['ui', '界面', '菜单', 'hud', '血条', '背包', '物品栏', '对话框', '按钮', '设置面板', 'inventory', 'dialog', 'menu'],
      'references/godot/ui.md',
      '锚点约束 · CanvasLayer · GridContainer · 打字机 · 分辨率自适应'),
-
-    ('存档/设置', ['存档', '读档', '保存', '设置', '进度', 'save', 'load',
-                  'config', '持久化'],
+    ('存档/设置', ['存档', '读档', '保存', '设置', '进度', 'save', 'load', 'config', '持久化'],
      'references/godot/systems.md',
      'Resource + ResourceSaver · 原子写盘 · user:// · ConfigFile'),
-
-    ('场景/流程', ['场景切换', '关卡', '过场', '淡入淡出', '加载界面',
-                  'scene', 'level', 'transition'],
+    ('场景/流程', ['场景切换', '关卡', '过场', '淡入淡出', '加载界面', 'scene', 'level', 'transition'],
      'references/godot/systems.md',
      'change_scene_to_file · CanvasLayer 过场 · 切换时保留数据'),
-
-    ('事件/架构', ['事件总线', '信号', '解耦', 'autoload', '单例', 'events',
-                  'signal', '通信'],
+    ('事件/架构', ['事件总线', '信号', '解耦', 'autoload', '单例', 'events', 'signal', '通信'],
      'references/godot/systems.md',
      'Events Autoload · 连接与断开配对 · 避免引用环'),
-
     ('对象池', ['对象池', '子弹', '大量生成', '复用', 'pool', 'bullet'],
      'references/godot/systems.md',
      'acquire/release · 状态重置 · 不用 queue_free 回收'),
-
-    ('物理', ['碰撞', '射线', '射线检测', '物理', '推动', '重力', 'trigger',
-             'raycast', 'collision', '刚体', '移动平台', '爆炸', '层'],
+    ('物理', ['碰撞', '射线', '射线检测', '物理', '推动', '重力', 'trigger', 'raycast', 'collision', '刚体', '移动平台', '爆炸', '层'],
      'references/godot/physics.md',
      '碰撞层位掩码 · intersect_ray 参数对象 · Area 触发 · 施力 · AnimatableBody'),
-
-    ('动画/缓动', ['动画', 'tween', '缓动', '过渡', '补间', 'animation',
-                 '淡入淡出', 'animationplayer'],
+    ('动画/缓动', ['动画', 'tween', '缓动', '过渡', '补间', 'animation', '淡入淡出', 'animationplayer'],
      'references/godot/animation.md',
      'AnimationPlayer · AnimationTree 状态机 · Tween 链式 API · kill/bind_node'),
-
-    ('输入/音频', ['输入', '按键', '手柄', '音频', '声音', 'audio', 'input',
-                  'bgm', 'sfx', '改键', 'inputmap', '音量'],
+    ('输入/音频', ['输入', '按键', '手柄', '音频', '声音', 'audio', 'input', 'bgm', 'sfx', '改键', 'inputmap', '音量'],
      'references/godot/input-audio.md',
      'Input Map 动作 · 四回调顺序 · 输入缓冲 · AudioServer 总线 · BGM 交叉淡入'),
-
-    ('3D/渲染', ['3d', '材质', '光照', '相机', '粒子',
-                'material', 'light', 'camera', '环境', '阴影', 'gi'],
+    ('3D/渲染', ['3d', '材质', '光照', '相机', '粒子', 'material', 'light', 'camera', '环境', '阴影', 'gi'],
      'references/godot/3d.md',
      '坐标系 · 第三人称相机 · 共享材质陷阱 · 三光源 · Environment · GPUParticles3D'),
-
-    ('资源/IO/网络', ['资源加载', 'http', 'download', '加载界面', '线程加载',
-                     'api', '文件读写', 'json', '存档文件'],
+    ('资源/IO/网络', ['资源加载', 'http', 'download', '加载界面', '线程加载', 'api', '文件读写', 'json', '存档文件'],
      'references/godot/io-network.md',
      'load/preload · 线程加载带进度 · HTTPRequest · 文件读写 · JSON'),
-
-    ('AI/寻路', ['ai', '敌人', '寻路', '巡逻', '追击', '状态机', '避障',
-                'navigation', 'pathfinding', 'astar', '视线', '感知', '群体'],
+    ('AI/寻路', ['ai', '敌人', '寻路', '巡逻', '追击', '状态机', '避障', 'navigation', 'pathfinding', 'astar', '视线', '感知', '群体'],
      'references/godot/ai-navigation.md',
      'NavigationAgent2D 模板 · 状态机巡逻追击攻击 · AStarGrid2D · 视线检测 · RVO 避障'),
-
-    ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain',
-                     'tile', '地形', '关卡编辑'],
+    ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain', 'tile', '地形', '关卡编辑'],
      'references/godot/tilemap.md',
      '4.3+ TileMapLayer vs 4.2 TileMap · 坐标转换 · 地形拼接 · 运行时生成'),
-
-    ('2D渲染/特效', ['视差', 'parallax', 'ysort', '排序', '光照', '着色器',
-                   '屏幕抖动', 'hitstop', '打击感', '溶解', '描边',
-                   '转场', '扭曲', '闪白'],
+    ('2D渲染/特效', ['视差', 'parallax', 'ysort', '排序', '光照', '着色器', '屏幕抖动', 'hitstop', '打击感', '溶解', '描边', '转场', '扭曲', '闪白'],
      'references/godot/2d-rendering.md',
      'Y-Sort 结构 · Parallax2D · canvas_item shader 配方 · trauma 抖动 · hitstop'),
-
-    ('移动端/触控', ['移动端', '手机', '平板', '触屏', '触控', '虚拟摇杆', '手势',
-                   'android', 'ios', '多点触控', '摇杆', 'joystick', '捏合',
-                   '安全区', '刘海', '返回键', '竖屏', '横屏', '权限',
-                   '软键盘', '息屏', '虚拟按键', '触摸'],
+    ('移动端/触控', ['移动端', '手机', '平板', '触屏', '触控', '虚拟摇杆', '手势', 'android', '多点触控', '摇杆', 'joystick', '捏合', '安全区', '刘海', '返回键', '竖屏', '横屏', '权限', '软键盘', '息屏', '虚拟按键', '触摸'],
      'references/godot/mobile.md',
      'ScreenTouch/Drag · 浮动虚拟摇杆 · 手势识别 · 安全区 · 返回键 · 移动端性能'),
-
-    ('本地化技术', ['本地化', '多语言', '翻译', '国际化', 'i18n', 'l10n',
-                  'tr(', 'trn', 'locale', '语言', '切换语言', '语言包',
-                  '语种', '字体回退', '缺字', '方块', '豆腐块', 'rtl'],
+    ('本地化技术', ['本地化', '多语言', '翻译', '国际化', 'i18n', 'l10n', 'tr(', 'trn', 'locale', '语言', '切换语言', '语言包', '语种', '字体回退', '缺字', '方块', '豆腐块', 'rtl'],
      'references/godot/i18n.md',
-     'tr()/tr_n() · CSV 工作流 · 语言切换与刷新 · 字体回退 · RTL'
-     '（流程与术语表见独立 skill: localization）'),
-
-    ('存档安全/防作弊', ['加密', '存档加密', '防作弊', '反作弊', '篡改', '签名',
-                      'hmac', '抄档', '修改器', '作弊', '内存保护', '密钥',
-                      '时间作弊', '倍速', '排行榜', '服务端校验', 'pck加密',
-                      # 与「存档/设置」竞争的词必须更长，否则按长度加权会输
-                      '改存档', '防改', '存档安全', '刷奖励', '每日奖励',
-                      '系统时间', '改时间', '加固', '反外挂'],
+     'tr()/tr_n() · CSV 工作流 · 语言切换与刷新 · 字体回退 · RTL（流程与术语表见独立 skill: localization）'),
+    ('存档安全/防作弊', ['加密', '存档加密', '防作弊', '反作弊', '篡改', '签名', 'hmac', '抄档', '修改器', '作弊', '内存保护', '密钥', '时间作弊', '倍速', '排行榜', '服务端校验', 'pck加密', '改存档', '防改', '存档安全', '刷奖励', '每日奖励', '系统时间', '改时间', '加固', '反外挂'],
      'references/godot/security.md',
      '客户端加密的边界 · AES+HMAC 存档 · 每文件随机 IV · 内存值混淆 · 检测后静默处理'),
-
-    ('性能/优化', ['性能', '卡顿', '掉帧', '优化', 'profiler', 'drawcall',
-                 '合批', '多线程', '线程池', 'workerthreadpool',
-                 '剔除', '显存', '纹理压缩', '性能预算', '帧率'],
+    ('性能/优化', ['性能', '卡顿', '掉帧', '优化', 'profiler', 'drawcall', '合批', '多线程', '线程池', 'workerthreadpool', '剔除', '显存', '纹理压缩', '性能预算', '帧率'],
      'references/godot/performance.md',
      '先测量再优化 · Monitors 排查泄漏 · 屏幕外停处理 · StringName · 平方距离 · 线程池'),
-
-    ('GDScript进阶', ['gdscript', '静态类型', '类型注解', 'stringname', 'await',
-                    '生命周期', 'tool脚本', '信号写法', 'duplicate', '类型转换',
-                    '热路径', 'onready'],
+    ('GDScript进阶', ['gdscript', '静态类型', '类型注解', 'stringname', 'await', '生命周期', 'tool脚本', '信号写法', 'duplicate', '类型转换', '热路径', 'onready'],
      'references/godot/gdscript-advanced.md',
      '类型系统 · 热路径禁止清单 · await 三坑 · 回调时机 · @tool 隔离 · 信号 4.x 写法'),
-
-    ('架构/规范', ['架构', '项目结构', '成员顺序', '代码顺序', '组件', '组合',
-                 '依赖注入', '通信', '代码组织', '规范', '重构', '耦合'],
+    ('架构/规范', ['架构', '项目结构', '成员顺序', '代码顺序', '组件', '组合', '依赖注入', '通信', '代码组织', '规范', '重构', '耦合'],
      'references/godot/architecture.md',
      '17 步成员顺序 · call down signal up · 组件组合 · Resource 数据驱动 · 依赖注入'),
-
-    ('测试/CI', ['测试', '单元测试', 'gut', 'ci', '回归', '自动化测试',
-                '覆盖率', '存档兼容'],
+    ('测试/CI', ['测试', '单元测试', 'gut', 'ci', '回归', '自动化测试', '覆盖率', '存档兼容'],
      'references/godot/testing.md',
      'GUT 用法 · 无框架最小方案 · 静态检查进 CI · 存档回归测试 · 上线清单'),
-
-    ('多人/网络', ['多人', '联机', '网络', 'rpc', '服务器', '服务端', '权威',
-                 '同步', '延迟', 'peer', 'enemy',
-                 '专用服务器', 'headless', 'authority'],
+    ('多人/网络', ['多人', '联机', '网络', 'rpc', '服务器', '服务端', '权威', '同步', '延迟', 'peer', 'enemy', '专用服务器', 'headless', 'authority'],
      'references/godot/multiplayer.md',
      '服务器权威 · @rpc 参数 · 输入上报+序号 · 预测回滚 · 快照插值 · authority 迁移 · 专用服务器'),
-
-    ('游戏系统', ['对话', '任务', '库存', '背包', '物品', '对话树', 'quest',
-                'inventory', 'dialogue', '支线', '奖励', '掉落'],
+    ('游戏系统', ['对话', '任务', '库存', '背包', '物品', '对话树', 'quest', 'inventory', 'dialogue', '支线', '奖励', '掉落'],
      'references/godot/game-systems.md',
      '命令解释器白名单 · 对话图+Runner · 任务定义/进度分离 · 库存四层 · 奖励幂等'),
-
-    ('高级主题', ['程序化生成', '随机地图', '地牢', '噪声', 'plugin',
-                '导入管线', '资源导入', '波前'],
+    ('高级主题', ['程序化生成', '随机地图', '地牢', '噪声', 'plugin', '导入管线', '资源导入', '波前'],
      'references/godot/advanced-topics.md',
      '确定性生成 · BSP+连通性校验 · EditorPlugin 生命周期 · 资源三层隔离 · XR 性能预算'),
-
-    ('渲染进阶', ['openxr', '手部追踪', '抓握', '传送', 'lod',
-                'shader预热', '着色器预热', '变体预热', '头显', '管线编译',
-                '大世界', '分块', 'chunk', '流式加载', 'hloD'],
+    ('渲染进阶', ['openxr', '手部追踪', '抓握', '传送', 'lod', 'shader预热', '着色器预热', '变体预热', '头显', '管线编译', '大世界', '分块', 'chunk', '流式加载', 'hloD'],
      'references/godot/rendering-advanced.md',
      'XR 手部/抓握/传送 · LOD 四层 · visibility_range · 着色器管线预热 · 分块流式'),
-
-    ('AI行为/决策', ['行为树', 'bt', 'goap', '效用', 'limboai', 'beehave',
-                  '黑板', 'blackboard', '决策', 'selector', 'sequence'],
+    ('AI行为/决策', ['行为树', 'bt', 'goap', '效用', 'limboai', 'beehave', '黑板', 'blackboard', '决策', 'selector', 'sequence'],
      'references/godot/ai-behavior.md',
      'FSM/BT/GOAP/效用选型 · 最小行为树实现 · 黑板 · RUNNING 语义 · 插件对比'),
-
-    ('高级测试', ['属性测试', '模糊测试', 'fuzz', '视觉回归', '截图对比',
-                '性能基准', 'benchmark', '确定性测试', '回放'],
+    ('高级测试', ['属性测试', '模糊测试', 'fuzz', '视觉回归', '截图对比', '性能基准', 'benchmark', '确定性测试', '回放'],
      'references/godot/testing-advanced.md',
      '属性/不变量 · 存档模糊 · 截图 diff · p99 帧时间基准 · 确定性回放'),
-
-    ('调试/排错', ['调试', '断点', 'debugger', '崩溃', '卡死', '卡住', '空引用',
-                'null', '排查', '定位问题', 'stderr', 'push_error', 'profiler',
-                '瓶颈', '内存泄漏', '日志'],
+    ('调试/排错', ['调试', '断点', 'debugger', '崩溃', '卡死', '卡住', '空引用', 'null', '排查', '定位问题', 'stderr', 'push_error', 'profiler', '瓶颈', '内存泄漏', '日志'],
      'references/godot/debugging.md',
      '断点两种断点区别 · 多线程断点失效 · release 日志差异 · CPU/GPU 瓶颈判定 · 故障定位流程'),
-
-    ('CI/发布', ['ci', '持续集成', 'github action', '流水线', 'pipeline', '导出模板',
-               '签名', '公证', '发布', '上架', 'artifact', '无头', 'headless',
-               'android签名', 'ios签名', '打包签名', '发布签名', '上架签名',
-               'keystore', 'gradle', '打包体积'],
+    ('CI/发布', ['ci', '持续集成', 'github action', '流水线', 'pipeline', 'artifact', '无头', 'headless', '打包体积', 'ci签名', 'ci导出', '自动构建', '构建产物'],
      'references/godot/cicd-publish.md',
      '无头导入 · 完整 Actions 配置 · 产物非空校验 · 模板版本匹配 · 各平台签名 · 凭据走 Secret'),
-
-    ('C#/.NET', ['c#', 'csharp', '.net', 'dotnet', 'nuget', 'net8', 'msbuild',
-               'rider', 'visual studio', 'marshalling',
-               'c#还是gdscript', 'gdscript还是c#', '语言选型', '该用c#', '选c#'],
+    ('C#/.NET', ['c#', 'csharp', '.net', 'dotnet', 'nuget', 'net8', 'msbuild', 'rider', 'visual studio', 'marshalling', 'c#还是gdscript', 'gdscript还是c#', '语言选型', '该用c#', '选c#'],
      'references/godot/csharp.md',
      'C#/GDScript 选型 · .NET 版本政策表 · PascalCase 生命周期 · Signal 委托命名 · await 守卫'),
-
-    ('版本/迁移', ['迁移', '升级', '版本兼容', 'godot4.3', 'godot4.4', '3.x',
-                'tilemaplayer', 'deprecated', '弃用', '改名', 'randomize',
-                'tilemap迁移', '升级tilemap', '节点改名', 'api变化', '引擎升级'],
+    ('版本/迁移', ['迁移', '升级', '版本兼容', 'godot4.3', 'godot4.4', '3.x', 'tilemaplayer', 'deprecated', '弃用', '改名', 'randomize', 'tilemap迁移', '升级tilemap', '节点改名', 'api变化', '引擎升级'],
      'references/godot/version-migration.md',
      '4.x 各版本结构变化 · TileMap 三重迁移 · 3→4 改名对照 · 锁 commit · 升级检查清单'),
-
-    ('插件生态', ['插件', 'asset library', 'dialogic', '第三方库',
-                '轮子', '依赖引入', '许可证', 'mit', '是否该自己写'],
+    ('插件生态', ['插件', 'asset library', 'dialogic', '第三方库', '轮子', '依赖引入', '许可证', 'mit', '是否该自己写'],
      'references/godot/plugins.md',
      '决策口诀 · 按环节取舍表 · 绝不引入的 8 种情况 · 引入检查清单 · 锁 commit'),
-
-    ('着色器', ['shader', 'gdshader', '着色器', 'glsl', 'spirv', 'uniform',
-              'varying', 'fragment', 'vertex shader', '卡通渲染', 'toon',
-              '描边', '溶解', '边缘光', 'rim', '后处理', 'post process',
-              'hint_', 'source_color', 'visualshader', '三平面', 'triplanar',
-               'shader怎么写', '着色器性能', 'render_mode', '精度限定符',
-               'compute shader', '深度纹理'],
+    ('着色器', ['shader', 'gdshader', '着色器', 'glsl', 'spirv', 'uniform', 'varying', 'fragment', 'vertex shader', '卡通渲染', 'toon', '描边', '溶解', '边缘光', 'rim', '后处理', 'post process', 'hint_', 'source_color', 'visualshader', '三平面', 'triplanar', 'shader怎么写', '着色器性能', 'render_mode', '精度限定符', 'compute shader', '深度纹理'],
      'references/godot/shaders.md',
      'GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask'),
-
-    ('动画高级', ['animationtree', 'blendspace', 'blend tree', '混合空间',
-                '根运动', 'root motion', 'ik', '反向动力学', 'skeletonik',
-                '骨骼动画', '分层动画', '动画遮罩', 'switch_mode',
-                'travel', '动画状态机深入',
-                'animationtree状态机', '动画树', '混合空间',
-                '动画状态机', '动画树状态机'],
+    ('动画高级', ['animationtree', 'blendspace', 'blend tree', '混合空间', '根运动', 'root motion', 'ik', '反向动力学', 'skeletonik', '骨骼动画', '分层动画', '动画遮罩', 'switch_mode', 'travel', '动画状态机深入', 'animationtree状态机', '动画树', '混合空间', '动画状态机', '动画树状态机'],
      'references/godot/animation-advanced.md',
      'StateMachine/BlendSpace/BlendTree 分工 · travel vs start · switch_mode 是过渡时机 · 根运动双倍位移 · IK 开销'),
-
-    ('音频高级', ['audioserver', '音频总线', 'bus', 'linear_to_db', '分贝',
-                '音效池', '交叉淡入', '动态音乐', '空间音效', '3d音效',
-                'ogg', 'wav', '混响', '响度'],
+    ('音频高级', ['audioserver', '音频总线', 'bus', 'linear_to_db', '分贝', '音效池', '交叉淡入', '动态音乐', '空间音效', '3d音效', 'ogg', 'wav', '混响', '响度'],
      'references/godot/audio-advanced.md',
      '总线架构 · 音量是分贝不是 0-1 · 音效池轮转 · 动态音乐分层 · 暂停 process_mode'),
-
-    ('开放世界', ['开放世界', '大世界', '流式加载', 'chunk', '地形', 'terrain',
-                'lod', '大世界坐标', '原点重置', 'floating origin', '精度',
-                '剔除', 'culling', '卸载半径', '双精度',
-                '开放世界地形', '大型地形', '地形系统'],
+    ('开放世界', ['开放世界', '大世界', '流式加载', 'chunk', '地形', 'terrain', 'lod', '大世界坐标', '原点重置', 'floating origin', '精度', '剔除', 'culling', '卸载半径', '双精度', '开放世界地形', '大型地形', '地形系统'],
      'references/godot/openworld.md',
      'chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置实现'),
-
-    ('XR/VR', ['xr', 'vr', 'ar', 'openxr', '头显', 'quest', '手柄', '控制器',
-              '抓取', '传送', '晕动症', 'xrorigin', 'xrcamera', '手部追踪'],
+    ('XR/VR', ['xr', 'vr', 'ar', 'openxr', '头显', 'quest', '手柄', '控制器', '抓取', '传送', '晕动症', 'xrorigin', 'xrcamera', '手部追踪'],
      'references/godot/xr.md',
      '内置节点四件套 · 不能接管相机 · 无速度 API 需自算 · 抓取速度传递 · 晕动症规避'),
-
-
-    ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change',
-                  'arealight', '面光源', 'hdr输出', 'offset_transform',
-                  'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送',
-                  'texture streaming', 'tween_await', 'device_id', 'jolt'],
+    ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change', 'arealight', '面光源', 'hdr输出', 'offset_transform', 'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送', 'texture streaming', 'tween_await', 'device_id', 'jolt'],
      'references/godot/version-47-48.md',
      '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
-
-
-    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟',
-                  '锁步', 'lockstep', '确定性', 'tick', '快照',
-                  'enet', 'websocket', 'webrtc', 'nat', '打洞',
-                  '服务器权威', '延迟补偿', 'multiplayersynchronizer',
-                  '服务器回滚', '锁步同步', '确定性锁步', '客户端预测',
-                  '实体插值', '同步模型'],
+    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', '确定性', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '服务器权威', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型'],
      'references/godot/netsync-advanced.md',
      '同步模型选型 · 客户端预测+输入历史 · 服务器回滚重放(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍'),
-
-    ('GDExtension/插件', ['gdextension', 'godot-cpp', 'c++', 'cpp', 'abi',
-                    '绑定', 'native', '热重载', '编辑器插件', 'editorplugin',
-                    '@tool', 'tool脚本', 'plugin.cfg', '自定义导入',
-                    '自定义检视器', 'rust', 'gdext'],
+    ('GDExtension/插件', ['c++', 'cpp', 'abi', '绑定', 'native', '热重载', '自定义导入器', '自定义检视器插件', 'rust', 'gdext'],
      'references/godot/gdext-plugin.md',
      '先 profile 再换语言 · 版本+浮点精度是 ABI · 4.0→4.1 硬断裂 · 热重载仅编辑器 · @tool 必备 + _exit_tree 对称注销'),
-
-
-    ('战斗系统', ['战斗', '伤害', '命中判定', 'hitbox', 'hurtbox', '帧数据',
-                '打击感', '顿帧', 'hitstop', '暴击', '格挡', '闪避',
-                'buff', 'debuff', 'dot', '技能', '冷却', '连招', '取消',
-                'combat', 'damage', 'attack', 'knockback'],
+    ('战斗系统', ['战斗', '伤害', '命中判定', 'hitbox', 'hurtbox', '帧数据', '打击感', '顿帧', 'hitstop', '暴击', '格挡', '闪避', 'buff', 'debuff', 'dot', '技能', '冷却', '连招', '取消', 'combat', 'damage', 'attack', 'knockback'],
      'references/godot/combat.md',
      '四层分离 · AttackContext 去重 · 判定放物理帧 · hitbox 默认关 · hitstop 不用 await'),
-
-    ('数据分析/埋点', ['埋点', '数据分析', 'analytics', 'telemetry', '事件上报',
-                  '漏斗', '留存', '流失', '难度调优', 'ab测试', '热力图',
-                  'session', 'player_id', '批量上报'],
+    ('数据分析/埋点', ['埋点', '数据分析', 'analytics', 'telemetry', '事件上报', '漏斗', '留存', '流失', '难度调优', 'ab测试', '热力图', 'session', 'player_id', '批量上报'],
      'references/godot/analytics.md',
      'object_verb 命名 · 离线优先缓存 · 批量上报 · 不用设备ID · 每步引导埋点'),
-
-    ('渲染管线', ['渲染器', '渲染管线', 'forward+', 'mobile渲染', 'compatibility',
-                '后处理', 'post process', 'bloom', 'glow', 'dof', 'ssao', 'ssr',
-                'drawcall', '批处理', '实例化', 'compositor', '色调映射'],
+    ('渲染管线', ['渲染器', '渲染管线', 'forward+', 'mobile渲染', 'compatibility', '后处理', 'post process', 'bloom', 'glow', 'dof', 'ssao', 'ssr', 'drawcall', '批处理', '实例化', 'compositor', '色调映射'],
      'references/godot/render-pipeline.md',
      '三渲染器能力矩阵 · Web只能Compatibility · 性能曲线反直觉 · 自动实例化仅Forward+'),
-
-    ('光照', ['光照', 'gi', '烘焙', 'lightmap', 'voxelgi', 'sdfgi', '阴影',
-             'shadow', 'acne', 'peter-panning', 'bias', 'pssm', 'cascade',
-             '体积雾', '体积光', 'fog', 'arealight', '面光源', 'light'],
+    ('光照', ['光照', 'gi', '烘焙', 'lightmap', 'voxelgi', 'sdfgi', '阴影', 'shadow', 'acne', 'peter-panning', 'bias', 'pssm', 'cascade', '体积雾', '体积光', 'fog', 'arealight', '面光源', 'light'],
      'references/godot/lighting.md',
      '三种GI选型 · 烘焙六步与失败码 · bias权衡 · 体积雾仅Forward+'),
-
-    ('美术资产', ['美术', '资产管线', '纹理', '导入设置', 'filter', 'repeat', 'mipmap',
-                '像素', '图集', 'atlas', '纹理压缩', 'basis universal',
-                'pbr', '法线贴图', '字体', '子集化', 'msdf', '九宫格', 'asset'],
+    ('美术资产', ['美术', '资产管线', '纹理', '导入设置', 'filter', 'repeat', 'mipmap', '像素', '图集', 'atlas', '纹理压缩', 'basis universal', 'pbr', '法线贴图', '字体', '子集化', 'msdf', '九宫格', 'asset'],
      'references/godot/art-assets.md',
      'Filter/Repeat/Mipmap 三开关 · 像素糊的五个原因 · 压缩按用途分层 · 中文要子集化'),
-
-    ('相机/过场', ['相机', 'camera', '跟随', '死区', '前瞻', '屏震', 'trauma',
-                'springarm', '第三人称', '过场', 'cutscene', '黑边', 'letterbox',
-                '跳过大', '控制权移交'],
+    ('相机/过场', ['相机', 'camera', '跟随', '死区', '前瞻', '屏震', 'trauma', 'springarm', '第三人称', '过场', 'cutscene', '黑边', 'letterbox', '跳过大', '控制权移交'],
      'references/godot/camera-cutscene.md',
      '相机分层 · 帧率无关lerp · trauma平方衰减 · 过场三要素同状态机'),
-
-    ('引导/成就', ['新手引导', '引导', 'tutorial', 'onboarding', '成就', 'achievement',
-                '排行榜', 'leaderboard', '统计', 'mod', '模组', '高亮遮罩',
-                '挖洞', '解锁'],
+    ('引导/成就', ['新手引导', '引导', 'tutorial', 'onboarding', '成就', 'achievement', '排行榜', 'leaderboard', '统计', 'mod', '模组', '高亮遮罩', '挖洞', '解锁'],
      'references/godot/onboarding-meta.md',
      '引导必须超时兜底 · 九宫格挖洞 · 成就定义与状态分离 · Godot无内置Steam成就'),
-
-
-    ('项目/工程', ['项目设置', '导出', 'debug', '断言',
-                  'autoload', 'git', 'publish', '打包', 'gitignore'],
+    ('平台导出/发布', ['导出', '发布', '上线', '打包', 'export', 'apk', 'aab', '签名', '公证', 'notarize', 'staple', 'provisioning', '证书', 'app store', 'google play', 'web导出', 'ios', 'ios导出', 'ios上架', 'android导出', 'wasm', 'coop', 'coep', 'sharedarraybuffer', 'ndk', 'gradle', '导出模板', 'keystore', 'windows导出', 'macos导出', 'linux导出', 'android签名', 'ios签名', 'android导出', 'ios导出', 'ios上架', 'windows签名', 'macos签名', '导出签名', '打包签名', '上架签名', '发布签名'],
+     'references/godot/platform-export.md',
+     '各平台速查表 · Web仅Compatibility · 多线程需COOP+COEP · NDK必须r28b · keystore丢了包名报废'),
+    ('GDExtension实战', ['gdextension', 'godot-cpp', 'sconstruct', 'entry_symbol', 'bind_method', 'add_property', 'gdclass', 'gdregister', 'register_types', 'ref<T>', 'memnew', 'c++扩展', 'native扩展', '编译扩展', '.gdextension', 'cpp扩展'],
+     'references/godot/gdextension-deep.md',
+     'pin到4.7同步commit · entry_symbol严格匹配 · 只在SCENE层注册 · RefCounted必须Ref<T>'),
+    ('编辑器插件开发', ['编辑器插件', 'editorplugin', 'undoredo', '撤销', '自定义检视器', 'inspectorplugin', '自定义导入', 'importplugin', 'editordock', 'add_dock', 'tool注解', '插件发布', 'asset library'],
+     'references/godot/editor-plugin.md',
+     'enter/exit_tree对称注销 · is_editor_hint≠跑游戏 · get_undo_redo按对象选历史 · 4.7统一EditorDock'),
+    ('项目/工程', ['项目设置', '导出', 'debug', '断言', 'autoload', 'git', 'publish', '打包', 'gitignore'],
      'references/godot/project.md',
      '项目设置关键项 · Autoload · 导出清单 · gitignore'),
 ]
@@ -538,7 +403,7 @@ def cmd_self_test():
     d = match_domains('内存泄漏')
     chk(bool(d) and d[0][0] == '调试/排错', '"内存泄漏" → 调试/排错（排查症状，非性能优化）')
     d = match_domains('Android签名')
-    chk(bool(d) and d[0][0] == 'CI/发布', '"Android签名" → CI/发布（长组合词压过 android）')
+    chk(bool(d) and d[0][0] == '平台导出/发布', '"Android签名" → 平台导出/发布（签名归导出，不归 CI 流程）')
     d = match_domains('C#还是GDScript')
     chk(bool(d) and d[0][0] == 'C#/.NET', '"C#还是GDScript" → C#/.NET（选型问法压过 gdscript）')
     d = match_domains('TileMap迁移')
@@ -560,6 +425,22 @@ def cmd_self_test():
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
 
+    # 平台导出 / GDExtension实战 / 编辑器插件 不被旧域抢走
+    for need, want in (('iOS上架', '平台导出/发布'), ('签名公证', '平台导出/发布'),
+                       ('keystore', '平台导出/发布'), ('导出模板', '平台导出/发布'),
+                       ('安卓导出', '平台导出/发布')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（不被 CI/发布 抢走）' % (need, want))
+    for need, want in (('gdextension', 'GDExtension实战'), ('godot-cpp编译', 'GDExtension实战')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('编辑器插件', '编辑器插件开发'), ('自定义检视器', '编辑器插件开发'),
+                       ('UndoRedo', '编辑器插件开发')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（不被插件生态抢走）' % (need, want))
+    d = match_domains('第三方插件')
+    chk(bool(d) and d[0][0] == '插件生态', '"第三方插件" → 插件生态（未被新域抢走）')
+
     # 进阶主题不被基础域抢走
     d = match_domains('客户端预测')
     chk(bool(d) and d[0][0] == '网络同步进阶', '"客户端预测" → 网络同步进阶（不被多人/网络抢走）')
@@ -568,9 +449,9 @@ def cmd_self_test():
     d = match_domains('锁步同步')
     chk(bool(d) and d[0][0] == '网络同步进阶', '"锁步同步" → 网络同步进阶')
     d = match_domains('gdextension')
-    chk(bool(d) and d[0][0] == 'GDExtension/插件', '"gdextension" → GDExtension/插件（不被插件生态抢走）')
+    chk(bool(d) and d[0][0] == 'GDExtension实战', '"gdextension" → GDExtension实战（实战域优先于概览域）')
     d = match_domains('编辑器插件')
-    chk(bool(d) and d[0][0] == 'GDExtension/插件', '"编辑器插件" → GDExtension/插件（不被高级主题抢走）')
+    chk(bool(d) and d[0][0] == '编辑器插件开发', '"编辑器插件" → 编辑器插件开发（开发域优先于概览域）')
     d = match_domains('第三方插件')
     chk(bool(d) and d[0][0] == '插件生态', '"第三方插件" → 插件生态')
     d = match_domains('程序化生成')
