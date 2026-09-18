@@ -36,6 +36,15 @@
 | **开放世界** | `openworld.md` | chunk 三半径滞回 · 分帧预算 · 节点池 · Terrain3D · 大世界坐标精度 · 原点重置 |
 | **XR/VR** | `xr.md` | 内置节点四件套 · 不能接管相机 · 无速度 API · 抓取速度传递 · 晕动症规避 |
 | **4.7/4.8 版本专项** | `version-47-48.md` | **目标版本** · 4.7.2 稳定 / 4.8 仍 dev · AreaLight3D · HDR · offset_transform · 内置 VirtualJoystick · breaking changes |
+| **网络同步进阶** | `netsync-advanced.md` | 同步模型选型 · 客户端预测+输入历史 · 服务器回滚(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍 |
+| **GDExtension/插件** | `gdext-plugin.md` | 先 profile 再换语言 · 版本+浮点精度是 ABI · 4.0→4.1 硬断裂 · 热重载仅编辑器 · @tool + 对称注销 |
+| **战斗系统** | `combat.md` | 四层分离 · AttackContext 去重 · 判定放物理帧 · hitbox 默认关 · 帧数据三段 · hitstop |
+| **数据分析/埋点** | `analytics.md` | object_verb 命名 · 离线优先缓存 · 批量上报 · 不用设备 ID · 引导每步埋点 |
+| **渲染管线** | `render-pipeline.md` | 三渲染器能力矩阵 · Web 只能 Compatibility · 性能曲线反直觉 · 后处理开销排序 |
+| **光照** | `lighting.md` | 三种 GI 选型 · 烘焙六步与失败码 · bias 权衡 · 体积雾仅 Forward+ |
+| **美术资产** | `art-assets.md` | Filter/Repeat/Mipmap · 像素糊的五个原因 · 压缩按用途分层 · 中文子集化 |
+| **相机/过场** | `camera-cutscene.md` | 相机分层 · 帧率无关 lerp · trauma 平方衰减 · 过场三要素同状态机 |
+| **引导/成就** | `onboarding-meta.md` | 引导超时兜底 · 九宫格挖洞 · 成就定义与状态分离 · Mod 是任意代码 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |

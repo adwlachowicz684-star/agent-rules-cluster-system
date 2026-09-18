@@ -167,8 +167,8 @@ DOMAINS = [
      'GUT 用法 · 无框架最小方案 · 静态检查进 CI · 存档回归测试 · 上线清单'),
 
     ('多人/网络', ['多人', '联机', '网络', 'rpc', '服务器', '服务端', '权威',
-                 '同步', '预测', '回滚', '插值', '延迟', 'peer', 'enemy',
-                 'webrtc', '专用服务器', 'headless', 'authority'],
+                 '同步', '延迟', 'peer', 'enemy',
+                 '专用服务器', 'headless', 'authority'],
      'references/godot/multiplayer.md',
      '服务器权威 · @rpc 参数 · 输入上报+序号 · 预测回滚 · 快照插值 · authority 迁移 · 专用服务器'),
 
@@ -177,7 +177,7 @@ DOMAINS = [
      'references/godot/game-systems.md',
      '命令解释器白名单 · 对话图+Runner · 任务定义/进度分离 · 库存四层 · 奖励幂等'),
 
-    ('高级主题', ['程序化生成', '随机地图', '地牢', '噪声', '编辑器插件', 'plugin',
+    ('高级主题', ['程序化生成', '随机地图', '地牢', '噪声', 'plugin',
                 '导入管线', '资源导入', '波前'],
      'references/godot/advanced-topics.md',
      '确定性生成 · BSP+连通性校验 · EditorPlugin 生命周期 · 资源三层隔离 · XR 性能预算'),
@@ -223,7 +223,7 @@ DOMAINS = [
      'references/godot/version-migration.md',
      '4.x 各版本结构变化 · TileMap 三重迁移 · 3→4 改名对照 · 锁 commit · 升级检查清单'),
 
-    ('插件生态', ['插件', 'asset library', 'gdextension', 'dialogic', '第三方库',
+    ('插件生态', ['插件', 'asset library', 'dialogic', '第三方库',
                 '轮子', '依赖引入', '许可证', 'mit', '是否该自己写'],
      'references/godot/plugins.md',
      '决策口诀 · 按环节取舍表 · 绝不引入的 8 种情况 · 引入检查清单 · 锁 commit'),
@@ -271,6 +271,67 @@ DOMAINS = [
                   'texture streaming', 'tween_await', 'device_id', 'jolt'],
      'references/godot/version-47-48.md',
      '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
+
+
+    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟',
+                  '锁步', 'lockstep', '确定性', 'tick', '快照',
+                  'enet', 'websocket', 'webrtc', 'nat', '打洞',
+                  '服务器权威', '延迟补偿', 'multiplayersynchronizer',
+                  '服务器回滚', '锁步同步', '确定性锁步', '客户端预测',
+                  '实体插值', '同步模型'],
+     'references/godot/netsync-advanced.md',
+     '同步模型选型 · 客户端预测+输入历史 · 服务器回滚重放(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍'),
+
+    ('GDExtension/插件', ['gdextension', 'godot-cpp', 'c++', 'cpp', 'abi',
+                    '绑定', 'native', '热重载', '编辑器插件', 'editorplugin',
+                    '@tool', 'tool脚本', 'plugin.cfg', '自定义导入',
+                    '自定义检视器', 'rust', 'gdext'],
+     'references/godot/gdext-plugin.md',
+     '先 profile 再换语言 · 版本+浮点精度是 ABI · 4.0→4.1 硬断裂 · 热重载仅编辑器 · @tool 必备 + _exit_tree 对称注销'),
+
+
+    ('战斗系统', ['战斗', '伤害', '命中判定', 'hitbox', 'hurtbox', '帧数据',
+                '打击感', '顿帧', 'hitstop', '暴击', '格挡', '闪避',
+                'buff', 'debuff', 'dot', '技能', '冷却', '连招', '取消',
+                'combat', 'damage', 'attack', 'knockback'],
+     'references/godot/combat.md',
+     '四层分离 · AttackContext 去重 · 判定放物理帧 · hitbox 默认关 · hitstop 不用 await'),
+
+    ('数据分析/埋点', ['埋点', '数据分析', 'analytics', 'telemetry', '事件上报',
+                  '漏斗', '留存', '流失', '难度调优', 'ab测试', '热力图',
+                  'session', 'player_id', '批量上报'],
+     'references/godot/analytics.md',
+     'object_verb 命名 · 离线优先缓存 · 批量上报 · 不用设备ID · 每步引导埋点'),
+
+    ('渲染管线', ['渲染器', '渲染管线', 'forward+', 'mobile渲染', 'compatibility',
+                '后处理', 'post process', 'bloom', 'glow', 'dof', 'ssao', 'ssr',
+                'drawcall', '批处理', '实例化', 'compositor', '色调映射'],
+     'references/godot/render-pipeline.md',
+     '三渲染器能力矩阵 · Web只能Compatibility · 性能曲线反直觉 · 自动实例化仅Forward+'),
+
+    ('光照', ['光照', 'gi', '烘焙', 'lightmap', 'voxelgi', 'sdfgi', '阴影',
+             'shadow', 'acne', 'peter-panning', 'bias', 'pssm', 'cascade',
+             '体积雾', '体积光', 'fog', 'arealight', '面光源', 'light'],
+     'references/godot/lighting.md',
+     '三种GI选型 · 烘焙六步与失败码 · bias权衡 · 体积雾仅Forward+'),
+
+    ('美术资产', ['美术', '资产管线', '纹理', '导入设置', 'filter', 'repeat', 'mipmap',
+                '像素', '图集', 'atlas', '纹理压缩', 'basis universal',
+                'pbr', '法线贴图', '字体', '子集化', 'msdf', '九宫格', 'asset'],
+     'references/godot/art-assets.md',
+     'Filter/Repeat/Mipmap 三开关 · 像素糊的五个原因 · 压缩按用途分层 · 中文要子集化'),
+
+    ('相机/过场', ['相机', 'camera', '跟随', '死区', '前瞻', '屏震', 'trauma',
+                'springarm', '第三人称', '过场', 'cutscene', '黑边', 'letterbox',
+                '跳过大', '控制权移交'],
+     'references/godot/camera-cutscene.md',
+     '相机分层 · 帧率无关lerp · trauma平方衰减 · 过场三要素同状态机'),
+
+    ('引导/成就', ['新手引导', '引导', 'tutorial', 'onboarding', '成就', 'achievement',
+                '排行榜', 'leaderboard', '统计', 'mod', '模组', '高亮遮罩',
+                '挖洞', '解锁'],
+     'references/godot/onboarding-meta.md',
+     '引导必须超时兜底 · 九宫格挖洞 · 成就定义与状态分离 · Godot无内置Steam成就'),
 
 
     ('项目/工程', ['项目设置', '导出', 'debug', '断言',
@@ -498,6 +559,22 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 进阶主题不被基础域抢走
+    d = match_domains('客户端预测')
+    chk(bool(d) and d[0][0] == '网络同步进阶', '"客户端预测" → 网络同步进阶（不被多人/网络抢走）')
+    d = match_domains('服务器回滚')
+    chk(bool(d) and d[0][0] == '网络同步进阶', '"服务器回滚" → 网络同步进阶')
+    d = match_domains('锁步同步')
+    chk(bool(d) and d[0][0] == '网络同步进阶', '"锁步同步" → 网络同步进阶')
+    d = match_domains('gdextension')
+    chk(bool(d) and d[0][0] == 'GDExtension/插件', '"gdextension" → GDExtension/插件（不被插件生态抢走）')
+    d = match_domains('编辑器插件')
+    chk(bool(d) and d[0][0] == 'GDExtension/插件', '"编辑器插件" → GDExtension/插件（不被高级主题抢走）')
+    d = match_domains('第三方插件')
+    chk(bool(d) and d[0][0] == '插件生态', '"第三方插件" → 插件生态')
+    d = match_domains('程序化生成')
+    chk(bool(d) and d[0][0] == '高级主题', '"程序化生成" → 高级主题（未被新域抢走）')
 
     # shader 语言类问题归着色器域，不被 3D/2D 域的裸 shader 抢走
     d = match_domains('shader怎么写')
