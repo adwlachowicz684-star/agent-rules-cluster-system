@@ -150,7 +150,11 @@ LINE_RULES = [
      r"(?i)(?:google\s*play\s*)?\bobb\b",
      "4.7 起 Android 移除 Google Play OBB 支持 —— 旧发布流程会失效",
      "改用 GABE / AAB 等 4.7 支持的方式"),
-    ("GD106", "P1", "异步异常", "cs", r"async\s+void\b",
+    # --- 网络同步 ---
+    ("GD131", "P1", "传输模式", "gd",
+     r'@rpc\s*\(\s*["\'](?:any_peer|authority)["\']\s*,?\s*(?:["\']call_remote["\']\s*,?\s*)?\)',
+     "@rpc 只写了 mode（或 mode+call_remote）没写 transfer —— 默认是 **reliable**，高频位置同步走可靠通道会因重传越来越滞后",
+     "高频同步显式写 @rpc(\"any_peer\", \"call_remote\", \"unreliable_ordered\")；只有命中/生成等关键事件用 reliable"),    ("GD106", "P1", "异步异常", "cs", r"async\s+void\b",
      "`async void` —— 异常会逃离 Godot 调用栈（无法被上层捕获），且生命周期不可控",
      "改为 `async Task`；入口处若必须 void 也要包 try/catch"),
 ]
@@ -265,6 +269,28 @@ EXTRA_DOMAIN_RULES = [
      "自己实现虚拟摇杆 —— 4.7 起引擎内置 VirtualJoystick 节点（Fixed/Dynamic/Following 三模式 + action_* 直连）",
      "优先用内置 VirtualJoystick；仅在需完全自定义外观时才保留自制实现",
      r"(?<!\w)VirtualJoystick\b(?!\s*\.)"),
+    ("GD134", "P1", "传输模式缺失", "gd", r"@rpc\s*\(",
+     "文件里有 @rpc 但从未出现 unreliable —— 高频同步默认走 reliable，丢包重传会让位置越来越滞后",
+     "每帧位置/输入用 unreliable_ordered（带序号）；只有关键事件用 reliable",
+     r"(?<!\w)unreliable"),
+    ("GD135", "P1", "插件缺tool", "gd", r"extends\s+EditorPlugin",
+     "继承 EditorPlugin 但全文没有 @tool —— 脚本在编辑器里不执行，插件看起来完全没生效",
+     "在脚本顶部加 @tool 注解",
+     r"@tool"),
+    ("GD136", "P1", "插件未注销", "gd", r"_enter_tree\s*\(",
+     "_enter_tree 里注册了东西但 _exit_tree 不存在 —— 禁用插件后 UI 残留、重复启用会翻倍",
+     "_exit_tree() 必须对称注销 _enter_tree() 注册的一切（控件、菜单、检视器）",
+     r"_exit_tree\s*\("),
+
+    ("GD132", "P0", "未校验发送者", "gd", r'@rpc\s*\(\s*["\']any_peer["\']',
+     "any_peer 允许任何人调用，但全文没有 get_remote_sender_id() —— 等于开放作弊接口",
+     "函数内先取 sender 并校验身份与合法性（不只是判断是谁，还要判断能不能做）",
+     r"get_remote_sender_id"),
+    ("GD133", "P1", "sender失效", "gd", r"await[\s\S]{0,200}?get_remote_sender_id\s*\(",
+     "await 之后调用 get_remote_sender_id() —— 它只在 RPC 函数内有效，await 后会变回 0",
+     "在 await 之前把 sender 存成局部变量，后面都用这个变量",
+     None),
+
 ]
 
 DOMAIN_RULES = [
@@ -830,10 +856,22 @@ def scan_file(path: Path, rel: str) -> list[dict]:
             if hit is not None:
                 add(hit, rid, level, rule, msg, fix)
             continue
+        # 先逐行匹配（行号精确）。
+        hit_line = None
         for i, l in enumerate(lines):
             if re.search(pat, l):
-                add(i, rid, level, rule, msg, fix)
-                break      # 同一规则同文件只报首次
+                hit_line = i
+                break
+        if hit_line is None:
+            # 跨行规则（如「await 之后用了 X」）逐行永远匹配不到，
+            # 但上面的预检已确认全文能匹配 —— 直接用全文定位行号。
+            # 不回退的话这类规则会「预检通过却从不 add」，
+            # 表现与「规则没问题」完全一样，是最难发现的一类失效。
+            m = re.search(pat, text, re.M)
+            if m:
+                hit_line = text[:m.start()].count("\n")
+        if hit_line is not None:
+            add(hit_line, rid, level, rule, msg, fix)
 
     # ---- 7) 信号连接但清理回调里没有断开（跨生命周期）----
     # 只在「有 connect 且文件里有 _exit_tree 但其中没有 disconnect」时报，
@@ -1098,6 +1136,68 @@ func _process(delta):
 
 func _physics_process(delta):
     velocity = Vector2.ZERO
+'''
+
+SELF_NET_BAD = '''extends Node3D
+
+@rpc("any_peer", "call_remote")
+func submit_input(data: Dictionary) -> void:
+    apply_input(data)
+
+@rpc("authority")
+func sync_pos(p: Vector3) -> void:
+    global_position = p
+
+'''
+
+SELF_AWT_BAD = '''extends Node3D
+
+func late() -> void:
+    await get_tree().process_frame
+    print(multiplayer.get_remote_sender_id())
+'''
+
+SELF_AWT_CLEAN = '''extends Node3D
+
+func on_rpc() -> void:
+    var sender := multiplayer.get_remote_sender_id()
+    await get_tree().process_frame
+    print(sender)
+'''
+
+SELF_NET_CLEAN = '''extends Node3D
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_input(data: Dictionary) -> void:
+    var sender := multiplayer.get_remote_sender_id()
+    if sender == 0:
+        return
+    apply_input(sender, data)
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func sync_pos(p: Vector3) -> void:
+    global_position = p
+'''
+
+SELF_PLG_BAD = '''extends EditorPlugin
+
+func _enter_tree() -> void:
+    add_control_to_bottom_panel($Panel, "Tool")
+'''
+
+SELF_PLG_CLEAN = '''@tool
+extends EditorPlugin
+
+var _panel: Control
+
+func _enter_tree() -> void:
+    _panel = preload("res://panel.tscn").instantiate()
+    add_control_to_bottom_panel(_panel, "Tool")
+
+func _exit_tree() -> void:
+    remove_control_from_bottom_panel(_panel)
+    _panel.queue_free()
+    _panel = null
 '''
 
 SELF_V47_BAD = '''extends Node3D
@@ -1443,6 +1543,9 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
+            'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
+            'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
+            'plg.gd': SELF_PLG_BAD, 'plgok.gd': SELF_PLG_CLEAN,
             'asy.cs': SELF_CS_ASYNC_BAD, 'asyok.cs': SELF_CS_ASYNC_CLEAN,
         }
         res = {}
@@ -1585,6 +1688,18 @@ def self_test() -> int:
         for rid in ('GDS01', 'GDS02', 'GDS03', 'GDS04', 'GDS05',
                     'GDS07', 'GDS08'):
             check(rid not in ids('shok.gdshader'), 'shok.gdshader 不报 %s（干净样本）' % rid)
+        # --- GD13x 网络同步 / 插件 ---
+        for rid in ('GD131', 'GD132', 'GD134'):
+            check(rid in ids('net.gd'), 'net.gd 命中 %s' % rid)
+        for rid in ('GD131', 'GD132', 'GD133', 'GD134'):
+            check(rid not in ids('netok.gd'), 'netok.gd 不报 %s（干净样本）' % rid)
+        # GD133 跨行：单独样本（net.gd 里有 sender 校验会掩盖它）
+        check('GD133' in ids('awt.gd'), 'awt.gd 命中 GD133（await 后用 sender）')
+        check('GD133' not in ids('awtok.gd'), 'awtok.gd 不报 GD133（先存局部变量）')
+        for rid in ('GD135', 'GD136'):
+            check(rid in ids('plg.gd'), 'plg.gd 命中 %s' % rid)
+        for rid in ('GD135', 'GD136'):
+            check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
         for rid in ('GD121', 'GD122', 'GD123', 'GD124', 'GD125'):
             check(rid in ids('v47.gd'), 'v47.gd 命中 %s' % rid)

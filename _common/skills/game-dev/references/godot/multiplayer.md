@@ -73,11 +73,18 @@ func submit_input(seq: int, dir: Vector2) -> void:
 |---|---|---|
 | mode | `authority`（默认）/ `any_peer` | 谁有权调用 |
 | call | `call_remote`（默认）/ `call_local` | 是否在本地也执行 |
-| transfer | `unreliable`（默认）/ `unreliable_ordered` / `reliable` | 传输模式 |
+| transfer | **`reliable`（默认）** / `unreliable` / `unreliable_ordered` | 传输模式 |
 | channel | `0`（默认） | 通道 |
 
-⚠ **默认值是 `authority` + `call_remote` + `unreliable`**。
-客户端调用 authority 的 RPC 会被**静默忽略** —— 不报错，什么也不发生。
+⚠ **默认值是 `authority` + `call_remote` + `reliable`**（官方文档明确：
+`@rpc` 等价于 `@rpc("authority", "call_remote", "reliable", 0)`）。
+
+⚠ **客户端调用 authority 的 RPC 会被静默忽略** —— 不报错，什么也不发生。
+想让客户端上报输入，必须显式写 `@rpc("any_peer", ...)`。
+
+⚠ **默认 `reliable` 是个性能陷阱**：每帧位置同步如果忘了写
+`unreliable_ordered`，会走可靠通道 —— 丢包重传会让位置越来越滞后。
+高频同步**必须显式声明**传输模式。
 
 ⚠ `any_peer` 是**攻击面**，不是便利。任何人都能调，必须校验发送者：
 
