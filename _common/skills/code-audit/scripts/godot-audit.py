@@ -355,6 +355,52 @@ EXTRA_DOMAIN_RULES = [
      "保底计数存进存档，按卡池分别计（不能全局共用一个计数器）",
      r"(?i)(?:pity|保底|dry_count|since_last)"),
 
+    # ---- 输入重绑定 ----
+    ("GD161", "P1", "输入3.x残留", "gd", r"get_action_list\s*\(|(?<![\w.])scancode\b",
+     "用了 3.x 的 get_action_list() 或 scancode —— 4.x 是 action_get_events() 与 keycode/physical_keycode，混用会静默类型转换存错字段",
+     "改用 InputMap.action_get_events()；键字段用 physical_keycode 或 keycode",
+     None),
+    ("GD162", "P1", "键字段重复", "gd", r"(?<!\w)keycode\s*=",
+     "设置了 keycode 但同一文件也设了 physical_keycode —— 官方明确三者只能设其一，全设会导致布局变化时映射错乱",
+     "只设 physical_keycode（存物理位置），keycode 仅用于当前布局显示",
+     None),
+    ("GD163", "P1", "振动未停止", "gd", r"start_joy_vibration\s*\(",
+     "启动了手柄振动但全文没有 stop_joy_vibration —— 振动不会因退出场景/暂停/崩溃自动停止",
+     "在暂停、切后台、释放场景、重映射结束时显式调用 stop_joy_vibration(device)",
+     r"stop_joy_vibration"),
+
+    # ---- 回放与确定性 ----
+    ("GD164", "P2", "回放依赖墙钟", "gd", r"(?i)(?:replay|recorder|record|ghost|demo|frame_log)[\s\S]{0,600}?(?:Time\.get_unix_time_from_system|OS\.get_ticks_msec|Time\.get_ticks_msec)",
+     "回放/录制代码里用了墙钟时间 —— 确定性重放必须用固定步长的 delta，墙钟会让每次结果不同",
+     "用固定时间步累加的 tick 计数驱动，不读系统时间",
+     None),
+    ("GD165", "P2", "录制用rand", "gd", r"(?i)(?:replay|recorder|record|ghost|demo|frame_log)[\s\S]{0,600}?(?<![\w.])randi\s*\(\s*\)",
+     "回放/录制路径里用了全局 randi()/randf() —— 破坏确定性，重放结果会不一致",
+     "用带固定种子的 RandomNumberGenerator 实例，并把 seed 写进回放文件",
+     r"(?:RandomNumberGenerator|\.seed\s*=)"),
+
+    # ---- Mod / 存档迁移（上一轮曾被覆盖，此处重建）----
+    ("GD166", "P0", "Mod路径拼接", "gd", r"(?i)(?:extract|unzip|unpack|install_mod|mod_path|mod_root|mod_dir|addon_path)[\s\S]{0,400}?(?:\+\s*[\"']|\+\s*\w*(?:name|file|entry))",
+     "Mod 解压时直接拼接文件名到目标路径 —— 未校验 ../ 就是 zip-slip，可写入任意目录",
+     "解压前校验规范化后的路径必须仍在目标根目录内（用 Path 规范化后比对前缀）",
+     r"(?i)(?:normalize|simplify|begins_with\s*\(\s*(?:mod_root|target|dest)|\.resolve)"),
+    ("GD167", "P2", "pack来源未记", "gd", r"load_resource_pack\s*\(",
+     "加载了 resource pack 但全文没有记录来源 —— Mod 出问题时无法定位是哪个包引入的",
+     "维护已加载 pack 的清单（路径、加载顺序、覆盖关系），便于排查与卸载",
+     r"(?i)(?:loaded_packs|_pack_list|pack_manifest|记录)"),
+    ("GD168", "P1", "加解密无兜底", "gd", r"open_encrypted\s*\(|open_encrypted_with_pass\s*\(",
+     "调用加密存档 API 但全文没有错误处理 —— 存档损坏/密码错误会直接崩溃而不是走降级路径",
+     "包在 try 里并对失败情形区分处理（损坏→提供备份恢复；密码错→提示而非静默丢档）",
+     r"(?i)(?:if\s+\w+\s*==\s*(?:null|ERR_|OK)|match\s+\w*(?:err|result)|\berr\s*!=)"),
+    ("GD169", "P1", "存档无版本号", "gd", r"(?i)(?:func\s+\w*save\w*\s*\(|store_var\s*\(|var_to_bytes\s*\(|FileAccess\.open)",
+     "写存档但全文没有 VERSION/版本字段 —— 没有版本号的存档无法安全迁移，只能靠猜",
+     "存档结构第一天就要带 VERSION 字段，并据此分派迁移路径",
+     r"(?i)VERSION"),
+    ("GD170", "P1", "迁移无备份", "gd", r"(?i)(?:func\s+\w*(?:migrate|upgrade_save|migrate_save)\w*)",
+     "有存档迁移函数但全文没有备份动作 —— 迁移是不可逆操作，失败即丢失玩家进度",
+     "迁移前先复制一份原档（.bak），失败时回滚；迁移后重算校验/HMAC",
+     r"(?i)(?:backup|\.bak|copy_to|dir_copy|存档备份)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1419,6 +1465,105 @@ func roll_drop(table: Array) -> int:
     return int(idx)
 '''
 
+# ---- 输入重绑定 ----
+SELF_INP_BAD = '''extends Control
+
+func load_keys() -> void:
+    var ev := InputEventKey.new()
+    ev.scancode = KEY_A
+    ev.keycode = KEY_A
+    ev.physical_keycode = KEY_A
+    InputMap.action_add_event(&"jump", ev)
+    var list := InputMap.get_action_list(&"jump")
+
+func hit_feedback() -> void:
+    Input.start_joy_vibration(0, 0.5, 0.8, 0.2)
+'''
+
+SELF_INP_CLEAN = '''extends Control
+
+func load_keys() -> void:
+    var ev := InputEventKey.new()
+    ev.physical_keycode = KEY_A
+    InputMap.action_add_event(&"jump", ev)
+    for e in InputMap.action_get_events(&"jump"):
+        print(e)
+
+func hit_feedback() -> void:
+    Input.start_joy_vibration(0, 0.5, 0.8, 0.2)
+
+func _exit_tree() -> void:
+    Input.stop_joy_vibration(0)
+'''
+
+# ---- 回放 ----
+SELF_RPL_BAD = '''extends Node
+
+func record_frame() -> void:
+    _frames.append({
+        "t": Time.get_unix_time_from_system(),
+        "x": randi(),
+    })
+'''
+
+SELF_RPL_CLEAN = '''extends Node
+
+var rng := RandomNumberGenerator.new()
+var tick := 0
+
+func record_frame() -> void:
+    _frames.append({
+        "tick": tick,
+        "x": rng.randi(),
+    })
+    tick += 1
+'''
+
+# ---- Mod / 存档迁移 ----
+SELF_MOD_BAD = '''extends Node
+
+func install_mod(zip_path: String) -> void:
+    var reader := ZIPReader.open(zip_path)
+    for name in reader.get_files():
+        var out := "user://mods/" + name
+        FileAccess.open(out, FileAccess.WRITE)
+'''
+
+SELF_MOD_CLEAN = '''extends Node
+
+const MOD_ROOT := "user://mods/"
+
+func install_mod(zip_path: String) -> void:
+    var reader := ZIPReader.open(zip_path)
+    for name in reader.get_files():
+        var target := (MOD_ROOT + name).simplify_path()
+        if not target.begins_with(MOD_ROOT):
+            push_error("rejected path escape: %s" % name)
+            continue
+        FileAccess.open(target, FileAccess.WRITE)
+    _loaded_packs.append(zip_path)
+'''
+
+SELF_MIG_BAD = '''extends Node
+
+func migrate_save(data: Dictionary) -> Dictionary:
+    if data.get("v") == 1:
+        data["gold"] = data["money"]
+    return data
+'''
+
+SELF_MIG_CLEAN = '''extends Node
+
+const SAVE_VERSION := 2
+
+func migrate_save(path: String, data: Dictionary) -> Dictionary:
+    DirAccess.copy_absolute(path, path + ".bak")
+    if data.get("VERSION", 0) < SAVE_VERSION:
+        data["gold"] = data.get("money", 0)
+        data["VERSION"] = SAVE_VERSION
+    return data
+'''
+
 SELF_V47_BAD = '''extends Node3D
 
 @onready var look: LookAtModifier3D = $LookAt
@@ -1772,6 +1917,10 @@ def self_test() -> int:
             'dt.gd': SELF_DT_BAD, 'dtok.gd': SELF_DT_CLEAN,
             'vfx.gd': SELF_VFX_BAD, 'vfxok.gd': SELF_VFX_CLEAN,
             'eco.gd': SELF_ECO_BAD, 'ecook.gd': SELF_ECO_CLEAN,
+            'inp.gd': SELF_INP_BAD, 'inpok.gd': SELF_INP_CLEAN,
+            'rpl.gd': SELF_RPL_BAD, 'rplok.gd': SELF_RPL_CLEAN,
+            'mod.gd': SELF_MOD_BAD, 'modok.gd': SELF_MOD_CLEAN,
+            'mig.gd': SELF_MIG_BAD, 'migok.gd': SELF_MIG_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -1947,6 +2096,21 @@ def self_test() -> int:
             check(rid in ids('eco.gd'), 'eco.gd 命中 %s' % rid)
         for rid in ('GD155', 'GD156'):
             check(rid not in ids('ecook.gd'), 'ecook.gd 不误报 %s' % rid)
+
+        for rid in ('GD161', 'GD162', 'GD163'):
+            check(rid in ids('inp.gd'), 'inp.gd 命中 %s' % rid)
+        for rid in ('GD161', 'GD162', 'GD163'):
+            check(rid not in ids('inpok.gd'), 'inpok.gd 不误报 %s' % rid)
+        for rid in ('GD164', 'GD165'):
+            check(rid in ids('rpl.gd'), 'rpl.gd 命中 %s' % rid)
+        for rid in ('GD164', 'GD165'):
+            check(rid not in ids('rplok.gd'), 'rplok.gd 不误报 %s' % rid)
+        check('GD166' in ids('mod.gd'), 'mod.gd 命中 GD166（zip-slip 路径拼接）')
+        check('GD166' not in ids('modok.gd'), 'modok.gd 不误报 GD166')
+        for rid in ('GD169', 'GD170'):
+            check(rid in ids('mig.gd'), 'mig.gd 命中 %s' % rid)
+        for rid in ('GD169', 'GD170'):
+            check(rid not in ids('migok.gd'), 'migok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
