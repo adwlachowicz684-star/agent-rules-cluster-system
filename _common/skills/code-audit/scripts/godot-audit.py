@@ -291,6 +291,40 @@ EXTRA_DOMAIN_RULES = [
      "在 await 之前把 sender 存成局部变量，后面都用这个变量",
      None),
 
+    # ---- 程序化生成 ----
+    ("GD141", "P1", "全局随机源", "gd", r"(?<![\w.])randi\s*\(\s*\)|(?:^|[^\w.])randf\s*\(\s*\)",
+     "用了全局 randi()/randf() —— 是全局状态，任何脚本或插件调用都会改变结果，生成不可复现",
+     "改用 RandomNumberGenerator 实例并设 seed：rng.seed = s; rng.randi_range(a, b)",
+     r"RandomNumberGenerator"),
+    ("GD142", "P1", "生成改场景树", "gd", r"for[\s\S]{0,300}?add_child\s*\(",
+     "循环里直接 add_child —— 每帧插几十个节点会掉帧，且生成过程与场景树耦合",
+     "先在纯数据层算完布局，最后一次批量实例化；分帧生成时注意与场景树交互非线程安全",
+     None),
+    ("GD143", "P1", "生成未校验连通", "gd", r"(?i)(?:cellular|maze|dungeon|cave|generate_(?:map|level))",
+     "做了程序化生成但全文没有连通性校验 —— 元胞自动机最容易产出到不了的区域，玩家会卡死",
+     "生成后从出生点 flood fill，未访问的地板改写/连接/删除，或只保留最大连通分量",
+     r"(?i)(?:flood_fill|floodfill|connected|reachab|连通)"),
+
+    # ---- AI 感知 ----
+    ("GD144", "P1", "射线旧写法", "gd", r"intersect_ray\s*\(\s*(?!.*QueryParameters)[^)]*,[^)]*\)",
+     "intersect_ray 用了 3.x 的裸参数写法 —— 4.x 必须传 PhysicsRayQueryParameters3D",
+     "改用 PhysicsRayQueryParameters3D.create(from, to, mask, exclude) 再 intersect_ray(query)",
+     r"PhysicsRayQueryParameters3D"),
+    ("GD145", "P2", "感知无记忆", "gd", r"(?i)vision|view_cone|can_see|视线|视锥",
+     "做了视觉检测但全文没有最后已知位置相关逻辑 —— 目标一消失敌人立刻失忆，行为很假",
+     "丢失目标后保存最后已知位置，并走搜索→放弃→返回的有限状态",
+     r"(?i)(?:last_known|last_seen|最后已知)"),
+
+    # ---- 骨骼与 IK ----
+    ("GD146", "P0", "不存在的IK节点", "gd", r"PoleModifier3D|SplineIK3D",
+     "引用了 PoleModifier3D 或 SplineIK3D —— 这两个节点在 Godot 4.7 **不存在**（常见错误说法）",
+     "Pole 用 TwoBoneIK3D 的 pole_node/pole_direction；长链曲线用 IterateIK3D 加多目标或找插件",
+     None),
+    ("GD147", "P2", "两骨IK缺pole", "gd", r"TwoBoneIK3D",
+     "用了 TwoBoneIK3D 但全文没设 pole —— 关节没有共面参考，膝盖/肘部会乱翻",
+     "设 pole_node（构建关节共面）与 pole_direction（控制扭转方向）",
+     r"(?<!\w)pole_"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1200,6 +1234,85 @@ func _exit_tree() -> void:
     _panel = null
 '''
 
+# ---- 程序化生成 ----
+SELF_PCG_BAD = '''extends Node
+
+func generate_map() -> void:
+    for x in 100:
+        for y in 100:
+            if randi() % 2 == 0:
+                var t := Node2D.new()
+                add_child(t)
+
+func _make_cave() -> void:
+    randomize()
+'''
+
+SELF_PCG_CLEAN = '''extends Node
+
+var rng := RandomNumberGenerator.new()
+
+func generate_map(seed_value: int) -> void:
+    rng.seed = seed_value
+    var layout := []
+    for x in 100:
+        for y in 100:
+            if rng.randi_range(0, 1) == 0:
+                layout.append(Vector2i(x, y))
+    if _is_connected(layout):
+        _instantiate_all(layout)
+
+func _is_connected(cells: Array) -> bool:
+    return true
+
+func _instantiate_all(cells: Array) -> void:
+    pass
+'''
+
+# ---- AI 感知 ----
+SELF_PERC_BAD = '''extends Node3D
+
+func can_see(target: Node3D) -> bool:
+    var result := get_world_3d().direct_space_state.intersect_ray(
+            global_position, target.global_position)
+    return not result.is_empty()
+'''
+
+SELF_PERC_CLEAN = '''extends Node3D
+
+var last_known_position := Vector3.ZERO
+
+func can_see(target: Node3D) -> bool:
+    var q := PhysicsRayQueryParameters3D.create(
+            global_position, target.global_position, 2, [self])
+    var result := get_world_3d().direct_space_state.intersect_ray(q)
+    if result.is_empty():
+        return false
+    if result["collider"] != target:
+        return false
+    last_known_position = target.global_position
+    return true
+'''
+
+# ---- 骨骼与 IK ----
+SELF_BONE_BAD = '''extends Node3D
+
+@onready var pole: PoleModifier3D = $Skeleton3D/PoleModifier3D
+@onready var spline: SplineIK3D = $Skeleton3D/SplineIK3D
+
+func _ready() -> void:
+    pole.influence = 1.0
+'''
+
+SELF_BONE_CLEAN = '''extends Node3D
+
+@onready var ik: TwoBoneIK3D = $Skeleton3D/ArmIK
+
+func _ready() -> void:
+    ik.pole_node = NodePath("../PoleTarget")
+    ik.pole_direction = Vector3(0, 0, 1)
+'''
+
 SELF_V47_BAD = '''extends Node3D
 
 @onready var look: LookAtModifier3D = $LookAt
@@ -1547,6 +1660,9 @@ def self_test() -> int:
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
             'plg.gd': SELF_PLG_BAD, 'plgok.gd': SELF_PLG_CLEAN,
             'asy.cs': SELF_CS_ASYNC_BAD, 'asyok.cs': SELF_CS_ASYNC_CLEAN,
+            'pcg.gd': SELF_PCG_BAD, 'pcgok.gd': SELF_PCG_CLEAN,
+            'perc.gd': SELF_PERC_BAD, 'percok.gd': SELF_PERC_CLEAN,
+            'bone.gd': SELF_BONE_BAD, 'boneok.gd': SELF_BONE_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -1698,6 +1814,17 @@ def self_test() -> int:
         check('GD133' not in ids('awtok.gd'), 'awtok.gd 不报 GD133（先存局部变量）')
         for rid in ('GD135', 'GD136'):
             check(rid in ids('plg.gd'), 'plg.gd 命中 %s' % rid)
+
+        for rid in ('GD141', 'GD142', 'GD143'):
+            check(rid in ids('pcg.gd'), 'pcg.gd 命中 %s' % rid)
+        for rid in ('GD141', 'GD142', 'GD143'):
+            check(rid not in ids('pcgok.gd'), 'pcgok.gd 不误报 %s' % rid)
+        for rid in ('GD144', 'GD145'):
+            check(rid in ids('perc.gd'), 'perc.gd 命中 %s' % rid)
+        for rid in ('GD144', 'GD145'):
+            check(rid not in ids('percok.gd'), 'percok.gd 不误报 %s' % rid)
+        check('GD146' in ids('bone.gd'), 'bone.gd 命中 GD146（不存在的 IK 节点）')
+        check('GD146' not in ids('boneok.gd'), 'boneok.gd 不误报 GD146')
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
