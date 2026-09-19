@@ -66,6 +66,9 @@
 | **存档迁移** | `save-migration.md` | 格式版本≠游戏版本≠构建号 · VERSION 要第一天写 · 迁移前必须备份 · 后要重算 HMAC · 降级 get_value 静默返回默认值 |
 | **热更新/DLC** | `hotupdate.md` | 资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS 审核 2.5.2 禁止动态代码 · 配置热更也要版本校验 · DLC 未购买要占位 |
 | **平台服务** | `platform-services.md` | Godot 无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带 steam_appid.txt · 无 Steam 客户端要降级不崩 · token 秘密留服务端 |
+| **画质/超分** | `upscaling.md` | stretch 与 3D 缩放是两套机制 · 内置只有 FSR2.2 无 FSR3/DLSS · TAA 仅 Forward+ · 2D MSAA 在 Compatibility 不可用 · HDR 只在部分 tonemap 下响应 |
+| **载具/物理进阶** | `vehicle-physics.md` | VehicleBody 是街机求解器非高保真 · 翻车多是质心非碰撞形状 · SoftBody3D 官方存在建议 Jolt · 摩擦默认取最低 · 卡帧物理最多追 8 步 |
+| **角色自定义** | `character-customization.md` | 捏脸/换装/染色三套生命周期别混设计 · 无官方合并网格 API · 合并与 BlendShape 不能混用 · 合并网格无自动 LOD · 4.6 起 skeleton 默认路径变 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |

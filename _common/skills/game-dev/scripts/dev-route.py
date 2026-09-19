@@ -146,7 +146,7 @@ DOMAINS = [
     ('插件生态', ['插件', 'asset library', 'dialogic', '第三方库', '轮子', '依赖引入', '许可证', 'mit', '是否该自己写'],
      'references/godot/plugins.md',
      '决策口诀 · 按环节取舍表 · 绝不引入的 8 种情况 · 引入检查清单 · 锁 commit'),
-    ('着色器', ['shader', 'gdshader', '着色器', 'glsl', 'spirv', 'uniform', 'varying', 'fragment', 'vertex shader', '卡通渲染', 'toon', '描边', '溶解', '边缘光', 'rim', '后处理', 'post process', 'hint_', 'source_color', 'visualshader', '三平面', 'triplanar', 'shader怎么写', '着色器性能', 'render_mode', '精度限定符', 'compute shader', '深度纹理'],
+    ('着色器', ['shader', 'gdshader', '着色器', 'glsl', 'spirv', 'uniform', 'varying', 'fragment', 'vertex shader', '卡通渲染', 'toon', '描边', '溶解', '边缘光', 'rim', 'post process', 'hint_', 'source_color', 'visualshader', '三平面', 'triplanar', 'shader怎么写', '着色器性能', 'render_mode', '精度限定符', 'compute shader', '深度纹理', '自定义后处理'],
      'references/godot/shaders.md',
      'GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask'),
     ('动画高级', ['animationtree', 'blendspace', 'blend tree', '混合空间', '根运动', 'root motion', 'ik', '反向动力学', 'skeletonik', '骨骼动画', '分层动画', '动画遮罩', 'switch_mode', 'travel', '动画状态机深入', 'animationtree状态机', '动画树', '混合空间', '动画状态机', '动画树状态机'],
@@ -176,7 +176,7 @@ DOMAINS = [
     ('数据分析/埋点', ['埋点', '数据分析', 'analytics', 'telemetry', '事件上报', '漏斗', '留存', '流失', '难度调优', 'ab测试', '热力图', 'session', 'player_id', '批量上报'],
      'references/godot/analytics.md',
      'object_verb 命名 · 离线优先缓存 · 批量上报 · 不用设备ID · 每步引导埋点'),
-    ('渲染管线', ['渲染器', '渲染管线', 'forward+', 'mobile渲染', 'compatibility', '后处理', 'post process', 'bloom', 'glow', 'dof', 'ssao', 'ssr', 'drawcall', '批处理', '实例化', 'compositor', '色调映射'],
+    ('渲染管线', ['渲染器', '渲染管线', 'forward+', 'mobile渲染', 'compatibility', 'post process', 'glow', 'dof', 'ssr', 'drawcall', '批处理', '实例化', 'compositor', '色调映射', '渲染管线后处理'],
      'references/godot/render-pipeline.md',
      '三渲染器能力矩阵 · Web只能Compatibility · 性能曲线反直觉 · 自动实例化仅Forward+'),
     ('光照', ['光照', 'gi', '烘焙', 'lightmap', 'voxelgi', 'sdfgi', '阴影', 'shadow', 'acne', 'peter-panning', 'bias', 'pssm', 'cascade', '体积雾', '体积光', 'fog', 'arealight', '面光源', 'light'],
@@ -203,7 +203,7 @@ DOMAINS = [
     ('项目/工程', ['项目设置', '导出', 'debug', '断言', 'autoload', 'git', 'publish', '打包', 'gitignore'],
      'references/godot/project.md',
      '项目设置关键项 · Autoload · 导出清单 · gitignore'),
-    ('XR深入/手部交互', ['xr深入', '手部追踪', '手部', '关节', '捏合', 'pinch', '抓取', 'grab', 'openxr', 'xrtools', 'steamvr', 'quest', '头显', '晕动症', '传送', 'snap turn', '隧道视野', '空间ui', 'xr性能', '6dof', 'xrcontroller', '手部追踪', '手部交互', '捏合检测', '抓取物体', 'grab系统', 'xr抓取'],
+    ('XR深入/手部交互', ['xr深入', '手部追踪', '手部', '捏合', 'pinch', '抓取', 'grab', 'openxr', 'xrtools', 'steamvr', 'quest', '头显', '晕动症', '传送', 'snap turn', '隧道视野', '空间ui', 'xr性能', '6dof', 'xrcontroller', '手部追踪', '手部交互', '捏合检测', '抓取物体', 'grab系统', 'xr抓取', '手部关节', '关节追踪'],
      'references/godot/xr-deep.md',
      'XRCamera3D会滞后几毫秒 · 抓取不能reparent刚体 · 控制器无速度API需自己差分 · 优先传送'),
     ('性能剖析/平台差异', ['性能剖析', 'profiler', '剖析', 'monitors', '监视器', '帧预算', 'p99', '掉帧', '热节流', 'throttling', 'tile gpu', 'gpu bound', 'cpu bound', 'drawcall预算', '显存', 'vram', '性能优化深入', '瓶颈定位', '过温', '降频', 'profiler怎么用', '性能剖析', '剖析器', '热节流', 'throttling', 'drawcall预算', 'gpu bound', 'cpu bound', '瓶颈定位', 'p99', '掉帧分析'],
@@ -257,6 +257,15 @@ DOMAINS = [
     ('平台服务', ['steam', '成就', 'achievement', '排行榜', 'leaderboard', '内购', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜'],
      'references/godot/platform-services.md',
      'Godot无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带steam_appid.txt · 无Steam客户端要降级不崩 · token秘密留服务端'),
+    ('画质/超分', ['超分', 'fsr', 'fsr2', 'dlss', 'xess', 'metalfx', '抗锯齿', 'taa', 'fxaa', 'msaa', 'smaa', '后处理', 'post process', 'bloom', 'tonemap', '景深', 'ssao', 'ssr', '画质', '渲染分辨率', '拉伸', 'stretch'],
+     'references/godot/upscaling.md',
+     'stretch与3D缩放是两套机制 · 内置只有FSR2.2无FSR3/DLSS · TAA仅Forward+ · 2D MSAA在Compatibility不可用 · HDR只在部分tonemap下响应'),
+    ('载具/物理进阶', ['载具', 'vehicle', 'vehiclebody', '车辆', '赛车', '翻车', '质心', '关节', 'joint', 'hingejoint', '物理关节', '软体', 'softbody', '布料', '绳索', '链条', '布娃娃', 'physicsmaterial', '物理材质', '穿模', 'ccd'],
+     'references/godot/vehicle-physics.md',
+     'VehicleBody是街机求解器非高保真 · 翻车多是质心非碰撞形状 · SoftBody3D官方存在建议Jolt · 摩擦默认取最低 · 卡帧物理最多追8步'),
+    ('角色自定义', ['捏脸', '角色自定义', '换装', '装备系统', '外观', '染色', 'blend shape', 'blendshape', 'morph', '合并网格', '部件换装', '装备槽'],
+     'references/godot/character-customization.md',
+     '捏脸/换装/染色三套生命周期别混设计 · 无官方合并网格API · 合并与BlendShape不能混用 · 合并网格无自动LOD · 4.6起skeleton默认路径变'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -488,6 +497,23 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 画质 / 载具物理 / 角色自定义 不被旧域抢走
+    for need, want in (('超分', '画质/超分'), ('FSR2', '画质/超分'), ('抗锯齿', '画质/超分'),
+                       ('TAA', '画质/超分'), ('后处理', '画质/超分'), ('bloom', '画质/超分')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('载具', '载具/物理进阶'), ('翻车', '载具/物理进阶'),
+                       ('软体', '载具/物理进阶'), ('关节', '载具/物理进阶')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('捏脸', '角色自定义'), ('换装', '角色自定义'), ('合并网格', '角色自定义')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('手部关节', 'XR深入/手部交互'), ('自定义后处理', '着色器'),
+                       ('渲染管线', '渲染管线'), ('物理', '物理'), ('骨骼', '骨骼动画/IK')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（邻近域未被抢）' % (need, want))
 
     # 热更新 / 平台服务 不被旧域抢走
     for need, want in (('热更新', '热更新/DLC'), ('DLC', '热更新/DLC'), ('资源分包', '热更新/DLC')):
