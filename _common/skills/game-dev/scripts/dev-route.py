@@ -50,7 +50,7 @@ ENGINES = [
 # ---------- 第 2 维：功能域 ----------
 # keywords 命中即算相关；命中多的排前面。
 DOMAINS = [
-    ('角色控制', ['跳跃', '移动', '控制器', 'platformer', '手感', '冲刺', '爬墙', '二段跳', '角色', 'controller', 'movement', 'jump', '第一人称', 'fps', 'tps', '第三人称角色'],
+    ('角色控制', ['跳跃', '移动', '控制器', 'platformer', '手感', '冲刺', '角色', 'controller', 'movement', 'jump', '第一人称', 'fps', 'tps', '第三人称角色'],
      'references/godot/character.md',
      'CharacterBody2D/3D · velocity · move_and_slide · 土狼时间 · 跳跃缓冲'),
     ('UI/菜单', ['ui', '界面', '菜单', 'hud', '血条', '物品栏', '对话框', '按钮', '设置面板', 'dialog', 'menu', '背包ui', 'inventory ui'],
@@ -260,7 +260,7 @@ DOMAINS = [
     ('画质/超分', ['超分', 'fsr', 'fsr2', 'dlss', 'xess', 'metalfx', '抗锯齿', 'taa', 'fxaa', 'msaa', 'smaa', '后处理', 'bloom', 'tonemap', '景深', 'ssao', '画质', '渲染分辨率', '拉伸', 'stretch'],
      'references/godot/upscaling.md',
      'stretch与3D缩放是两套机制 · 内置只有FSR2.2无FSR3/DLSS · TAA仅Forward+ · 2D MSAA在Compatibility不可用 · HDR只在部分tonemap下响应'),
-    ('载具/物理进阶', ['载具', 'vehicle', 'vehiclebody', '车辆', '赛车', '翻车', '质心', '关节', 'joint', 'hingejoint', '物理关节', '软体', 'softbody', '布料', '绳索', '链条', 'physicsmaterial', '物理材质', '穿模', 'ccd', '物理布娃娃'],
+    ('载具/物理进阶', ['载具', 'vehicle', 'vehiclebody', '车辆', '赛车', '翻车', '质心', '关节', 'joint', 'hingejoint', '物理关节', '软体', 'softbody', '布料', '链条', 'physicsmaterial', '物理材质', '穿模', 'ccd', '物理布娃娃'],
      'references/godot/vehicle-physics.md',
      'VehicleBody是街机求解器非高保真 · 翻车多是质心非碰撞形状 · SoftBody3D官方存在建议Jolt · 摩擦默认取最低 · 卡帧物理最多追8步'),
     ('角色自定义', ['捏脸', '角色自定义', '换装', '装备系统', '外观', '染色', 'blend shape', 'blendshape', 'morph', '合并网格', '部件换装', '装备槽'],
@@ -281,6 +281,12 @@ DOMAINS = [
     ('投射物/弹道', ['投射物', '弹道', '子弹', '抛射', 'hitscan', '穿透问题', 'tunneling', '弹道预测', '瞄准线', '追踪弹', '穿透弹', 'shapecast', '命中框', '弹射', 'homing'],
      'references/godot/projectile.md',
      '无专门子弹节点 · CCD 官方称"有时有效"不替代射线扫描 · 预测线必须复用真实弹道函数否则显示与落点不一致 · 网络应同步开火事件而非逐帧 transform · 一帧多次命中要去重'),
+    ('进阶移动', ['二段跳', '爬墙', '抓墙', '抓边', '蹬墙跳', '绳索', '摆荡', '游泳', '潜水', '滑翔', '攀爬', '可变重力', '重力方向', 'up_direction', '传送门', '水下移动', 'ledge', 'wall jump'],
+     'references/godot/movement-advanced.md',
+     '特殊移动不能堆 if 要状态机 · 抓边要两条射线且分吸附悬停攀爬三阶段 · 不要直接赋坐标会穿薄墙 · 改 up_direction 不必然失效真正原因是那 5 个 · 改重力要 up/相机/移动平面一起变'),
+    ('多人社交', ['大厅', 'lobby', '房间系统', 'matchmaking', '匹配', '好友', '组队', '聊天', '公会', '邮件系统', '公告', '举报', '敏感词', '审核ugc', '房主迁移', 'host migration'],
+     'references/godot/social.md',
+     'Godot 不内置任何社交服务 · ENet 只是 UDP 传输层不是 P2P 平台 · 房主是临时协调者要能迁移 · 聊天必须服务器过滤并留存 · 举报要存证据快照 · 分控制面与数据面'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -576,6 +582,23 @@ def cmd_self_test():
     import os
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for fn in ('monetization.md', 'projectile.md'):
+        chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
+
+    # 进阶移动 / 多人社交 不被旧域抢走，且基础域仍可达
+    for need, want in (('二段跳', '进阶移动'), ('爬墙', '进阶移动'), ('抓边', '进阶移动'),
+                       ('游泳', '进阶移动'), ('重力方向', '进阶移动')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('大厅', '多人社交'), ('matchmaking', '多人社交'), ('好友', '多人社交'),
+                       ('聊天', '多人社交'), ('公会', '多人社交'), ('举报', '多人社交')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('角色移动', '角色控制'), ('跳跃', '角色控制'), ('载具', '载具/物理进阶')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被抢）' % (need, want))
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn in ('movement-advanced.md', 'social.md'):
         chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
 
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）

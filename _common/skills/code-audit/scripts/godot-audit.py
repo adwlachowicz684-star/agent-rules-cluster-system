@@ -503,6 +503,35 @@ EXTRA_DOMAIN_RULES = [
      "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
      r"(?i)(?:simulate|复用|共用|shared|same|同一)"),
 
+    # ---- 进阶移动 ----
+    ("GD211", "P1", "抓边直接赋坐标", "gd", r"(?:ledge|抓边|抓取边缘)[\s\S]{0,300}?(?:global_transform\.origin|global_position)\s*=",
+     "抓边后直接把坐标赋到边缘点 —— 可能穿透薄墙或动画不匹配",
+     "用 move_and_collide() 朝目标移动并设最大插值距离，分吸附/悬停/攀爬三阶段",
+     r"(?:move_and_collide|move_and_slide)"),
+    ("GD212", "P1", "up_direction设为零", "gd", r"up_direction\s*=\s*Vector\d?\.?\s*ZERO",
+     "把 up_direction 设为 ZERO —— 官方明确不允许（它用于区分地板/墙/天花板）",
+     "up_direction 必须是一个非零方向向量；可变重力场景要同步 up、相机与移动平面",
+     None),
+    ("GD213", "P2", "改重力未同步相机", "gd", r"(?:up_direction\s*=|gravity\s*=\s*Vector\d?\s*\()",
+     "改了 up_direction 或重力向量，但没有同步相机/移动平面 —— 角色会侧着走或相机翻转",
+     "改重力方向时 up、相机 basis、移动平面要一起更新（不只是改向量）",
+     r"(?i)(?:camera|相机|basis|quaternion|rotate)"),
+
+    # ---- 多人社交 ----
+    ("GD214", "P1", "聊天仅客户端过滤", "gd", r"(?:chat|聊天|send_msg|消息)[\s\S]{0,300}?(?:filter|敏感词|屏蔽词|censor)",
+     "聊天过滤只在客户端做 —— 改包就能绕过；UGC 必须服务器最终过滤",
+     "客户端可预过滤改善体验，但服务器必须做最终过滤、限流、审计与留存",
+     # absent 不能含 rpc：坏样本用 rpc 广播给客户端，并不是服务器过滤。
+     # rpc 只证明"发了网络消息"，不能证明"服务器做了最终过滤"。
+     r"(?i)(?:server|服务器|服务端|audit|审核|留存)"),
+    ("GD215", "P2", "peer ID当玩家身份", "gd", r"(?:multiplayer\.get_unique_id|get_unique_id)\s*\(\s*\)",
+     "用 peer ID 作为玩家身份 —— 重连后会变，且不是稳定账号标识（官方大厅示例也不这么做）",
+     "登录后用独立会话/账号 ID；peer ID 只用于本次连接的路由",
+     r"(?i)(?:account|账号|user_id|session|auth)"),
+    ("GD206", "P2", "预测与实弹两套公式", "gd", r"(?:func\s+\w*(?:predict|aim|trajectory)\w*\s*\(|预测|瞄准线|aim_line)",
+     "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
+     "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
+     r"(?i)(?:simulate|复用|共用|shared|same|同一)"),
 ]
 
 DOMAIN_RULES = [
@@ -1842,6 +1871,58 @@ func draw_aim() -> void:
     for p in pts:
         line.add_point(p)
 '''
+
+# ---- 进阶移动 ----
+SELF_MOVE_BAD = '''extends CharacterBody3D
+
+func grab_ledge(edge: Vector3) -> void:
+    global_transform.origin = edge
+
+func _ready() -> void:
+    up_direction = Vector3.ZERO
+
+func set_gravity_up(up: Vector3) -> void:
+    up_direction = up
+    gravity = -up * 20.0
+'''
+
+SELF_MOVE_CLEAN = '''extends CharacterBody3D
+
+func grab_ledge(edge: Vector3) -> void:
+    var delta := (edge - global_position).limit_length(0.5)
+    move_and_collide(delta)
+
+func set_gravity_up(up: Vector3, cam: Camera3D) -> void:
+    up_direction = up
+    gravity = -up * 20.0
+    cam.basis = Basis.looking_at(-up)
+'''
+
+# ---- 多人社交 ----
+SELF_SOCIAL_BAD = '''extends Node
+
+func send_chat(text: String) -> void:
+    var clean := WordFilter.censor(text)
+    rpc("on_chat", clean)
+
+func who_am_i() -> int:
+    return multiplayer.get_unique_id()
+'''
+
+SELF_SOCIAL_CLEAN = '''extends Node
+
+func send_chat(text: String) -> void:
+    rpc_id(1, "server_send_chat", text)
+
+@rpc("any_peer", "call_local", "reliable")
+func server_send_chat(text: String) -> void:
+    var clean := WordFilter.censor(text)
+    Audit.log_chat(clean)
+    rpc("on_chat", clean)
+
+func who_am_i() -> String:
+    return Session.account_id
+'''
 SELF_UI_BAD = '''extends RichTextLabel
 
 func say(nick: String, msg: String) -> void:
@@ -2270,6 +2351,8 @@ def self_test() -> int:
             'diag.gd': SELF_DIAG_BAD, 'diagok.gd': SELF_DIAG_CLEAN,
             'pay.gd': SELF_PAY_BAD, 'payok.gd': SELF_PAY_CLEAN,
             'proj.gd': SELF_PROJ_BAD, 'projok.gd': SELF_PROJ_CLEAN,
+            'mv.gd': SELF_MOVE_BAD, 'mvok.gd': SELF_MOVE_CLEAN,
+            'soc.gd': SELF_SOCIAL_BAD, 'socok.gd': SELF_SOCIAL_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2496,6 +2579,16 @@ def self_test() -> int:
         check('GD206' in ids('proj.gd'), 'proj.gd 命中 GD206（预测与实弹两套公式）')
         for rid in ('GD205', 'GD206'):
             check(rid not in ids('projok.gd'), 'projok.gd 不误报 %s' % rid)
+
+        check('GD211' in ids('mv.gd'), 'mv.gd 命中 GD211（抓边直接赋坐标）')
+        check('GD212' in ids('mv.gd'), 'mv.gd 命中 GD212（up_direction 设为零）')
+        check('GD213' in ids('mv.gd'), 'mv.gd 命中 GD213（改重力未同步相机）')
+        for rid in ('GD211', 'GD212', 'GD213'):
+            check(rid not in ids('mvok.gd'), 'mvok.gd 不误报 %s' % rid)
+        check('GD214' in ids('soc.gd'), 'soc.gd 命中 GD214（聊天仅客户端过滤）')
+        check('GD215' in ids('soc.gd'), 'soc.gd 命中 GD215（peer ID 当玩家身份）')
+        for rid in ('GD214', 'GD215'):
+            check(rid not in ids('socok.gd'), 'socok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
