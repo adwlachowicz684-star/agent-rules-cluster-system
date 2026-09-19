@@ -116,7 +116,7 @@ DOMAINS = [
     ('多人/网络', ['多人', '联机', '网络', 'rpc', '服务器', '服务端', '权威', '同步', '延迟', 'peer', 'enemy', '专用服务器', 'authority', 'headless服务器'],
      'references/godot/multiplayer.md',
      '服务器权威 · @rpc 参数 · 输入上报+序号 · 预测回滚 · 快照插值 · authority 迁移 · 专用服务器'),
-    ('游戏系统', ['对话', '任务', '库存', '背包', '物品', '对话树', 'quest', 'inventory', 'dialogue', '支线', '奖励'],
+    ('游戏系统', ['对话', '任务', '库存', '背包', '物品', 'inventory', 'dialogue', '支线', '奖励', '对话基础', '任务基础'],
      'references/godot/game-systems.md',
      '命令解释器白名单 · 对话图+Runner · 任务定义/进度分离 · 库存四层 · 奖励幂等'),
     ('高级主题', ['地牢', '噪声', 'plugin', '导入管线', '资源导入', '波前'],
@@ -236,7 +236,7 @@ DOMAINS = [
     ('回放/录像', ['回放', 'replay', 'demo录制', '确定性', 'determinism', '固定步长', 'fixed timestep', '幽灵车', 'ghost', 'moviemaker', 'write-movie', '精彩回放', '复现', '回放系统', '确定性重放', '录像功能'],
      'references/godot/replay.md',
      'Godot物理官方不保证确定性 · 录的是每tick动作状态非按键流 · MovieMaker是离线逐帧非实时录屏'),
-    ('关卡设计', ['关卡设计', 'level design', '白盒', 'blockout', '关卡编辑', '场景组装', 'csg', '关卡结构', '检查点', '复活点', '关卡流程', '心流曲线', '关卡卡表'],
+    ('关卡设计', ['关卡设计', 'level design', '白盒', 'blockout', '关卡编辑', '场景组装', 'csg', '关卡结构', '复活点', '关卡流程', '心流曲线', '关卡卡表', '关卡检查点'],
      'references/godot/level-design.md',
      '白盒直接上美术更贵 · CSG官方定位是原型非资产 · tscn是文本≠可安全合并 · 关卡不硬编码逻辑 · 跳关入口决定迭代速度'),
     ('云存档/跨端', ['云存档', '云同步', '跨端进度', '跨平台存档', 'cloud save', 'steam cloud', '存档冲突', 'icloud', '进度同步', '多设备存档', '存档槽'],
@@ -287,6 +287,12 @@ DOMAINS = [
     ('多人社交', ['大厅', 'lobby', '房间系统', 'matchmaking', '匹配', '好友', '组队', '聊天', '公会', '邮件系统', '公告', '举报', '敏感词', '审核ugc', '房主迁移', 'host migration'],
      'references/godot/social.md',
      'Godot 不内置任何社交服务 · ENet 只是 UDP 传输层不是 P2P 平台 · 房主是临时协调者要能迁移 · 聊天必须服务器过滤并留存 · 举报要存证据快照 · 分控制面与数据面'),
+    ('生存/角色状态', ['生命值', '血量', '耐力', 'stamina', '饥饿', 'hunger', '体温', '负重', '死亡', '重生', '复活', '存档点', '检查点', 'checkpoint', '属性系统', '资源再生', '体力恢复', 'survival'],
+     'references/godot/survival.md',
+     '引擎没有 HealthComponent 要自己定义 · 数值四层必须分开且存输入不存计算结果 · 死亡是四阶段状态机不是 bool · 重生要清 Tween/Timer/信号/飞行投射物 · 检查点只覆盖重生事实不覆盖手动存档 · 死亡播放期间禁止保存'),
+    ('叙事/进程', ['叙事', '任务链', '任务系统', '对话树', '好感度', '分支', '多结局', '结局', '章节', '关卡选择', '周目', '新游戏+', '动态难度', '剧情flag', 'dialogue tree', 'story', '任务链设计'],
+     'references/godot/narrative.md',
+     'flag 必须集中在 StoryState 否则后期无法重构 · 三段式命名防撞车 · 结局要判定表不是 if elif · 优先级显式配置且检查可达性 · 隐形前置要可查询否则卡关 · 周目继承策略各不同'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -599,6 +605,24 @@ def cmd_self_test():
     import os
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for fn in ('movement-advanced.md', 'social.md'):
+        chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
+
+    # 生存 / 叙事 不被旧域抢走，且基础域仍可达
+    for need, want in (('生命值', '生存/角色状态'), ('耐力', '生存/角色状态'),
+                       ('死亡重生', '生存/角色状态'), ('检查点', '生存/角色状态'),
+                       ('负重', '生存/角色状态')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('任务链', '叙事/进程'), ('对话树', '叙事/进程'), ('好感度', '叙事/进程'),
+                       ('多结局', '叙事/进程'), ('周目', '叙事/进程'), ('动态难度', '叙事/进程')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('对话', '游戏系统'), ('任务', '游戏系统'), ('关卡检查点', '关卡设计')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被抢）' % (need, want))
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn in ('survival.md', 'narrative.md'):
         chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
 
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
