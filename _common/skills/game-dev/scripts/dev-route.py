@@ -269,6 +269,12 @@ DOMAINS = [
     ('环境系统', ['水面', '海洋', 'water', '浮力', '波浪', '天空', 'sky', '天气', 'weather', '昼夜', '昼夜循环', '下雨', '下雪', '风', '闪电', 'proceduralsky', 'physicalsky', '水下'],
      'references/godot/environment-systems.md',
      '无官方Water节点但apply_force能做浮力 · Gerstner采样CPU/GPU必须一致否则船漂错高度 · 天空/雾/环境光/GI联动 · Static烘焙完全锁定不能做昼夜 · 雨要跟随相机'),
+    ('UI进阶', ['ui框架', '富文本', 'richtext', 'richtextlabel', 'bbcode', '虚拟列表', '滚动容器', 'scrollcontainer', 'tooltip', '拖拽ui', '键盘导航', 'focus_neighbor', 'grab_focus', '剪贴板', 'clipboard', '输入法', 'ime', '字距', '海量列表', '列表性能', 'ui无障碍', '焦点链', '焦点导航'],
+     'references/godot/ui-advanced.md',
+     '无内置虚拟列表Tree也不虚拟化70k项1.21GiB · BBCode有注入风险要escape · 拖拽预览不能free引擎接管 · 鼠标能点≠手柄能选 · 4.7 AccessibilityServer独立成单例'),
+    ('诊断与稳定性', ['错误处理', '崩溃上报', '崩溃', 'crash', '断言', 'assert', '日志分级', '日志系统', 'logger', 'add_logger', '录像', 'movie maker', 'watchdog', '孤儿节点', '健康检查', 'sentry', '符号化', 'minidump'],
+     'references/godot/diagnostics.md',
+     'GDScript无try/catch · print崩溃时可能没刷盘用stderr · assert在release不求值 · 原生崩溃进程没机会上报 · MovieMaker不是玩家录像器'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -504,6 +510,27 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # UI进阶 / 诊断 不被旧域抢走，且既有 accessibility.md 不被抢
+    for need, want in (('富文本', 'UI进阶'), ('虚拟列表', 'UI进阶'), ('拖拽UI', 'UI进阶'),
+                       ('键盘导航', 'UI进阶'), ('剪贴板', 'UI进阶')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('错误处理', '诊断与稳定性'), ('崩溃上报', '诊断与稳定性'),
+                       ('assert', '诊断与稳定性'), ('日志分级', '诊断与稳定性')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    # 呈现层无障碍仍归 accessibility.md，不被 UI进阶 抢走
+    for need, want in (('无障碍', '无障碍/字幕'), ('字幕', '无障碍/字幕'), ('色盲', '无障碍/字幕')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（呈现层未被抢）' % (need, want))
+    for need, want in (('ui无障碍', 'UI进阶'), ('焦点导航', 'UI进阶')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（交互层）' % (need, want))
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn in ('ui-advanced.md', 'diagnostics.md', 'accessibility.md'):
+        chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
 
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
     for need, want in (('水面', '环境系统'), ('浮力', '环境系统'), ('天空', '环境系统'),

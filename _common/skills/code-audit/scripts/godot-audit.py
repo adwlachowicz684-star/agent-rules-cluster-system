@@ -451,6 +451,34 @@ EXTRA_DOMAIN_RULES = [
      "调用前用 get_blend_shape_count() 判空，用 find_blend_shape_by_name 取索引并校验 >= 0",
      r"(?:get_blend_shape_count|find_blend_shape_by_name)"),
 
+    # ---- UI 进阶 ----
+    ("GD191", "P1", "BBCode未转义", "gd", r"(?:append_text|push_paragraph|\.text\s*\+?=)[^\n]*?(?:玩家|昵称|name|nick|玩家名)",
+     "把玩家输入（昵称/聊天）直接拼进 RichTextLabel —— 内容含 [ 会破坏排版（BBCode 注入）",
+     "对用户输入调用 escape_bbcode 后再拼入；不要拼未转义的 [ ] 标记",
+     r"(?:escape_bbcode)"),
+    ("GD192", "P2", "海量条目无虚拟化", "gd", r"for\s+\w+\s+in\s+(?:range\s*\(|\w+\.size\s*\(|\w+)\s*[\s\S]{0,300}?(?:Button|Label|Panel|Control|TextureRect)\.new\s*\([\s\S]{0,200}?add_child",
+     "循环把大量条目 add_child 进容器 —— 没有内置虚拟列表，千级节点会卡死",
+     "自己写对象池化虚拟列表，只实例化可见项；Tree 也不虚拟化（70k 项约 1.21 GiB）",
+     r"(?i)(?:virtual|pool|recycle|虚拟化|对象池)"),
+    ("GD193", "P2", "UI缺焦点配置", "gd", r"(?:extends\s+Button|@onready\s+var\s+\w*button|Button)",
+     "有按钮但没有 focus_neighbor / grab_focus 配置 —— 鼠标能点但手柄选不中",
+     "设置 focus_mode 与 focus_neighbor_*，并在打开界面时显式 grab_focus()",
+     r"(?:focus_neighbor|grab_focus|focus_mode)"),
+
+    # ---- 诊断与稳定性 ----
+    ("GD194", "P1", "assert含副作用", "gd", r"assert\s*\(\s*(?:\w+\.)?\w+\s*\.\s*(?:remove|erase|free|append|push_back|pop)",
+     "assert 表达式里调用了会修改状态的方法 —— assert 在非 debug 构建中不被求值，release 里这些副作用根本不执行",
+     "assert 参数必须是无副作用表达式；需要执行的逻辑移到 assert 之前单独调用",
+     None),
+    ("GD195", "P2", "资源加载未判空", "gd", r"(?:load\s*\(|preload\s*\(|ResourceLoader\.load\s*\()",
+     "加载资源但全文没有 null 判断 —— 失败时返回 null，静默继续是最危险的反模式",
+     "加载后立即判空并走降级/占位资源分支",
+     r"(?:==\s*null|!=\s*null|if\s+not\s+\w|if\s+\w+\s*==\s*null)"),
+    ("GD196", "P2", "无错误日志钩子", "gd", r"(?:func\s+_ready\s*\(|func\s+_init\s*\()",
+     "项目没有注册自定义 Logger —— 未捕获的脚本错误无法被收集（GDScript 没有 try/catch）",
+     "在 autoload 的 _init() 里调 OS.add_logger() 实现 Logger._log_error，尽早注册",
+     r"(?:add_logger)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1713,6 +1741,56 @@ func set_face(v: float) -> void:
     $Head.set_blend_shape_value(0, v)
 '''
 
+
+# ---- UI 进阶 ----
+SELF_UI_BAD = '''extends RichTextLabel
+
+func say(nick: String, msg: String) -> void:
+    append_text("[color=red]" + nick + "[/color]: " + msg)
+
+func build_list(items: Array) -> void:
+    for it in items:
+        var b := Button.new()
+        b.text = str(it)
+        $VBox.add_child(b)
+'''
+
+SELF_UI_CLEAN = '''extends RichTextLabel
+
+func say(nick: String, msg: String) -> void:
+    append_text("[color=red]" + nick.escape_bbcode() + "[/color]: " + msg.escape_bbcode())
+
+func build_list(items: Array) -> void:
+    $VirtualList.recycle(items)
+'''
+
+# ---- 诊断 ----
+SELF_DIAG_BAD = '''extends Node
+
+func _ready() -> void:
+    var res := load("res://data/cfg.tres")
+    res.apply()
+
+func check(inv: Array, item: String) -> void:
+    assert(inv.erase(item))
+'''
+
+SELF_DIAG_CLEAN = '''extends Node
+
+class DiagLogger extends RefCounted:
+    func _log_error(_f, _fl, _l, _c, _r, _t, _s) -> void:
+        pass
+
+func _init() -> void:
+    OS.add_logger(DiagLogger.new())
+
+func _ready() -> void:
+    var res := load("res://data/cfg.tres")
+    if res == null:
+        push_error("配置加载失败，走兜底")
+        return
+    res.apply()
+'''
 SELF_CHR_CLEAN = '''extends Node3D
 
 func dye(part: MeshInstance3D, c: Color) -> void:
@@ -2089,6 +2167,8 @@ def self_test() -> int:
             'gfx.gd': SELF_GFX_BAD, 'gfxok.gd': SELF_GFX_CLEAN, 'taa.gd': SELF_TAA_BAD,
             'veh.gd': SELF_VEH_BAD, 'vehok.gd': SELF_VEH_CLEAN,
             'chr.gd': SELF_CHR_BAD, 'chrok.gd': SELF_CHR_CLEAN,
+            'ui2.gd': SELF_UI_BAD, 'ui2ok.gd': SELF_UI_CLEAN,
+            'diag.gd': SELF_DIAG_BAD, 'diagok.gd': SELF_DIAG_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2296,6 +2376,15 @@ def self_test() -> int:
             check(rid in ids('chr.gd'), 'chr.gd 命中 %s' % rid)
         for rid in ('GD185', 'GD186'):
             check(rid not in ids('chrok.gd'), 'chrok.gd 不误报 %s' % rid)
+
+        for rid in ('GD191', 'GD192'):
+            check(rid in ids('ui2.gd'), 'ui2.gd 命中 %s' % rid)
+        for rid in ('GD191', 'GD192'):
+            check(rid not in ids('ui2ok.gd'), 'ui2ok.gd 不误报 %s' % rid)
+        check('GD194' in ids('diag.gd'), 'diag.gd 命中 GD194（assert 含副作用）')
+        check('GD195' in ids('diag.gd'), 'diag.gd 命中 GD195（资源加载未判空）')
+        check('GD195' not in ids('diagok.gd'), 'diagok.gd 不误报 GD195')
+        check('GD196' not in ids('diagok.gd'), 'diagok.gd 不误报 GD196（已注册 logger）')
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
