@@ -322,6 +322,15 @@ def main():
               'code-audit/scripts/godot-audit.py',
               '../../code-audit/scripts/godot-audit.py',
               '../../code-audit/references/p-godot.md'}
+    # 按前缀放行（整目录互指，逐个登记太脆）：
+    # 开发侧 godot 文档 ↔ 审查侧反模式清单是 1:1 互指，共 79 组。
+    # 注意路径已被 _CMD_RX 规范化：它从 `game-dev/references/godot/x.md`
+    # 里截取的是 `references/godot/x.md`（正则不要求行首），
+    # 所以这里两种写法都要列，否则放行不生效。
+    _CROSS_PREFIX = ('game-dev/references/godot/',
+                     'references/godot/',           # game-dev 侧目录，本 skill 内不存在
+                     'code-audit/references/godot-antipatterns/',
+                     'code-audit: godot-antipatterns/')
     for _tf in _targets:
         if os.path.basename(_tf) == 'changelog.md':
             continue      # 同上：历史记录里的旧名是合法的
@@ -334,6 +343,11 @@ def main():
         _ctxt2 = _ctxt
         for _c in _CROSS:
             _ctxt2 = _ctxt2.replace(_c, ' ')
+        # 按前缀整目录放行：开发侧 godot 文档 ↔ 审查侧反模式清单 1:1 互指（79 组），
+        # 逐个登记太脆。注意文件名段不含 '/'，所以不会误伤
+        # references/godot-api/ 与 references/godot-antipatterns/ 的引用。
+        _ctxt2 = re.sub(r'(?:game-dev/)?references/godot/[A-Za-z0-9_.-]+\.md',
+                        ' ', _ctxt2)
         for _m in sorted(set(_CMD_RX.findall(_ctxt2))):
             if not _exists(_m, _tf):
                 add('error', 'LK002',

@@ -2,49 +2,10 @@
 
 角色移动的基础在 `character.md`。本文件覆盖碰撞检测、射线、区域触发、刚体施力、移动平台。
 
-## 1. 碰撞层：位掩码是最大的坑
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/physics.md`
 
-`collision_layer`（我是谁）和 `collision_mask`（我能撞谁）是**位掩码**，
-不是层号。第 N 层的值是 `1 << (N-1)`：
 
-| 层 | 值 | 二进制 |
-|---|---|---|
-| 第 1 层 | `1` | `0001` |
-| 第 2 层 | `2` | `0010` |
-| 第 3 层 | `4` | `0100` |
-| 第 4 层 | `8` | `1000` |
-
-⚠ **第 3 层是 4，不是 3**。写 `collision_layer = 3` 表示"同时属于第 1 和第 2 层"，
-是合法值但不是你想要的（审查 GD 里的层值混用检测）。
-
-**推荐做法**：在项目设置里给层命名（项目设置 → Layer Names → 2D Physics），
-然后用常量而不是裸数字：
-
-```gdscript
-# layers.gd —— 与项目设置里的命名一一对应
-class_name Layers
-
-const PLAYER := 1 << 0      # 第 1 层
-const ENEMY  := 1 << 1      # 第 2 层
-const WORLD  := 1 << 2      # 第 3 层（值 = 4）
-const ITEM   := 1 << 3      # 第 4 层（值 = 8）
-
-# 玩家：我是 PLAYER，能撞 WORLD / ENEMY / ITEM
-const PLAYER_MASK := WORLD | ENEMY | ITEM
-```
-
-```gdscript
-func _ready() -> void:
-    collision_layer = Layers.PLAYER
-    collision_mask = Layers.PLAYER_MASK
-```
-
-### 单向平台
-
-`CollisionShape2D.one_way_collision = true` —— 只能从上面站上去，下面能跳穿。
-配合 `one_way_collision_margin` 调容差。
-
-## 2. 射线检测
+## 1. 射线检测
 
 ### RayCast 节点（持续检测，如地面探测）
 
@@ -135,7 +96,7 @@ func explode(center: Vector2, radius: float, damage: int) -> void:
             body.take_damage(int(damage * factor))
 ```
 
-## 3. Area2D / Area3D：触发检测
+## 2. Area2D / Area3D：触发检测
 
 ```gdscript
 # pickup.gd
@@ -183,7 +144,7 @@ func get_enemies_in_range() -> Array[Node2D]:
 ⚠ 刚体（RigidBody）的 `body_entered` 需要 `contact_monitor = true`
 且 `max_contacts_reported > 0`，否则**信号永不触发**（审查 GD26）。
 
-## 4. RigidBody：施力
+## 3. RigidBody：施力
 
 ```gdscript
 @export var impulse_strength := 500.0
@@ -220,7 +181,7 @@ func _on_body_entered(_b: Node) -> void:
     sleeping = false    # 被撞时唤醒
 ```
 
-## 5. 移动平台
+## 4. 移动平台
 
 ⚠ **用 `AnimatableBody2D/3D`，不要用 `StaticBody`**。
 
@@ -250,7 +211,7 @@ func _ready() -> void:
 ⚠ AnimatableBody **仍是 StaticBody 的子类** —— 它不会被玩家推动。
 需要"可推动的箱子"用 RigidBody。
 
-## 6. 物理回调选择
+## 5. 物理回调选择
 
 | 需求 | 放哪 |
 |---|---|
@@ -261,16 +222,3 @@ func _ready() -> void:
 ⚠ 物理逻辑放 `_process` —— 低帧率时步长变化，会抖动甚至穿模（审查 GD14）。
 物理默认 60 tick，不保证每个渲染帧执行一次。
 
-## 常见漏写
-
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| 碰撞层写层号当位值 | 语义全错（第3层写3） | 人工 |
-| 改 `target_position` 未 `force_raycast_update` | 读到旧缓存 | GD23 |
-| `intersect_ray(from,to)` 位置参数 | 3.x 残留，4.x 报错/不生效 | GD24 |
-| RigidBody 连 `body_entered` 未开 `contact_monitor` | 信号永不触发 | GD26 |
-| 每帧 `apply_impulse` | 力放大 60 倍 | GD22 |
-| 移动平台用 StaticBody | 角色滑落/卡住 | 人工 |
-| AnimatableBody 未设 `sync_to_physics` | 站在上面会抖 | 人工 |
-| 物理逻辑放 `_process` | 低帧率抖动/穿模 | GD14 |
-| `intersect_shape` 未调大 `max_results` | 结果静默截断为 32 | 人工 |

@@ -200,15 +200,5 @@ python3 ../../code-audit/scripts/godot-audit.py --src=. --format=json > audit.js
 - [ ] 测试用 `--headless` 跑，退出码正确
 - [ ] release 导出后跑一遍（debug 能跑不代表 release 能跑）
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/testing.md`
 
-| 漏写 | 后果 |
-|---|---|
-| 测试没用 add_child_autofree | 测试间互相污染 |
-| CI 不用 --headless | 无显示器环境跑不了 |
-| 失败不返回非零退出码 | CI 永远绿 |
-| gdtoolkit 版本与 Godot 大版本不一致 | 规则全错 |
-| 批量关闭 lint 规则 | 真问题也被关掉 |
-| 不发存档样本进测试 | 存档格式变更时无回归网 |
-| 一上来要求 0 lint 问题 | 老项目直接卡死，最后被迫绕过 |
-| 只测 UI 不测逻辑 | 逻辑才是出 bug 的地方 |

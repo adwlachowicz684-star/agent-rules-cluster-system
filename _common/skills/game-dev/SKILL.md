@@ -8,6 +8,11 @@ description: 游戏开发技能矩阵。按「引擎 + 功能域」路由：先�
 **与 `code-audit` 是同一知识的两面**，分工见 `references/split-dev-audit.md`。
 一句话：**开发给"能抄的正确写法"，审查给"能判的错误特征"**。
 
+> ⚠ **本 skill 只写「怎么做」** —— 实现方案、选型依据、完整代码、参数含义。
+> **「不能怎么做」（反模式、常见坑、漏写清单）全部在审查侧**，
+> 见 `code-audit: references/godot-antipatterns/<同名>.md`（按功能域 1:1 对应）。
+> 本 skill 的每个功能域文档末尾只留**一行指向**，不重复写判据。
+
 ```
 第 1 步  识别引擎：project.godot → Godot；.uproject → Unreal …
 第 2 步  定位功能域：角色控制 / UI / 存档 / 动画 / 音频 / 3D / 网络
@@ -21,8 +26,10 @@ description: 游戏开发技能矩阵。按「引擎 + 功能域」路由：先�
 2. **先给选型，再给代码。** 同一个需求往往有多种实现（角色用 CharacterBody
    还是 RigidBody、计时用 Timer 节点还是 `create_timer()`），选错了后面全歪。
 3. **标注引擎版本。** Godot 4.x 与 3.x 大量不兼容，模板必须写明版本。
-4. **指出会被审查抓的点。** 末尾列「⚠ 常见漏写」，指向 `code-audit` 的规则 ID，
-   不重复写判据（见 `split-dev-audit.md`）。
+4. **不写「不能怎么做」。** 每个功能域文档末尾只留一行指向
+   `code-audit: godot-antipatterns/<同名>.md`，坑表与漏写清单都在那边。
+   开发文档里保留的 `⚠` 只用于**提示正确做法的前提**（如"这个 API 4.7 才有"），
+   不写"如果出现 X 就错了"这类判据（见 `split-dev-audit.md`）。
 
 ## 路由
 

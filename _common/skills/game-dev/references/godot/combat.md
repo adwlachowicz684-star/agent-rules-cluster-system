@@ -220,27 +220,9 @@ func _process(delta: float) -> void:
 - 延迟补偿（rewind）：服务端回滚到玩家看到的位置再判
 - 详细见 `multiplayer.md` 与 `netsync-advanced.md`
 
-## 9. 常见坑
 
-| # | 本能以为 | 实际 |
-|---|---|---|
-| 1 | 碰撞体回调里写伤害逻辑 | 加一条规则要改所有武器回调 |
-| 2 | hitbox 常开省事 | 走路也在造成伤害 |
-| 3 | 判定放 `_process` | 帧率不同手感不同，要放 `_physics_process` |
-| 4 | 改了射线 target 就能用 | 要 `force_raycast_update()` |
-| 5 | 一次攻击一个回调 | 同帧多重叠 → 要 `attack_id` 去重 |
-| 6 | 暴击和格挡都随机判 | 顺序必须写死，否则玩家无法预期 |
-| 7 | buff 数值加起来就行 | flat 与 percent 要分顺序 |
-| 8 | DoT 每帧扣血 | 帧率影响结果，要固定 tick |
-| 9 | buff 自己播特效 | 移除时容易残留，状态应只管数据 |
-| 10 | 技能写死在代码里 | Resource 数据驱动，策划可配 |
-| 11 | 动画时长用计时器对齐 | 动画一改就错，用 Call Method Track |
-| 12 | 打击感靠调大伤害数字 | 是 hitstop+特效+音效的**同步反馈** |
-| 13 | hitstop 用 await 等恢复 | `time_scale=0` 时 await 也被冻 |
-| 14 | 粒子在顿帧时也会停 | 4.7 修了这个行为，升级要重测 |
-| 15 | 连招吃键是玩家手慢 | 缺输入缓冲 |
 
-## 10. 相关文档
+## 9. 相关文档
 
 - 输入 → `input-audio.md`
 - 动画与帧事件 → `animation.md` / `animation-advanced.md`
@@ -248,3 +230,5 @@ func _process(delta: float) -> void:
 - AI 行为 → `ai-behavior.md`
 - 网络同步 → `multiplayer.md`
 - 性能（大量单位）→ `performance.md`
+
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/combat.md`

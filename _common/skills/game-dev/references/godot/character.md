@@ -222,18 +222,8 @@ func _process(_delta: float) -> void:
 
 ⚠ 每帧调 `play()` 会不断重启动画，表现为"第一帧定住"。
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/character.md`
 
-写完对照看一遍，这些是审查会抓的：
-
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| `move_and_slide(velocity, Vector2.UP)` | 4.x 无参，带参是 3.x 残留 | GD09 |
-| `velocity *= delta` | 二次积分，移动速度不对 | GD21 |
-| 物理逻辑放 `_process` | 低帧率时步长变化，抖动/穿模 | GD14 |
-| 没设 `up_direction` | `is_on_floor()` 永远 false，跳不起来 | 人工 |
-| 没加 `CollisionShape2D` | 不碰任何东西，直接穿墙 | 人工 |
-| 每帧 `_anim.play()` | 动画卡在第一帧 | GD54 |
 
 ## 从 3.x 迁移
 

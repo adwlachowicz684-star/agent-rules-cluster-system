@@ -645,6 +645,29 @@ def cmd_self_test():
     for fn in ('puzzle.md', 'timescale.md'):
         chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
 
+    # 镜像一致性：每个功能域的「怎么做」在开发侧，「不能怎么做」在审查侧
+    # 两边必须 1:1 同名，否则会出现"有做法没约束"或"有约束没做法"的孤儿。
+    import os
+    _skill = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _dev = os.path.join(_skill, 'references', 'godot')
+    _audit = os.path.join(os.path.dirname(_skill), 'code-audit',
+                          'references', 'godot-antipatterns')
+    chk(os.path.isdir(_audit), '审查侧 godot-antipatterns/ 目录存在')
+    if os.path.isdir(_audit):
+        _devset = {f for f in os.listdir(_dev) if f.endswith('.md')}
+        _audset = {f for f in os.listdir(_audit) if f.endswith('.md')}
+        # 允许审查侧少几份（不是每个域都有坑表），但不能有审查侧独有
+        _orphan = sorted(_audset - _devset)
+        chk(not _orphan, '审查侧无孤儿（有约束没做法）: %s' % _orphan[:3])
+        _covered = len(_audset & _devset)
+        chk(_covered >= 70, '镜像覆盖 ≥70 个域（当前 %d）' % _covered)
+        # 开发侧每个域都要指向自己的反模式清单
+        _missing = [f for f in sorted(_devset & _audset)
+                    if 'godot-antipatterns/%s' % f not in open(
+                        os.path.join(_dev, f), encoding='utf-8').read()]
+        chk(not _missing, '开发侧各域都有指向（缺 %d: %s）'
+            % (len(_missing), _missing[:3]))
+
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
     for need, want in (('水面', '环境系统'), ('浮力', '环境系统'), ('天空', '环境系统'),
                        ('昼夜循环', '环境系统'), ('天气', '环境系统')):

@@ -189,26 +189,10 @@ func can_accept(capability: StringName) -> bool:
 ⚠ 用 `anchor_top/anchor_bottom` + `offset_*`，**不要把 position 写死** ——
 分辨率变化时会自动响应。
 
-## 8. 常见坑
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/camera-cutscene.md`
 
-| # | 本能以为 | 实际 |
-|---|---|---|
-| 1 | Camera2D 兼做跟随和边界 | 要分层：Rig 跟随，Camera2D 管 limit |
-| 2 | `lerp(a,b,0.1)` 是标准平滑 | **帧率相关**，要用 `1-exp(-k*dt)` |
-| 3 | 死区就是 drag_margin | 内置是居中跟随，专业死区要固定区域 |
-| 4 | 屏震=每帧随机偏移 | 那是抖动，要用 trauma+平方衰减+噪声 |
-| 5 | 缩放改了不用管 limit | 可视区域变了，limit 要重算 |
-| 6 | SpringArm 自动避让角色 | 要**显式排除角色碰撞层** |
-| 7 | 过场用 AnimationPlayer 最专业 | 简单过场用 Tween 更轻 |
-| 8 | 禁用玩家 = `can_move=false` | 会漏镜头/菜单/攻击，要用权限栈 |
-| 9 | 过场结束恢复为 true | 异常路径会永久锁死，要从**快照**恢复 |
-| 10 | 跳过=结束动画 | 要把状态**推进到终态** |
-| 11 | 黑边用相机缩放做 | 是 UI，用 CanvasLayer+ColorRect |
-| 12 | 黑边位置写死 | 分辨率变化会错位，用 anchor+offset |
-| 13 | 动画播完属性自动恢复 | AnimationPlayer 不负责恢复 |
-| 14 | 过场中途退出无所谓 | 要能续播或回到一致状态 |
 
-## 9. 相关文档
+## 8. 相关文档
 
 - 打击感（屏震/顿帧）→ `combat.md`
 - 2D 渲染与特效 → `2d-rendering.md`

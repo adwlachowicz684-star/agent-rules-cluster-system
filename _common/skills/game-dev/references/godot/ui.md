@@ -260,14 +260,5 @@ display/window/size/window_height = 720
 ⚠ 用 `expand` 时，UI 元素必须靠**锚点**定位，不能写死像素坐标 ——
 否则宽屏下 HUD 会跑到屏幕外。
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/ui.md`
 
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| 每帧赋值 `Label.text` | 每次触发重排，大文本明显卡 | GD13 |
-| 重建列表只 `remove_child` 不 `queue_free` | 节点累积 | GD01 |
-| UI 不用 CanvasLayer | 相机移动时 HUD 跟着跑 | 人工 |
-| `await` 后不判 `is_instance_valid` | 节点已释放，访问报错 | GD75 |
-| 菜单没设默认焦点 | 手柄玩家无法操作 | 人工 |
-| 长文本用 `text +=` 累加 | 每帧全量重建，卡 | 人工 |
-| 硬编码像素坐标 | 换分辨率 UI 错位 | 人工 |
