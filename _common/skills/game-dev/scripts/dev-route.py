@@ -98,7 +98,7 @@ DOMAINS = [
     ('本地化技术', ['本地化', '多语言', '翻译', '国际化', 'i18n', 'l10n', 'tr(', 'trn', 'locale', '语言', '切换语言', '语言包', '语种', '字体回退', '缺字', '方块', '豆腐块', 'rtl'],
      'references/godot/i18n.md',
      'tr()/tr_n() · CSV 工作流 · 语言切换与刷新 · 字体回退 · RTL（流程与术语表见独立 skill: localization）'),
-    ('存档安全/防作弊', ['加密', '存档加密', '防作弊', '反作弊', '篡改', '签名', 'hmac', '抄档', '修改器', '作弊', '内存保护', '密钥', '时间作弊', '倍速', '排行榜', '服务端校验', 'pck加密', '改存档', '防改', '存档安全', '刷奖励', '每日奖励', '系统时间', '改时间', '加固', '反外挂'],
+    ('存档安全/防作弊', ['加密', '存档加密', '防作弊', '反作弊', '篡改', '签名', 'hmac', '抄档', '修改器', '作弊', '内存保护', '密钥', '时间作弊', '倍速', '服务端校验', 'pck加密', '改存档', '防改', '存档安全', '刷奖励', '每日奖励', '系统时间', '改时间', '加固', '反外挂'],
      'references/godot/security.md',
      '客户端加密的边界 · AES+HMAC 存档 · 每文件随机 IV · 内存值混淆 · 检测后静默处理'),
     ('性能/优化', ['性能', '卡顿', '掉帧', '优化', 'profiler', 'drawcall', '合批', '多线程', '线程池', 'workerthreadpool', '剔除', '显存', '纹理压缩', '性能预算', '帧率'],
@@ -224,7 +224,7 @@ DOMAINS = [
     ('VFX/游戏感', ['vfx', '特效', '粒子', 'gpuparticles', 'cpuparticles', '打击感', '游戏感', 'juice', '命中反馈', '屏幕震动', '震屏', 'trauma', '顿帧', 'hitstop', '拖尾', '残影', '白闪', '伤害数字', '打击感', '顿帧', 'hitstop实现', '命中感'],
      'references/godot/vfx-feel.md',
      'GPU粒子不是默认答案(Web/兼容渲染器选CPU) · 震动要trauma+噪声不是随机偏移 · time_scale=0时定时器也停需ignore_time_scale'),
-    ('经济/长线系统', ['经济系统', '货币', '钱包', '掉落', '掉落表', '保底', 'pity', '抽卡', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证', '成就系统'],
+    ('经济/长线系统', ['经济系统', '货币', '钱包', '掉落', '掉落表', '保底', 'pity', '抽卡', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证'],
      'references/godot/economy.md',
      '货币不能只一个int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用UTC'),
     ('输入重绑定', ['输入重绑定', '按键重映射', '改键', '键位', '改按键', 'remap', 'inputmap', '重绑定', '手柄振动', '振动', 'haptic', '触觉', 'joy vibration', '按键冲突', '捕获按键', '改键', '自定义按键', '键位设置'],
@@ -251,6 +251,12 @@ DOMAINS = [
     ('存档迁移', ['存档迁移', 'save migration', '存档版本', 'schema version', '旧存档', '存档兼容', '版本迁移', '字段兼容', '降级读取', '存档损坏'],
      'references/godot/save-migration.md',
      '格式版本≠游戏版本≠构建号 · VERSION要第一天写 · 迁移前必须备份 · 后要重算HMAC · 降级get_value静默返回默认值'),
+    ('热更新/DLC', ['热更新', '热更', '资源热更', 'hot update', '资源分包', 'dlc', '增量补丁', '补丁包', '强制更新', '灰度', 'ab包', '分包'],
+     'references/godot/hotupdate.md',
+     '资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS审核2.5.2禁止动态代码 · 配置热更也要版本校验 · DLC未购买要占位'),
+    ('平台服务', ['steam', '成就', 'achievement', '排行榜', 'leaderboard', '内购', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜'],
+     'references/godot/platform-services.md',
+     'Godot无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带steam_appid.txt · 无Steam客户端要降级不崩 · token秘密留服务端'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -482,6 +488,18 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 热更新 / 平台服务 不被旧域抢走
+    for need, want in (('热更新', '热更新/DLC'), ('DLC', '热更新/DLC'), ('资源分包', '热更新/DLC')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('steam成就', '平台服务'), ('steam排行榜', '平台服务'), ('内购', '平台服务')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('成就系统', '引导/成就'), ('排行榜', '引导/成就'), ('作弊', '存档安全/防作弊'),
+                       ('玩家mod', '玩家Mod'), ('云存档', '云存档/跨端')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（邻近域未被抢）' % (need, want))
 
     # 玩家Mod / 存档迁移 不被旧域抢走
     for need, want in (('玩家mod', '玩家Mod'), ('mod加载', '玩家Mod'), ('创意工坊', '玩家Mod')):
