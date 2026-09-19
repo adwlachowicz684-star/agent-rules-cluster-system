@@ -62,6 +62,8 @@
 | **关卡设计** | `level-design.md` | 白盒直接上美术更贵 · CSG 官方定位是原型非资产 · tscn 是文本≠可安全合并 · 关卡不硬编码逻辑 · 跳关入口决定迭代速度 |
 | **云存档/跨端** | `cloud-save.md` | 核心是冲突不是传输 · 不能用文件修改时间判冲突 · Godot 无内置云存档要平台 SDK · iOS Caches 不备份 · HTML5 用 IndexedDB |
 | **调试工具/GM** | `devtools.md` | 自定义参数要放 `--` 后用 get_cmdline_user_args · Performance 部分监控 release 恒为 0 · 作弊要视觉标识+审计日志 · 无内置 DebugDraw3D |
+| **玩家 Mod** | `modding.md` | Mod≠编辑器插件 · 后来加载的覆盖先加载的 · replace_files=false 是不覆盖非沙箱 · Mod 脚本无法沙箱隔离 · 手动解压要防 zip-slip |
+| **存档迁移** | `save-migration.md` | 格式版本≠游戏版本≠构建号 · VERSION 要第一天写 · 迁移前必须备份 · 后要重算 HMAC · 降级 get_value 静默返回默认值 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
