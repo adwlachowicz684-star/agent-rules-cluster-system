@@ -86,7 +86,7 @@ DOMAINS = [
     ('AI/寻路', ['ai', '敌人', '寻路', '巡逻', '追击', '状态机', '避障', 'navigation', 'pathfinding', 'astar', '视线', '感知', '群体'],
      'references/godot/ai-navigation.md',
      'NavigationAgent2D 模板 · 状态机巡逻追击攻击 · AStarGrid2D · 视线检测 · RVO 避障'),
-    ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain', 'tile', '地形', '关卡编辑'],
+    ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain', 'tile', '地形'],
      'references/godot/tilemap.md',
      '4.3+ TileMapLayer vs 4.2 TileMap · 坐标转换 · 地形拼接 · 运行时生成'),
     ('2D渲染/特效', ['视差', 'parallax', 'ysort', '排序', '光照', '着色器', '屏幕抖动', 'hitstop', '溶解', '描边', '转场', '扭曲', '闪白', '2d渲染', '2D渲染', 'y sort', 'ysort'],
@@ -236,6 +236,15 @@ DOMAINS = [
     ('回放/录像', ['回放', '录像', 'replay', 'demo录制', '确定性', 'determinism', '固定步长', 'fixed timestep', '幽灵车', 'ghost', 'moviemaker', 'write-movie', '精彩回放', '复现', '回放系统', '确定性重放', '录像功能'],
      'references/godot/replay.md',
      'Godot物理官方不保证确定性 · 录的是每tick动作状态非按键流 · MovieMaker是离线逐帧非实时录屏'),
+    ('关卡设计', ['关卡设计', 'level design', '白盒', 'blockout', '关卡编辑', '场景组装', 'csg', '关卡结构', '检查点', '复活点', '关卡流程', '心流曲线', '关卡卡表'],
+     'references/godot/level-design.md',
+     '白盒直接上美术更贵 · CSG官方定位是原型非资产 · tscn是文本≠可安全合并 · 关卡不硬编码逻辑 · 跳关入口决定迭代速度'),
+    ('云存档/跨端', ['云存档', '云同步', '跨端进度', '跨平台存档', 'cloud save', 'steam cloud', '存档冲突', 'icloud', '进度同步', '多设备存档', '存档槽'],
+     'references/godot/cloud-save.md',
+     '核心是冲突不是传输 · 不能用文件修改时间判冲突 · Godot无内置云存档要平台SDK · iOS Caches不备份 · HTML5用IndexedDB'),
+    ('调试工具/GM', ['gm命令', '作弊码', '调试面板', '调试工具', 'devtools', '跳关', '无敌', '控制台', 'console', 'debug draw', '启动参数', '命令行参数', 'performance', '刷怪'],
+     'references/godot/devtools.md',
+     '自定义参数要放--后用get_cmdline_user_args · Performance部分监控release恒为0且有1秒延迟 · 作弊要视觉标识+审计日志 · 无内置DebugDraw3D'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -352,9 +361,19 @@ def match_domains(need):
         if hit:
             # 同一域内去掉被更长命中词包含的短词，避免重复计分
             uniq = [k for k in hit if not any(k != o and k in o for o in hit)]
-            out.append((name, hit, entry, desc, sum(len(k) for k in uniq)))
-    out.sort(key=lambda x: -x[4])
-    return [(n, h, e, d) for n, h, e, d, _ in out]
+            # 域名重合度加分：只认「该域最长的命中词」是否出现在域名里。
+            # 为什么需要：多个域共用同一个词时（"程序化生成" 同时属于
+            # 「高级主题」和「程序化生成」），纯长度加权得分相同，
+            # 结果按列表顺序让通用域排前面 —— 输出正常，只是指错文档。
+            # 为什么只给 1 分（平局打破器而非加权）：实测给 100 时，
+            # "authority迁移" 会让「版本/迁移」(2+100) 压过「多人/网络」(9)，
+            # 可该需求的主词是 authority 不是迁移。加分只能用于
+            # 长度得分完全相同的情况，不能逆转长度优势。
+            # 为什么只认最长词：命中的短词可能是多义词的副作用。
+            bonus = 1 if max(uniq, key=len) in name else 0
+            out.append((name, hit, entry, desc, sum(len(k) for k in uniq), bonus))
+    out.sort(key=lambda x: (-x[4], -x[5]))
+    return [(n, h, e, d) for n, h, e, d, _, _ in out]
 
 
 def cmd_self_test():
@@ -458,6 +477,22 @@ def cmd_self_test():
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
 
+    # 关卡设计 / 云存档 / 调试工具 不被旧域抢走
+    for need, want in (('关卡设计', '关卡设计'), ('白盒', '关卡设计'), ('关卡编辑', '关卡设计')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('云存档', '云存档/跨端'), ('存档冲突', '云存档/跨端'),
+                       ('跨端进度', '云存档/跨端')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('GM命令', '调试工具/GM'), ('调试面板', '调试工具/GM'),
+                       ('作弊码', '调试工具/GM')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('存档', '存档/设置'), ('调试', '调试/排错'), ('测试', '测试/CI')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被新域抢走）' % (need, want))
+
     # 输入重绑定 / 无障碍 / 回放 不被旧域抢走
     for need, want in (('按键重映射', '输入重绑定'), ('改键', '输入重绑定'),
                        ('手柄振动', '输入重绑定')):
@@ -552,7 +587,7 @@ def cmd_self_test():
     d = match_domains('第三方插件')
     chk(bool(d) and d[0][0] == '插件生态', '"第三方插件" → 插件生态')
     d = match_domains('程序化生成')
-    chk(bool(d) and d[0][0] == '高级主题', '"程序化生成" → 高级主题（未被新域抢走）')
+    chk(bool(d) and d[0][0] == '程序化生成', '"程序化生成" → 程序化生成（专业域压过概览域「高级主题」）')
 
     # shader 语言类问题归着色器域，不被 3D/2D 域的裸 shader 抢走
     d = match_domains('shader怎么写')
@@ -565,9 +600,9 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == '2D渲染/特效', '"视差滚动" → 2D渲染/特效')
 
 
-    # 程序化生成归高级主题，不被 TileMap 抢走
+    # 程序化生成归专业域，不被概览域「高级主题」或 TileMap 抢走
     d = match_domains('程序化生成地图')
-    chk(bool(d) and d[0][0] == '高级主题', '"程序化生成地图" → 高级主题')
+    chk(bool(d) and d[0][0] == '程序化生成', '"程序化生成地图" → 程序化生成')
 
     # 性能优化不被对象池抢走
     d = match_domains('性能优化')
