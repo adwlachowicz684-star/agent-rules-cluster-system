@@ -76,6 +76,7 @@ _common/skills/code-audit/
 │   ├── 文档一致性       doc-deliverable（交付物三件套）/ doc-promise（文档 vs 代码）
 │   ├── 实验设施         mutate（变异测试）/ dep-scan / project-rules
 │   └── 基础设施         _flagguard（未知参数守卫）/ exitcode（退出码码表）
+├── 审查产物/             自审档案（保留：记录本仓库的重要失效事件）
 └── assets/               报告模板、检查清单、变更溯源
 
 self-evolving_skill_mechanism/skills/
@@ -83,10 +84,29 @@ self-evolving_skill_mechanism/skills/
 ├── config.yaml           大类注册表 + 体积上限 + 泛词表
 ├── scripts/              domain / structure / index / consolidate / lint
 └── reference/            分层 / 路由 / 加载 / 整合 / 结构演进协议
-
-工具审查/ 游戏开发脚本审查/   已迁入 code-audit，各留一份 MIGRATED.md 说明去向；
-                              审查产物作为项目资料原样保留
 ```
+
+> **已删除**：`工具审查/` 与 `游戏开发脚本审查/`（45 个文件）。
+> skill 本体早在 2026-09-14 迁入 `code-audit`，两个目录此后只剩
+> `MIGRATED.md` 与审查产物。产物里的通用机制已反哺完毕（见下），目录随之删除。
+
+## 从审查产物反哺了什么
+
+两个废弃目录下的 7 份报告是 code-audit 判据的**主要来源**（A-24 / T-15 /
+K-36~40 / PY-14 / C-15 / AR-01~05 等数十条）。判据早已入库，
+但这些报告里还有一批**不针对某个项目、而是关于"怎么审"**的教训，
+此前只留在产物里。本轮把它们反哺进技能本体：
+
+| 反哺内容 | 来源产物 | 落点 |
+|---|---|---|
+| **检查长期红灯 = 检查已经死了** | 自审报告 P0-1（CI 持续红 → 五个语言包自检从未跑） | 引擎 `self-verification.md` 第十三条 |
+| **判据看语义方向，不看表面特征** | 全量扫描 Q04（`has()` 两处语义相反）+ Godot 调研（`CONNECT_ONE_SHOT` 不该要求 disconnect） | 引擎 第十四条 |
+| **证据三级标注**【实测】/【代码事实】/【推演】 | push-api 三轮报告（二态会低估"读码即可确证"的可信度） | `common-reporting.md` |
+| **报告必须声明审查对象的版本** | push-api README（546 行→2761 行后行号全对不上，整轮复验失效） | `common-reporting.md` |
+| **静态命中 ≠ 已确认缺陷**（三级输出） | Godot 调研（"按确定性缺陷/高可疑模式/运行时验证三级输出"） | `common-reporting.md` |
+
+判据级的具体发现（A-24 三态布尔化、A-16 多处状态只修一处等于没修等）
+此前已随各轮审查入 `items.json`，不在本轮范围。
 
 ## 几条硬约束
 

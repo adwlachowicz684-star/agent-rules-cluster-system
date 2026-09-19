@@ -46,7 +46,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
 | `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
 | `reference/knowledge-landing.md` | **知识点落地协议**（不写正确的废话） | 写/改技能时 |
-| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 / 加豁免后 / 命中数突降为 0 |
+| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 / 加豁免后 / 命中数突降为 0 / **检查长期失败时** |
 | `reference/anti-patterns.md` | 反模式与官方规范 | 写完技能后对照检查 |
 | `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
 | `reference/env.md` | 环境分化（版本/系统差异） | 同一技能有多个版本写法时 |
