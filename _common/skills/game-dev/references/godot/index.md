@@ -70,6 +70,8 @@
 | **载具/物理进阶** | `vehicle-physics.md` | VehicleBody 是街机求解器非高保真 · 翻车多是质心非碰撞形状 · SoftBody3D 官方存在建议 Jolt · 摩擦默认取最低 · 卡帧物理最多追 8 步 |
 | **角色自定义** | `character-customization.md` | 捏脸/换装/染色三套生命周期别混设计 · 无官方合并网格 API · 合并与 BlendShape 不能混用 · 合并网格无自动 LOD · 4.6 起 skeleton 默认路径变 |
 | **环境系统** | `environment-systems.md` | 无官方 Water 节点但 apply_force 能做浮力 · Gerstner 采样 CPU/GPU 必须一致否则船漂错高度 · 天空/雾/环境光/GI 联动 · Static 烘焙完全锁定不能做昼夜 · 雨要跟随相机 |
+| **UI 进阶** | `ui-advanced.md` | 无内置虚拟列表且 Tree 也不虚拟化（70k 项 1.21 GiB） · BBCode 有注入风险要 escape · 拖拽预览不能自己 free · 鼠标能点≠手柄能选 · 4.7 AccessibilityServer 独立成单例 |
+| **诊断与稳定性** | `diagnostics.md` | GDScript 无 try/catch · print 崩溃时可能没刷盘要用 stderr · assert 在 release 不求值且副作用会丢 · 原生崩溃进程没机会上报 · MovieMaker 不是玩家录像器 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
