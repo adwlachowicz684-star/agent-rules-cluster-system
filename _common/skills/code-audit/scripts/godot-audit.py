@@ -325,6 +325,36 @@ EXTRA_DOMAIN_RULES = [
      "设 pole_node（构建关节共面）与 pole_direction（控制扭转方向）",
      r"(?<!\w)pole_"),
 
+    # ---- 配表 / 数据驱动 ----
+    ("GD151", "P1", "共享Resource", "gd", r"@export\s+var\s+\w+\s*:\s*Resource\b|@export\s+var\s+\w+\s*:\s*Array\s*\[",
+     "@export 了 Resource 或 Resource 数组 —— 是共享引用，改一个实例会全改（Godot 4 的 #1 新手 bug）",
+     "运行时实例用 duplicate_deep(Resource.DEEP_DUPLICATE_INTERNAL)，或设 resource_local_to_scene",
+     r"duplicate_deep|resource_local_to_scene|duplicate\s*\(\s*true"),
+    ("GD152", "P2", "配表无校验", "gd", r"(?i)(?:load_csv|parse_csv|read_csv|csv_to_|import_table)",
+     "解析 CSV 配表但全文没有任何校验 —— 缺列/类型错/ID 重复会静默进包，问题在运行时以无关形式出现",
+     "导入期校验主键唯一、类型、范围、外键悬空，失败要 push_error 并阻止导入",
+     r"(?i)(?:validate|校验|push_error|assert)"),
+
+    # ---- VFX / 游戏感 ----
+    ("GD153", "P0", "顿帧无法恢复", "gd", r"Engine\.time_scale\s*=\s*0",
+     "把 time_scale 设为 0 但恢复用的定时器没有 ignore_time_scale —— 定时器也停摆，游戏永久卡死",
+     "用 create_timer(t, false, false, true) 或显式 ignore_time_scale=true 来恢复（位置参数与具名参数都要认）",
+     r"ignore_time_scale|create_timer\s*\([^)]*,[^)]*,[^)]*,\s*true"),
+    ("GD154", "P2", "震动写死偏移", "gd", r"(?i)(?:camera|offset)[\s\S]{0,120}?randf_range\s*\(",
+     "把随机偏移直接写进相机 offset —— 多源命中互相覆盖、频谱是白噪声（像筛子不是被撞）、强度不衰减",
+     "改用 trauma 模型：trauma 只衰减可叠加 cap 1，用 trauma^exponent 驱动采样噪声",
+     r"(?<!\w)trauma"),
+
+    # ---- 经济 / 长线 ----
+    ("GD155", "P1", "货币用浮点", "gd", r"(?i)(?:var\s+\w*(?:gold|coin|money|currency|price|cost)\w*\s*(?::\s*float\s*)?=\s*\d+\.\d)",
+     "货币/价格用了浮点字面量 —— 精度误差会累积，对不上账",
+     "货币与计数一律用 int；加成计算才用浮点，两者在明确转换点相接",
+     r"(?<!\w)int\s*\("),
+    ("GD156", "P2", "掉落无保底持久化", "gd", r"(?i)(?:randi_weighted|rand_weighted|pick_random|drop_table)",
+     "做了权重掉落但全文没有保底计数 —— 连续未中次数必须随存档持久化且与卡池绑定",
+     "保底计数存进存档，按卡池分别计（不能全局共用一个计数器）",
+     r"(?i)(?:pity|保底|dry_count|since_last)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1313,6 +1343,82 @@ func _ready() -> void:
     ik.pole_direction = Vector3(0, 0, 1)
 '''
 
+# ---- 配表 ----
+SELF_DT_BAD = '''extends Node
+
+@export var skills: Array[Resource]
+
+func load_csv() -> void:
+    var f := FileAccess.open("res://data.csv", FileAccess.READ)
+    while not f.eof_reached():
+        var row := f.get_csv_line()
+        _table[row[0]] = row
+'''
+
+SELF_DT_CLEAN = '''extends Node
+
+func load_csv() -> void:
+    var seen := {}
+    for row in _rows:
+        var id := String(row[0])
+        if seen.has(id):
+            push_error("duplicate id %s" % id)
+            continue
+        seen[id] = true
+        if not _validate(row):
+            push_error("invalid row %s" % id)
+            continue
+        _table[id] = _make(row).duplicate_deep(Resource.DEEP_DUPLICATE_INTERNAL)
+'''
+
+# ---- VFX ----
+SELF_VFX_BAD = '''extends Camera2D
+
+func hit() -> void:
+    offset = Vector2(randf_range(-10, 10), randf_range(-10, 10))
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08).timeout
+    Engine.time_scale = 1.0
+'''
+
+SELF_VFX_CLEAN = '''extends Camera2D
+
+var trauma := 0.0
+
+func hit() -> void:
+    trauma = minf(trauma + 0.3, 1.0)
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08, false, false, true).timeout
+    Engine.time_scale = 1.0
+
+func _process(delta: float) -> void:
+    trauma = maxf(trauma - delta, 0.0)
+'''
+
+# ---- 经济 ----
+SELF_ECO_BAD = '''extends Node
+
+var gold: float = 100.0
+var price := 9.9
+
+func roll_drop(table: Array) -> int:
+    return table.pick_random()
+'''
+
+SELF_ECO_CLEAN = '''extends Node
+
+var gold: int = 100
+var pity_count: int = 0
+
+func roll_drop(table: Array) -> int:
+    var idx := _weighted_index(table)
+    if idx < 0:
+        pity_count += 1
+    else:
+        pity_count = 0
+    return int(idx)
+'''
+
 SELF_V47_BAD = '''extends Node3D
 
 @onready var look: LookAtModifier3D = $LookAt
@@ -1663,6 +1769,9 @@ def self_test() -> int:
             'pcg.gd': SELF_PCG_BAD, 'pcgok.gd': SELF_PCG_CLEAN,
             'perc.gd': SELF_PERC_BAD, 'percok.gd': SELF_PERC_CLEAN,
             'bone.gd': SELF_BONE_BAD, 'boneok.gd': SELF_BONE_CLEAN,
+            'dt.gd': SELF_DT_BAD, 'dtok.gd': SELF_DT_CLEAN,
+            'vfx.gd': SELF_VFX_BAD, 'vfxok.gd': SELF_VFX_CLEAN,
+            'eco.gd': SELF_ECO_BAD, 'ecook.gd': SELF_ECO_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -1825,6 +1934,19 @@ def self_test() -> int:
             check(rid not in ids('percok.gd'), 'percok.gd 不误报 %s' % rid)
         check('GD146' in ids('bone.gd'), 'bone.gd 命中 GD146（不存在的 IK 节点）')
         check('GD146' not in ids('boneok.gd'), 'boneok.gd 不误报 GD146')
+
+        for rid in ('GD151', 'GD152'):
+            check(rid in ids('dt.gd'), 'dt.gd 命中 %s' % rid)
+        for rid in ('GD151', 'GD152'):
+            check(rid not in ids('dtok.gd'), 'dtok.gd 不误报 %s' % rid)
+        for rid in ('GD153', 'GD154'):
+            check(rid in ids('vfx.gd'), 'vfx.gd 命中 %s' % rid)
+        for rid in ('GD153', 'GD154'):
+            check(rid not in ids('vfxok.gd'), 'vfxok.gd 不误报 %s' % rid)
+        for rid in ('GD155', 'GD156'):
+            check(rid in ids('eco.gd'), 'eco.gd 命中 %s' % rid)
+        for rid in ('GD155', 'GD156'):
+            check(rid not in ids('ecook.gd'), 'ecook.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---

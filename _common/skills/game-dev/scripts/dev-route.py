@@ -89,7 +89,7 @@ DOMAINS = [
     ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain', 'tile', '地形', '关卡编辑'],
      'references/godot/tilemap.md',
      '4.3+ TileMapLayer vs 4.2 TileMap · 坐标转换 · 地形拼接 · 运行时生成'),
-    ('2D渲染/特效', ['视差', 'parallax', 'ysort', '排序', '光照', '着色器', '屏幕抖动', 'hitstop', '打击感', '溶解', '描边', '转场', '扭曲', '闪白'],
+    ('2D渲染/特效', ['视差', 'parallax', 'ysort', '排序', '光照', '着色器', '屏幕抖动', 'hitstop', '溶解', '描边', '转场', '扭曲', '闪白', '2d渲染', '2D渲染', 'y sort', 'ysort'],
      'references/godot/2d-rendering.md',
      'Y-Sort 结构 · Parallax2D · canvas_item shader 配方 · trauma 抖动 · hitstop'),
     ('移动端/触控', ['移动端', '手机', '平板', '触屏', '触控', '虚拟摇杆', '手势', 'android', '多点触控', '摇杆', 'joystick', '捏合', '安全区', '刘海', '返回键', '竖屏', '横屏', '权限', '软键盘', '息屏', '虚拟按键', '触摸'],
@@ -170,7 +170,7 @@ DOMAINS = [
     ('GDExtension/插件', ['c++', 'cpp', 'abi', '绑定', 'native', '热重载', '自定义导入器', '自定义检视器插件', 'rust', 'gdext'],
      'references/godot/gdext-plugin.md',
      '先 profile 再换语言 · 版本+浮点精度是 ABI · 4.0→4.1 硬断裂 · 热重载仅编辑器 · @tool 必备 + _exit_tree 对称注销'),
-    ('战斗系统', ['战斗', '伤害', '命中判定', 'hitbox', 'hurtbox', '帧数据', '打击感', '顿帧', 'hitstop', '暴击', '格挡', '闪避', 'buff', 'debuff', 'dot', '技能', '冷却', '连招', '取消', 'combat', 'damage', 'attack', 'knockback'],
+    ('战斗系统', ['战斗', '伤害', '命中判定', 'hitbox', 'hurtbox', '帧数据', '打击感', 'hitstop', '暴击', '格挡', '闪避', 'buff', 'debuff', 'dot', '技能', '冷却', '连招', '取消', 'combat', 'damage', 'attack', 'knockback'],
      'references/godot/combat.md',
      '四层分离 · AttackContext 去重 · 判定放物理帧 · hitbox 默认关 · hitstop 不用 await'),
     ('数据分析/埋点', ['埋点', '数据分析', 'analytics', 'telemetry', '事件上报', '漏斗', '留存', '流失', '难度调优', 'ab测试', '热力图', 'session', 'player_id', '批量上报'],
@@ -218,6 +218,15 @@ DOMAINS = [
     ('骨骼动画/IK', ['骨骼', 'skeleton', '蒙皮', 'skinning', 'ik', '反向动力学', 'two bone', 'twoBone', 'lookat modifier', '布娃娃', 'ragdoll', 'spring bone', '重定向', 'retarget', 'bone', '骨骼动画'],
      'references/godot/animation-skeletal.md',
      '骨骼是有序数组非节点 · 4.7无PoleModifier3D/SplineIK3D · modifier顺序由子节点列表定 · 每帧回滚'),
+    ('数据驱动/配表', ['配表', '策划配表', '数据表', '配置表', 'csv导入', 'excel导入', '数据驱动', 'resource配表', 'tres', 'id常量', '外键校验', '导入器', 'importplugin', '热重载配表', 'sqlite'],
+     'references/godot/datatable.md',
+     '数值写代码=程序员成瓶颈 · duplicate()默认浅拷贝共享子资源 · 外键存ID不存引用 · 导入期要校验 · load_threaded才是异步'),
+    ('VFX/游戏感', ['vfx', '特效', '粒子', 'gpuparticles', 'cpuparticles', '打击感', '游戏感', 'juice', '命中反馈', '屏幕震动', '震屏', 'trauma', '顿帧', 'hitstop', '拖尾', '残影', '白闪', '伤害数字', '打击感', '顿帧', 'hitstop实现', '命中感'],
+     'references/godot/vfx-feel.md',
+     'GPU粒子不是默认答案(Web/兼容渲染器选CPU) · 震动要trauma+噪声不是随机偏移 · time_scale=0时定时器也停需ignore_time_scale'),
+    ('经济/长线系统', ['经济系统', '货币', '钱包', '掉落', '掉落表', '保底', 'pity', '抽卡', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证', '成就系统'],
+     'references/godot/economy.md',
+     '货币不能只一个int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用UTC'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -439,6 +448,23 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 配表 / VFX / 经济 不被旧域抢走
+    for need, want in (('配表怎么做', '数据驱动/配表'), ('策划数据表', '数据驱动/配表'),
+                       ('csv导入', '数据驱动/配表')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('粒子特效', 'VFX/游戏感'), ('屏幕震动', 'VFX/游戏感'),
+                       ('打击感', 'VFX/游戏感'), ('顿帧', 'VFX/游戏感')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('掉落保底', '经济/长线系统'), ('天赋树', '经济/长线系统'),
+                       ('货币系统', '经济/长线系统'), ('每日重置', '经济/长线系统')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('2D渲染', '2D渲染/特效'), ('战斗数值', '战斗系统')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被新域抢走）' % (need, want))
 
     # 程序化生成 / AI感知 / 骨骼IK 不被旧域抢走
     for need, want in (('程序化地图生成', '程序化生成'), ('随机地牢', '程序化生成'),

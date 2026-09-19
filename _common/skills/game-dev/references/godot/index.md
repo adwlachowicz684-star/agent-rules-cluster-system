@@ -53,6 +53,9 @@
 | **程序化生成** | `procedural-generation.md` | 没 seed 无法维护 · 全局 randi 是全局状态 · 元胞自动机最易不可达 · 分帧要先纯数据算完 · ±10⁷ 是精度问题 |
 | **AI 感知** | `ai-perception.md` | 感知≠寻路 · 输出不是 bool 要有置信度 · 遮挡必须射线 · 4.x 要 PhysicsRayQueryParameters3D · 检测 10Hz 够 |
 | **骨骼动画/IK** | `animation-skeletal.md` | 骨骼是有序数组非节点 · 4.7 无 PoleModifier3D/SplineIK3D · modifier 顺序由子节点列表定 · 每帧回滚 |
+| **数据驱动/配表** | `datatable.md` | 数值写代码=程序员成瓶颈 · duplicate() 默认浅拷贝共享子资源 · 外键存 ID 不存引用 · 导入期要校验 · load_threaded 才是异步 |
+| **VFX/游戏感** | `vfx-feel.md` | GPU 粒子不是默认答案（Web/兼容渲染器选 CPU）· 震动要 trauma+噪声不是随机偏移 · time_scale=0 时定时器也停需 ignore_time_scale |
+| **经济/长线系统** | `economy.md` | 货币不能只一个 int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用 UTC |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
