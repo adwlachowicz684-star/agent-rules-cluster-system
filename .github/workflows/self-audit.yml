@@ -18,6 +18,16 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    # 本 job 的所有 run 步骤都在 skill 目录下跑。
+    #
+    # 防复发：新增步骤时最容易漏写 working-directory —— 漏了之后报错是
+    # 「python3: can't open file 'scripts/xxx.py'」，指向脚本本身，
+    # 而真实原因是路径不对，排查方向会被带偏（2026-09 实测：SARIF 导出自检
+    # / fixture 交叉审计 / 注释化测试 三个步骤因此连续红了 46 次，
+    # 连带 Code Scanning 一直收不到新结果）。
+    defaults:
+      run:
+        working-directory: _common/skills/code-audit
     steps:
       - uses: actions/checkout@v4
 
@@ -80,10 +90,13 @@ jobs:
           python3 scripts/check-list-drift.py --self-test
           python3 scripts/check-list-drift.py
       - name: SARIF 导出自检（前缀映射 / 合并去重）
+        working-directory: _common/skills/code-audit
         run: python3 scripts/sarif.py --self-test
       - name: fixture 交叉审计（「正确写法」示例本身不能有缺陷）
+        working-directory: _common/skills/code-audit
         run: python3 scripts/rule-registry.py --cross
       - name: 注释化测试（整段注释后应零命中 → 规则没扫注释）
+        working-directory: _common/skills/code-audit
         run: python3 scripts/rule-registry.py --comment-test
       - name: 引擎专项扫描器自检
         working-directory: _common/skills/code-audit
