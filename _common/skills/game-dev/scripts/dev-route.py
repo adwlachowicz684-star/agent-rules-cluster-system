@@ -293,6 +293,12 @@ DOMAINS = [
     ('叙事/进程', ['叙事', '任务链', '任务系统', '对话树', '好感度', '分支', '多结局', '结局', '章节', '关卡选择', '周目', '新游戏+', '动态难度', '剧情flag', 'dialogue tree', 'story', '任务链设计'],
      'references/godot/narrative.md',
      'flag 必须集中在 StoryState 否则后期无法重构 · 三段式命名防撞车 · 结局要判定表不是 if elif · 优先级显式配置且检查可达性 · 隐形前置要可查询否则卡关 · 周目继承策略各不同'),
+    ('谜题/机关', ['谜题', '机关', '交互物', 'interactable', '压力板', '拉杆', '钥匙锁', '开门', '门', '传送器', '可破坏物', '推箱子', '反射谜题', '镜子', '光线反射', '重力谜题', 'puzzle', '开关组合'],
+     'references/godot/puzzle.md',
+     'Godot 没有谜题系统要自己定协议 · 交互要抽象成意图而非绑按键 · 状态与运行时分开（读档 seek 到终点）· 组合逻辑数据驱动 · 反射必须硬上限 8 次且用 bounce 不是 reflect · 推箱子用网格才能校验与 undo · 防卡关是生死线'),
+    ('时间操控', ['慢动作', '子弹时间', '时间缩放', 'time_scale', '倒带', '时间回溯', '暂停', 'pause', 'process_mode', '本地时间倍率', 'bullettime', 'slow motion', 'rewind'],
+     'references/godot/timescale.md',
+     '时间至少五层不是单一旋钮 · 音频不受 time_scale 影响要单独处理 · 暂停与慢放是两件事 · process_mode 与 Tween 忽略缩放正交 · Tween.set_ignore_time_scale 是 4.7 新增 · 倒带是快照+冻结不是物理倒流'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -623,6 +629,20 @@ def cmd_self_test():
     import os
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for fn in ('survival.md', 'narrative.md'):
+        chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
+
+    # 谜题 / 时间操控 不被旧域抢走
+    for need, want in (('谜题', '谜题/机关'), ('机关', '谜题/机关'), ('压力板', '谜题/机关'),
+                       ('推箱子', '谜题/机关'), ('反射谜题', '谜题/机关'), ('可破坏物', '谜题/机关')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('慢动作', '时间操控'), ('子弹时间', '时间操控'), ('倒带', '时间操控'),
+                       ('暂停', '时间操控'), ('process_mode', '时间操控')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn in ('puzzle.md', 'timescale.md'):
         chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
 
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
