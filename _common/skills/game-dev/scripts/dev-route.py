@@ -209,6 +209,15 @@ DOMAINS = [
     ('性能剖析/平台差异', ['性能剖析', 'profiler', '剖析', 'monitors', '监视器', '帧预算', 'p99', '掉帧', '热节流', 'throttling', 'tile gpu', 'gpu bound', 'cpu bound', 'drawcall预算', '显存', 'vram', '性能优化深入', '瓶颈定位', '过温', '降频', 'profiler怎么用', '性能剖析', '剖析器', '热节流', 'throttling', 'drawcall预算', 'gpu bound', 'cpu bound', '瓶颈定位', 'p99', '掉帧分析'],
      'references/godot/perf-profiling.md',
      '编辑器FPS不代表目标设备 · P99才是卡顿指标 · Profiler不覆盖C# · 移动端要测10分钟'),
+    ('程序化生成', ['程序化生成', 'pcg', 'procedural', '随机地图', '关卡生成', '地图生成', '地牢生成', 'bsp', '迷宫', '元胞自动机', 'wfc', 'wave function', '泊松', 'poisson', '种子', 'seed', '随机种子', '连通性', 'flood fill', 'roguelike', '无尽关卡', '随机地牢', '地牢生成'],
+     'references/godot/procedural-generation.md',
+     '没seed无法维护 · 全局randi是全局状态 · 元胞自动机最易不可达 · 分帧要先纯数据算完 · ±10⁷是精度问题'),
+    ('AI感知', ['ai感知', '感知系统', '视锥', '视野', '视线', '遮挡检测', '听觉', '声音传播', '察觉', '警戒等级', '最后已知位置', '目标选择', '感知记忆', '敌人发现玩家', 'vision cone', 'perception', '敌人视野', '敌人发现', '察觉玩家', '感知目标'],
+     'references/godot/ai-perception.md',
+     '感知≠寻路 · 输出不是bool要有置信度 · 遮挡必须射线 · 4.x要PhysicsRayQueryParameters3D · 检测10Hz够'),
+    ('骨骼动画/IK', ['骨骼', 'skeleton', '蒙皮', 'skinning', 'ik', '反向动力学', 'two bone', 'twoBone', 'lookat modifier', '布娃娃', 'ragdoll', 'spring bone', '重定向', 'retarget', 'bone', '骨骼动画'],
+     'references/godot/animation-skeletal.md',
+     '骨骼是有序数组非节点 · 4.7无PoleModifier3D/SplineIK3D · modifier顺序由子节点列表定 · 每帧回滚'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -430,6 +439,22 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 程序化生成 / AI感知 / 骨骼IK 不被旧域抢走
+    for need, want in (('程序化地图生成', '程序化生成'), ('随机地牢', '程序化生成'),
+                       ('迷宫生成', '程序化生成'), ('种子复现', '程序化生成')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('敌人视野', 'AI感知'), ('视锥检测', 'AI感知'),
+                       ('目标选择', 'AI感知')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（不被 AI/寻路 抢走）' % (need, want))
+    for need, want in (('骨骼IK', '骨骼动画/IK'), ('布娃娃', '骨骼动画/IK'),
+                       ('重定向', '骨骼动画/IK')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（不被动画域抢走）' % (need, want))
+    d = match_domains('寻路')
+    chk(bool(d) and d[0][0] == 'AI/寻路', '"寻路" → AI/寻路（基础域未被感知域抢走）')
 
     # XR深入 / 性能剖析 不被基础域抢走
     for need, want in (('手部追踪', 'XR深入/手部交互'), ('抓取物体', 'XR深入/手部交互'),

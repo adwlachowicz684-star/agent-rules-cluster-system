@@ -50,6 +50,9 @@
 | **编辑器插件开发** | `editor-plugin.md` | enter/exit_tree 对称注销 · is_editor_hint≠跑游戏 · get_undo_redo 按对象选历史 · 4.7 统一 EditorDock |
 | **性能剖析/平台差异** | `perf-profiling.md` | 编辑器 FPS 不代表目标设备 · P99 才是卡顿指标 · Profiler 不覆盖 C# · 移动端要测 10 分钟 |
 | **XR 深入/手部交互** | `xr-deep.md` | XRCamera3D 会滞后几毫秒 · 抓取不能 reparent 刚体 · 控制器无速度 API 需自己差分 · 优先传送 |
+| **程序化生成** | `procedural-generation.md` | 没 seed 无法维护 · 全局 randi 是全局状态 · 元胞自动机最易不可达 · 分帧要先纯数据算完 · ±10⁷ 是精度问题 |
+| **AI 感知** | `ai-perception.md` | 感知≠寻路 · 输出不是 bool 要有置信度 · 遮挡必须射线 · 4.x 要 PhysicsRayQueryParameters3D · 检测 10Hz 够 |
+| **骨骼动画/IK** | `animation-skeletal.md` | 骨骼是有序数组非节点 · 4.7 无 PoleModifier3D/SplineIK3D · modifier 顺序由子节点列表定 · 每帧回滚 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
