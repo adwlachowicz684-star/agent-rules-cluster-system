@@ -74,7 +74,7 @@ DOMAINS = [
     ('动画/缓动', ['动画', 'tween', '缓动', '过渡', '补间', 'animation', '淡入淡出', 'animationplayer'],
      'references/godot/animation.md',
      'AnimationPlayer · AnimationTree 状态机 · Tween 链式 API · kill/bind_node'),
-    ('输入/音频', ['输入', '按键', '手柄', '音频', '声音', 'audio', 'input', 'bgm', 'sfx', '改键', 'inputmap', '音量'],
+    ('输入/音频', ['输入', '按键', '手柄', '音频', '声音', 'audio', 'input', 'bgm', 'sfx', 'inputmap', '音量'],
      'references/godot/input-audio.md',
      'Input Map 动作 · 四回调顺序 · 输入缓冲 · AudioServer 总线 · BGM 交叉淡入'),
     ('3D/渲染', ['3d', '材质', '光照', '相机', '粒子', 'material', 'light', 'camera', '环境', '阴影', 'gi'],
@@ -128,7 +128,7 @@ DOMAINS = [
     ('AI行为/决策', ['行为树', 'bt', 'goap', '效用', 'limboai', 'beehave', '黑板', 'blackboard', '决策', 'selector', 'sequence'],
      'references/godot/ai-behavior.md',
      'FSM/BT/GOAP/效用选型 · 最小行为树实现 · 黑板 · RUNNING 语义 · 插件对比'),
-    ('高级测试', ['属性测试', '模糊测试', 'fuzz', '视觉回归', '截图对比', '性能基准', 'benchmark', '确定性测试', '回放'],
+    ('高级测试', ['属性测试', '模糊测试', 'fuzz', '视觉回归', '截图对比', '性能基准', 'benchmark', '确定性测试'],
      'references/godot/testing-advanced.md',
      '属性/不变量 · 存档模糊 · 截图 diff · p99 帧时间基准 · 确定性回放'),
     ('调试/排错', ['调试', '断点', 'debugger', '崩溃', '卡死', '卡住', '空引用', 'null', '排查', '定位问题', 'stderr', 'push_error', 'profiler', '瓶颈', '内存泄漏', '日志'],
@@ -164,7 +164,7 @@ DOMAINS = [
     ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change', 'arealight', '面光源', 'hdr输出', 'offset_transform', 'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送', 'texture streaming', 'tween_await', 'device_id', 'jolt'],
      'references/godot/version-47-48.md',
      '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
-    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', '确定性', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '服务器权威', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型'],
+    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '服务器权威', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型'],
      'references/godot/netsync-advanced.md',
      '同步模型选型 · 客户端预测+输入历史 · 服务器回滚重放(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍'),
     ('GDExtension/插件', ['c++', 'cpp', 'abi', '绑定', 'native', '热重载', '自定义导入器', '自定义检视器插件', 'rust', 'gdext'],
@@ -227,6 +227,15 @@ DOMAINS = [
     ('经济/长线系统', ['经济系统', '货币', '钱包', '掉落', '掉落表', '保底', 'pity', '抽卡', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证', '成就系统'],
      'references/godot/economy.md',
      '货币不能只一个int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用UTC'),
+    ('输入重绑定', ['输入重绑定', '按键重映射', '改键', '键位', '改按键', 'remap', 'inputmap', '重绑定', '手柄振动', '振动', 'haptic', '触觉', 'joy vibration', '按键冲突', '捕获按键', '改键', '自定义按键', '键位设置'],
+     'references/godot/input-remap.md',
+     '4.x用action_get_events非get_action_list · 键位以physical_keycode为主键 · 振动不会自己停需显式stop'),
+    ('无障碍/字幕', ['无障碍', 'accessibility', '色盲', '色觉', '字幕', 'subtitle', '闪烁', '光敏', '对比度', '文字缩放', '单声道', '辅助瞄准', '屏幕阅读器', 'screen reader'],
+     'references/godot/accessibility.md',
+     '无障碍≠难度选项 · 颜色即信息时滤镜无效要形状冗余 · 字幕要含非语音线索 · 闪烁每秒≤3次且面积≤1/4'),
+    ('回放/录像', ['回放', '录像', 'replay', 'demo录制', '确定性', 'determinism', '固定步长', 'fixed timestep', '幽灵车', 'ghost', 'moviemaker', 'write-movie', '精彩回放', '复现', '回放系统', '确定性重放', '录像功能'],
+     'references/godot/replay.md',
+     'Godot物理官方不保证确定性 · 录的是每tick动作状态非按键流 · MovieMaker是离线逐帧非实时录屏'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -448,6 +457,23 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 输入重绑定 / 无障碍 / 回放 不被旧域抢走
+    for need, want in (('按键重映射', '输入重绑定'), ('改键', '输入重绑定'),
+                       ('手柄振动', '输入重绑定')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('色盲模式', '无障碍/字幕'), ('字幕系统', '无障碍/字幕'),
+                       ('闪烁', '无障碍/字幕')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('回放系统', '回放/录像'), ('确定性', '回放/录像'),
+                       ('幽灵车', '回放/录像')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('输入', '输入/音频'), ('网络同步', '多人/网络'), ('测试', '测试/CI')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被新域抢走）' % (need, want))
 
     # 配表 / VFX / 经济 不被旧域抢走
     for need, want in (('配表怎么做', '数据驱动/配表'), ('策划数据表', '数据驱动/配表'),
