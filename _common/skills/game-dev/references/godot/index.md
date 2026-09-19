@@ -64,6 +64,8 @@
 | **调试工具/GM** | `devtools.md` | 自定义参数要放 `--` 后用 get_cmdline_user_args · Performance 部分监控 release 恒为 0 · 作弊要视觉标识+审计日志 · 无内置 DebugDraw3D |
 | **玩家 Mod** | `modding.md` | Mod≠编辑器插件 · 后来加载的覆盖先加载的 · replace_files=false 是不覆盖非沙箱 · Mod 脚本无法沙箱隔离 · 手动解压要防 zip-slip |
 | **存档迁移** | `save-migration.md` | 格式版本≠游戏版本≠构建号 · VERSION 要第一天写 · 迁移前必须备份 · 后要重算 HMAC · 降级 get_value 静默返回默认值 |
+| **热更新/DLC** | `hotupdate.md` | 资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS 审核 2.5.2 禁止动态代码 · 配置热更也要版本校验 · DLC 未购买要占位 |
+| **平台服务** | `platform-services.md` | Godot 无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带 steam_appid.txt · 无 Steam 客户端要降级不崩 · token 秘密留服务端 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |
