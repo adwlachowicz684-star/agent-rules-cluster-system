@@ -43,17 +43,35 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `<root>/<大类>/assets/` | **变更溯源**（为什么改） | 改了技能后记录 |
 | `config.yaml` | 大类根目录、体积上限 | 需要定位大类时 |
 | `scripts/env.py` | 环境探测与约束检查 | 技能因版本/系统分化时 |
-| `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
-| `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
+### 建设册 —— 写「怎么做」，用于创建 / 优化 / 生成技能
+
+| 文件 | 内容 | 什么时候读 |
+|---|---|---|
+| `reference/split-two-books.md` | **两册分工总纲**（不确定读哪册时先看） | 新建内容 / 判断归属时 |
 | `reference/knowledge-landing.md` | **知识点落地协议**（不写正确的废话） | 写/改技能时 |
-| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 / 加豁免后 / 命中数突降为 0 |
-| `reference/anti-patterns.md` | 反模式与官方规范 | 写完技能后对照检查 |
-| `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
-| `reference/env.md` | 环境分化（版本/系统差异） | 同一技能有多个版本写法时 |
-| `reference/domain-routing.md` | 大类路由协议 | 判定技能归属时 |
+| `reference/writing-rules.md` | 规则怎么写 | 写单条规则时 |
+| `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
 | `reference/loading.md` | 定向加载协议 | 不确定怎么加载时 |
-| `reference/consolidation.md` | 整合协议 | 会话结束时 |
+| `reference/domain-routing.md` | 大类路由协议 | 判定技能归属时 |
+| `reference/consolidation.md` | 整合协议（八步 + 三件套 + 三类清单） | 会话结束时 |
+| `reference/capture-signals.md` | 捕获信号与写入位置 | 会话中捕获时 |
+| `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
+| `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
+| `reference/env.md` | 环境分化 | 同一技能有多个版本写法时 |
 | `reference/global-rule.md` | **可粘进系统提示词的全局规则片段**（常驻 ≈150 行） | 要让「定向加载 + 捕获沉淀」成为默认行为时 |
+
+### 审查册 —— 写「不能怎么做」，用于审核技能 / 提优化建议
+
+| 文件 | 内容 | 什么时候读 |
+|---|---|---|
+| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 / 加豁免后 / 命中数突降为 0 / **检查长期失败时** / 拼接生成内容后 |
+| `reference/rejection.md` | **驳回清单**（什么不该入库） | 判断某条目该不该留时 |
+| `reference/anti-patterns.md` | 反模式与官方规范 | 审核技能时对照 |
+
+> **两册为什么分开**：建设时想着「别犯错」会写得又短又空（满篇免责声明）；
+> 审查时想着「怎么做」会把问题改写成建议（丢掉位置与证据）。
+> 判据与边界见 `reference/split-two-books.md`。
+
 | `pending/draft.md` | 会话内草稿 | 出现捕获信号时追加一行 |
 
 `<root>` = `config.yaml` 的 `root`（默认 `~/.ai/domains`）。
@@ -126,27 +144,14 @@ python3 scripts/note.py --show                    查看记录（**改旧规则�
 
 ## 技能归属（写入哪个大类）
 
-四问，强→弱：① 换个大类还成立吗（是 → `_common`）·
-② 当前项目接入哪个大类（**最强信号**）·
-③ `--route "<描述>"` 命中哪个 · ④ 是技能还是知识（知识进 `rules/`，不进 `skills/`）。
+四问见 `reference/domain-routing.md`，最强信号是**当前项目接入哪个大类**。
+**推荐 ≠ 自动写入**：归错类比不归更糟。
 
-**推荐 ≠ 自动写入**：归错类比不归更糟。完整协议见 `reference/domain-routing.md`。
+## 捕获信号
 
-## 捕获信号（简表）
-
-| 信号 | 归位 |
-|---|---|
-| 自我修正（"不对/重来/实际上"）、重试 ≥2 次 | 领域包 或 `_hot.md` |
-| 用户纠正、重新表述需求 | 领域包 + `_preferences.md` |
-| 走弯路后找到更短路径 | 领域包「流程」段 |
-| 思路想通了 | 领域包「判断依据」段 |
-| 写出通用代码/命令 | `_commands.md`（多行逻辑封成脚本） |
-| 散文描述的操作步骤 | **抽成命令**，不留「先…然后…再…」 |
-| 用户第 2 次表达同一偏好 | `_preferences.md` |
-| **用户重做 / 改你的输出 / 换说法重问** | **隐式负反馈**，最易漏 |
-| 已写规则本次仍违反 | **不新增**，走「违反即升级」 |
-
-完整判定见 `reference/capture-signals.md`。
+出现信号就往 `pending/draft.md` 追加一行；完整判定表见
+`reference/capture-signals.md`。**最易漏的一条**：
+用户重做 / 改你的输出 / 换说法重问 = 隐式负反馈。
 
 ## 第零道闸（先分诊）
 
@@ -174,7 +179,7 @@ python3 scripts/note.py --show                    查看记录（**改旧规则�
 | | 内容 |
 |---|---|
 | **四道门槛**（正面） | 可迁移 · 已抽象 · 可执行 · 已验证。任一不过 → 丢弃 |
-| **驳回清单**（负面） | 证据不足 · **可能是既有设计意图**（先 `note.py --show` 溯源）· 说不出后果 · 重复劳动 · 超出范围 · 风格偏好 |
+| **驳回清单**（负面） | 见审查册 `reference/rejection.md`（6 条，含「先 `note.py --show` 溯源」） |
 | **三件套** | 来源 · 证据 · 后果，缺一条就补，别默默入库 |
 
 `consolidate.py` 自动扫驳回清单与三件套。
@@ -183,10 +188,8 @@ python3 scripts/note.py --show                    查看记录（**改旧规则�
 
 ## 违反即升级
 
-规则已写却仍被违反 → **不是记性问题，是规则设计问题**。依次检查：
-不够显眼（上浮热区）· 不够具体（改写成可执行判据）· 反直觉（加 ⚠）· 放错层。
-同一条目被违反 ≥2 次 → 进下方最高优先级区。
-**整合时顺手改无关条目引入的问题，一律按 L1 处理。**
+规则已写却仍被违反 → **不是记性问题，是规则设计问题**：不够显眼 / 不够具体 /
+反直觉 / 放错层，依次检查。同一条目 ≥2 次 → 进下方最高优先级区。
 
 ---
 
