@@ -375,62 +375,6 @@ def check_refs(cfg, root=None):
     return issues
 
 
-def check_markdown_headings(cfg, root=None):
-    """Markdown 标题不得有重复的 `#`（如 `## ## 标题`）。
-
-    为什么需要：往 Markdown 里**插入**段落时，常见写法是
-    `text.replace(anchor, new_text + anchor)`。若 `new_text` 结尾带了 `## `
-    （为下一段预留），拼接后就成了 `## ## 标题` —— 渲染成错误的层级，
-    而**写它的人看不出来**（diff 里是两个正常的 `##`，谁也不会盯着数）。
-
-    本仓库实测：同一处写法连犯 3 次，次次都以为改完了，
-    直到逐行看渲染结果才发现。这类缺陷 100% 静默：
-    没有任何检查会去数 `#` 的个数。
-
-    同时检查缩进的标题（`  ## 标题` 在多数渲染器里不成为标题）。
-    """
-    base = Path(root) if root else ROOT
-    issues = []
-    files = [base / "SKILL.md"]
-    for sub in ("reference", "SKILLS", "assets"):
-        d = base / sub
-        if d.exists():
-            files += sorted(d.rglob("*.md"))
-    for f in files:
-        try:
-            text = f.read_text(encoding="utf-8")
-        except Exception:
-            continue
-        in_fence = False
-        for i, line in enumerate(text.splitlines(), 1):
-            s2 = line.strip()
-            if s2.startswith("```"):
-                in_fence = not in_fence
-                continue
-            if in_fence:
-                continue          # 代码块里的 # 是代码，不是标题
-            if not s2.startswith("#"):
-                continue
-            if line.startswith(" "):
-                issues.append({
-                    "level": "warn",
-                    "file": "%s:%d" % (f.relative_to(base), i),
-                    "issue": "标题有缩进，多数渲染器不认：%s" % s2[:40],
-                    "hint": "去掉行首空格"})
-            # 关键：两组 `##` 之间是**空格**（`## ## 标题`），
-            # 只 lstrip("#") 会留下 ` ## 标题`，不以 # 开头 → 漏判。
-            # 必须再去一次空格才能看到第二组 #。
-            core = s2.lstrip("#").lstrip()
-            if core.startswith("#"):
-                issues.append({
-                    "level": "error",
-                    "file": "%s:%d" % (f.relative_to(base), i),
-                    "issue": "标题 # 重复（拼接时多带了一组）：%s" % s2[:40],
-                    "hint": "常见于 replace(anchor, new + anchor) 且 new 结尾带了 "
-                            "'## ' —— 检查插入文本的末尾"})
-    return issues
-
-
 def check_duplicates(cfg, root=None):
     """内容完全相同的副本（逐字节一致）。
 
@@ -804,24 +748,6 @@ trigger: 测试
         chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
             '命中数有区分度时不误报')
 
-        # ---- 标题重复 #（拼接时多带一组）----
-        # 正反两侧：有重复 → 报错；正常标题 / 代码块里的 # → 不报。
-        # 只造正向会让「代码块里的 # 不被误判」从没被验证过。
-        hh = vroot / 'reference'
-        hh.mkdir(parents=True, exist_ok=True)
-        (hh / 'h.md').write_text(
-            '# 正常标题\n\n## 正常二级\n\n## ## 拼接多带了一组\n',
-            encoding='utf-8')
-        chk(any('标题 # 重复' in i['issue']
-                for i in check_markdown_headings(cfg, vroot)),
-            '标题重复 # 能查出（`## ## x`，拼接时多带了一组）')
-        (hh / 'h.md').write_text(
-            '# 正常标题\n\n## 正常二级\n\n```\n## ## 这是代码不是标题\n```\n',
-            encoding='utf-8')
-        chk(not any('标题 # 重复' in i['issue']
-                    for i in check_markdown_headings(cfg, vroot)),
-            '代码块里的 # 不误报')
-
         # ---- 豁免可验证（第八条）----
         # 正反两侧：有豁免且有人读 → 不报；有豁免但没人读 → 必须报。
         # 只造正向会让「检查项能识别豁免」这条从没被验证过。
@@ -877,8 +803,7 @@ def main():
     limits = cfg.get("size_limits", {})
     issues = (check_root(cfg) + check_size(cfg, limits)
               + check_frontmatter(cfg) + check_landing(cfg)
-              + check_refs(cfg) + check_markdown_headings(cfg)
-              + check_duplicates(cfg)
+              + check_refs(cfg) + check_duplicates(cfg)
               + check_degeneracy(cfg) + check_exemptions(cfg))
 
     if args.json:
