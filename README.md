@@ -64,7 +64,7 @@ _common/skills/code-audit/
 ├── SKILL.md              入口（分层按需加载，不一次读完）
 ├── references/           公共层 common-*.md + 场景 s-*.md + 语言包 p-*.md
 ├── rules/
-│   ├── registry.json    224 条机扫规则（--sync 生成，勿手改）
+│   ├── registry.json    248 条机扫规则（--sync 生成，勿手改）
 │   ├── items.json       288 条判据条目索引（Markdown 是源，JSON 是产物）
 │   ├── cwe-map.json     CWE 映射与修复建议
 │   ├── gaps.json        判据缺口分类（同源 / 需人工 / 待写）
