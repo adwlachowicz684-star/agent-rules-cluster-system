@@ -164,7 +164,7 @@ DOMAINS = [
     ('4.7/4.8版本', ['4.7', '4.8', '版本', '升级', '迁移', 'breaking', 'breaking change', 'arealight', '面光源', 'hdr输出', 'offset_transform', 'virtualjoystick', '虚拟摇杆', 'drawabletexture', '纹理流送', 'texture streaming', 'tween_await', 'device_id', 'jolt'],
      'references/godot/version-47-48.md',
      '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
-    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '服务器权威', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型'],
+    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '服务器权威', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型', '状态同步', '网络预测', '预测回滚', '锁定步进', '快照插值', 'jitter', '抖动缓冲', '输入编号'],
      'references/godot/netsync-advanced.md',
      '同步模型选型 · 客户端预测+输入历史 · 服务器回滚重放(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍'),
     ('GDExtension/插件', ['c++', 'cpp', 'abi', '绑定', 'native', '热重载', '自定义导入器', '自定义检视器插件', 'rust', 'gdext'],
@@ -266,6 +266,9 @@ DOMAINS = [
     ('角色自定义', ['捏脸', '角色自定义', '换装', '装备系统', '外观', '染色', 'blend shape', 'blendshape', 'morph', '合并网格', '部件换装', '装备槽'],
      'references/godot/character-customization.md',
      '捏脸/换装/染色三套生命周期别混设计 · 无官方合并网格API · 合并与BlendShape不能混用 · 合并网格无自动LOD · 4.6起skeleton默认路径变'),
+    ('环境系统', ['水面', '海洋', 'water', '浮力', '波浪', '天空', 'sky', '天气', 'weather', '昼夜', '昼夜循环', '下雨', '下雪', '风', '闪电', 'proceduralsky', 'physicalsky', '水下'],
+     'references/godot/environment-systems.md',
+     '无官方Water节点但apply_force能做浮力 · Gerstner采样CPU/GPU必须一致否则船漂错高度 · 天空/雾/环境光/GI联动 · Static烘焙完全锁定不能做昼夜 · 雨要跟随相机'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -423,7 +426,11 @@ def cmd_self_test():
     chk(len(d) >= 2, '复合需求能命中多个域（得到 %d 个）' % len(d))
 
     # 无关需求不该硬匹配
-    chk(match_domains('今天天气怎么样') == [], '无关需求不误匹配')
+    # 注意：不能用含领域词的句子做"无关"断言 —— 环境系统域上线后
+    # "今天天气怎么样" 会正确命中它，断言本身就过期了。用真正无领域词的句子。
+    chk(match_domains('今天中午吃什么') == [], '无关需求不误匹配')
+    d = match_domains('今天天气怎么样')
+    chk(bool(d) and d[0][0] == '环境系统', '"今天天气怎么样" → 环境系统（领域词应命中）')
 
     # 关键词子串碰撞：'移动' ⊆ '移动端'
     # 按命中个数排会让"移动端性能"路由到「角色控制」，输出看起来正常但全错
@@ -497,6 +504,26 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
+    for need, want in (('水面', '环境系统'), ('浮力', '环境系统'), ('天空', '环境系统'),
+                       ('昼夜循环', '环境系统'), ('天气', '环境系统')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('状态同步', '网络同步进阶'), ('预测回滚', '网络同步进阶'),
+                       ('快照插值', '网络同步进阶'), ('延迟补偿', '网络同步进阶')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('多人联网', '多人/网络'), ('rpc', '多人/网络')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（基础域未被进阶域抢）' % (need, want))
+    # 环境系统文档必须存在（防止与既有文档重复或丢失）
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    chk(os.path.exists(os.path.join(here, 'references/godot/environment-systems.md')),
+        'environment-systems.md 存在')
+    chk(os.path.exists(os.path.join(here, 'references/godot/netsync-advanced.md')),
+        'netsync-advanced.md 存在（不新建重复文档）')
 
     # 画质 / 载具物理 / 角色自定义 不被旧域抢走
     for need, want in (('超分', '画质/超分'), ('FSR2', '画质/超分'), ('抗锯齿', '画质/超分'),
