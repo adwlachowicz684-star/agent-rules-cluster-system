@@ -78,33 +78,16 @@ DLSS/XeSS 只存在于 NVIDIA 的 RTX path-tracing fork 与少量 GDExtension �
 
 ⚠ 4.7 的 **Viewport Debug Draw** 能看部分信息。
 
-## 5. 常见坑
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/upscaling.md`
 
-| # | 本能以为 | 实际 |
-|---|---|---|
-| 1 | stretch 能降 3D 渲染分辨率 | **两套独立机制** |
-| 2 | FSR2 能治所有锯齿 | 治不了**透明锯齿** |
-| 3 | 有 FSR3 | **没有**，只有 FSR2.2 |
-| 4 | 有 DLSS/XeSS | 只有**实验性 fork**，不可投产 |
-| 5 | TAA 三个渲染器都能用 | **仅 Forward+** |
-| 6 | 2D MSAA 和 3D MSAA 一样 | 支持矩阵**完全不同** |
-| 7 | 超分对所有游戏都好 | **2D 像素风有害** |
-| 8 | UI 和 3D 一起超分 | UI 会被**糊掉**，要分层 |
-| 9 | FSR2 在各渲染器一样 | Compatibility **回退双线性** |
-| 10 | 开了 HDR 就有 HDR | **Filmic/ACES 永远 SDR** |
-| 11 | 4.7 stretch 默认值没变 | 改成 **canvas_items/expand** |
-| 12 | 后处理随便开 | 要按**性能代价排序**取舍 |
-| 13 | 调画质靠感觉 | 要**逐项开关对比**定位 |
-| 14 | Nearest 缩放没用 | 复古/低分辨率风**专为它设计** |
-| 15 | MetalFX 全平台 | 仅 **Apple 平台** |
 
-## 6. 待核对项（运行时验证）
+## 5. 待核对项（运行时验证）
 
 ⚠ 待核对：各渲染器对 AA/超分的实际支持矩阵 · 验证：目标渲染器下逐项切换确认（官方文档沿用主版本，4.7.2 未发独立变更说明）
 
 ⚠ 待核对：SMAA 在 4.7.2 的可用方案 · 验证：社区插件实测
 
-## 7. 相关文档
+## 6. 相关文档
 
 - 渲染架构与管线 → `render-pipeline.md`
 - 光照 → `lighting.md`

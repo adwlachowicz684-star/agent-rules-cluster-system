@@ -533,17 +533,5 @@ func _on_perm(perms: PackedStringArray) -> void:
 ⚠ 桌面端 60fps 不代表移动端能跑。**至少在一台低端 Android 上跑 20 分钟**，
 看发热、掉帧、内存。
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/mobile.md`
 
-| 漏写 | 后果 |
-|---|---|
-| 开了 `emulate_mouse_from_touch` 又处理两套事件 | 动作触发两次 |
-| 用 `InputEventScreenSwipe` | 4.x 不存在，直接报错 |
-| 摇杆用绝对像素半径 | 不同 DPI 手感差异巨大 |
-| 摇杆 Control 的 `mouse_filter` 不是 STOP | 触摸穿透到游戏世界 |
-| 返回键未 `set_input_as_handled()` | 处理了还是退出 |
-| 权限请求后立刻使用 | 异步未返回，功能失败 |
-| 安全区未从屏幕坐标转换 | 有拉伸时边距全错 |
-| `get_display_cutouts()` 用在 iOS | 仅 Android 实现 |
-| 玩家代码里分平台写输入 | 后续维护灾难 |
-| 未在低端机实测 | 上线后大量掉帧投诉 |

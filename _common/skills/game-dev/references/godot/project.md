@@ -192,15 +192,5 @@ export_presets.cfg   # 含 keystore 密码等，视情况忽略
 
 ⚠ `export_presets.cfg` 里可能有 Android keystore 密码，公开仓库要忽略。
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/project.md`
 
-| 漏写 | 后果 |
-|---|---|
-| `.godot/` 没进 gitignore | 仓库爆炸、冲突 |
-| Web 用 forward_plus | 浏览器跑不起来 |
-| `assert` 做运行时校验 | release 校验消失 |
-| `print()` 残留 | I/O 开销 + 信息泄露 |
-| Autoload 信号未断开 | 节点永远不释放 |
-| release 未实测 | debug 能跑 release 崩 |
-| 层不起名 | 三个月后没人记得哪层是什么 |
-| 改了物理 tick 未调参数 | 手感全变 |

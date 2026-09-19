@@ -83,24 +83,10 @@ skeleton.find_bone("LeftUpLeg")   # 按名查索引
 
 ⚠ **第 1 条最常见且最难发现** —— 症状是"部分动画正常"。
 
-## 6. 常见坑
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/animation-skeletal.md`
 
-| # | 本能以为 | 实际 |
-|---|---|---|
-| 1 | 骨骼是场景树节点 | 是**有序数组**，骨棒只是调试绘制 |
-| 2 | 能手动重建骨骼层级 | 导入器一起生成，**不要手动建** |
-| 3 | 4.7 有 `PoleModifier3D` | **不存在**，Pole 是 TwoBoneIK3D 的参数 |
-| 4 | 有 `SplineIK3D` | **不存在**，要自己用 IterateIK3D 或找插件 |
-| 5 | modifier 会改骨骼 pose | **每帧回滚**，不污染 |
-| 6 | modifier 顺序无所谓 | 由**子节点列表**决定 |
-| 7 | 自定义 modifier 要乘 influence | 父类统一混合，**不要自己乘** |
-| 8 | 重定向导入时搞定 | 是**两层**（BoneMap + RetargetModifier3D） |
-| 9 | 动画不播是设置问题 | 常是 **NodePath 断了** |
-| 10 | 程序化控制覆盖动画 | **谁最后写谁生效** |
-| 11 | 布娃娃调个函数就行 | 激活时机与切换才是难点 |
-| 12 | IK 越复杂越好 | 两骨用 `TwoBoneIK3D` 的解析解更稳 |
 
-## 7. 待核对项（运行时验证）
+## 6. 待核对项（运行时验证）
 
 ⚠ 待核对：`SkinReference` 与 `BoneTwistDisperser3D` 的 4.7 参数 · 验证：4.7.2 编辑器查类参考与 Inspector
 
@@ -108,7 +94,7 @@ skeleton.find_bone("LeftUpLeg")   # 按名查索引
 
 ⚠ 待核对：`ModifierBoneTarget3D` 的用法 · 验证：配合约束/重定向实测
 
-## 8. 相关文档
+## 7. 相关文档
 
 - AnimationPlayer / 状态机 → `animation.md`
 - 动画进阶 → `animation-advanced.md`

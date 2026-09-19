@@ -272,14 +272,5 @@ func play_at(stream: AudioStream, world_pos: Vector2) -> void:
 
 ⚠ BGM 循环用 **Ogg**，不要用 MP3 —— MP3 有 encoder delay，循环处会有咔哒声。
 
-## 常见漏写
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/input-audio.md`
 
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| `new AudioStreamPlayer` 未 `queue_free` | 节点累积（P0） | GD52 |
-| `_process` 里 `is_action_just_pressed` | 掉帧漏输入 | GD51 |
-| 游戏逻辑放 `_input` | 点 UI 时同时触发游戏动作 | 人工 |
-| 音量直接把线性值当 dB | 音量曲线不对 | 人工 |
-| `get_vector()` 后又 `normalized()` | 多余（它已归一化），且零向量会 NaN | 人工 |
-| 硬编码 `KEY_SPACE` | 玩家无法改键，手柄不通用 | 人工 |
-| MP3 做循环 BGM | 循环点咔哒声 | 人工 |

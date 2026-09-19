@@ -269,24 +269,10 @@ print(obj.is_connected("pressed", callable))
 
 ⚠ 看**对象数**比看内存总量有用得多。内存总量受 GC/分配器影响会滞后。
 
-## 5. 常见坑
+> **反模式清单（不能怎么做，审核用）** → `code-audit: godot-antipatterns/debugging.md`
 
-| 坑 | 后果 |
-|---|---|
-| 崩溃时看 stdout | `print` 未刷新，最后一行日志骗你 |
-| release 用 `assert` 校验 | 被剥离，校验消失 |
-| 多线程打断点 | 断点静默失效，以为代码没跑 |
-| 靠 `MEMORY_STATIC` 查 release 泄漏 | 恒为 0，得到"没问题" |
-| 只看 FPS 判断瓶颈 | 无法区分 CPU/GPU，优化方向错 |
-| 每帧 print 调试 | 性能数据失真，且发布版仍在打 |
-| 用 Visual Profiler 看脚本耗时 | 它只测渲染，脚本看 Profiler |
-| 动态 load 路径 | 导出后找不到，编辑器正常 |
-| `await` 无信号源 | 永久悬挂，不报错 |
-| 认为 `get_node` 失败会报错 | 返回 null，崩溃点在别处 |
-| 不清理自定义埋点 | 埋点本身成为性能问题 |
-| 真机不复现就认为没问题 | 真机有性能/权限/平台差异 |
 
-## 6. 相关文档
+## 5. 相关文档
 
 - 优化技巧 → `performance.md`
 - 性能基准测试 → `testing-advanced.md`
