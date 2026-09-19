@@ -72,6 +72,8 @@
 | **环境系统** | `environment-systems.md` | 无官方 Water 节点但 apply_force 能做浮力 · Gerstner 采样 CPU/GPU 必须一致否则船漂错高度 · 天空/雾/环境光/GI 联动 · Static 烘焙完全锁定不能做昼夜 · 雨要跟随相机 |
 | **UI 进阶** | `ui-advanced.md` | 无内置虚拟列表且 Tree 也不虚拟化（70k 项 1.21 GiB） · BBCode 有注入风险要 escape · 拖拽预览不能自己 free · 鼠标能点≠手柄能选 · 4.7 AccessibilityServer 独立成单例 |
 | **诊断与稳定性** | `diagnostics.md` | GDScript 无 try/catch · print 崩溃时可能没刷盘要用 stderr · assert 在 release 不求值且副作用会丢 · 原生崩溃进程没机会上报 · MovieMaker 不是玩家录像器 |
+| **商业化/变现** | `monetization.md` | Godot 4.x 全系列无内置 IAP/支付/广告 API · 客户端只是发起支付的遥控器 · 合规优先于体验 · 中国抽卡是四件套（含替代获取途径）· 概率公示必须与实现同源 · 保底存服务器防清档 · 掉单幂等 |
+| **投射物/弹道** | `projectile.md` | 无专门子弹节点 · CCD 官方称「有时有效」不替代射线扫描 · 预测线必须复用真实弹道函数否则显示与落点不一致 · 网络应同步开火事件而非逐帧 transform · 一帧多次命中要去重 |
 | **着色器** | `shaders.md` | GDShader 方言 · uniform 提示清单 · 2D/3D 九个配方 · 坐标空间 · 变体与预热 · 调试颜色 mask |
 | **存档加密 / 防作弊** | `security.md` | 客户端加密的边界 · AES+HMAC 存档 · 随机 IV · 内存值混淆 · 时间作弊 · 服务端权威 |
 | **本地化技术实现** | `i18n.md` | `tr()`/`tr_n()` · CSV 工作流 · 语言切换 · 字体回退 · RTL |

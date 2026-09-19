@@ -479,6 +479,30 @@ EXTRA_DOMAIN_RULES = [
      "在 autoload 的 _init() 里调 OS.add_logger() 实现 Logger._log_error，尽早注册",
      r"(?:add_logger)"),
 
+    # ---- 商业化 / 变现 ----
+    ("GD201", "P0", "客户端判支付成功", "gd", r"(?:purchase|buy|pay|支付|购买)\w*\s*\([\s\S]{0,200}?(?:success|成功|completed|ok)",
+     "客户端自己判定支付成功并直接发货 —— 客户端说「我付了钱」绝不能信，收据必须服务器校验",
+     "客户端只发起支付；服务器校验收据（签名/证书链/bundle_id/product_id/transaction_id）后再发货",
+     r"(?i)(?:server|服务器|verify_receipt|收据验证)"),
+    ("GD202", "P1", "抽卡随机在客户端", "gd", r"(?:randi|randf|randf_range|RandomNumberGenerator)",
+     "代码里有随机但上下文涉及抽卡/掉落 —— 随机必须在服务器端，客户端随机会被改",
+     "抽奖结果由服务器计算并返回；客户端只展示结果",
+     r"(?i)(?:server|服务器|rpc|remote)"),
+    ("GD204", "P1", "日期用本地时区", "gd",
+     r"(?:get_datetime_dict_from_system|get_date_dict_from_system)\s*\(\s*(?:false\s*)?\)|OS\.get_(?:date|time|datetime)\s*\(",
+     "用本地时间做每日重置/月卡到期 —— 玩家可改时钟，跨时区/夏令时会导致缺一天或多一天",
+     "所有商业计时用 UTC：get_datetime_dict_from_system(true)，不要用本地时间",
+     r"(?i)(?:utc|from_system\s*\(\s*true)"),
+    # ---- 投射物 / 弹道 ----
+    ("GD205", "P1", "高速投射物无扫描", "gd", r"(?i)(?:bullet|projectile|子弹|投射物|弹道)",
+     "高速投射物直接靠物理位移判定 —— 一帧内位移大会穿透（tunneling）；官方称 CCD「有时有效」",
+     "用「上一帧位置 → 本帧位置」的射线/ShapeCast 扫描补判定",
+     r"(?:intersect_ray|ShapeCast|raycast|射线)"),
+    ("GD206", "P2", "预测与实弹两套公式", "gd", r"(?:func\s+\w*(?:predict|aim|trajectory)\w*\s*\(|预测|瞄准线|aim_line)",
+     "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
+     "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
+     r"(?i)(?:simulate|复用|共用|shared|same|同一)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1743,6 +1767,81 @@ func set_face(v: float) -> void:
 
 
 # ---- UI 进阶 ----
+
+# ---- 商业化 / 变现 ----
+SELF_PAY_BAD = '''extends Node
+
+func buy_gems(product_id: String) -> void:
+    var ok := IAP.purchase(product_id)
+    if ok:
+        Gems.add(100)
+        Save.save()
+
+func roll_gacha() -> void:
+    var r := randi() % 100
+    if r < 3:
+        give_five_star()
+    pity_count += 1
+
+func daily_reset() -> void:
+    var d := Time.get_datetime_dict_from_system()
+    if d.hour >= 5:
+        refresh_shop()
+'''
+
+SELF_PAY_CLEAN = '''extends Node
+
+func buy_gems(product_id: String) -> void:
+    IAP.purchase(product_id)
+    # 发货由服务器校验收据后推送，客户端不自己判定成功
+
+func request_roll() -> void:
+    rpc_id(1, "server_roll")
+
+@rpc("any_peer", "call_local", "reliable")
+func server_roll() -> void:
+    var r := randi() % 100
+    var result := pick(r)
+    pity_count += 1
+    Save.write_pity(pity_count)
+    rpc("on_rolled", result)
+
+func daily_reset() -> void:
+    var d := Time.get_datetime_dict_from_system(true)
+    if d.hour >= 5:
+        refresh_shop()
+'''
+
+# ---- 投射物 / 弹道 ----
+SELF_PROJ_BAD = '''extends RigidBody3D
+class_name Bullet
+
+func fire(dir: Vector3) -> void:
+    linear_velocity = dir * 300.0
+
+func draw_aim() -> void:
+    for i in 30:
+        var p := global_position + dir * i * 2.0
+        p.y -= 0.5 * 9.8 * i * 0.02
+        line.add_point(p)
+'''
+
+SELF_PROJ_CLEAN = '''extends Node3D
+
+func _physics_process(delta: float) -> void:
+    var next := global_position + velocity * delta
+    var q := PhysicsRayQueryParameters3D.create(global_position, next)
+    var hit := get_world_3d().direct_space_state.intersect_ray(q)
+    if hit:
+        on_hit(hit)
+        return
+    global_position = next
+
+func draw_aim() -> void:
+    var pts := simulate_ballistic(global_position, velocity, 30)
+    for p in pts:
+        line.add_point(p)
+'''
 SELF_UI_BAD = '''extends RichTextLabel
 
 func say(nick: String, msg: String) -> void:
@@ -2169,6 +2268,8 @@ def self_test() -> int:
             'chr.gd': SELF_CHR_BAD, 'chrok.gd': SELF_CHR_CLEAN,
             'ui2.gd': SELF_UI_BAD, 'ui2ok.gd': SELF_UI_CLEAN,
             'diag.gd': SELF_DIAG_BAD, 'diagok.gd': SELF_DIAG_CLEAN,
+            'pay.gd': SELF_PAY_BAD, 'payok.gd': SELF_PAY_CLEAN,
+            'proj.gd': SELF_PROJ_BAD, 'projok.gd': SELF_PROJ_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2385,6 +2486,16 @@ def self_test() -> int:
         check('GD195' in ids('diag.gd'), 'diag.gd 命中 GD195（资源加载未判空）')
         check('GD195' not in ids('diagok.gd'), 'diagok.gd 不误报 GD195')
         check('GD196' not in ids('diagok.gd'), 'diagok.gd 不误报 GD196（已注册 logger）')
+
+        check('GD201' in ids('pay.gd'), 'pay.gd 命中 GD201（客户端判支付成功）')
+        check('GD202' in ids('pay.gd'), 'pay.gd 命中 GD202（抽卡随机在客户端）')
+        check('GD204' in ids('pay.gd'), 'pay.gd 命中 GD204（日期用本地时区）')
+        for rid in ('GD201', 'GD202', 'GD204'):
+            check(rid not in ids('payok.gd'), 'payok.gd 不误报 %s' % rid)
+        check('GD205' in ids('proj.gd'), 'proj.gd 命中 GD205（高速投射物无扫描）')
+        check('GD206' in ids('proj.gd'), 'proj.gd 命中 GD206（预测与实弹两套公式）')
+        for rid in ('GD205', 'GD206'):
+            check(rid not in ids('projok.gd'), 'projok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
