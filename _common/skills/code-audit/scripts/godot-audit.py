@@ -401,6 +401,26 @@ EXTRA_DOMAIN_RULES = [
      "迁移前先复制一份原档（.bak），失败时回滚；迁移后重算校验/HMAC",
      r"(?i)(?:backup|\.bak|copy_to|dir_copy|存档备份)"),
 
+    # ---- 云存档 ----
+    ("GD171", "P1", "云存档静默覆盖", "gd", r"(?i)(?:cloud|云存档|remote_save|sync_save)",
+     "有云存档逻辑但全文没有冲突处理 —— 静默覆盖是玩家进度丢失的头号来源",
+     "用单调递增的逻辑版本号判定先后，冲突时进人工选择（展示相对时间与设备，不要显示时间戳）",
+     r"(?i)(?:conflict|冲突|version\s*[<>]|merged|选择)"),
+    ("GD172", "P2", "时间戳判冲突", "gd", r"(?i)(?:get_mtime|modified_time|file_time)[\s\S]{0,200}?(?:>|>=|<|<=)",
+     "用文件修改时间比较存档先后 —— 设备时钟可被改、跨时区、夏令时会改变字符串顺序，不能作权威判据",
+     "改用每个存档槽单调递增的逻辑版本号；时间戳仅用于界面展示",
+     r"(?i)(?:logic(?:al)?_?version|save_version|rev\s*\+)"),
+
+    # ---- 调试工具 ----
+    ("GD173", "P2", "作弊无标识", "gd", r"(?i)(?:var\s+\w*god\w*\s*:?=|var\s+\w*(?:invincible|invuln|cheat)\w*\s*:?=)",
+     "有作弊/无敌开关但全文没有视觉标识 —— 测试者不知道自己开着无敌，测出不真实的结果",
+     "作弊状态要有持久的屏幕标识，并写入带时间戳的审计日志（否则 bug 复现不了时无法归因）",
+     r"(?i)(?:cheat_label|debug_label|作弊中|show_cheat|audit|log_cheat|cheat\.visible|cheat_indicator)"),
+    ("GD174", "P2", "调试面板未隔离", "gd", r"Performance\.get_monitor\s*\(",
+     "读取 Performance 指标但不区分构建 —— 部分监控在 release 导出包恒为 0、部分有约 1 秒延迟，会出现「面板显示 0」的假故障",
+     "面板要同时显示 debug/release 标记、采样时间与更新间隔；release 预设移除或条件编译",
+     r"(?i)(?:OS\.is_debug_build|debug_build|is_release|构建)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1564,6 +1584,54 @@ func migrate_save(path: String, data: Dictionary) -> Dictionary:
     return data
 '''
 
+# ---- 云存档 ----
+SELF_CLD_BAD = '''extends Node
+
+func sync_cloud(remote: Dictionary, local: Dictionary) -> Dictionary:
+    if remote.get("mtime") > local.get("mtime"):
+        return remote
+    return local
+'''
+
+SELF_CLD_CLEAN = '''extends Node
+
+func sync_cloud(remote: Dictionary, local: Dictionary) -> Dictionary:
+    if remote.get("version", 0) > local.get("version", 0):
+        return remote
+    if remote.get("version", 0) == local.get("version", 0):
+        return local
+    return _ask_player_conflict(remote, local)
+'''
+
+SELF_CLD_TS_BAD = '''extends Node
+
+func pick(path_a: String, path_b: String) -> String:
+    var ta := FileAccess.get_modified_time(path_a)
+    var tb := FileAccess.get_modified_time(path_b)
+    return path_a if ta > tb else path_b
+'''
+
+# ---- 调试工具 ----
+SELF_DBG_BAD = '''extends Control
+
+var god_mode := false
+
+func _process(_d: float) -> void:
+    $Fps.text = str(Performance.get_monitor(Performance.TIME_FPS))
+'''
+
+SELF_DBG_CLEAN = '''extends Control
+
+var god_mode := false
+
+func _process(_d: float) -> void:
+    if not OS.is_debug_build():
+        hide()
+        return
+    $Fps.text = str(Performance.get_monitor(Performance.TIME_FPS))
+    $Cheat.visible = god_mode
+'''
+
 SELF_V47_BAD = '''extends Node3D
 
 @onready var look: LookAtModifier3D = $LookAt
@@ -1921,6 +1989,8 @@ def self_test() -> int:
             'rpl.gd': SELF_RPL_BAD, 'rplok.gd': SELF_RPL_CLEAN,
             'mod.gd': SELF_MOD_BAD, 'modok.gd': SELF_MOD_CLEAN,
             'mig.gd': SELF_MIG_BAD, 'migok.gd': SELF_MIG_CLEAN,
+            'cld.gd': SELF_CLD_BAD, 'cldok.gd': SELF_CLD_CLEAN, 'cldts.gd': SELF_CLD_TS_BAD,
+            'dev.gd': SELF_DBG_BAD, 'devok.gd': SELF_DBG_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2111,6 +2181,14 @@ def self_test() -> int:
             check(rid in ids('mig.gd'), 'mig.gd 命中 %s' % rid)
         for rid in ('GD169', 'GD170'):
             check(rid not in ids('migok.gd'), 'migok.gd 不误报 %s' % rid)
+
+        check('GD171' in ids('cld.gd'), 'cld.gd 命中 GD171（云存档无冲突处理）')
+        check('GD171' not in ids('cldok.gd'), 'cldok.gd 不误报 GD171')
+        check('GD172' in ids('cldts.gd'), 'cldts.gd 命中 GD172（时间戳判冲突）')
+        for rid in ('GD173', 'GD174'):
+            check(rid in ids('dev.gd'), 'dev.gd 命中 %s' % rid)
+        for rid in ('GD173', 'GD174'):
+            check(rid not in ids('devok.gd'), 'devok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
