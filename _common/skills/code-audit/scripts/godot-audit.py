@@ -421,6 +421,36 @@ EXTRA_DOMAIN_RULES = [
      "面板要同时显示 debug/release 标记、采样时间与更新间隔；release 预设移除或条件编译",
      r"(?i)(?:OS\.is_debug_build|debug_build|is_release|构建)"),
 
+    # ---- 画质管线 ----
+    ("GD181", "P2", "TAA非Forward+", "gd", r"(?:scaling_3d_mode|anti_aliasing)\s*=?\s*\d*[\s\S]{0,300}?(?:TAA|taa)",
+     "用了 TAA 但项目可能是 Mobile/Compatibility 渲染器 —— TAA 仅在 Forward+ 可用，其他渲染器下会被静默忽略",
+     "确认渲染方法为 Forward+ 再使用 TAA；否则改用 MSAA/FXAA",
+     None),
+    ("GD182", "P2", "超分未分层", "gd", r"(?:scaling_3d_mode\s*=|scaling_3d_scale\s*=)",
+     "设置了 3D 超分缩放但 UI 未做分层 —— 文字会被连带糊掉",
+     "UI 单独渲染到一个不缩放的 CanvasLayer/子视口，避免被超分影响",
+     r"(?i)(?:ui_?viewport|ui_?layer|canvas_?layer|分层|不缩放)"),
+
+    # ---- 载具 / 物理 ----
+    ("GD183", "P1", "载具无自定义质心", "gd", r"(?:extends\s+VehicleBody3D|VehicleBody3D)",
+     "用了 VehicleBody3D 但没有自定义质心 —— 默认按形状算质心，包围盒偏高时会「一开就翻」",
+     "显式设置 center_of_mass_mode = CUSTOM 并把质心放在车身局部原点下方",
+     r"(?i)(?:center_of_mass|CENTER_OF_MASS_MODE_CUSTOM)"),
+    ("GD184", "P2", "高速物无CCD", "gd", r"(?:linear_velocity\s*=\s*Vector3|apply_central_impulse)\s*\(",
+     "设置了高速运动但全文没有 continuous_cd —— 高速物体会穿透薄墙",
+     "给高速/关键刚体启用 continuous_cd，并加厚薄墙（墙厚要覆盖单步位移）",
+     r"(?:continuous_cd|continuous\s*=\s*)"),
+
+    # ---- 角色自定义 ----
+    ("GD185", "P1", "共享材质直改", "gd", r"\.albedo_color\s*=|set_shader_parameter\s*\(",
+     "直接改材质属性但全文没有 duplicate —— 共享材质会让所有引用同一材质的装备一起变（染色串色）",
+     "改之前用 material.duplicate() 做实例私有化；注意 duplicate(true) 仍是浅拷贝",
+     r"(?:\.duplicate\s*\()"),
+    ("GD186", "P2", "blendshape未判空", "gd", r"set_blend_shape_value\s*\(",
+     "调用 set_blend_shape_value 但没有前置判空/判索引 —— mesh 为 null 或索引无效时会报错",
+     "调用前用 get_blend_shape_count() 判空，用 find_blend_shape_by_name 取索引并校验 >= 0",
+     r"(?:get_blend_shape_count|find_blend_shape_by_name)"),
+
 ]
 
 DOMAIN_RULES = [
@@ -1632,6 +1662,71 @@ func _process(_d: float) -> void:
     $Cheat.visible = god_mode
 '''
 
+# ---- 画质管线 ----
+SELF_GFX_BAD = '''extends Node
+
+func _ready() -> void:
+    get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+    get_viewport().scaling_3d_scale = 0.5
+    get_viewport().msaa_3d = Viewport.MSAA_4X
+'''
+
+SELF_GFX_CLEAN = '''extends Node
+
+func _ready() -> void:
+    $UIViewport.set_update_mode(SubViewport.UPDATE_ALWAYS)
+    get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+    get_viewport().scaling_3d_scale = 0.5
+'''
+
+SELF_TAA_BAD = '''extends Node
+
+func _ready() -> void:
+    get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+'''
+
+# ---- 载具 / 物理 ----
+SELF_VEH_BAD = '''extends VehicleBody3D
+
+@export var engine_power := 200.0
+
+func _physics_process(_d: float) -> void:
+    engine_force = Input.get_axis("brake", "accelerate") * engine_power
+'''
+
+SELF_VEH_CLEAN = '''extends VehicleBody3D
+
+@export var engine_power := 200.0
+
+func _ready() -> void:
+    center_of_mass_mode = CENTER_OF_MASS_MODE_CUSTOM
+    center_of_mass = Vector3(0, -0.5, 0)
+'''
+
+# ---- 角色自定义 ----
+SELF_CHR_BAD = '''extends Node3D
+
+func dye(part: MeshInstance3D, c: Color) -> void:
+    part.get_surface_override_material(0).albedo_color = c
+
+func set_face(v: float) -> void:
+    $Head.set_blend_shape_value(0, v)
+'''
+
+SELF_CHR_CLEAN = '''extends Node3D
+
+func dye(part: MeshInstance3D, c: Color) -> void:
+    var mat := part.get_surface_override_material(0).duplicate()
+    mat.albedo_color = c
+    part.set_surface_override_material(0, mat)
+
+func set_face(name_: String, v: float) -> void:
+    var idx := $Head.find_blend_shape_by_name(name_)
+    if $Head.mesh == null or idx < 0:
+        return
+    $Head.set_blend_shape_value(idx, v)
+'''
+
 SELF_V47_BAD = '''extends Node3D
 
 @onready var look: LookAtModifier3D = $LookAt
@@ -1991,6 +2086,9 @@ def self_test() -> int:
             'mig.gd': SELF_MIG_BAD, 'migok.gd': SELF_MIG_CLEAN,
             'cld.gd': SELF_CLD_BAD, 'cldok.gd': SELF_CLD_CLEAN, 'cldts.gd': SELF_CLD_TS_BAD,
             'dev.gd': SELF_DBG_BAD, 'devok.gd': SELF_DBG_CLEAN,
+            'gfx.gd': SELF_GFX_BAD, 'gfxok.gd': SELF_GFX_CLEAN, 'taa.gd': SELF_TAA_BAD,
+            'veh.gd': SELF_VEH_BAD, 'vehok.gd': SELF_VEH_CLEAN,
+            'chr.gd': SELF_CHR_BAD, 'chrok.gd': SELF_CHR_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2189,6 +2287,15 @@ def self_test() -> int:
             check(rid in ids('dev.gd'), 'dev.gd 命中 %s' % rid)
         for rid in ('GD173', 'GD174'):
             check(rid not in ids('devok.gd'), 'devok.gd 不误报 %s' % rid)
+
+        check('GD182' in ids('gfx.gd'), 'gfx.gd 命中 GD182（超分未分层）')
+        check('GD182' not in ids('gfxok.gd'), 'gfxok.gd 不误报 GD182')
+        check('GD183' in ids('veh.gd'), 'veh.gd 命中 GD183（载具无自定义质心）')
+        check('GD183' not in ids('vehok.gd'), 'vehok.gd 不误报 GD183')
+        for rid in ('GD185', 'GD186'):
+            check(rid in ids('chr.gd'), 'chr.gd 命中 %s' % rid)
+        for rid in ('GD185', 'GD186'):
+            check(rid not in ids('chrok.gd'), 'chrok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
