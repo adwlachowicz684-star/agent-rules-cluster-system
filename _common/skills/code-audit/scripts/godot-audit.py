@@ -528,6 +528,39 @@ EXTRA_DOMAIN_RULES = [
      "用 peer ID 作为玩家身份 —— 重连后会变，且不是稳定账号标识（官方大厅示例也不这么做）",
      "登录后用独立会话/账号 ID；peer ID 只用于本次连接的路由",
      r"(?i)(?:account|账号|user_id|session|auth)"),
+    ("GD215", "P2", "peer ID当玩家身份", "gd", r"(?:multiplayer\.get_unique_id|get_unique_id)\s*\(\s*\)",
+     "用 peer ID 作为玩家身份 —— 重连后会变，且不是稳定账号标识（官方大厅示例也不这么做）",
+     "登录后用独立会话/账号 ID；peer ID 只用于本次连接的路由",
+     r"(?i)(?:account|账号|user_id|session|auth)"),
+    # ---- 生存 / 角色状态 ----
+    ("GD221", "P1", "死亡写成布尔", "gd", r"(?:is_dead|dead|死亡)\s*(?::=|\+=|=)\s*(?:true|false)",
+     "死亡用布尔赋值表达 —— 会让 _process 反复触发；死亡是四阶段状态机（TRIGGERED/PLAYING/SETTLING/RESPAWNING）",
+     "改成枚举状态机，并在死亡期间禁止输入、移动、伤害、拾取、保存",
+     r"(?:enum|STATE_|DEAD_|state\s*=|set_state)"),
+    ("GD222", "P1", "死亡期间仍可保存", "gd", r"(?:is_dead|dead|死亡)\s*(?::=|=)\s*true[\s\S]{0,120}?(?:save_game|save\s*\(|存档)",
+     "死亡流程里调用保存 —— 会把「死亡状态」写进稳定存档，读档即死循环",
+     "死亡在状态结算后才提交临时存档；进入死亡播放期间禁止保存",
+     # absent 不能含 respawn：坏样本正是「死了立刻 respawn」，
+     # 有 respawn 恰恰说明流程有问题，不能当作已正确处理的证据。
+     r"(?i)(?:settle|结算|forbid|禁止|defer|延后)"),
+    ("GD223", "P1", "上限存计算结果", "gd", r"(?:max_hp|max_health|上限)\s*(?::=|=)\s*\w+\s*[+\-*]",
+     "把上限算成一个变量并直接存 —— 上限变化会造成超上限、比例回血错误、永久容量丢失",
+     "存 base_value + 修饰器列表 + current，读档时重建输入再算上限，最后把 current 夹到合法区间",
+     r"(?i)(?:base_value|base|modifier|recalc|重算)"),
+    ("GD224", "P2", "重生未清Tween", "gd", r"(?:respawn|重生|复活)\w*\s*\(",
+     "有重生流程但全文没有清理 Tween/Timer —— 跨场景引用泄漏（create_tween 不自动绑定节点）",
+     "重生时快照→清场→生成→恢复→释放；清掉临时修饰器、输入缓冲、Tween、Timer、飞行投射物",
+     r"(?:kill|stop|queue_free|free\s*\(|clear)"),
+
+    # ---- 叙事 / 进程 ----
+    ("GD225", "P1", "flag散落手写字符串", "gd", r"(?:set_flag|flags?\s*\[\s*\"|has_flag\s*\(\s*\")",
+     "剧情 flag 用魔法字符串散落各处 —— 后期无法重构，且同类 key 会撞车",
+     "集中在 StoryState；用三段式命名（global. / meta. / act1.xxx）与常量集合，避免手写字面量",
+     r"(?i)(?:const|StringName|StoryState|enum)"),
+    ("GD226", "P1", "结局用ifelif链", "gd", r"(?:结局|ending)\w*[\s\S]{0,400}?(?:elif\s+.+?:[\s\S]{0,200}?){2,}",
+     "结局判定写成一长串 if/elif —— 很快出现优先级、重复条件、测试覆盖与策划改表问题",
+     "改成数据驱动的判定表：id / priority / conditions / required_flags / incompatible_with，按优先级排序并处理冲突",
+     r"(?i)(?:priority|优先级|table|判定表|sort_custom)"),
     ("GD206", "P2", "预测与实弹两套公式", "gd", r"(?:func\s+\w*(?:predict|aim|trajectory)\w*\s*\(|预测|瞄准线|aim_line)",
      "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
      "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
@@ -1923,6 +1956,90 @@ func server_send_chat(text: String) -> void:
 func who_am_i() -> String:
     return Session.account_id
 '''
+
+# ---- 生存 / 角色状态 ----
+SELF_SURV_BAD = '''extends Node
+
+var max_hp: int = 100
+var is_dead := false
+
+func take_damage(n: int) -> void:
+    is_dead = true
+    save_game()
+    respawn()
+
+func upgrade() -> void:
+    max_hp = max_hp + 50
+
+func respawn() -> void:
+    position = spawn_point
+'''
+
+SELF_SURV_CLEAN = '''extends Node
+
+enum DeathState { ALIVE, TRIGGERED, PLAYING, SETTLING, RESPAWNING }
+var _death_state := DeathState.ALIVE
+var base_value := 100
+var _modifiers: Array = []
+var current := 100
+
+func recalc_max() -> int:
+    var total := base_value
+    for m in _modifiers:
+        total += m.amount
+    return total
+
+func _set_state(next: DeathState) -> void:
+    _death_state = next
+    if next == DeathState.SETTLING:
+        commit_checkpoint()
+
+func respawn() -> void:
+    _tween.kill()
+    _timer.stop()
+    _tween = null
+    current = recalc_max()
+'''
+
+# ---- 叙事 / 进程 ----
+SELF_NARR_BAD = '''extends Node
+
+func pick_ending() -> String:
+    if flags["met_alice"] and gold > 100:
+        return "true_ending"
+    elif flags["met_alice"]:
+        return "friend_ending"
+    elif flags["saved_city"]:
+        return "hero_ending"
+    else:
+        return "normal"
+
+func mark() -> void:
+    set_flag("has_key", true)
+    flags["has_key"] = true
+'''
+
+SELF_NARR_CLEAN = '''extends Node
+
+const F_GLOBAL_MET_ALICE := StringName("global.met_alice")
+const F_ACT1_SAVED_CITY := StringName("act1.saved_city")
+
+const ENDINGS: Array = [
+    {"id": "true_ending", "priority": 100, "conditions": ["global.met_alice"], "incompatible_with": []},
+    {"id": "hero_ending", "priority": 50, "conditions": ["act1.saved_city"], "incompatible_with": []},
+]
+
+func pick_ending() -> String:
+    var ok := []
+    for e in ENDINGS:
+        if StoryState.all_set(e.conditions):
+            ok.append(e)
+    ok.sort_custom(func(a, b): return a.priority > b.priority)
+    return ok[0].id if ok else "normal"
+
+func mark() -> void:
+    StoryState.set_flag(F_GLOBAL_MET_ALICE, true)
+'''
 SELF_UI_BAD = '''extends RichTextLabel
 
 func say(nick: String, msg: String) -> void:
@@ -2353,6 +2470,8 @@ def self_test() -> int:
             'proj.gd': SELF_PROJ_BAD, 'projok.gd': SELF_PROJ_CLEAN,
             'mv.gd': SELF_MOVE_BAD, 'mvok.gd': SELF_MOVE_CLEAN,
             'soc.gd': SELF_SOCIAL_BAD, 'socok.gd': SELF_SOCIAL_CLEAN,
+            'surv.gd': SELF_SURV_BAD, 'survok.gd': SELF_SURV_CLEAN,
+            'narr.gd': SELF_NARR_BAD, 'narrok.gd': SELF_NARR_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2589,6 +2708,15 @@ def self_test() -> int:
         check('GD215' in ids('soc.gd'), 'soc.gd 命中 GD215（peer ID 当玩家身份）')
         for rid in ('GD214', 'GD215'):
             check(rid not in ids('socok.gd'), 'socok.gd 不误报 %s' % rid)
+
+        for rid in ('GD221', 'GD222', 'GD223', 'GD224'):
+            check(rid in ids('surv.gd'), 'surv.gd 命中 %s' % rid)
+        for rid in ('GD221', 'GD222', 'GD223', 'GD224'):
+            check(rid not in ids('survok.gd'), 'survok.gd 不误报 %s' % rid)
+        for rid in ('GD225', 'GD226'):
+            check(rid in ids('narr.gd'), 'narr.gd 命中 %s' % rid)
+        for rid in ('GD225', 'GD226'):
+            check(rid not in ids('narrok.gd'), 'narrok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
