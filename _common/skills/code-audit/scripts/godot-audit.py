@@ -561,6 +561,40 @@ EXTRA_DOMAIN_RULES = [
      "结局判定写成一长串 if/elif —— 很快出现优先级、重复条件、测试覆盖与策划改表问题",
      "改成数据驱动的判定表：id / priority / conditions / required_flags / incompatible_with，按优先级排序并处理冲突",
      r"(?i)(?:priority|优先级|table|判定表|sort_custom)"),
+
+    # ---- 谜题 / 机关 ----
+    ("GD231", "P1", "反射无迭代上限", "gd", r"(?:while\s+true|while\s+not\b|for\s+\w+\s+in\s+range\s*\(\s*\d{3,}\s*\))",
+     "反射循环没有迭代上限 —— 两面镜子互照会无限反射并卡死主线程（这是数学问题不是调优问题）",
+     "硬编码 MAX_BOUNCES（推荐 8），且每次反射用上一次命中的 RID 做 exclude",
+     r"(?:MAX_BOUNCES|max_bounces|上限|limit)"),
+    ("GD232", "P1", "反射用reflect非bounce", "gd", r"\.reflect\s*\(",
+     "用了 Vector3.reflect() 做镜面反射 —— Godot 里 bounce = -reflect，混用会得到相反方向",
+     "镜面反射方向用 Vector3.bounce(normal)；reflect 是「对法线所在平面做镜面」，语义不同",
+     r"(?:\.bounce\s*\()"),
+    ("GD233", "P2", "机关状态存动画进度", "gd", r"(?:current_animation_position|动画进度)\s*(?::=|=)",
+     "把动画进度当机关状态存 —— 官方明确 current_animation_position 只有 getter；应存开/关状态",
+     "存「门开着」这样的状态；读档时用 seek(length, true) 跳到动画终点而不是回放",
+     r"(?:seek\s*\()"),
+    ("GD234", "P1", "交互绑死按键", "gd", r"(?:Input\.is_action_just_pressed\s*\(\s*.?\"?(?:interact|ui_accept))",
+     "交互直接绑死按键 —— 键鼠/手柄/触屏三平台会打架；触屏没有该按键",
+     "把交互抽象成「意图」：触屏把屏幕坐标投影成世界射线打到 Interactable 就触发",
+     r"(?:InputEventScreenTouch|screen_to_world|射线|投影|意图)"),
+
+    # ---- 时间操控 ----
+    ("GD235", "P0", "停帧计时器受缩放", "gd", r"Engine\.time_scale\s*=\s*0*(?:\.0+)?\b",
+     "time_scale 设为 0（停帧）但恢复用的计时器没传 ignore_time_scale —— 计时器也停，游戏永久卡死",
+     "停帧/慢动作的恢复计时器必须 create_timer(t, true)，确保不受 time_scale 影响",
+     r"(?:create_timer\s*\([^)]*,\s*true|ignore_time_scale)"),
+    ("GD236", "P1", "改time_scale无恢复", "gd", r"Engine\.time_scale\s*=\s*[\d.]+",
+     "改了 Engine.time_scale 但全文没有恢复路径 —— 任何路径漏掉恢复都会导致游戏永久慢动作",
+     "恢复必须「必然发生」：统一封装入口，用 Tween 平滑过渡并在完成时强制归位",
+     # absent 不能含 time_scale = 1：坏样本 hitstop() 里就写了归位，
+     # 但 slowmo() 没有任何恢复 —— 出现归位赋值不等于所有路径都有恢复。
+     r"(?i)(?:TimeScale\.|time_scale_manager|ensure_reset|统一封装|封装入口)"),
+    ("GD237", "P1", "暂停时UI不可交互", "gd", r"get_tree\(\)\.paused\s*=\s*true",
+     "整树暂停但没给 UI 设 process_mode —— 暂停菜单自己也停了，点不动",
+     "暂停菜单节点设 PROCESS_MODE_WHEN_PAUSED 或 ALWAYS；注意它与 Tween 忽略缩放是两件事",
+     r"(?:PROCESS_MODE_|process_mode\s*=)"),
     ("GD206", "P2", "预测与实弹两套公式", "gd", r"(?:func\s+\w*(?:predict|aim|trajectory)\w*\s*\(|预测|瞄准线|aim_line)",
      "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
      "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
@@ -2040,6 +2074,79 @@ func pick_ending() -> String:
 func mark() -> void:
     StoryState.set_flag(F_GLOBAL_MET_ALICE, true)
 '''
+
+# ---- 谜题 / 机关 ----
+SELF_PUZ_BAD = '''extends Node3D
+
+func trace_light(dir: Vector3) -> void:
+    while true:
+        var hit := cast(dir)
+        if not hit:
+            break
+        dir = dir.reflect(hit.normal)
+
+func save_door() -> void:
+    state.current_animation_position = anim.current_animation_position
+
+func _input(e) -> void:
+    if Input.is_action_just_pressed("interact"):
+        try_activate()
+'''
+
+SELF_PUZ_CLEAN = '''extends Node3D
+
+const MAX_BOUNCES := 8
+
+func trace_light(dir: Vector3) -> void:
+    for i in MAX_BOUNCES:
+        var hit := cast(dir)
+        if not hit:
+            break
+        dir = dir.bounce(hit.normal)
+
+func save_door() -> void:
+    state.open = is_open
+
+func load_door() -> void:
+    anim.seek(anim.current_animation_length, true)
+
+func _input(e) -> void:
+    if e is InputEventScreenTouch and e.pressed:
+        var ray := screen_to_world(e.position)
+        try_activate(ray)
+'''
+
+# ---- 时间操控 ----
+SELF_TIME_BAD = '''extends Node
+
+func hitstop() -> void:
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08).timeout
+    Engine.time_scale = 1.0
+
+func pause() -> void:
+    get_tree().paused = true
+    menu.show()
+
+func slowmo() -> void:
+    Engine.time_scale = 0.3
+'''
+
+SELF_TIME_CLEAN = '''extends Node
+
+func hitstop() -> void:
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08, true).timeout
+    Engine.time_scale = 1.0
+
+func pause() -> void:
+    get_tree().paused = true
+    menu.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+    menu.show()
+
+func slowmo() -> void:
+    TimeScale.slow_to(0.3)
+'''
 SELF_UI_BAD = '''extends RichTextLabel
 
 func say(nick: String, msg: String) -> void:
@@ -2472,6 +2579,8 @@ def self_test() -> int:
             'soc.gd': SELF_SOCIAL_BAD, 'socok.gd': SELF_SOCIAL_CLEAN,
             'surv.gd': SELF_SURV_BAD, 'survok.gd': SELF_SURV_CLEAN,
             'narr.gd': SELF_NARR_BAD, 'narrok.gd': SELF_NARR_CLEAN,
+            'puz.gd': SELF_PUZ_BAD, 'puzok.gd': SELF_PUZ_CLEAN,
+            'time.gd': SELF_TIME_BAD, 'timeok.gd': SELF_TIME_CLEAN,
         }
         res = {}
         for name, src in cases.items():
@@ -2717,6 +2826,15 @@ def self_test() -> int:
             check(rid in ids('narr.gd'), 'narr.gd 命中 %s' % rid)
         for rid in ('GD225', 'GD226'):
             check(rid not in ids('narrok.gd'), 'narrok.gd 不误报 %s' % rid)
+
+        for rid in ('GD231', 'GD232', 'GD233', 'GD234'):
+            check(rid in ids('puz.gd'), 'puz.gd 命中 %s' % rid)
+        for rid in ('GD231', 'GD232', 'GD233', 'GD234'):
+            check(rid not in ids('puzok.gd'), 'puzok.gd 不误报 %s' % rid)
+        for rid in ('GD235', 'GD236', 'GD237'):
+            check(rid in ids('time.gd'), 'time.gd 命中 %s' % rid)
+        for rid in ('GD235', 'GD236', 'GD237'):
+            check(rid not in ids('timeok.gd'), 'timeok.gd 不误报 %s' % rid)
         for rid in ('GD135', 'GD136'):
             check(rid not in ids('plgok.gd'), 'plgok.gd 不报 %s（干净样本）' % rid)
         # --- GD12x 4.7 迁移 ---
