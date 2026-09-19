@@ -65,7 +65,7 @@ DOMAINS = [
     ('事件/架构', ['事件总线', '信号', '解耦', 'autoload', '单例', 'events', 'signal', '通信'],
      'references/godot/systems.md',
      'Events Autoload · 连接与断开配对 · 避免引用环'),
-    ('对象池', ['对象池', '子弹', '大量生成', '复用', 'pool', 'bullet'],
+    ('对象池', ['对象池', '大量生成', '复用', 'pool', 'bullet', '子弹池'],
      'references/godot/systems.md',
      'acquire/release · 状态重置 · 不用 queue_free 回收'),
     ('物理', ['碰撞', '射线', '射线检测', '物理', '推动', '重力', 'trigger', 'raycast', 'collision', '刚体', '移动平台', '爆炸', '层'],
@@ -224,7 +224,7 @@ DOMAINS = [
     ('VFX/游戏感', ['vfx', '特效', '粒子', 'gpuparticles', 'cpuparticles', '打击感', '游戏感', 'juice', '命中反馈', '屏幕震动', '震屏', 'trauma', '顿帧', 'hitstop', '拖尾', '残影', '白闪', '伤害数字', '打击感', '顿帧', 'hitstop实现', '命中感'],
      'references/godot/vfx-feel.md',
      'GPU粒子不是默认答案(Web/兼容渲染器选CPU) · 震动要trauma+噪声不是随机偏移 · time_scale=0时定时器也停需ignore_time_scale'),
-    ('经济/长线系统', ['经济系统', '货币', '钱包', '掉落', '掉落表', '保底', 'pity', '抽卡', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证'],
+    ('经济/长线系统', ['经济', '经济系统', '货币', '钱包', '掉落', '掉落表', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证', '抽卡经济', '掉落保底'],
      'references/godot/economy.md',
      '货币不能只一个int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用UTC'),
     ('输入重绑定', ['输入重绑定', '按键重映射', '改键', '键位', '改按键', 'remap', 'inputmap', '重绑定', '手柄振动', '振动', 'haptic', '触觉', 'joy vibration', '按键冲突', '捕获按键', '改键', '自定义按键', '键位设置'],
@@ -254,7 +254,7 @@ DOMAINS = [
     ('热更新/DLC', ['热更新', '热更', '资源热更', 'hot update', '资源分包', 'dlc', '增量补丁', '补丁包', '强制更新', '灰度', 'ab包', '分包'],
      'references/godot/hotupdate.md',
      '资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS审核2.5.2禁止动态代码 · 配置热更也要版本校验 · DLC未购买要占位'),
-    ('平台服务', ['steam', '内购', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜', 'steam成就', '平台成就', '平台排行榜'],
+    ('平台服务', ['steam', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜', 'steam成就', '平台成就', '平台排行榜', '平台内购'],
      'references/godot/platform-services.md',
      'Godot无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带steam_appid.txt · 无Steam客户端要降级不崩 · token秘密留服务端'),
     ('画质/超分', ['超分', 'fsr', 'fsr2', 'dlss', 'xess', 'metalfx', '抗锯齿', 'taa', 'fxaa', 'msaa', 'smaa', '后处理', 'bloom', 'tonemap', '景深', 'ssao', '画质', '渲染分辨率', '拉伸', 'stretch'],
@@ -275,6 +275,12 @@ DOMAINS = [
     ('诊断与稳定性', ['错误处理', '崩溃上报', '崩溃', 'crash', '断言', 'assert', '日志分级', '日志系统', 'logger', 'add_logger', '录像', 'movie maker', 'watchdog', '孤儿节点', '健康检查', 'sentry', '符号化', 'minidump'],
      'references/godot/diagnostics.md',
      'GDScript无try/catch · print崩溃时可能没刷盘用stderr · assert在release不求值 · 原生崩溃进程没机会上报 · MovieMaker不是玩家录像器'),
+    ('商业化/变现', ['内购', '支付', 'iap', '商城', '商店定价', '抽卡', 'gacha', '扭蛋', '保底', 'pity', '概率公示', '礼包', '月卡', '订阅制', '广告', '激励视频', '变现', 'billing', 'storekit', '收据验证', '掉单', '未成年限额'],
+     'references/godot/monetization.md',
+     'Godot 4.x 全系列无内置 IAP/支付/广告 API · 客户端只是发起支付的遥控器 · 合规优先于体验 · 中国抽卡是四件套（含替代获取途径）· 概率公示必须与实现同源 · 保底存服务器防清档 · 掉单幂等'),
+    ('投射物/弹道', ['投射物', '弹道', '子弹', '抛射', 'hitscan', '穿透问题', 'tunneling', '弹道预测', '瞄准线', '追踪弹', '穿透弹', 'shapecast', '命中框', '弹射', 'homing'],
+     'references/godot/projectile.md',
+     '无专门子弹节点 · CCD 官方称"有时有效"不替代射线扫描 · 预测线必须复用真实弹道函数否则显示与落点不一致 · 网络应同步开火事件而非逐帧 transform · 一帧多次命中要去重'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -555,6 +561,23 @@ def cmd_self_test():
     chk(not stolen, '无关键词被别的域抢走（当前 %d 个：%s）' % (
         len(stolen), '、'.join('%s→%s' % (w, win) for w, _, win in stolen[:5])))
 
+    # 商业化 / 投射物 不被旧域抢走，且相关旧域仍可达
+    for need, want in (('支付', '商业化/变现'), ('激励视频', '商业化/变现'), ('内购', '商业化/变现'),
+                       ('抽卡', '商业化/变现'), ('保底', '商业化/变现'), ('概率公示', '商业化/变现')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('弹道', '投射物/弹道'), ('hitscan', '投射物/弹道'), ('弹道预测', '投射物/弹道')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('经济', '经济/长线系统'), ('掉落保底', '经济/长线系统'),
+                       ('hitbox', '战斗系统'), ('子弹池', '对象池')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（邻近域未被抢）' % (need, want))
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn in ('monetization.md', 'projectile.md'):
+        chk(os.path.exists(os.path.join(here, 'references/godot', fn)), '%s 存在' % fn)
+
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
     for need, want in (('水面', '环境系统'), ('浮力', '环境系统'), ('天空', '环境系统'),
                        ('昼夜循环', '环境系统'), ('天气', '环境系统')):
@@ -596,7 +619,7 @@ def cmd_self_test():
     for need, want in (('热更新', '热更新/DLC'), ('DLC', '热更新/DLC'), ('资源分包', '热更新/DLC')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
-    for need, want in (('steam成就', '平台服务'), ('steam排行榜', '平台服务'), ('内购', '平台服务')):
+    for need, want in (('steam成就', '平台服务'), ('steam排行榜', '平台服务'), ('平台内购', '平台服务')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
     for need, want in (('成就系统', '引导/成就'), ('排行榜', '引导/成就'), ('作弊', '存档安全/防作弊'),
