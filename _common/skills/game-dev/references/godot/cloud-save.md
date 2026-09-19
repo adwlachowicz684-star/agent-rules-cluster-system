@@ -109,7 +109,7 @@ Lamport 时钟是轻量补充（读到远端事件就推到 `max(local, remote)+
 ## 7. 相关文档
 
 - 存档与序列化 → `io-network.md`
-- 存档与序列化 → `io-network.md`（存档迁移文档待重建）
+- 存档迁移 → `save-migration.md`
 - 存档安全 → `security.md`
 - 平台导出 → `platform-export.md`
 - 每日重置与 UTC → `economy.md`

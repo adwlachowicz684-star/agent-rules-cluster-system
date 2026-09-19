@@ -245,6 +245,12 @@ DOMAINS = [
     ('调试工具/GM', ['gm命令', '作弊码', '调试面板', '调试工具', 'devtools', '跳关', '无敌', '控制台', 'console', 'debug draw', '启动参数', '命令行参数', 'performance', '刷怪'],
      'references/godot/devtools.md',
      '自定义参数要放--后用get_cmdline_user_args · Performance部分监控release恒为0且有1秒延迟 · 作弊要视觉标识+审计日志 · 无内置DebugDraw3D'),
+    ('玩家Mod', ['mod', '模组', '玩家mod', 'mod加载', 'mod支持', '创意工坊', 'modding', 'load_resource_pack', 'pck覆盖', 'zip-slip', 'mod冲突', 'mod卸载'],
+     'references/godot/modding.md',
+     'Mod≠编辑器插件 · 后来加载的覆盖先加载的 · replace_files=false是不覆盖非沙箱 · Mod脚本无法沙箱隔离 · 手动解压要防zip-slip'),
+    ('存档迁移', ['存档迁移', 'save migration', '存档版本', 'schema version', '旧存档', '存档兼容', '版本迁移', '字段兼容', '降级读取', '存档损坏'],
+     'references/godot/save-migration.md',
+     '格式版本≠游戏版本≠构建号 · VERSION要第一天写 · 迁移前必须备份 · 后要重算HMAC · 降级get_value静默返回默认值'),
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -476,6 +482,17 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == 'XR/VR', '"VR抓取" → XR/VR')
     d = match_domains('XR传送')
     chk(bool(d) and d[0][0] == 'XR/VR', '"XR传送" → XR/VR（不被渲染进阶抢走）')
+
+    # 玩家Mod / 存档迁移 不被旧域抢走
+    for need, want in (('玩家mod', '玩家Mod'), ('mod加载', '玩家Mod'), ('创意工坊', '玩家Mod')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('存档迁移', '存档迁移'), ('旧存档兼容', '存档迁移'), ('降级读取', '存档迁移')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    for need, want in (('编辑器插件', '编辑器插件开发'), ('云存档', '云存档/跨端')):
+        d = match_domains(need)
+        chk(bool(d) and d[0][0] == want, '"%s" → %s（邻近域未被抢）' % (need, want))
 
     # 关卡设计 / 云存档 / 调试工具 不被旧域抢走
     for need, want in (('关卡设计', '关卡设计'), ('白盒', '关卡设计'), ('关卡编辑', '关卡设计')):
