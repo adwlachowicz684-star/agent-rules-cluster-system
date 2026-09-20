@@ -79,7 +79,164 @@
 
 ⚠ **顺序反过来，项目会拥有漂亮界面和脆弱经济。**
 
-## 8. 常见坑
+## 8. 引擎侧 API：Godot 给什么，你必须写什么
+
+⚠ **Godot 没有 ActivityManager、没有签到组件、没有战令节点、没有公告面板。**
+不要去 `ProjectSettings` 里找「活动开关」，不要指望 `HTTPRequest` 自带重试。
+
+| 需求 | Godot 提供 | 必须自己实现 |
+|---|---|---|
+| 安全随机 | `Crypto.generate_random_bytes()` / `hmac_digest()` / `constant_time_compare()` | 字符集编码、长度、批量去重、唯一约束、核销事务 |
+| 时间 | `Time.get_unix_time_from_system()`（**UTC** 浮点秒）、`get_ticks_msec()`（单调） | 服务端校准、跨天重置点、时区/夏令时、时钟回拨检测 |
+| 配置持久化 | `ConfigFile`（INI）、`FileAccess`、`JSON` | 远程拉取、版本比对、本地兜底、兼容性迁移 |
+| 网络 | `HTTPRequest` 节点、`HTTPClient` | 超时/重试/退避、并发队列、幂等键、请求签名 |
+| 资源热更 | `load_resource_pack()`、`ResourceLoader.CacheMode` | 差量包、签名校验、灰度路由、回滚、版本清单 |
+
+### 8.1 两个时间 API 语义不同，混用必错
+
+| API | 行为 |
+|---|---|
+| `Time.get_unix_time_from_system()` | 返回 **UTC** 浮点秒 |
+| `Time.get_unix_time_from_datetime_string(s)` | **不做时区转换**，时区与输入串一致 |
+
+→ 运营给北京时间 `2026-09-20 00:00:00+08:00`，必须自己减 8 小时再比较。
+
+⚠ **所有活动时间的存储/比较/日志都用 UTC Unix 秒**，绝不存本地时间字符串。
+显示时用 `Time.get_datetime_dict_from_unix_time(int(unix_sec))`（⚠ 先 `int()`，传 float 会截断）。
+
+**客户端时钟校准（NTP 思路）**：
+
+```
+offset = server_time - (client_sent_at + client_recv_at) / 2
+rtt    = client_recv_at - client_sent_at
+```
+
+- 连续取 3~5 次，**丢弃 rtt 最大的样本**，取剩余中位数
+- 之后小幅更新：`offset = 0.8*old + 0.2*new`
+- ⚠ 校准后的时间**只用于倒计时显示**，不用于资格判定
+
+⚠ **必须检测时钟回拨与快进**：新值明显小于旧值 → 回拨；跳了数小时 → 快进。
+两者都要重校准。不检测时玩家把时间往后调一天就能刷每日奖励。
+
+⚠ `get_ticks_msec()` 是**单调时钟**（引擎启动至今，保证不减小）—— 用来测间隔、做轮询定时器、测 RTT。
+它**不是**现实时间，不能存盘、不能跨重启。
+
+### 8.2 活动模型：定义与实例分离
+
+**模板（不可变定义）**：`id`、类型、`start_at`/`end_at`（UTC 秒）、`claim_deadline`、奖励表、`priority`、`mutex_group`。
+
+**实例（运行时状态，权威副本在服务端数据库）**：
+`{ player_id, activity_id, status, progress, claimed_tier_ids[], last_signin_day, makeup_used }`
+
+⚠ **客户端只持有一份只读 UI 缓存**，重新联网由服务端覆盖。
+若客户端是权威：改存档清空 `claimed_tier_ids` 即可重复领奖。
+
+⚠ **多活动并存是数据问题**：`priority`（数字大者优先）+ `mutex_group`（同组只展示一条）。
+优先级只影响**展示顺序**，不影响资格判定；服务端返回 `display: true/false`，客户端不做二次过滤。
+
+### 8.3 签到：日期边界在服务端
+
+```gdscript
+var today := floori((server_now + tz_offset) / 86400.0)
+# 差 1 → 连续；差 > 1 → 断签；差 0 → 已签过
+```
+
+服务端存：`last_signin_day:int`、`consecutive_days:int`、`signin_bitmap:int`（位图，90 位够一季度）、`makeup_used_in_cycle:int`。
+
+⚠ **断签后重置还是续接是运营策略，不是技术问题**：
+`reset_on_break`（清零重数）/ `carry_over`（不清天数，但断掉那天永远拿不到）。
+
+⚠ **补签的「是否已用」必须在服务端**，且要在**一个事务里**扣货币 + 标已签 + 加计数；
+否则断网重发会扣两次货币只标一次。
+
+⚠ **跨月/跨周期边界不要客户端算**。服务端算
+`cycle_index = floor((server_now - absolute_start) / cycle_seconds)`，变了就做周期结算再重置。
+反模式：客户端用 `OS.get_date().day` 从 1 数到 31，月末把"第 31 天"渲染成"第 1 天"。
+
+### 8.4 战令：用累计经验模型
+
+```gdscript
+level             = max i where total_xp >= xp_thresholds[i]
+progress_in_level = total_xp - xp_thresholds[level]
+xp_to_next        = xp_thresholds[level+1] - xp_thresholds[level]
+```
+
+⚠ **用累计模型，不要用逐级模型**（`level + xp_in_level`）。
+补发/撤回经验、跨级跳跃直接改 `total_xp` 一个数，不会出现"某一级没给够"的中间态。
+
+⚠ **双轨是「资格」不是「两套数值」**：免费/付费轨共享 `total_xp` 与 `level`，只是奖励表分开。
+`purchased_pass` 由支付回调在服务端置位，客户端只拿 `pass_entitlement: bool` 渲染锁图标。
+
+⚠ **赛季结束的未领奖励是运营规则**，写在赛季模板里：
+`GRANT_ALL_UNCLAIMED`（打包发邮箱）/ `VOID_UNCLAIMED` / `EXTEND_CLAIM_PERIOD`。
+服务端在 `claim_deadline` 触发定时任务结算，**不依赖玩家下次登录**。
+
+⚠ **赛季数据归档而不是原地覆盖** —— 否则新赛季第 1 天玩家看到上赛季 60 级进度。
+
+### 8.5 CDK 生成：必须用 CSPRNG
+
+```gdscript
+var crypto := Crypto.new()
+var bytes := crypto.generate_random_bytes(16)   # 加密安全随机字节
+var token := bytes.hex_encode()
+```
+
+- ⚠ `randi()` / `RandomNumberGenerator` 是普通伪随机，种子可预测、可复现 → **只用于玩法**
+- **字符集排除易混淆字符**：去掉 `I` `O` `0` `1` `L`，推荐 32 字符集（每字符 5 bit），长度 12~16
+- ⚠ 长度够也要**数据库唯一约束兜底**
+
+**核销是事务**（服务端）：
+`SELECT ... FOR UPDATE` → 校验存在/未用/未过期/未达批次限 → 标 USED + 写 `used_by`/`used_at` → 发奖 → 提交
+
+⚠ **必须做请求幂等**：请求带 `client_req_id`（客户端 `Crypto.generate_random_bytes` 生成、用完即弃），
+服务端按 `(player_id, client_req_id)` 查重，重复请求**返回首次结果、不再发奖**。
+
+⚠ 反模式："先发奖再标已用" → 发奖成功、标失败、下次重试又发一次。
+
+**限流在网关层**：单玩家单码每分钟 1 次、单 IP 每分钟 10 次、同码连错 5 次进冷却。
+
+### 8.6 PCK 热更 ≠ 配置热更
+
+⚠ **`load_resource_pack(pack, replace_files=true, offset=0)` 返回 true 只说明包进了 VFS**，
+不代表任何已加载资源被替换。
+
+**"热更不生效"的头号原因**：菜单场景在 `_ready()` 前就 `preload()` 了旧资源，
+Autoload 在 `_init()` 里加载了旧 Resource —— 之后再加载 PCK 只影响**之后**发起的加载。
+→ 官方建议：加载 PCK 的 Autoload 放在最前，在 **`_init()`** 里调用。
+
+`ResourceLoader.CacheMode` 五档：
+
+| 值 | 行为 |
+|---|---|
+| `CACHE_MODE_IGNORE` (0) | 主资源及子资源都不读写缓存 |
+| `CACHE_MODE_REUSE` (1) **默认** | 命中缓存直接返回 |
+| `CACHE_MODE_REPLACE` (2) | 类型匹配则刷新已存在实例的数据 |
+| `CACHE_MODE_IGNORE_DEEP` (3) | IGNORE 递归到外部依赖 |
+| `CACHE_MODE_REPLACE_DEEP` (4) | REPLACE 递归到外部依赖 |
+
+→ PCK 换完字节后已缓存的旧 Resource 还活着，默认 REUSE 会返回旧对象。
+要么对新路径用 REPLACE 重新 load，要么**让新版本资源走新路径**（`banner_v12.tres`）。
+
+⚠ **`Resource.take_over_path()` 只在编辑器上下文实现**，生产运行时没用。
+⚠ **PCK 不能换 GDScript 逻辑**（脚本导出时已编译进主包）。
+
+### 8.7 传输与存储的能力边界
+
+⚠ **`HTTPRequest` 单节点不可并发**（一次只能一个请求），**无内置重试/退避**
+→ 项目必须自己写重试层与队列。
+
+⚠ **`JSON.parse_string()` 失败返回 `null` 且容忍尾逗号**，
+**无法区分"内容是 null"与"解析失败"** → 生产用 `JSON.new().parse()` 走 `error != OK` 分支。
+
+⚠ **`ConfigFile` 是 INI 风格，不支持原生嵌套**。
+能往返 `Vector2/3/4`、`Color`、`int/float/bool/String`；
+`section` 与 `key` **不能含空格**；`;` 注释保存时会丢失。
+→ 嵌套配置用 `JSON.stringify(dict)` + `FileAccess`，或自定义 `Resource` + `ResourceSaver`。
+
+⚠ **兼容性：加字段安全，删字段/改类型危险**。
+Godot 的 JSON 解析**不区分 `null` 与"缺失键"** → 一律 `dict.get("key", default)`。
+
+## 9. 常见坑
 
 | # | 本能以为 | 实际 |
 |---|---|---|
@@ -104,13 +261,13 @@
 | 19 | 埋点不用带分组 | 没有分组就**无法分析实验** |
 | 20 | 断网埋点丢了就算 | 要**缓存+补发** |
 
-## 9. 待核对项（运行时验证）
+## 10. 待核对项（运行时验证）
 
 ⚠ 待核对：分桶 key 的具体选取（账号/设备）· 验证：按项目账号体系与设备绑定策略确定
 
 ⚠ 待核对：补偿走邮件还是自动到账 · 验证：按资产争议概率与客服能力决定
 
-## 10. 相关文档
+## 11. 相关文档
 
 - 埋点技术实现 → `analytics.md`
 - 存档安全与防作弊 → `security.md`

@@ -143,6 +143,7 @@ my_game/
 | **遮挡剔除 / 实例化 / GPU 粒子** | `occlusion-instancing.md` | OccluderInstance3D 烘焙 · visible_instance_count · RenderingDevice |
 | **版本控制 / 资源组织** | `vcs-collab.md` | .uid 必须入库 · 移动带侧车 · 可 diff ≠ 可合并 · LFS 白名单 |
 | **性能预算 / CI / 评审 / 技术债** | `project-governance.md` | P95/P99 · Profiler 有开销 · 符号一一对应 · 高影响重构分 PR |
+| **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 观战者是纯接收端 · Peer ID 是会话 ID · close() 不发射断开 · 重连以连续权威快照为准 · 角色保留+AI托管 · 仲裁要 quorum |
 
 **节点树即架构** —— Godot 里"父子关系"既是层级也是生命周期。
 子节点会随父节点一起释放，这是设计上的便利，也是泄漏的来源

@@ -528,10 +528,6 @@ EXTRA_DOMAIN_RULES = [
      "用 peer ID 作为玩家身份 —— 重连后会变，且不是稳定账号标识（官方大厅示例也不这么做）",
      "登录后用独立会话/账号 ID；peer ID 只用于本次连接的路由",
      r"(?i)(?:account|账号|user_id|session|auth)"),
-    ("GD215", "P2", "peer ID当玩家身份", "gd", r"(?:multiplayer\.get_unique_id|get_unique_id)\s*\(\s*\)",
-     "用 peer ID 作为玩家身份 —— 重连后会变，且不是稳定账号标识（官方大厅示例也不这么做）",
-     "登录后用独立会话/账号 ID；peer ID 只用于本次连接的路由",
-     r"(?i)(?:account|账号|user_id|session|auth)"),
     # ---- 生存 / 角色状态 ----
     ("GD221", "P1", "死亡写成布尔", "gd", r"(?:is_dead|dead|死亡)\s*(?::=|\+=|=)\s*(?:true|false)",
      "死亡用布尔赋值表达 —— 会让 _process 反复触发；死亡是四阶段状态机（TRIGGERED/PLAYING/SETTLING/RESPAWNING）",
@@ -595,10 +591,6 @@ EXTRA_DOMAIN_RULES = [
      "整树暂停但没给 UI 设 process_mode —— 暂停菜单自己也停了，点不动",
      "暂停菜单节点设 PROCESS_MODE_WHEN_PAUSED 或 ALWAYS；注意它与 Tween 忽略缩放是两件事",
      r"(?:PROCESS_MODE_|process_mode\s*=)"),
-    ("GD206", "P2", "预测与实弹两套公式", "gd", r"(?:func\s+\w*(?:predict|aim|trajectory)\w*\s*\(|预测|瞄准线|aim_line)",
-     "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
-     "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
-     r"(?i)(?:simulate|复用|共用|shared|same|同一)"),
 
 
     # ---- 域专项补充（GD241-GD274）----
@@ -905,6 +897,30 @@ EXTRA_DOMAIN_RULES = [
      "用普通随机函数生成 token/nonce/salt —— 可预测，不是密码学安全随机",
      "敏感随机用 Crypto.generate_random_bytes()",
      r"(?:Crypto\.|generate_random_bytes)"),
+    ("GD317", "P1", "断线直接销毁角色", "gd", r"(?i)(?:peer_disconnected|server_disconnected|connection_lost|断线|掉线)[\s\S]{0,400}?queue_free",
+     "玩家断线就 queue_free 角色 —— 对端看到物体凭空消失、已发射抛射物变孤儿、计分不一致",
+     "角色保留 + 受控 AI 托管，超时（reconnect_grace_ms）后才按模式处理",
+     r"(?i)(?:retain|保留|托管|ai_control|grace|reconnect_grace|暂不销毁)"),
+    ("GD318", "P1", "权威位置硬赋值", "gd", r"(?i)(?:authority|server_pos|snapshot_pos|权威)[\s\S]{0,300}?(?:global_)?position\s*=\s*\w*(?:pos|position|snapshot|state)",
+     "每帧把位置直接赋成权威值 —— 表现为「走路像橡皮筋」",
+     "超阈值才纠正，用临界阻尼/指数平滑朝目标移动，偏差极大才 snap",
+     r"(?i)(?:lerp|smooth|阻尼|move_toward|exp\s*\(\s*-|correction)"),
+    ("GD319", "P2", "观战流无延迟缓冲", "gd", r"(?i)(?:spectat\w*|观战)[\s\S]{0,400}?(?:_process|render|apply|显示|draw)[\s\S]{0,200}?(?:latest|最新|last_snapshot|直接)",
+     "观战端拿到快照就实时渲染 —— 会窥屏（比选手早看到转角敌人）且 1% 丢包就卡顿",
+     "维护 200-600ms 历史缓冲，按固定显示 tick 插值",
+     r"(?i)(?:buffer|缓冲|history|历史|delay|延迟|interpolat)"),
+    ("GD320", "P1", "模拟用渲染delta驱动", "gd", r"(?i)func\s+_process\s*\([^)]*\)[\s\S]{0,400}?(?:simulate|step|advance|tick_update)\s*\(\s*delta\s*\)",
+     "用渲染帧 delta 驱动模拟 —— 144Hz 与 60Hz 结果不同、拖窗口改变回放长度",
+     "固定步长累加器：const STEP := 1.0/60.0，while acc >= STEP: simulate(STEP)",
+     r"(?i)(?:accumulator|_acc|STEP|FIXED_STEP|固定步长|1\.0\s*/\s*60)"),
+    ("GD321", "P2", "HTTP请求无重试", "gd", r"(?i)(?:HTTPRequest|http_client|_http)\w*[\s\S]{0,500}?\.request\s*\(",
+     "HTTPRequest 无内置重试/退避且单节点不可并发 —— 弱网下运营配置、登录、支付回调全部静默失败",
+     "自己写重试层与请求队列：指数退避 + 超时 + 幂等键",
+     r"(?i)(?:retry|重试|backoff|退避|max_attempt|重试次数)"),
+    ("GD322", "P1", "JSON解析未判失败", "gd", r"JSON\.parse_string\s*\(",
+     "JSON.parse_string 失败返回 null 且容忍尾逗号 —— 无法区分「内容是 null」与「解析失败」，坏配置会让整个配置表空掉",
+     "用 JSON.new().parse() 走 error != OK 分支；解析失败保留旧配置不覆盖缓存",
+     r"(?i)(?:JSON\.new|\.error|!\s*=\s*OK|is\s+null|==\s*null|get\(\s*[\"']|\.get\()"),
 ]
 
 DOMAIN_RULES = [
@@ -3088,6 +3104,64 @@ func make_token() -> PackedByteArray:
     return Crypto.new().generate_random_bytes(16)
 '''
 
+SELF_NETOPS_BAD = '''extends Node2D
+
+var _http: HTTPRequest
+
+func _on_peer_disconnected(id: int) -> void:
+    get_node("Player").queue_free()
+
+func apply_authority_snapshot(server_pos: Vector2) -> void:
+    global_position = server_pos
+
+func spectate_render() -> void:
+    sprite.position = latest_snapshot.pos
+
+func _process(delta: float) -> void:
+    simulate(delta)
+
+func fetch() -> void:
+    _http.request("https://api.example.com/cfg")
+
+func load_cfg(t: String) -> void:
+    var d = JSON.parse_string(t)
+    hp = d.hp
+'''
+
+SELF_NETOPS_CLEAN = '''extends Node2D
+
+var _http: HTTPRequest
+var _acc := 0.0
+const STEP := 1.0 / 60.0
+
+func _on_peer_disconnected(id: int) -> void:
+    retain_and_ai_control(id, reconnect_grace_ms)
+
+func sync_pos(target: Vector2) -> void:
+    global_position = global_position.lerp(target, 0.2)
+
+func spectate_render() -> void:
+    var f := _history.sample(_display_tick)
+    sprite.position = f.pos
+
+func _process(delta: float) -> void:
+    _acc += delta
+    while _acc >= STEP:
+        simulate(STEP)
+        _acc -= STEP
+
+func fetch() -> void:
+    _http.request("https://api.example.com/cfg", [], HTTPClient.METHOD_GET, "", _retry_with_backoff())
+
+func load_cfg(t: String) -> void:
+    var j := JSON.new()
+    if j.parse(t) != OK:
+        push_error("bad cfg")
+        return
+    hp = j.data.get("hp", 100)
+'''
+
+
 
 
 SELF_UI_BAD = '''extends RichTextLabel
@@ -3515,6 +3589,7 @@ def self_test() -> int:
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
+            'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -3753,6 +3828,12 @@ def self_test() -> int:
             check(rid not in ids('rbok.gd'), 'rbok.gd 不误报 %s' % rid)
         check('GD146' in ids('bone.gd'), 'bone.gd 命中 GD146（不存在的 IK 节点）')
         check('GD146' not in ids('boneok.gd'), 'boneok.gd 不误报 GD146')
+        # ---- 观战/重连/运营（GD317-GD322）----
+        for rid in ('GD317', 'GD318', 'GD319', 'GD320', 'GD321', 'GD322'):
+            check(rid in ids('netops.gd'), 'netops.gd 命中 %s' % rid)
+        for rid in ('GD317', 'GD318', 'GD319', 'GD320', 'GD321', 'GD322'):
+            check(rid not in ids('netopsok.gd'), 'netopsok.gd 不报 %s' % rid)
+
 
         for rid in ('GD151', 'GD152'):
             check(rid in ids('dt.gd'), 'dt.gd 命中 %s' % rid)

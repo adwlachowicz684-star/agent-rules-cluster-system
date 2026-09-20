@@ -119,5 +119,6 @@
 | **遮挡剔除 / 实例化 / GPU 粒子** | `occlusion-instancing.md` | 反模式条目数：见文件内表格 |
 | **版本控制 / 资源组织** | `vcs-collab.md` | 反模式条目数：见文件内表格 |
 | **性能预算 / CI / 评审 / 技术债** | `project-governance.md` | 反模式条目数：见文件内表格 |
+| **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 反模式条目数：见文件内表格 |
 
 完整判据见 `../../code-audit/references/p-godot.md`。

@@ -164,7 +164,7 @@ DOMAINS = [
     ('4.7/4.8版本', ['4.7', '4.8', '版本', 'breaking', 'breaking change', 'arealight', '面光源', 'hdr输出', 'offset_transform', 'virtualjoystick', 'drawabletexture', '纹理流送', 'texture streaming', 'tween_await', 'device_id', 'jolt', '升级到4.7'],
      'references/flow/godot/version-47-48.md',
      '4.7.2 当前稳定 / 4.8 仍 dev · AreaLight3D · HDR 输出 · Control offset_transform · 内置 VirtualJoystick · break changes'),
-    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', '延迟补偿', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型', '状态同步', '网络预测', '预测回滚', '锁定步进', '快照插值', 'jitter', '抖动缓冲', '输入编号', '权威回滚'],
+    ('网络同步进阶', ['预测', '回滚', 'reconciliation', '插值', '插值延迟', '锁步', 'lockstep', 'tick', '快照', 'enet', 'websocket', 'webrtc', 'nat', '打洞', 'multiplayersynchronizer', '服务器回滚', '锁步同步', '确定性锁步', '客户端预测', '实体插值', '同步模型', '状态同步', '网络预测', '预测回滚', '锁定步进', '快照插值', 'jitter', '抖动缓冲', '输入编号', '权威回滚'],
      'references/flow/godot/netsync-advanced.md',
      '同步模型选型 · 客户端预测+输入历史 · 服务器回滚重放(固定dt+阈值) · 远端插值 · rpc 默认 reliable · 传输层取舍'),
     ('GDExtension/插件', ['c++', 'cpp', 'abi', '绑定', 'native', '热重载', '自定义导入器', '自定义检视器插件', 'rust', 'gdext'],
@@ -224,7 +224,7 @@ DOMAINS = [
     ('VFX/游戏感', ['vfx', '特效', '粒子', 'cpuparticles', '打击感', '游戏感', 'juice', '命中反馈', '屏幕震动', '震屏', 'trauma', '顿帧', 'hitstop', '拖尾', '残影', '白闪', '伤害数字', '打击感', '顿帧', 'hitstop实现', '命中感'],
      'references/flow/godot/vfx-feel.md',
      'GPU粒子不是默认答案(Web/兼容渲染器选CPU) · 震动要trauma+噪声不是随机偏移 · time_scale=0时定时器也停需ignore_time_scale'),
-    ('经济/长线系统', ['经济', '经济系统', '货币', '钱包', '掉落', '掉落表', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '通行证', '抽卡经济', '掉落保底'],
+    ('经济/长线系统', ['经济', '经济系统', '货币', '钱包', '掉落', '掉落表', '商店', '限购', '养成', '天赋树', '技能树', '属性加成', '乘区', '数值崩坏', '洗点', '每日重置', '赛季', '抽卡经济', '掉落保底'],
      'references/flow/godot/economy.md',
      '货币不能只一个int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用UTC'),
     ('输入重绑定', ['输入重绑定', '按键重映射', '改键', '键位', '改按键', 'remap', 'inputmap', '重绑定', '手柄振动', '振动', 'haptic', '触觉', 'joy vibration', '按键冲突', '捕获按键', '改键', '自定义按键', '键位设置'],
@@ -299,7 +299,7 @@ DOMAINS = [
     ('时间操控', ['慢动作', '子弹时间', '时间缩放', 'time_scale', '倒带', '时间回溯', '暂停', 'pause', 'process_mode', '本地时间倍率', 'bullettime', 'slow motion', 'rewind'],
      'references/flow/godot/timescale.md',
      '时间至少五层不是单一旋钮 · 音频不受 time_scale 影响要单独处理 · 暂停与慢放是两件事 · process_mode 与 Tween 忽略缩放正交 · Tween.set_ignore_time_scale 是 4.7 新增 · 倒带是快照+冻结不是物理倒流'),
-    ('运营服务端', ['运营', 'ab测试', 'A/B', '灰度', '配置下发', '远程配置', '停服', '维护', '补偿', 'cdk', '兑换码', '邀请码', '活动系统', '活动时间', 'liveops', '分桶', 'experiment'],
+    ('运营服务端', ['运营', 'ab测试', 'A/B', '灰度', '配置下发', '远程配置', '停服', '维护', '补偿', 'cdk', '兑换码', '邀请码', '活动系统', '活动时间', 'liveops', '分桶', 'experiment', '签到', '七日签到', '战令', '通行证', '礼包码', '公告系统', '赛季结算', 'ops'],
      'references/flow/godot/ops.md',
      '客户端只能展示转发不能当事实来源 · 分组必须服务端算否则样本污染 · 配置下发要有版本灰度校验默认值回滚 · 活动时间必须服务端给不能用本地时间 · 活动五态含常被漏的结算中 · 补偿必须幂等否则刷道具 · 兑换必须服务端校验'),
     ('塔防', ['塔防', 'tower defense', 'td', '建塔', '波次', '刷怪', 'wave', '塔', '索敌', '路径点', '怪物波'],
@@ -338,6 +338,9 @@ DOMAINS = [
     ('性能预算/CI/评审', ['性能预算', 'perf budget', '代码评审', 'review', '技术债', '导出流水线', '预算台账', '门禁', '评审清单', '符号归档'],
      'references/flow/godot/project-governance.md',
      'P95/P99 而非均值 · Profiler 有开销 · 符号一一对应 · 高影响重构分 PR'),
+    ('观战/重连/延迟补偿', ['观战', 'spectator', '断线重连', '重连', '主机迁移', 'migration', '延迟补偿', 'lag compensation', '服务端回溯', 'rewind判定', '插值缓冲', 'interpolation buffer', '预测纠正', '观战延迟'],
+     'references/flow/godot/spectate-reconnect.md',
+     '关战者是纯接收端不参与判定 · Peer ID是会话ID不是身份 · close()不发射peer_disconnected · 重连以收到连续权威快照为准 · 角色保留+AI托管不能queue_free · 仲裁要quorum否则双主 · 缓冲与延迟是同一枚货币'),
 
 ]
 
@@ -514,6 +517,41 @@ def cmd_self_test():
 
     d = match_domains('角色移动')
     chk(bool(d) and d[0][0] == '角色控制', '"角色移动" → 角色控制（未被"移动端"抢走）')
+
+    # ---- 观战/重连/延迟补偿（与「回放/录像」「网络同步进阶」分层） ----
+    d = match_domains('怎么做观战模式')
+    chk(bool(d) and d[0][0] == '观战/重连/延迟补偿',
+        '"观战模式" → 观战/重连/延迟补偿（得到 %s）' % (d[0][0] if d else '无'))
+
+    d = match_domains('玩家断线重连后怎么恢复')
+    chk(bool(d) and d[0][0] == '观战/重连/延迟补偿',
+        '"断线重连" → 观战/重连/延迟补偿（得到 %s）' % (d[0][0] if d else '无'))
+
+    d = match_domains('spectator 延迟补偿怎么做')
+    chk(bool(d) and d[0][0] == '观战/重连/延迟补偿',
+        '"spectator 延迟补偿" → 观战/重连/延迟补偿（得到 %s）' % (d[0][0] if d else '无'))
+
+    d = match_domains('主机迁移 migration')
+    chk(bool(d) and d[0][0] == '观战/重连/延迟补偿',
+        '"主机迁移" → 观战/重连/延迟补偿（得到 %s）' % (d[0][0] if d else '无'))
+
+    # 分层：确定性/回放录制归「回放/录像」，不归观战域
+    d = match_domains('回放的确定性怎么保证')
+    chk(bool(d) and d[0][0] == '回放/录像',
+        '"回放确定性" → 回放/录像（不归观战域，得到 %s）' % (d[0][0] if d else '无'))
+
+    d = match_domains('时间倒带 rewind 玩法')
+    chk(bool(d) and d[0][0] == '时间操控',
+        '"倒带 rewind" → 时间操控（玩法层，得到 %s）' % (d[0][0] if d else '无'))
+
+    # ---- 运营服务端补关键词 ----
+    for q, want in (('七日签到怎么做', '运营服务端'),
+                    ('战令通行证赛季结算', '运营服务端'),
+                    ('礼包码生成', '运营服务端'),
+                    ('公告系统', '运营服务端')):
+        d = match_domains(q)
+        chk(bool(d) and d[0][0] == want,
+            '"%s" → %s（得到 %s）' % (q, want, d[0][0] if d else '无'))
 
     # ASCII 短词按词边界匹配，不能纯子串
     d = match_domains('HTTP request')
@@ -712,8 +750,10 @@ def cmd_self_test():
                        ('昼夜循环', '环境系统'), ('天气', '环境系统')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
+    # 注意：'延迟补偿' 已迁至「观战/重连/延迟补偿」专门域（该域有完整章节：
+    # rewind、预测纠正、插值缓冲、缓冲调节），网络同步进阶不再持有该关键词。
     for need, want in (('状态同步', '网络同步进阶'), ('预测回滚', '网络同步进阶'),
-                       ('快照插值', '网络同步进阶'), ('延迟补偿', '网络同步进阶')):
+                       ('快照插值', '网络同步进阶'), ('延迟补偿', '观战/重连/延迟补偿')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
     for need, want in (('多人联网', '多人/网络'), ('rpc', '多人/网络')):
