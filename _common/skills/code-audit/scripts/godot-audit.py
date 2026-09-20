@@ -979,6 +979,32 @@ EXTRA_DOMAIN_RULES = [
      "分解按模板原价返还 —— 返还 ≥ 获取成本时玩家可刷分解套利，是经济通胀的头号来源",
      "按装备当前养成状态（强化/品阶/词条）折算返还；绑定与已装备物品明确不可分解；与强化/洗练共用同一事务与审计日志",
      r"(?:current|当前|enhance|强化|折算|evaluate|按状态|state)"),
+    # ---- 宠物/坐骑/召唤 · 时间推进（GD336-GD340）----
+    ("GD336", "P1", "冷却/计时用 Timer 节点", "gd",
+     r"(?i)(?:revive_?cd|复活冷却|hatch|孵化|cooldown|冷却|respawn|复活)\w*[\s\S]{0,240}?(?:Timer\b|create_timer|\$Timer|get_node\(\"Timer)",
+     "复活/孵化/合成冷却用 Timer 节点 —— 退出进程或被系统杀死后计时丢失，玩家读档发现冷却凭空消失或永不到期",
+     "存绝对时间戳（服务器 UTC 毫秒），登录与恢复时用时间差判定；Timer 只用于 UI 倒计时显示",
+     r"(?:_until|_at_ms|timestamp|server_time|server_now|服务端时间|get_ticks_msec|utc_ms)"),
+    ("GD337", "P1", "进度存剩余秒数而非绝对锚点", "gd",
+     r"(?i)(?:remaining|剩余|left|_sec\b|_seconds|倒计时)\s*(?:_?(?:sec|second|time|ms))?\s*(?::=|=|:)\s*\d+",
+     "存档/状态里存「剩余 N 秒」—— 进程被杀、加成变化、暂停后全部失真；剩余秒数是派生值不是事实",
+     "存 started_at / last_settled_at 绝对时间戳（int64 UTC）+ 当时生效的速率，剩余时间实时复算",
+     r"(?:started_at|last_settled_at|_at_ms|timestamp|server_time|utc_ms)"),
+    ("GD338", "P0", "离线结算用系统时钟差分", "gd",
+     r"(?i)(?:离线|offline|挂机|idle|settle|结算)\w*[\s\S]{0,300}?(?:get_unix_time_from_system|get_datetime_dict_from_system|get_date_dict_from_system|OS\.get_datetime|OS\.get_unix_time)",
+     "离线结算用系统时钟求差 —— 玩家改表即可凭空产出数小时收益；官方文档明确警告 _from_system 不得用于精确计算",
+     "锚点用服务器下发的 UTC 毫秒；本地用 get_ticks_msec() 单调钟预测并钳制到 last_settled_at（绝不结算负值）",
+     r"(?:server_time|服务端时间|get_ticks_msec|get_ticks_usec|monotonic|单调|钳制|clamp.*last_settled)"),
+    ("GD339", "P1", "骑乘时两个 CharacterBody 各自移动", "gd",
+     r"(?i)(?:mount|骑乘|坐骑|上马|riding|ride|rider|骑手)\w*[\s\S]{0,400}?move_and_slide\s*\([\s\S]{0,400}?move_and_slide\s*\(",
+     "骑乘时角色与坐骑各自 move_and_slide()，再把角色贴到坐骑上 —— 一帧延迟、穿模、碰撞不一致",
+     "骑乘期间只有一个 CharacterBody3D 驱动移动（坐骑），角色成为子节点跟随；reparent 用 call_deferred 并保留全局变换",
+     r"(?:call_deferred|reparent|单一|only_one|骑乘状态|MountedState|set_physics_process\(false\))"),
+    ("GD340", "P1", "对象池取出后未重置状态", "gd",
+     r"(?i)(?:pool|对象池)\w*[\s\S]{0,300}?(?:acquire|pop_back|get_instance|取出|复用)\w*[\s\S]{0,300}?(?:visible\s*=\s*true|show\(\))",
+     "从对象池取出节点后直接 show()，未清理上次的 velocity/目标/计时器 —— 新召唤物以上次的速度飞出去",
+     "acquire() 内必须调用 _reset() 清空所有可变状态；acquire 返回 null（池耗尽）时调用方必须检查，不得直接使用",
+     r"(?:_reset|reset_state|重置状态|clear\(\)|if\s+.*==\s*null|is_instance_valid)"),
 ]
 
 DOMAIN_RULES = [
@@ -3349,6 +3375,52 @@ func decompose(inst) -> int:
     return evaluate_current_value(inst)
 '''
 
+SELF_OPS4_CLEAN = '''extends Node2D
+
+var revive_cd_until_ms: int
+
+func start_revive_cd() -> void:
+    revive_cd_until_ms = server_now_utc()
+
+var started_at_ms: int
+
+func settle_offline() -> int:
+    var t := server_now_utc()
+    return clamp(t, last_settled_at_ms, t) - last_settled_at_ms
+
+func ride() -> void:
+    mount.move_and_slide()
+
+func spawn() -> void:
+    var n := pool.acquire()
+    if n == null:
+        return
+    n._reset()
+    n.visible = true
+'''
+
+SELF_OPS4_BAD = '''extends Node2D
+
+var _cd_timer: Timer
+
+func start_revive_cd() -> void:
+    _cd_timer.start()
+
+var remaining_sec := 3600
+
+func settle_offline() -> int:
+    var t := Time.get_unix_time_from_system()
+    return int(t) - last
+
+func ride() -> void:
+    rider.move_and_slide()
+    mount.move_and_slide()
+
+func spawn() -> void:
+    var n := pool.pop_back()
+    n.visible = true
+'''
+
 
 
 
@@ -3779,7 +3851,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4033,6 +4105,11 @@ def self_test() -> int:
             check(rid in ids('ops3.gd'), 'ops3.gd 命中 %s' % rid)
         for rid in ('GD331', 'GD332', 'GD333', 'GD334', 'GD335'):
             check(rid not in ids('ops3ok.gd'), 'ops3ok.gd 不报 %s' % rid)
+        # ---- 宠物/坐骑/召唤 · 时间推进（GD336-GD340）----
+        for rid in ('GD336', 'GD337', 'GD338', 'GD339', 'GD340'):
+            check(rid in ids('ops4.gd'), 'ops4.gd 命中 %s' % rid)
+        for rid in ('GD336', 'GD337', 'GD338', 'GD339', 'GD340'):
+            check(rid not in ids('ops4ok.gd'), 'ops4ok.gd 不报 %s' % rid)
 
 
 

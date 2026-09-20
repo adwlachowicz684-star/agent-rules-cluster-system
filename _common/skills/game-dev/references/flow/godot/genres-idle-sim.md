@@ -50,7 +50,10 @@ func calc_elapsed(state, seconds: float, cfg) -> Result:
 ⚠ **正确做法是把离线时间切成若干大步长，循环推进完整 `tick()`
 并每步截断到上限**。
 
-## 3. 时间基准用 Unix 时间，不要累计游戏内秒数
+## 3. 时间基准用 Unix 时间，不要累计游戏内秒数## 3. 时间基准用 Unix 时间，不要累计游戏内秒数
+
+> 更深一层的**跨品类结算内核**（余数写回、分段速率、封顶三数、周期重置硬边界）
+> 见 `time-progression.md`。本篇只讲放置品类自身的时间基准。
 
 ```gdscript
 var last_save_unix := Time.get_unix_time_from_system()

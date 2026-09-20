@@ -6,7 +6,10 @@
 `HealthComponent`、`StaminaComponent`、`Checkpoint`、`SurvivalAttributeSet`。
 系统应由项目定义。
 
-## 0. ⚠ 数值四层必须分开
+## 0.
+
+> **体力/耐力的恢复怎么按时间结算**（绝对锚点、余数写回、封顶、跨日重置）
+> 见 `time-progression.md`。本篇只讲状态本身，不讲恢复的时间数学。## 0. ⚠ 数值四层必须分开
 
 **`base_value` / `additive` / `multipliers` / `current` 必须分层。**
 
