@@ -1005,6 +1005,32 @@ EXTRA_DOMAIN_RULES = [
      "从对象池取出节点后直接 show()，未清理上次的 velocity/目标/计时器 —— 新召唤物以上次的速度飞出去",
      "acquire() 内必须调用 _reset() 清空所有可变状态；acquire 返回 null（池耗尽）时调用方必须检查，不得直接使用",
      r"(?:_reset|reset_state|重置状态|clear\(\)|if\s+.*==\s*null|is_instance_valid)"),
+    # ---- 账号安全 · 服务端稳定性（GD341-GD345）----
+    ("GD341", "P0", "凭据写入本地文件", "gd",
+     r"(?i)(?:access_token|refresh_token|auth_token|token|password|passwd|totp_secret|密码|令牌)\s*[\s\S]{0,160}?(?:ConfigFile|FileAccess\.open|user://|save\s*\(\s*\"user|\.cfg|store_var|set_value\s*\(\s*[\"'](?:auth|token|password))",
+     "把 token / 密码 / TOTP 密钥写进 ConfigFile 或 user:// —— 官方文档把 user:// 定位为存档与配置目录，不是凭据库；同进程、导出 PCK 与其他应用都可能读到",
+     "access token 只存内存；refresh token 放 iOS Keychain / Android Keystore 等平台安全存储；不保存密码本身，只保存可撤销的 refresh token",
+     r"(?:keychain|keystore|平台安全存储|secure_storage|credential_store|内存|memory|不保存|no_persist)"),
+    ("GD342", "P0", "密码用快速摘要", "gd",
+     r"(?i)(?:password|passwd|密码|pwd)\w*[\s\S]{0,200}?(?:md5|sha1|sha256|sha-1|sha-256|hashlib|get_md5|sha256_text)",
+     "密码用 MD5/SHA-1/SHA-256 存储 —— 这些是快速摘要，salt 只防彩虹表不防 GPU 并行猜测；拿到表即可高速试错",
+     "新系统用 Argon2id（OWASP 基线 m=19456KiB、t=2、p=1 起测）；不可用时 scrypt 或 bcrypt(cost>=10)；每个口令唯一随机 salt 并保存算法版本与参数",
+     r"(?:argon2|bcrypt|scrypt|pbkdf2|慢哈希|password_hash|verify_hash|salt)"),
+    ("GD343", "P1", "崩溃上报未脱敏", "gd",
+     r"(?i)(?:crash|崩溃|report_error|上报|sentry|bugly|analytics|埋点)\w*[\s\S]{0,300}?(?:token|access_token|email|邮箱|Authorization|authorization|header|headers)",
+     "崩溃上报或埋点里带上 token / 邮箱 / 请求头 —— 凭据会随崩溃日志流到第三方平台，且不受你的撤销流程控制",
+     "上报前统一脱敏：剥离 Authorization 头、token、邮箱、内部用户 ID；只保留匿名设备 ID 与请求 ID；把脱敏放在 SDK 的唯一入口",
+     r"(?:脱敏|sanitize|scrub|redact|mask|strip|过滤|移除|anonym)"),
+    ("GD344", "P1", "重试无退避与抖动", "gd",
+     r"(?i)(?:retry|重试|reconnect|重连)\w*[\s\S]{0,300}?(?:await\s+create_timer\s*\(\s*[\d.]+\s*\)|Timer|固定间隔|sleep\s*\(\s*[\d.]+\s*\))",
+     "重试/重连用固定间隔 —— 故障恢复瞬间所有客户端同时重连会形成雷鸣群，把刚恢复的服务再次打挂",
+     "指数退避 + 抖动：delay = min(cap, base * 2^attempt) + random(0, delay*0.2)；jitter 必须覆盖首次重连；配合服务端熔断与降级",
+     r"(?:randf|randi|jitter|抖动|随机|backoff|退避|指数|2\s*\*\*|\*\s*2\s*\*\*)"),
+    ("GD345", "P1", "外部调用无超时", "gd",
+     r"(?i)(?:HTTPRequest|http_request|request\s*\(|rpc_id|rpc\s*\(|remote_call|connect_to_url)\w*[\s\S]{0,400}?await\s+[A-Za-z_]\w*",
+     "外部调用后无限等待 —— 无超时会把下游故障传播到上游线程池，一个慢依赖拖垮整个接入层；配合无界重试即成雪崩",
+     "每次外部调用都要明确超时并从外向内分配预算（玩家可感知操作 2-3 秒，子调用更短）；超时后按可重试性决定是否重试，且必须带幂等键",
+     r"(?:timeout_sec|timeout\s*[:=]|request_timeout|超时|with_timeout|deadline|预算|budget|cancel|取消)"),
 ]
 
 DOMAIN_RULES = [
@@ -3399,6 +3425,51 @@ func spawn() -> void:
     n.visible = true
 '''
 
+SELF_OPS5_BAD = '''extends Node2D
+
+var cfg := ConfigFile.new()
+
+func save_login() -> void:
+    cfg.set_value("auth", "token", access_token)
+    cfg.save("user://auth.cfg")
+
+func hash_pwd(p: String) -> String:
+    return p.sha256_text()
+
+func report_crash(e) -> void:
+    crash.report({"token": access_token, "email": mail})
+
+func reconnect() -> void:
+    for i in 3:
+        await get_tree().create_timer(3.0).timeout
+        try_connect()
+
+func fetch() -> void:
+    http.request(url)
+    await http.request_completed
+'''
+
+SELF_OPS5_CLEAN = '''extends Node2D
+
+func save_login() -> void:
+    secure_storage.store("refresh", refresh_token)
+
+func hash_pwd(p: String) -> String:
+    return argon2id_hash(p, salt)
+
+func report_crash(e) -> void:
+    crash.report(sanitize({"device": anon_id}))
+
+func reconnect() -> void:
+    for i in 3:
+        await get_tree().create_timer(min(2.0, 0.05 * (2 ** i)) + randf() * 0.4).timeout
+        try_connect()
+
+func fetch() -> void:
+    http.request(url)
+    await with_timeout(http.request_completed, 3.0)
+'''
+
 SELF_OPS4_BAD = '''extends Node2D
 
 var _cd_timer: Timer
@@ -3851,7 +3922,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4110,6 +4181,11 @@ def self_test() -> int:
             check(rid in ids('ops4.gd'), 'ops4.gd 命中 %s' % rid)
         for rid in ('GD336', 'GD337', 'GD338', 'GD339', 'GD340'):
             check(rid not in ids('ops4ok.gd'), 'ops4ok.gd 不报 %s' % rid)
+        # ---- 账号安全 · 服务端稳定性（GD341-GD345）----
+        for rid in ('GD341', 'GD342', 'GD343', 'GD344', 'GD345'):
+            check(rid in ids('ops5.gd'), 'ops5.gd 命中 %s' % rid)
+        for rid in ('GD341', 'GD342', 'GD343', 'GD344', 'GD345'):
+            check(rid not in ids('ops5ok.gd'), 'ops5ok.gd 不报 %s' % rid)
 
 
 

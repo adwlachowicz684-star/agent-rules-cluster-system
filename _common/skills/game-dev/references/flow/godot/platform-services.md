@@ -11,7 +11,11 @@
 
 ⚠ 因此架构上必须**抽象一层**，不能把平台 API 散落在游戏代码里。
 
-## 账号与令牌：双令牌（access + refresh）
+## 账号与令牌：双令牌（access + refresh）## 账号与令牌：双令牌（access + refresh）
+
+> 本篇只讲双令牌的**平台接入**。更深的**账号安全**：密码哈希（Argon2id）、
+> refresh 轮换与重用撤销、2FA、找回与社工、风控分档、封禁/转服/注销状态机
+> 见 `account-security.md`。
 
 ⚠ **Godot 没有账号后端，没有 JWT/JWKS，没有刷新队列或撤销表。**
 `Crypto` 只提供原语：`generate_random_bytes()`、`hmac_digest()`（**仅 SHA1/SHA256**）、`constant_time_compare()`。

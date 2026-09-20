@@ -125,5 +125,7 @@
 | `compliance` | `audit/godot/compliance.md` |
 | `companion` | `audit/godot/companion.md` |
 | `time-progression` | `audit/godot/time-progression.md` |
+| `account-security` | `audit/godot/account-security.md` |
+| `backend-stability` | `audit/godot/backend-stability.md` |
 
 完整判据见 `../../code-audit/references/p-godot.md`。
