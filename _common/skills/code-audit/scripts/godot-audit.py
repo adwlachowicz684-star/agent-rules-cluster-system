@@ -1062,6 +1062,32 @@ EXTRA_DOMAIN_RULES = [
      "加工链只做单入单出、加载时不建图检查循环依赖 —— 一个「通用回收配方」就可能让 A→B→C→A 形成无限增值",
      "加载配方时建立有向图并做拓扑检查；向上/向下展开都要有最大深度；批量制作拆成 N 个任务而非单次 RNG",
      r"(?:拓扑|topolog|cycle|环|依赖图|DAG|max_depth|深度|visited|批量|batch)"),
+    # ---- 战斗对抗层 · 阵营社交（GD352-GD356）----
+    ("GD352", "P1", "招架做成概率触发", "gd",
+     r"(?i)(?:parry|招架|弹反|格挡反击|perfect_?block)\w*[\s\S]{0,200}?(?:randf|randi|随机|概率|chance|rand_range|randf_range)",
+     "招架用随机数判定是否成功 —— 玩家无法区分「自己按错了」和「系统判定错了」；且「按早了也有机会成功」会让玩家一直按住招架键，退化成无脑站桩",
+     "招架可靠性必须由时间窗口决定：window_open_at / window_close_at 按攻击方动画帧索引定位；概率最多出现在「成功后的收益大小」上，绝不能决定「是否成功」",
+     r"(?:window|窗口|frame|帧|current_frame|window_open|window_close|时间窗口)"),
+    ("GD353", "P1", "硬直无递减", "gd",
+     r"(?i)(?:hitstun|硬直|受击硬直|stagger|受击)[\s\S]{0,200}?(?:=\s*)[\d.]+\s*(?:#.*)?$",
+     "硬直时长写成固定值且无衰减表 —— 连段第五段和第一段硬直相同，玩家可用最轻的招反复循环直到打死（无限连）",
+     "配 HitstunDecayTable 按真实时间（不是命中数）衰减并设 floor；空中/地面两套计时器独立；暴击与终结技要有 ignore_decay 豁免通道",
+     r"(?:decay|衰减|scaling|递减|floor|combo_?scal|separate_air|ignore_decay|deterior)"),
+    ("GD354", "P1", "霸体当成减伤", "gd",
+     r"(?i)(?:super_?armor|霸体|poise|韧性|hyper_?armor)\w*[\s\S]{0,200}?(?:damage\s*\*=|\*\s*\(?\s*1\s*-\s*[\w.]+\s*\)?|减伤|damage_?reduction|免伤)",
+     "霸体被实现成减伤 —— 霸体的本质是「这段时间被打不进硬直」，期间照掉血照吃状态；混在一起会让玩家无法从「我被打出硬直」推断该堆韧性还是堆护甲",
+     "霸体走「延迟结算」：窗口内累计 poise_damage，伤害照常 apply，窗口结束时统一判定是否破韧；霸体必须有代价（动作慢/耗资源/可视/可被抓取）",
+     r"(?:poise_?damage|破韧|延迟结算|window_end|on_window_end|累计|accumulate|armor_pierce|ignore_poise)"),
+    ("GD355", "P1", "阵营关系对称镜像", "gd",
+     r"(?i)(?:faction|阵营|势力|派系)\w*[\s\S]{0,240}?(?:==|is_equal_approx)\s*[\w.]*(?:faction|阵营|势力)",
+     "用「双方阵营 id 相等」判断阵营关系 —— 真实关系是非对称有向的（A 对 B 友好不代表 B 对 A 友好），且同阵营不可攻击只是战斗规则而非数据库约束",
+     "存有向关系表 faction_relation(from, to, relation, valid_from, valid_to, rule_version)，先查有向边再取默认关系；开房时用 PvpContext 冻结关系与友伤规则",
+     r"(?:relation|有向|directed|query_relation|pvp_context|关系表|非对称|valid_from|rule_version)"),
+    ("GD356", "P1", "战力用于匹配", "gd",
+     r"(?i)(?:match|匹配|mmr|elo|glicko|匹配分)\w*[\s\S]{0,240}?(?:power|战力|gear_?score|combat_?power|评分)\w*[\s\S]{0,120}?(?:score|rating|分|>\s*[\d.]+|<\s*[\d.]+)",
+     "战力/战评分被直接用作匹配依据 —— 战力测的是配置和养成不是操作；跨职业不可比、会诱导堆无用词条、装备版本变化让旧号集体虚高",
+     "匹配用独立 MMR/Elo/Glicko + 近期表现 + 角色熟练度 + 位置 + 延迟；战力只作 role_fit 或解释性展示。展示也要分维度 + 职业百分位，而不是一个大数字",
+     r"(?:mmr|elo|glicko|skill_?rating|隐藏分|role_fit|分维度|百分位|percentile|dimension)"),
 ]
 
 DOMAIN_RULES = [
@@ -3551,6 +3577,50 @@ func load_recipes(list) -> void:
     build_dag_with_cycle_check(list)
 '''
 
+SELF_OPS7_BAD = '''extends Node2D
+
+func try_parry() -> bool:
+    return randf() < 0.30
+
+var hitstun := 0.5
+
+func on_hit() -> void:
+    enter_hitstun(hitstun)
+
+var super_armor := true
+
+func apply_armor(d: float) -> float:
+    return d * (1 - armor_reduction)
+
+func same_faction(a, b) -> bool:
+    return a.faction == b.faction
+
+func find_match(p) -> int:
+    if p.power > 5000:
+        return p.power
+'''
+
+SELF_OPS7_CLEAN = '''extends Node2D
+
+func try_parry(frame: int) -> bool:
+    return frame >= parry.window_open and frame <= parry.window_close
+
+var hitstun_base := 0.5
+
+func on_hit() -> void:
+    enter_hitstun(hitstun_base * decay.factor(elapsed))
+
+func apply_poise(ctx) -> void:
+    poise_received += ctx.poise_damage
+    ctx.damage.apply()
+
+func check_relation(a, b) -> int:
+    return query_relation(a.faction_id, b.faction_id)
+
+func find_match(p) -> int:
+    return mmr_rating(p) + role_fit(p)
+'''
+
 SELF_OPS4_BAD = '''extends Node2D
 
 var _cd_timer: Timer
@@ -4003,7 +4073,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4272,6 +4342,11 @@ def self_test() -> int:
             check(rid in ids('ops6.gd'), 'ops6.gd 命中 %s' % rid)
         for rid in ('GD346', 'GD347', 'GD348', 'GD349', 'GD350', 'GD351'):
             check(rid not in ids('ops6ok.gd'), 'ops6ok.gd 不报 %s' % rid)
+        # ---- 战斗对抗层 · 阵营社交（GD352-GD356）----
+        for rid in ('GD352', 'GD353', 'GD354', 'GD355', 'GD356'):
+            check(rid in ids('ops7.gd'), 'ops7.gd 命中 %s' % rid)
+        for rid in ('GD352', 'GD353', 'GD354', 'GD355', 'GD356'):
+            check(rid not in ids('ops7ok.gd'), 'ops7ok.gd 不报 %s' % rid)
 
 
 
