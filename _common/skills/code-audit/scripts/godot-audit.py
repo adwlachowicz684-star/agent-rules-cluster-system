@@ -1031,6 +1031,37 @@ EXTRA_DOMAIN_RULES = [
      "外部调用后无限等待 —— 无超时会把下游故障传播到上游线程池，一个慢依赖拖垮整个接入层；配合无界重试即成雪崩",
      "每次外部调用都要明确超时并从外向内分配预算（玩家可感知操作 2-3 秒，子调用更短）；超时后按可重试性决定是否重试，且必须带幂等键",
      r"(?:timeout_sec|timeout\s*[:=]|request_timeout|超时|with_timeout|deadline|预算|budget|cancel|取消)"),
+    # ---- 构筑/词条 · 生活生产家园（GD346-GD351）----
+    ("GD346", "P1", "词条存最终数值", "gd",
+     r"(?i)(?:affix|词缀|词条|modifier|stat_?mod)\w*[\s\S]{0,200}?(?:final_?value|最终值|computed_?value|resolved_?value|cached_?total)\s*(?::=|=|:)\s*[\d.]+",
+     "词条把计算后的最终数值写回存档 —— 策划改表后历史装备无法重算，多次强化/重铸后成为多版本混合结果，不可审计也无法统一迁移",
+     "存可复现来源：affix_definition_id + tier_id + slot_id + roll + 生成上下文，另存 generation_version（掉落/槽位）与 balance_version（数值表）两个版本",
+     r"(?:generation_version|balance_version|affix_definition_id|affix_id|\broll\b|source_state|重算|recompute)"),
+    ("GD347", "P0", "减伤/增伤直接连乘无上限", "gd",
+     r"(?i)(?:damage_taken|damage_?reduction|减伤|承伤|伤害减免|damage_?multiplier)\s*(?:\*=|=\s*[\w.]+\s*\*)\s*\(?\s*1\s*-\s*[\w.]+",
+     "减伤写成 damage_taken *= (1 - value) —— 两条 75% 减伤相乘得 93.75% 总减伤，逼近无敌；这是构筑类游戏最常见的数值崩坏",
+     "组内先求和、组间才相乘：multiplier = 1 - clamp(sum, 0, cap)，并设全局承伤总下限（如 0.10）",
+     r"(?:clamp|min\(|cap|上限|下限|组内|sum|求和|exclusive_group|damage_reduction.*group)"),
+    ("GD348", "P1", "采集/刷新用相对倒计时", "gd",
+     r"(?i)(?:respawn|刷新|重新生成|gather_?cd|采集冷却|available_in|剩余刷新)\w*[\s\S]{0,160}?(?:countdown|倒计时|-\s*delta|-\s*dt|Timer\b|create_timer)",
+     "采集点刷新用相对倒计时或 Timer —— 停服、分区、离线结算、时钟校正都会累积漂移，节点刷新时间逐渐失真",
+     "存绝对时间戳 available_at（Unix 秒），服务端用 available_at <= now 判定可见性，跑批时推进；Timer 只做 UI 倒计时",
+     r"(?:available_at|_at\b|unix|utc|时间戳|timestamp|server_time|绝对时间|get_ticks_msec)"),
+    ("GD349", "P1", "放置校验用物理查询", "gd",
+     r"(?i)(?:place|放置|摆放|preview|预览|can_place|build_?valid)\w*[\s\S]{0,300}?(?:PhysicsShapeQuery|intersect_shape|intersect_ray|move_and_collide|get_collision|Area3D|RayCast3D)",
+     "家具/建筑放置用物理碰撞或射线判定合法性 —— 物理回答的是「这一帧是否重叠」，受浮点、休眠、CCD、旋转顺序影响，结果不可回放、不可存档、无法服务端校验",
+     "用整数占格表（Vector3i cell + footprint + 90° 枚举旋转）做确定性校验，并共用同一个 snap()；物理只用于最终视觉",
+     r"(?:Vector3i|occupancy|占格|footprint|grid|网格|cell_key|grid_cell|整数|snap)"),
+    ("GD350", "P1", "家园状态无版本号", "gd",
+     r"(?i)(?:place_home|place_furniture|remove_furniture|move_furniture|领地放|家园摆|家具摆|(?:home|领地|家园|housing|guild_?hall)[a-z_]*)[\s\S]{0,300}?(?:rpc_id|rpc\s*\(|remote|sync)",
+     "家园/领地的摆放与移除缺少版本号校验 —— 多人同时编辑会互相覆盖，产生幽灵家具或家具消失",
+     "HomeState 维护 version，请求带 expected_version，不匹配返回 stale_version 冲突；批准后 version += 1",
+     r"(?:expected_version|home\.version|version\s*\+|version\s*[!=]|stale|冲突|conflict|revision|版本号)"),
+    ("GD351", "P1", "配方无循环依赖检查", "gd",
+     r"(?i)(?:recipe|配方|craft|合成|加工)\w*[\s\S]{0,300}?(?:ingredient|inputs?|材料|输入)\w*[\s\S]{0,300}?(?:output|产出|outputs?)\s*(?::=|=|:)",
+     "加工链只做单入单出、加载时不建图检查循环依赖 —— 一个「通用回收配方」就可能让 A→B→C→A 形成无限增值",
+     "加载配方时建立有向图并做拓扑检查；向上/向下展开都要有最大深度；批量制作拆成 N 个任务而非单次 RNG",
+     r"(?:拓扑|topolog|cycle|环|依赖图|DAG|max_depth|深度|visited|批量|batch)"),
 ]
 
 DOMAIN_RULES = [
@@ -3470,6 +3501,56 @@ func fetch() -> void:
     await with_timeout(http.request_completed, 3.0)
 '''
 
+SELF_OPS6_BAD = '''extends Node2D
+
+var affix_final_value := 12.0
+
+func apply_reduction(r: float) -> void:
+    damage_taken *= (1 - r)
+
+var respawn_countdown := 30.0
+
+func tick(delta: float) -> void:
+    respawn_countdown -= delta
+
+func can_place() -> bool:
+    return PhysicsShapeQueryParameters3D.new().collide()
+
+func place_home() -> void:
+    rpc("do_place", cell)
+
+var recipe_input := "ore"
+var recipe_output := "ingot"
+'''
+
+SELF_OPS6_CLEAN = '''extends Node2D
+
+var affix_roll := 0.82
+var generation_version := 12
+
+func apply_reduction(r: float) -> void:
+    reduction_sum = clamp(reduction_sum + r, 0, 0.90)
+    damage_taken = 1 - reduction_sum
+
+var available_at: int
+
+func tick(_delta: float) -> void:
+    if available_at <= server_now():
+        respawn()
+
+func can_place(cells: Array) -> bool:
+    return not home.occupancy.overlaps(cells)
+
+func place_home(req) -> void:
+    if req.expected_version != home.version:
+        return
+    rpc("do_place", req)
+    home.version += 1
+
+func load_recipes(list) -> void:
+    build_dag_with_cycle_check(list)
+'''
+
 SELF_OPS4_BAD = '''extends Node2D
 
 var _cd_timer: Timer
@@ -3922,7 +4003,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4186,6 +4267,11 @@ def self_test() -> int:
             check(rid in ids('ops5.gd'), 'ops5.gd 命中 %s' % rid)
         for rid in ('GD341', 'GD342', 'GD343', 'GD344', 'GD345'):
             check(rid not in ids('ops5ok.gd'), 'ops5ok.gd 不报 %s' % rid)
+        # ---- 构筑/词条 · 生活生产家园（GD346-GD351）----
+        for rid in ('GD346', 'GD347', 'GD348', 'GD349', 'GD350', 'GD351'):
+            check(rid in ids('ops6.gd'), 'ops6.gd 命中 %s' % rid)
+        for rid in ('GD346', 'GD347', 'GD348', 'GD349', 'GD350', 'GD351'):
+            check(rid not in ids('ops6ok.gd'), 'ops6ok.gd 不报 %s' % rid)
 
 
 

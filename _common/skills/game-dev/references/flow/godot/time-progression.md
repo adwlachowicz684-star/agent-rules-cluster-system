@@ -232,4 +232,5 @@ last_settled_at += cycles * restore_interval_ms   # 余数留在区间
 - 运营活动与补偿 → `ops.md`
 - 宠物复活冷却、孵化计时 → `companion.md`
 - 合规时间口径 → `compliance.md`
+- **生活玩法**（采集刷新、加工队列、家园）怎么用这套时间锚点 → `lifeskill-housing.md`
 - 存档结构 → `io-network.md`

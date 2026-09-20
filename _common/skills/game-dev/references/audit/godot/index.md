@@ -127,5 +127,7 @@
 | `time-progression` | `audit/godot/time-progression.md` |
 | `account-security` | `audit/godot/account-security.md` |
 | `backend-stability` | `audit/godot/backend-stability.md` |
+| `build-affix` | `audit/godot/build-affix.md` |
+| `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
 
 完整判据见 `../../code-audit/references/p-godot.md`。
