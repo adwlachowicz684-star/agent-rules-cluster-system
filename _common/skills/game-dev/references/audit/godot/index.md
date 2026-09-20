@@ -120,5 +120,7 @@
 | **版本控制 / 资源组织** | `vcs-collab.md` | 反模式条目数：见文件内表格 |
 | **性能预算 / CI / 评审 / 技术债** | `project-governance.md` | 反模式条目数：见文件内表格 |
 | **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 反模式条目数：见文件内表格 |
+| **群集行为（boids）与避障** | `boids-swarm.md` | 反模式条目数：见文件内表格 |
+| **分区分服 / 跨服 / 合服 / 匹配** | `sharding-matchmaking.md` | 反模式条目数：见文件内表格 |
 
 完整判据见 `../../code-audit/references/p-godot.md`。

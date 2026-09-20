@@ -25,6 +25,90 @@
 **如果防作弊对你很重要，唯一可靠的方案是服务端权威** —— 见第 6 节。
 本章剩下内容的目标是**提高修改成本**，保护那些本来不打算作弊的玩家的体验。
 
+## 请求签名：防篡改与重放，不能证明诚实
+
+⚠ **客户端密钥必然泄露** —— 签名层只提供完整性、绑定和难度，**不提供真实性**。
+把"有签名"当成"服务端可以信任数值"是本主题最大的误判。
+
+**规范化串**（前后端共同定义，Godot 不替你定）：
+
+```
+method + "\n" + path + "\n" + body_sha256 + "\n" + timestamp + "\n" + nonce + "\n" + app_version
+```
+
+```gdscript
+const ALGO := HashingContext.HASH_SHA256
+
+func _sign_request(method, path, body, ts_ms, nonce, hmac_key) -> String:
+    var ctx := HashingContext.new()
+    ctx.start(ALGO); ctx.update(body.to_utf8_buffer())
+    var body_digest := ctx.finish()
+    var canonical := "%s\n%s\n%s\n%d\n%s\n%s" % [
+        method, path, body_digest.hex_encode(), ts_ms, nonce.hex_encode(), _client_version]
+    return Crypto.new().hmac_digest(ALGO, hmac_key, canonical.to_utf8_buffer()).hex_encode()
+```
+
+⚠ **`hmac_digest()` 当前仅支持 `HASH_SHA1` 和 `HASH_SHA256`**。
+⚠ **HMAC 密钥必须是服务端按会话颁发的随机 32 字节密钥** —— 绝不用客户端共享的固定字符串。
+⚠ `nonce` 至少 16 字节且不可重复；body 先 SHA-256 再进规范串（避免大 body 与编码歧义）。
+⚠ 比较用 `constant_time_compare()`，避免时序泄漏。
+
+**重放窗口要同时校验时钟偏移**：服务端维护 `(client_id, nonce)` 短期集合（TTL 5–10 分钟），且要求 `|now - ts| <= 300s`。
+
+| 反模式 | 症状 |
+|---|---|
+| nonce 只按时间生成 | 相邻请求**碰撞** |
+| 只用内存去重 | 重启后**可重放** |
+| 集群无共享状态 | 多副本**重复执行** |
+
+**签名能防**：未装游戏的中间人手动改 JSON、提高脚本批量构造成本、帮助定位重放与异常设备。
+**防不了**：自制客户端、内存改值、按键宏、拥有合法账号的玩家作弊。
+
+### TLS 能力边界
+
+`StreamPeerTLS.connect_to_stream(stream, common_name, client_options)`，状态含 `ERROR_HOSTNAME_MISMATCH`。
+`PacketPeerDTLS.connect_to_peer()` + `TLSOptions.client(trusted_chain, common_name_override)` / `server(key, certificate)`。
+
+⚠ **官方警告 DTLS 不支持证书吊销与证书钉扎** → 用短期自动管理证书。
+⚠ Android 必须开 INTERNET 权限。
+⚠ Web 导出走浏览器/WebSocket 安全，**不能套用原生 TCP/TLS**。
+
+## 反外挂分层：客户端是传感器，服务端是唯一裁判
+
+⚠ **ROI 按"作弊经济成本"排序**：
+① **服务端权威 + 输入校验**（同时解决加速、瞬移、伤害、资源、冷却、交易）
+② 客户端轻量检测与遥测 ③ 登录风控/设备风险/支付反欺诈 ④ 内核/驱动级对抗
+
+⚠ 小团队把预算投"客户端反修改"却不做服务端校验，只把开挂门槛从 5 分钟提到 30 分钟。
+
+### 加速检测必须用单调时钟
+
+⚠ **系统时间能被改表，`Time.get_ticks_msec()` 不能。**
+
+```gdscript
+func observe_client_logic_time(reported_logic_ms: int, max_speed: float) -> bool:
+    var dt_ms := Time.get_ticks_msec() - _base_ticks_ms
+    var allowed := (_base_logic_ms + dt_ms) * max_speed
+    return reported_logic_ms > allowed
+```
+
+### 客户端检测只是信号
+
+- **内存校验**：`checksum = value ^ position_seed`，每帧或提交前检查
+- ⚠ 反模式：客户端发现校验失败后**自己封禁自己** → 攻击者直接 NOP 掉检测函数。
+  正确：服务端收集信号、按阈值累积风险分、限制匹配/交易，运营人工封禁
+- **多开检测**：锁文件、进程互斥、命名管道 → 可被 sandbox/虚拟机/改名绕过
+- **调试器检测**：放独立协程、结果抖动上报；⚠ 别写固定 `if debugger_attached: exit()`（会被搜字符串定位）
+
+⚠ **合法用户开两个窗口不该封号**，只应禁止同账号进同一排位局。
+
+### 服务端有效性来自可证伪规则
+
+每次高价值动作校验：身份与 session 有效 → 角色/物品归属 → 位置可达、速度不超上限 → CD 未结束 →
+资源足够 → 频率未超滑动窗口 → 数值变化符合状态机 → **重复请求用业务幂等键**。
+
+⚠ **服务端维护最近 N 秒的权威时间戳，不接受客户端"动作发生时间"作为事实**；客户端时间戳只用于表现层插值。
+
 ## 1. 存档加密
 
 ### 内置 API

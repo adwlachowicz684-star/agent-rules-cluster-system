@@ -11,6 +11,54 @@
 
 ⚠ 因此架构上必须**抽象一层**，不能把平台 API 散落在游戏代码里。
 
+## 账号与令牌：双令牌（access + refresh）
+
+⚠ **Godot 没有账号后端，没有 JWT/JWKS，没有刷新队列或撤销表。**
+`Crypto` 只提供原语：`generate_random_bytes()`、`hmac_digest()`（**仅 SHA1/SHA256**）、`constant_time_compare()`。
+
+- `access_token` 短寿命，用于 API 鉴权
+- `refresh_token` 长寿命，单次或轮换，**只提交给受控令牌端点**
+
+⚠ **刷新触发要基于本地单调时钟余量，不是系统时间**（系统时间可改表）：
+
+```gdscript
+func needs_refresh() -> bool:
+    return not _access.is_empty() and Time.get_ticks_msec() >= _expires_at_ms - 3 * 60 * 1000
+```
+
+到期前约 3 分钟发起刷新。**同一窗口内只发一个刷新协程**，其他请求排队。
+
+| 反模式 | 症状 |
+|---|---|
+| 每次请求都刷新 | **刷新风暴** |
+| 并发请求同时刷新 | 令牌**互相失效** |
+| `refresh_token` 放 URL | 日志/代理缓存**泄漏** |
+| 401 后无限重试 | 连接池耗尽 |
+
+⚠ **API 返回 401 时只在确认是 token expired（不是参数错误/封禁）才刷新一次并重试。**
+
+⚠ **踢下线靠服务端版本化会话**：服务端按 `(account_id, session_version)` 校验，新登录让旧会话版本失效 →
+旧连接收到 `session_superseded` 后断开清理。该事件**只发给旧 session_id，不广播全服**。
+
+⚠ 多设备默认允许（除非产品明确单点）。玩家换手机后发现自己被踢，会以为账号被盗。
+
+### 本地存储：没有 OS keychain 就不能声称"安全存储"
+
+⚠ **`ConfigFile.save_encrypted_pass()` 是"AES-256 但不安全"的典型。**
+真实弱点**不是"是不是 AES"，而是密钥派生**：4.x 源码是 `String cs = p_key.md5_text()`
+—— **MD5(password) 一次，无盐、无 PBKDF2/Argon2、无迭代**。
+加密本身是 AES-256-CFB、每文件随机 16 字节 IV、带 MD5 校验，但派生太弱，可批量离线猜常用密码。
+
+→ **"防随手查看"是合理目标，"保护高价值令牌"不是。**
+
+1. 高权限密钥不存客户端；`access_token`/`refresh_token` **尽量只在内存**，退出进程即丢弃
+2. iOS Keychain Services / Android EncryptedSharedPreferences —— ⚠ Godot 核心**没有统一 `OS.get_secret()`**，要平台插件
+3. 没有 keychain 时：随机 32 字节密钥拆成"设备派生片段 + 服务端下发片段"，两段都不完整
+   ⚠ 只能提高离线恢复难度，**无法阻止运行时 dump**
+4. `save_encrypted_pass()` 的密码必须**服务端按设备会话派生且可吊销**；⚠ **绝不能把同一字面密码编译进仓库**
+5. 每次登录生成新存档密钥，用服务端 KEK 包装 → 吊销 KEK 即让本地存档无法解密
+6. 若由密码生成，项目必须自己实现**带随机 salt 的 PBKDF2-HMAC-SHA256/Argon2**，salt 与版本号写进文件
+
 ## 1. 抽象层：统一异步接口 + 多适配器 + 离线桩
 
 ```

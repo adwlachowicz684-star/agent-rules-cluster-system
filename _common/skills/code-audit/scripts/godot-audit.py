@@ -921,6 +921,38 @@ EXTRA_DOMAIN_RULES = [
      "JSON.parse_string 失败返回 null 且容忍尾逗号 —— 无法区分「内容是 null」与「解析失败」，坏配置会让整个配置表空掉",
      "用 JSON.new().parse() 走 error != OK 分支；解析失败保留旧配置不覆盖缓存",
      r"(?i)(?:JSON\.new|\.error|!\s*=\s*OK|is\s+null|==\s*null|get\(\s*[\"']|\.get\()"),
+    ("GD323", "P1", "避障未接velocity_computed", "gd", r"\.set_velocity\s*\(",
+     "调用 set_velocity() 却没接 velocity_computed —— 拿不到安全速度，等于没避障；且 avoidance_enabled 默认 false，不打开就是完全没启用",
+     "agent.avoidance_enabled = true；连接 velocity_computed 并用 safe_velocity 自己移动父节点",
+     r"(?:velocity_computed|avoidance_enabled)"),
+    ("GD324", "P2", "群集全量两两比较", "gd", r"(?i)(?:boid|flock|swarm|群集|群体)\w*[\s\S]{0,400}?for\s+\w+\s+in\s+\w+(?:s|list|array|_units)\s*:[\s\S]{0,300}?for\s+\w+\s+in\s+\w+(?:s|list|array|_units)\s*:",
+     "群集邻居查询嵌套两层循环全量比较 —— O(n²)，单位一多就掉帧",
+     "按感知半径做网格分桶（cell_size = 感知半径），只查自身 cell 与邻域；或用 PhysicsServer shape query",
+     r"(?:cell|grid|网格|分桶|neighbor_dist|半径|shape_query)"),
+    ("GD325", "P1", "加速检测用系统时间", "gd", r"(?i)(?:anti_?cheat|speed_?hack|加速|变速|检测加速)\w*[\s\S]{0,400}?(?:Time\.get_unix_time_from_system|OS\.get_(?:datetime|date|time)|get_datetime_dict_from_system)",
+     "加速检测用系统时间 —— 玩家改表即可绕过，检测形同虚设",
+     "必须用单调时钟 Time.get_ticks_msec()（不受改表影响），与服务端同步的逻辑时间比对",
+     r"(?:get_ticks_msec|get_ticks_usec|单调)"),
+    ("GD326", "P0", "密钥令牌硬编码", "gd", r"(?i)(?:hmac_key|api_key|secret|app_secret|sign_key)\s*(?::=|const\s+[A-Z_]+\s*=)\s*[\"'][A-Za-z0-9_+/=]{12,}[\"']",
+     "签名密钥/API 密钥写死在客户端代码里 —— 客户端必然泄露，签名层不再提供任何真实性",
+     "HMAC 密钥由服务端按会话颁发；客户端只保存运行时下发的临时密钥",
+     r"(?:服务端下发|server_issued|fetch_key|request_key|session_key)"),
+    ("GD327", "P1", "加密用字面密码", "gd", r"save_encrypted_pass\s*\(\s*[^\n,]*,\s*[\"'][^\"']+[\"']\s*\)",
+     "save_encrypted_pass 传字面密码 —— 引擎只用 MD5(password) 派生密钥（无盐无迭代），玩家拿到包就能离线批量猜",
+     "密码由服务端按设备会话派生且可吊销；或自己实现带随机 salt 的 PBKDF2/Argon2",
+     r"(?:pbkdf2|argon2|salt|派生|server_derived|kek)"),
+    ("GD328", "P2", "客户端自封禁", "gd", r"(?i)(?:cheat|hack|外挂|作弊|tamper)\w*[\s\S]{0,300}?(?:ban|封禁|封号|kick|踢出)\w*\s*\(",
+     "客户端检测到作弊后自己封禁 —— 攻击者直接 NOP 掉检测函数，封禁形同虚设",
+     "客户端只上报信号，服务端累积风险分后按阈值限制或运营人工封禁",
+     r"(?:report|上报|server_verdict|risk_score|风险分|服务端判定)"),
+    ("GD329", "P1", "合服无备份", "gd", r"(?i)(?:merge_shard|合服|合区|cross_shard|跨服迁移)\w*[\s\S]{0,400}?(?:INSERT|UPDATE|delete|write|overwrite)",
+     "合服/跨服迁移直接写数据 —— 一旦出错玩家资产不可逆丢失",
+     "四步：快照 → dry-run → 幂等迁移 → 保留回滚；重名、排行榜、重复资产都要显式处理",
+     r"(?:snapshot|快照|backup|备份|dry_?run|rollback|回滚)"),
+    ("GD330", "P1", "补偿发放无幂等键", "gd", r"(?i)(?:compensate|补偿|grant_reward|发放奖励|send_mail|邮件附件)\w*[\s\S]{0,400}?(?:add_item|add_gold|grant|发放)\s*\(",
+     "补偿/邮件附件发放没有幂等键 —— 断网重试、并发点击会重复发道具",
+     "按 (player_id, compensate_id) 建幂等；先查发放日志，已发过直接返回首次结果",
+     r"(?:idempot|幂等|dedup|compensate_id|grant_log|已发放|_log)"),
 ]
 
 DOMAIN_RULES = [
@@ -3161,6 +3193,84 @@ func load_cfg(t: String) -> void:
     hp = j.data.get("hp", 100)
 '''
 
+SELF_OPS2_BAD = '''extends Node2D
+
+var _agent: NavigationAgent3D
+var _boids: Array
+
+func move() -> void:
+    _agent.set_velocity(vel)
+
+func flock_step() -> void:
+    for a in _boids:
+        for b in _boids:
+            pass
+
+func check_speed_hack() -> bool:
+    var t := Time.get_unix_time_from_system()
+    return t > limit
+
+const HMAC_KEY := "aB3dEf7hIjKlMnOp"
+
+func save_state() -> void:
+    cf.save_encrypted_pass("user://s.enc", "mysecret123")
+
+func on_cheat() -> void:
+    ban_player(uid)
+
+func merge_shards() -> void:
+    db.update("players", data)
+
+func compensate(pid: int) -> void:
+    add_item(pid, 1001, 5)
+'''
+
+SELF_OPS2_CLEAN = '''extends Node2D
+
+var _agent: NavigationAgent3D
+var _boids: Array
+var _grid := {}
+
+func _ready() -> void:
+    _agent.avoidance_enabled = true
+    _agent.velocity_computed.connect(_on_safe)
+
+func _on_safe(v: Vector3) -> void:
+    velocity = v
+
+func move() -> void:
+    _agent.set_velocity(vel)
+
+func flock_step() -> void:
+    for a in _boids:
+        for n in _grid.neighbors(a.cell):
+            pass
+
+func check_speed_hack() -> bool:
+    var t := Time.get_ticks_msec()
+    return t > limit
+
+var _hmac_key: PackedByteArray
+
+func save_state() -> void:
+    cf.save_encrypted("user://s.enc", derive_pbkdf2(dev_kek, salt))
+
+func on_cheat() -> void:
+    report_risk_score(uid, 80)
+
+func merge_shards() -> void:
+    take_snapshot()
+    if not dry_run(data):
+        return
+    migrate_idempotent(data)
+
+func compensate(pid: int, cid: int) -> void:
+    if grant_log.has(cid):
+        return
+    add_item(pid, 1001, 5)
+'''
+
+
 
 
 
@@ -3590,6 +3700,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -3833,6 +3944,12 @@ def self_test() -> int:
             check(rid in ids('netops.gd'), 'netops.gd 命中 %s' % rid)
         for rid in ('GD317', 'GD318', 'GD319', 'GD320', 'GD321', 'GD322'):
             check(rid not in ids('netopsok.gd'), 'netopsok.gd 不报 %s' % rid)
+        # ---- 群集/避障·分服·账号反外挂（GD323-GD330）----
+        for rid in ('GD323', 'GD324', 'GD325', 'GD326', 'GD327', 'GD328', 'GD329', 'GD330'):
+            check(rid in ids('ops2.gd'), 'ops2.gd 命中 %s' % rid)
+        for rid in ('GD323', 'GD324', 'GD325', 'GD326', 'GD327', 'GD328', 'GD329', 'GD330'):
+            check(rid not in ids('ops2ok.gd'), 'ops2ok.gd 不报 %s' % rid)
+
 
 
         for rid in ('GD151', 'GD152'):

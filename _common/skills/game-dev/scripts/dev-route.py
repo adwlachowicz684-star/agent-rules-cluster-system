@@ -83,7 +83,7 @@ DOMAINS = [
     ('资源/IO/网络', ['资源加载', 'http', 'download', '加载界面', '线程加载', 'api', '文件读写', 'json', '存档文件'],
      'references/flow/godot/io-network.md',
      'load/preload · 线程加载带进度 · HTTPRequest · 文件读写 · JSON'),
-    ('AI/寻路', ['ai', '敌人', '寻路', '巡逻', '追击', '状态机', '避障', 'navigation', 'pathfinding', 'astar', '群体'],
+    ('AI/寻路', ['ai', '敌人', '寻路', '巡逻', '追击', '状态机', 'navigation', 'pathfinding', 'astar', '群体'],
      'references/flow/godot/ai-navigation.md',
      'NavigationAgent2D 模板 · 状态机巡逻追击攻击 · AStarGrid2D · 视线检测 · RVO 避障'),
     ('关卡/TileMap', ['tilemap', '图块', '瓦片', 'autotile', 'terrain', 'tile', '地形'],
@@ -254,7 +254,7 @@ DOMAINS = [
     ('热更新/DLC', ['热更新', '热更', '资源热更', 'hot update', '资源分包', 'dlc', '增量补丁', '补丁包', '强制更新', 'ab包', '分包', '热更灰度'],
      'references/flow/godot/hotupdate.md',
      '资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS审核2.5.2禁止动态代码 · 配置热更也要版本校验 · DLC未购买要占位'),
-    ('平台服务', ['steam', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜', 'steam成就', '平台成就', '平台排行榜', '平台内购'],
+    ('平台服务', ['token', 'refresh token', '双令牌', '账号令牌', 'steam', '云函数', '平台sdk', 'godotsteam', 'eos', 'game center', 'play games', '账号体系', '平台账号', '鉴权', '排行榜提交', 'steam排行榜', 'steam成就', '平台成就', '平台排行榜', '平台内购'],
      'references/flow/godot/platform-services.md',
      'Godot无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带steam_appid.txt · 无Steam客户端要降级不崩 · token秘密留服务端'),
     ('画质/超分', ['超分', 'fsr', 'fsr2', 'dlss', 'xess', 'metalfx', '抗锯齿', 'taa', 'fxaa', 'msaa', 'smaa', '后处理', 'bloom', 'tonemap', '景深', 'ssao', '画质', '渲染分辨率', '拉伸', 'stretch'],
@@ -284,7 +284,7 @@ DOMAINS = [
     ('进阶移动', ['二段跳', '爬墙', '抓墙', '抓边', '蹬墙跳', '摆荡', '游泳', '潜水', '滑翔', '攀爬', '可变重力', '重力方向', 'up_direction', '传送门', '水下移动', 'ledge', 'wall jump'],
      'references/flow/godot/movement-advanced.md',
      '特殊移动不能堆 if 要状态机 · 抓边要两条射线且分吸附悬停攀爬三阶段 · 不要直接赋坐标会穿薄墙 · 改 up_direction 不必然失效真正原因是那 5 个 · 改重力要 up/相机/移动平面一起变'),
-    ('多人社交', ['大厅', 'lobby', '房间系统', 'matchmaking', '匹配', '好友', '组队', '聊天', '公会', '邮件系统', '公告', '举报', '敏感词', '审核ugc', '房主迁移', 'host migration'],
+    ('多人社交', ['大厅', 'lobby', '房间系统', '匹配', '好友', '组队', '聊天', '公会', '邮件系统', '公告', '举报', '敏感词', '审核ugc', '房主迁移', 'host migration'],
      'references/flow/godot/social.md',
      'Godot 不内置任何社交服务 · ENet 只是 UDP 传输层不是 P2P 平台 · 房主是临时协调者要能迁移 · 聊天必须服务器过滤并留存 · 举报要存证据快照 · 分控制面与数据面'),
     ('生存/角色状态', ['生命值', '血量', '耐力', 'stamina', '饥饿', 'hunger', '体温', '负重', '死亡', '重生', '复活', '存档点', '检查点', 'checkpoint', '属性系统', '资源再生', '体力恢复', 'survival'],
@@ -341,7 +341,13 @@ DOMAINS = [
     ('观战/重连/延迟补偿', ['观战', 'spectator', '断线重连', '重连', '主机迁移', 'migration', '延迟补偿', 'lag compensation', '服务端回溯', 'rewind判定', '插值缓冲', 'interpolation buffer', '预测纠正', '观战延迟'],
      'references/flow/godot/spectate-reconnect.md',
      '关战者是纯接收端不参与判定 · Peer ID是会话ID不是身份 · close()不发射peer_disconnected · 重连以收到连续权威快照为准 · 角色保留+AI托管不能queue_free · 仲裁要quorum否则双主 · 缓冲与延迟是同一枚货币'),
-
+        ('群集/避障', ['群集', 'boids', 'boid', '群体行为', 'flock', 'swarm', '鱼群', '鸟群', 'avoidance', '避障', 'rvo', 'velocity_computed', 'set_velocity', '动态障碍'],
+     'references/flow/godot/physics-constraints.md',
+     'avoidance_enabled默认false · 收到velocity_computed要自己移动 · 静态障碍不能每帧移动 · 邻居查询要用网格裁剪避免On² · Navigation定去哪boids定怎么一起走'),
+    ('分服/合服/匹配', ['分区分服', '分服', '跨服', '合服', '合区', 'shard', '匹配机制', 'matchmaking', 'elo', 'glicko', 'trueskill', '技能分', '匹配池', '全局id', '雪花id'],
+     'references/flow/godot/sharding-matchmaking.md',
+     '没有分服匹配API全在服务端 · 各服自增ID会撞车要全局ID · 合服要快照dry-run幂等保留回滚 · 邮件附件要幂等且会满 · 匹配判定必须服务端'),
+        
 ]
 
 SKIP_DIRS = {'.git', '.godot', 'node_modules', 'build', 'builds', 'dist',
@@ -544,6 +550,26 @@ def cmd_self_test():
     chk(bool(d) and d[0][0] == '时间操控',
         '"倒带 rewind" → 时间操控（玩法层，得到 %s）' % (d[0][0] if d else '无'))
 
+    # ---- 群集/避障 与 分服/合服/匹配 ----
+    for q, want in (('boids 群集怎么做', '群集/避障'),
+                    ('鱼群鸟群群体行为', '群集/避障'),
+                    ('NavigationAgent avoidance 避障', '群集/避障'),
+                    ('合服数据怎么合并', '分服/合服/匹配'),
+                    ('跨服战场 ID 冲突', '分服/合服/匹配'),
+                    ('matchmaking elo 匹配', '分服/合服/匹配')):
+        d = match_domains(q)
+        chk(bool(d) and d[0][0] == want,
+            '"%s" → %s（得到 %s）' % (q, want, d[0][0] if d else '无'))
+
+    # 分层：载具/关节归「载具/物理进阶」，浮力归「环境系统」，都不归群集域
+    for q, want in (('VehicleBody3D 翻车', '载具/物理进阶'),
+                    ('水面浮力怎么做', '环境系统'),
+                    ('账号登录 token', '平台服务'),
+                    ('反外挂加速检测', '存档安全/防作弊')):
+        d = match_domains(q)
+        chk(bool(d) and d[0][0] == want,
+            '"%s" → %s（得到 %s）' % (q, want, d[0][0] if d else '无'))
+
     # ---- 运营服务端补关键词 ----
     for q, want in (('七日签到怎么做', '运营服务端'),
                     ('战令通行证赛季结算', '运营服务端'),
@@ -679,7 +705,9 @@ def cmd_self_test():
                        ('游泳', '进阶移动'), ('重力方向', '进阶移动')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))
-    for need, want in (('大厅', '多人社交'), ('matchmaking', '多人社交'), ('好友', '多人社交'),
+    # 注意：'matchmaking' 已迁至「分服/合服/匹配」专门域（匹配判定必须服务端、
+    # 分服合服与匹配是同一套服务端职责），多人社交不再持有该词。
+    for need, want in (('大厅', '多人社交'), ('好友', '多人社交'),
                        ('聊天', '多人社交'), ('公会', '多人社交'), ('举报', '多人社交')):
         d = match_domains(need)
         chk(bool(d) and d[0][0] == want, '"%s" → %s' % (need, want))

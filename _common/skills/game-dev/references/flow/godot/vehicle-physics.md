@@ -22,6 +22,44 @@
 **关键参数**：`engine_force` / `brake` / `steering` / `suspension_*` /
 `friction_slip` / `wheel_roll_influence`（0.0–0.2，降低翻车概率，过高会失真）
 
+### VehicleWheel3D 参数速查（默认值单位混杂，照抄必错）
+
+| 属性 | 默认 | 单位 | 调整起点 |
+|---|---:|---|---|
+| `wheel_radius` | 0.5 | m | 按视觉轮胎半径 |
+| `wheel_rest_length` | 0.15 | m | 完全压缩位置向下到静止悬挂长度 |
+| `suspension_travel` | 0.2 | m | 越野/轿车 0.1–0.3；越大越易侧倾 |
+| `suspension_stiffness` | 5.88 | N/mm | 越野 <50，赛车 50–100，F1 约 200 |
+| `suspension_max_force` | 6000 | N | 应 > 车身质量 1/4；经验约 3–4× 该阈值 |
+| `damping_compression` | 0.83 | 无量纲 | 普通车约 0.3，赛车约 0.5 |
+| `damping_relaxation` | 0.88 | 无量纲 | **必须略高于 compression** |
+| `wheel_friction_slip` | 10.5 | 滑移 | 1.0 正常，0 无抓地 |
+| `wheel_roll_influence` | 0.1 | 无量纲 | 1.0 易翻，0 抗侧倾 |
+| `engine_force` | 0.0 | 牵引力 | 1000kg 车从 25–50 开始 |
+| `brake` | 0.0 | 制动力 | 1000kg 车紧急制动约 25–30 |
+| `steering` | 0.0 | **rad** | 按角速度/速度曲线限制 |
+
+⚠ **建模顺序：先定位锚点 → 再设 rest length → 最后调悬挂。**
+把 `VehicleWheel3D` 原点 gizmo 放在**完全压缩时车轮所在位置**，再用 `wheel_rest_length` 把车轮放到静止姿态。
+→ `rest_length=0` 却把节点挪到视觉位置，悬挂零点会错，车默认悬空或车轮穿过车身。
+
+⚠ **悬挂抖动先查单位与质量，不要无限加 damping。**
+常见原因：刚度远高于质量、rest length 与 travel 冲突、车轮锚点离质心过远、CCD/时间步不足、
+**车轮节点与车身碰撞形状互相重叠**。
+处方：先固定 mass 与 wheel_radius → stiffness 按 **10 倍步长**扫描 → compression/relaxation 用 **0.3/0.5** 起步
+→ travel 限 0.1–0.3 → **关闭车身与车轮自碰撞** → 验证 60/120Hz 差异。
+
+⚠ **高速不稳定是官方承认问题**：360 km/h、60Hz 时每步约 **1.67m**，既可能隧穿小物体，也让射线/接触采样缺少信息。
+应对：① **提高 physics ticks**（首选）② 大尺度碰撞形状、避免薄墙/薄地板/拼接缝隙 ③ 降速或改运动学 ④ 地面碰撞要连续。
+
+⚠ **内置车轮更像一组向下射线，不是厚轮胎**：提供 `is_in_contact()`、`get_contact_body()`、
+`get_contact_normal()`、`get_contact_point()`、`get_rpm()`、`get_skidinfo()`。
+→ 薄墙、护栏、有缝隙的拼接路面会被**漏检**（车"跨"过栏杆、上下坡悬挂突然复位、高速瞬移）。
+
+⚠ `engine_force`/`brake`/`steering` 必须在 **`_physics_process()`** 里算，视觉轮才用插值平滑。
+⚠ `steering` 是**整车转向输入（弧度）**，不是视觉轮网格角度。
+⚠ `wheel_friction_slip` 默认 10.5 **不是"10.5 倍抓地力"的统一标尺**，它与接触表面摩擦结合。
+
 ## 1. ⚠ SoftBody3D 官方存在（很多人以为没有）
 
 **"Godot 4 没有 SoftBody3D" 是错的** —— 真正要核对的是**版本和物理后端**。
@@ -48,6 +86,69 @@
 - 睡眠策略不当
 
 布娃娃用 `PhysicalBone`（见 `animation-skeletal.md`）。
+
+### 关节参数速查
+
+⚠ `Joint3D` 是**共同基类，不是可实例化组件**。`node_a`/`node_b` 两端必须继承 `PhysicsBody3D`；
+任一端为空则接到固定世界。`exclude_nodes_from_collision=true` **只**阻止两个被连接体互撞，不关闭与地形的碰撞。
+
+| 节点 | 正确用途 | 关键参数 | 典型误用 |
+|---|---|---|---|
+| `PinJoint3D` | 球铰、钟摆、破碎链点 | `params/bias=0.3`、`damping=1.0`、`impulse_clamp=0.0` | 用单点锁刚体姿态 → 万向节不稳定 |
+| `HingeJoint3D` | 门、车轮、摆臂、马达 | `angular_limit/{enable,lower,upper,bias}`、`motor/{enable,target_velocity,max_impulse}` | 把车轮摩擦/转向交给铰链马达 |
+| `SliderJoint3D` | 活塞、滑轨、电梯 | `linear_limit/{lower,upper}_distance` | 期望它替代 `CharacterBody3D` 精确运动 |
+| `ConeTwistJoint3D` | 布娃娃肩、球窝 | `bias=0.3`、`softness=0.8`、`relaxation=1.0`、`swing_span=π/4`、`twist_span=π` | 当角色"站起来"的稳定器 |
+| `Generic6DOFJoint3D` | 自定义悬挂、机械臂 | 每轴 `enabled`/limit/spring/motor、ERP/softness/damping | 一上来六个轴全开 |
+
+- ⚠ **铰链轴是局部 Z，默认无限制、无马达**（`angular_limit/enable=false`）。
+  门最小可用配置是**启用限位并设弧度角**；只在场景里旋转节点**不会**自动产生限位。
+- ⚠ `SliderJoint3D` 默认滑轨 −1m~+1m，**角限位均为 0** —— 零角自由度 + 非零线性范围才是"直轨"。
+- ⚠ ConeTwist 的 **twist 轴初始是关节局部 X**；`twist_span` 低于 0.05 会锁住扭转。肩/肘/脊椎要**分别**设。
+- ⚠ **6DOF 只设 `softness` 不启用 spring 不会产生弹簧力。**
+
+**软参数不是"越大越硬"**：`bias` 保持**位置**关系，`damping` 保持**速度**关系，`impulse_clamp` 限制每步冲量（**0 = 不限制**）。
+
+⚠ **`solver_priority` 只在 GodotPhysics 生效，Jolt 直接忽略**（值越低越优先，默认 1）。
+→ Jolt 项目不能靠调它，只能改质量、约束结构、时间步。
+
+**抖动/爆炸判别顺序**：`时间步 → 质量/尺寸 → 锚点 → 限位 → 求解顺序 → 冲量钳制`
+
+| 症状 | 原因 |
+|---|---|
+| 低速也发抖 | 时间步不足 |
+| 小质量体被弹出 | 相邻链节质量差过大 |
+| 模型与锚点明显偏差 | 锚点不在铰接几何中心 |
+| 限位边缘反复回弹 | 限位/阻尼配置 |
+| 链条末端甩动放大 | 求解顺序或链过深 |
+| 两体突然相距几千单位 | 冲量未钳制 |
+
+处方：相邻链节质量差**不超约 1:10** · 锚点设在**真实铰接几何中心** · 串珠链**不超 6 节** ·
+⚠ **不要逐帧 `remove_child`/`add_child` 关节**，用 `joint_clear()`/`free_rid()` 明确生命周期。
+
+### 2D 关节（语义不能套用 3D）
+
+| 节点 | 默认值要点 |
+|---|---|
+| `PinJoint2D` | `angular_limit_enabled=false`、`softness=0.0`（越高越易弯曲） |
+| `GrooveJoint2D` | `initial_offset=25.0`、`length=50.0`（沿局部 Y 的沟槽长度） |
+| `DampedSpringJoint2D` | `damping=1.0`、`length=50.0`、`rest_length=0.0`、`stiffness=20.0` |
+
+⚠ **`DampedSpringJoint2D.length` 是最大伸长上限，不是静止长度**（静止长度是 `rest_length`）。
+⚠ `damping`：0 = 无阻尼，**1 = 临界阻尼**，>1 = 过阻尼。
+⚠ **2D 关节没有公开的 `solver_priority`** —— `Joint2D` 只有 `bias=0.0`（0 回退到项目设置）。
+
+### 运行时创建关节必须用 PhysicsServer
+
+```gdscript
+var j := PhysicsServer3D.joint_create()
+PhysicsServer3D.joint_make_pin(j, body_a, local_a, body_b, local_b)
+PhysicsServer3D.joint_set_solver_priority(j, 1)
+# 销毁：先解除引用，再 PhysicsServer3D.free_rid(j)
+```
+
+⚠ **不要在 `_physics_process()` 里每帧 new 关节节点。**
+⚠ 钩索反模式：建 `PinJoint3D` 却不保存 RID、不处理目标死亡
+→ 内存增长、钩索仍拉住已 `queue_free()` 的对象、两帧内重复连接。**RID、两体引用、有效期要存在同一组件里。**
 
 ## 3. ⚠ 摩擦是"两个物体共同决定"的
 
