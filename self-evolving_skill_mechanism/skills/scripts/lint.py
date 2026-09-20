@@ -295,6 +295,78 @@ def _frontmatter(text):
     return fm
 
 
+def check_mirror_pairs(cfg, root=None):
+    """镜像册（建设册 ↔ 审查册 1:1 同名）必须**双向**可达。
+
+    为什么需要：单向指向是最常见的失效。
+    审查册指建设册容易（审查时本来就要看"应该怎么做"）；
+    建设册指审查册容易忘（写的时候不会想到"去哪查坑"）。
+    结果就是：**审查册再全，开发时也用不到**。
+
+    实测（本仓库 Godot 镜像册）：审查册 79/79 全有指向建设册的指针，
+    建设册 82 份里只有 10 份指回——单向。已补 69 份。
+
+    判据：两侧各自 `grep -L 对侧关键词`，列出来的就是断的那半边。
+    只查单向会让"建设册那边根本没指"从未被发现。
+    """
+    base = Path(root) if root else ROOT
+    # 镜像对配置：缺 cfg 里的键时跳过（不是所有库都有镜像册）
+    raw = cfg.get("mirror_pairs") or {}
+    # 支持两种写法：{名字: {build,review,...}}（推荐）与 [{...}, ...]
+    if isinstance(raw, dict):
+        pairs = list(raw.values())
+    elif isinstance(raw, list):
+        pairs = [x for x in raw if isinstance(x, dict)]
+    else:
+        pairs = []
+    if not pairs:
+        return []
+    issues = []
+    for pair in pairs:
+        a = base / pair.get("build", "")
+        b = base / pair.get("review", "")
+        kw_a = pair.get("review_kw", "")
+        kw_b = pair.get("build_kw", "")
+        if not (a.exists() and b.exists() and kw_a and kw_b):
+            continue
+        fa = {f.name for f in a.glob("*.md")}
+        fb = {f.name for f in b.glob("*.md")}
+        # ① 建设册 → 审查册
+        for name in sorted(fa):
+            try:
+                t = (a / name).read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if kw_a in t:
+                continue
+            if name not in fb:
+                issues.append({"level": "info",
+                               "file": "%s/%s" % (a.name, name),
+                               "issue": "无同名审查册（%s 里没有它）" % b.name,
+                               "hint": "审查册缺口——要么补一份，要么登记为已知缺口，"
+                                       "不要伪造指针（指向不存在的文件 = 死链）"})
+                continue
+            issues.append({"level": "warn",
+                           "file": "%s/%s" % (a.name, name),
+                           "issue": "未指向同名审查册（单向）",
+                           "hint": "开发时看不到反模式清单 → 写完不知道去哪查坑。"})
+        # ② 审查册 → 建设册
+        for name in sorted(fb):
+            try:
+                t = (b / name).read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if kw_b in t:
+                continue
+            if name not in fa:
+                continue      # 审查册比建设册多是合法的（先有坑表）
+            issues.append({"level": "warn",
+                           "file": "%s/%s" % (b.name, name),
+                           "issue": "未指向同名建设册（单向）",
+                           "hint": "审核时不知道「应该怎么做」在哪。"})
+    return issues
+
+
 def check_doc_shape(cfg, limits=None):
     """文档形态检查：接近上限预警 + 单文件章节过多 → 建议拆分。
 
@@ -865,6 +937,28 @@ trigger: 测试
         chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
             '命中数有区分度时不误报')
 
+        # ---- 镜像册双向可达 ----
+        # 正反两侧：缺反向指针 → 必须报；补了 → 必须不报。
+        # 只造正向会让「补完之后不误报」从未验证。
+        mir = vroot / 'reference' / 'mirror'
+        mir.mkdir(parents=True, exist_ok=True)
+        build_d, review_d = mir / 'build', mir / 'review'
+        build_d.mkdir(exist_ok=True); review_d.mkdir(exist_ok=True)
+        (build_d / 'a.md').write_text('# 怎么做 a\n', encoding='utf-8')
+        (review_d / 'a.md').write_text('# 不能怎么做 a\n', encoding='utf-8')
+        mcfg = dict(cfg)
+        mcfg['mirror_pairs'] = {'t': {
+            'build': 'reference/mirror/build',
+            'review': 'reference/mirror/review',
+            'build_kw': '怎么做', 'review_kw': 'REVIEWKW'}}
+        got = check_mirror_pairs(mcfg, vroot)
+        chk(any('单向' in i['issue'] for i in got),
+            '镜像册单向能查出（两侧都缺指针 → 报 2 条）')
+        (build_d / 'a.md').write_text('# 怎么做 a → REVIEWKW\n', encoding='utf-8')
+        (review_d / 'a.md').write_text('# 不能怎么做 a → 怎么做\n', encoding='utf-8')
+        chk(not check_mirror_pairs(mcfg, vroot),
+            '双向都补齐后不误报')
+
         # ---- 文档形态：接近上限 + 章节过多 ----
         # 正反两侧：超限前 80% 要提示、章节 >12 要提示；
         # 小文件 + 少章节不该报。只造正向会让「正常文档被误报」从未验证。
@@ -959,7 +1053,8 @@ def main():
               + check_frontmatter(cfg) + check_landing(cfg)
               + check_refs(cfg) + check_duplicates(cfg)
               + check_degeneracy(cfg) + check_exemptions(cfg)
-              + check_markdown_headings(cfg) + check_doc_shape(cfg, limits))
+              + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
+              + check_mirror_pairs(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
