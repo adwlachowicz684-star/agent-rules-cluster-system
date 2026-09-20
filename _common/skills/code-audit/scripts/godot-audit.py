@@ -599,6 +599,312 @@ EXTRA_DOMAIN_RULES = [
      "有弹道预测但预测与真实弹道各写一套 —— 显示落点与实际落点不一致",
      "预测线必须复用与真实弹道相同的重力、时间步和碰撞查询，只画到首个碰撞点",
      r"(?i)(?:simulate|复用|共用|shared|same|同一)"),
+
+
+    # ---- 域专项补充（GD241-GD274）----
+    ("GD241", "P1", "聊天仅客户端过滤", "gd", r"(?:chat|聊天|message)\w*[\s\S]{0,250}?(?:filter|过滤|replace|替换)",
+     "聊天内容只在客户端过滤 —— 玩家可改客户端，过滤形同虚设；词库放客户端等于公开",
+     "过滤与审计必须在服务端；客户端只做输入提示",
+     r"(?i)(?:server|服务端|rpc_id|audit|留存|moderat)"),
+    ("GD242", "P1", "peerID当玩家身份", "gd", r"(?=[\s\S]*(?:peer_id|get_unique_id|sender_id))(?=[\s\S]*(?:player_name|account|账号|身份))",
+     "用 peer_id 当玩家身份 —— 每次连接都会变，重连后就不是同一个人",
+     "用账号体系的稳定 ID 做身份，peer_id 只用于本次连接寻址",
+     r"(?:account_id|user_id|stable_id|账号ID|持久ID)"),
+    ("GD243", "P2", "抓边直接赋坐标", "gd", r"(?:ledge|抓边|climb|攀爬)\w*[\s\S]{0,250}?(?:global_position|position)\s*=",
+     "抓边时直接赋坐标 —— 瞬移且跳过物理，容易穿墙或抖动",
+     "用 Tween 或改 velocity 走 move_and_slide，不要硬赋坐标",
+     r"(?:move_and_slide|tween_property|Tween\.)"),
+    ("GD244", "P1", "up_direction设为零", "gd", r"up_direction\s*=\s*Vector3\.ZERO|up_direction\s*=\s*Vector3\(\s*0,\s*0,\s*0\s*\)",
+     "把 up_direction 设为 ZERO —— 官方明确不能为零，否则无法区分地板/墙/天花板",
+     "给明确的上方向；改重力方向时同步更新它",
+     ""),
+    ("GD245", "P2", "改重力未同步相机", "gd", r"(?:gravity|重力)\w*[\s\S]{0,250}?(?:rotate|旋转|翻转|flip)",
+     "改了重力方向但没同步相机与输入方向 —— 看到的和操作的对不上",
+     "重力、相机 up、输入映射三者要同步切换",
+     r"(?:camera\w*\.\s*(?:up|rotation|global_rotation)|相机.{0,8}(?:up|旋转|同步)|\binput_map\b)"),
+    ("GD246", "P1", "死亡写成布尔", "gd", r"var\s+\w*dead\w*\s*(?::\s*bool\s*)?\s*(?::=|=)\s*(?:true|false)",
+     "用布尔表示死亡 —— 死亡是过程（正在死亡/已死亡/可重生），布尔只有两态",
+     "用状态枚举或状态机，把「死亡中」与「已死亡」分开",
+     r"(?:enum|状态机|State|DEAD|_DYING)"),
+    ("GD247", "P0", "死亡期间仍可保存", "gd", r"func\s+\w*save\w*\s*\([^)]*\)",
+     "保存时没有排除死亡/过场状态 —— 死亡动画中存档会存出「正在死」的状态",
+     "保存前校验状态：死亡、过场、加载中不允许存档",
+     r"(?:if\s+state\s*!=|can_save\(\)|state\s*==\s*State\.ALIVE|状态校验)"),
+    ("GD248", "P1", "上限存计算结果", "gd", r"(?:max_hp|max_value|上限)\w*\s*(?::=|=)\s*\w+\s*\*\s*\d",
+     "把计算后的最终上限存起来 —— 上限变化会连锁造成超上限、比例回血错误、容量永久丢失",
+     "只存 base/additive/multipliers，上限每次现算",
+     r"(?:base_value|additive|multipliers|现算|get_max)"),
+    ("GD249", "P2", "重生未清Tween", "gd", r"(?:respawn|重生|revive)\w*",
+     "重生时没清理旧的 Tween/Timer/信号 —— 旧补间还在跑会覆盖新状态",
+     "重生时显式 kill 所有 Tween、停 Timer、断开一次性信号",
+     r"(?:\bkill\s*\(|kill_all\w*|stop_all|_tween\s*=\s*null|清理|reset_tween)"),
+    ("GD250", "P2", "flag散落手写字符串", "gd", r"\.has\s*\(\s*[\"'][a-z_]+[\"']\s*\)",
+     "剧情 flag 用散落的字符串字面量 —— 拼错只有运行时才发现，且无法枚举所有 flag",
+     "用常量表或枚举集中定义，禁止裸字符串",
+     r"(?:const\s+\w*FLAG|FlagDef|enum|flag_enum)"),
+    ("GD251", "P1", "结局用ifelif链", "gd", r"if\s+[\s\S]{0,80}?(?:ending|结局)[\s\S]{0,200}?elif\s+[\s\S]{0,80}?(?:ending|结局)",
+     "结局判定写成 if/elif 链 —— 分支变多后优先级、重复条件、测试覆盖都会失控",
+     "改成判定表（id/priority/conditions/incompatible），优先级显式配置",
+     r"(?:判定表|ending_table|priority|conditions)"),
+    ("GD252", "P1", "反射无上限", "gd", r"while\s+true|while\s*\(\s*true\s*\)",
+     "循环没有迭代上限 —— 两面镜子互照会无限反射，主线程直接卡死",
+     "设 MAX_BOUNCES 硬切断（如 8）",
+     r"(?:MAX_BOUNCES|max_bounces|bounce_count\s*<\s*\d|上限)"),
+    ("GD253", "P1", "用reflect非bounce", "gd", r"\.reflect\s*\(",
+     "用了 reflect() —— Godot 里反射方向该用 bounce()，源码中 bounce = -reflect，混用得到相反方向",
+     "改用 v.bounce(normal)",
+     ""),
+    ("GD254", "P2", "机关绑死按键", "gd", r"(?:interact|交互|机关)\w*[\s\S]{0,250}?is_action_pressed\s*\(\s*[\"'][^\"']+[\"']\s*\)",
+     "交互绑死具体按键 —— 玩家改键位后失效，且多个机关会抢同一个键",
+     "绑 Input Map 动作名，且交互走统一入口避免多机关抢输入",
+     r"(?:ACTION_INTERACT|动作名|统一入口|interact_focus)"),
+    ("GD255", "P0", "停帧计时器受缩放", "gd", r"Engine\.time_scale\s*=\s*0[\s\S]{0,200}?create_timer\s*\(\s*[\d.]+\s*\)",
+     "time_scale=0 后用普通 create_timer —— 计时器同样被冻结，游戏永久卡死",
+     "恢复计时器必须 create_timer(t, true)",
+     r"(?:create_timer\s*\(\s*[\d.]+\s*,\s*true|ignore_time_scale)"),
+    ("GD256", "P1", "改time_scale无恢复", "gd", r"Engine\.time_scale\s*=\s*[\d.]+",
+     "改了 time_scale 但全文找不到恢复 —— 异常路径下会永久停在慢动作或卡死",
+     "所有修改都要配对恢复，用 try/finally 或在统一出口恢复",
+     r"(?:time_scale\s*=\s*1|恢复|restore|finally|reset_scale)"),
+    ("GD257", "P2", "暂停时UI不可交互", "gd", r"get_tree\(\)\.paused\s*=\s*true",
+     "设 paused=true 但没处理 UI —— 默认 process_mode 下暂停菜单自己也被暂停，点不动",
+     "暂停菜单设为 PROCESS_MODE_ALWAYS / WHEN_PAUSED",
+     r"(?:PROCESS_MODE|process_mode|ALWAYS|WHEN_PAUSED)"),
+    ("GD258", "P0", "客户端判支付成功", "gd", r"(?:purchase|支付|buy|购买)\w*[\s\S]{0,300}?(?:success|成功|grant|发放)",
+     "客户端判定支付成功并发货 —— 客户端结果不可信，可被伪造",
+     "以服务端订单状态为准；客户端只发起与展示结果",
+     r"(?i)(?:server_verify|服务端|order_status|receipt|订单查询)"),
+    ("GD259", "P1", "抽卡随机在客户端", "gd", r"(?:gacha|抽卡|扭蛋|roll)\w*[\s\S]{0,250}?(?:randf|randi|randomize)\s*\(",
+     "抽卡结果在客户端随机 —— 玩家可改内存必出 SSR",
+     "抽取必须在服务端，客户端只展示结果",
+     r"(?i)(?:server|服务端|rpc_id|request_draw)"),
+    ("GD260", "P1", "日期用本地时区", "gd", r"(?:daily|每日|reset|重置)\w*[\s\S]{0,250}?get_datetime_dict_from_system\s*\(\s*\)",
+     "每日重置用本地时间 —— 改时钟就能重复领，且跨时区/夏令时会缺一天或多一天",
+     "时间源必须 UTC，关键判定以服务端时间为准",
+     r"(?:utc|UTC|server_time|服务端时间|from_unix_time)"),
+    ("GD261", "P1", "高速投射物无扫描", "gd", r"(?:velocity|speed)\w*[\s\S]{0,200}?(?:2000|3000|5000)",
+     "高速投射物只靠碰撞体 —— 单帧位移超过墙厚会直接穿透",
+     "用射线扫描补一次（上一帧到当前位置），或启用 CCD",
+     r"(?:raycast|射线|intersect_ray|CCD|continuous_cd|扫描)"),
+    ("GD262", "P2", "预测与实弹两套公式", "gd", r"(?:predict|预测|preview)\w*[\s\S]{0,300}?(?:gravity|重力)",
+     "预测线自己写了一套简化公式 —— 显示落点和实际落点不一致",
+     "预测必须复用与真实弹道相同的重力、时间步和碰撞查询",
+     r"(?:simulate|复用|same_step|同一套|_step)"),
+    ("GD263", "P2", "配表无校验", "gd", r"(?:load_table|parse_table|配表)\w*[\s\S]{0,300}?(?:JSON\.parse|parse_string)",
+     "配表解析后没有校验 —— 缺字段/类型错只在运行时炸，且往往很后面才炸",
+     "加载后立刻做 schema 校验，报错要指明哪一行哪个字段",
+     r"(?:validate|校验|schema|assert|push_error)"),
+    ("GD264", "P2", "输入重绑定未持久化", "gd", r"(?:remap|重绑定|改键)\w*[\s\S]{0,250}?action_erase_events|action_add_event",
+     "改了键位但没保存 —— 重启后回到默认，玩家会以为游戏出 bug",
+     "重绑定后立刻写存档，并在启动时应用",
+     r"(?:save_keymap|持久化|write_keymap|ConfigFile)"),
+    ("GD265", "P1", "技能写死硬编码", "gd", r"(?:skill|技能|ability)\w*[\s\S]{0,250}?if\s+\w+\s*==\s*[\"'][^\"']+[\"']",
+     "技能逻辑写死在代码里 —— 策划改一个数值就要改代码、重新打包",
+     "用 Resource 数据驱动，技能参数可配置",
+     r"(?:skill|技能|ability)\w*[\s\S]{0,150}?(?:Resource|数据驱动|@export|配置|\.tres)"),
+    ("GD266", "P2", "伤害计算顺序不定", "gd", r"(?:damage|伤害)\w*[\s\S]{0,300}?\*\s*\(\s*1\s*\+\s*",
+     "伤害加成用连乘且顺序依赖数组 —— 同样 buff 组合，顺序不同结果不同",
+     "固定叠加顺序，或按乘区分类后合并计算",
+     r"(?:固定顺序|sorted|乘区|additive|multiplier)"),
+    ("GD267", "P2", "命中判定在客户端", "gd", r"(?:hit|命中|判定)\w*[\s\S]{0,250}?if\s+.{0,60}(?:distance|overlap|intersect)",
+     "命中判定在客户端做 —— 联网时可被改成必中",
+     "有服务端时必须服务端判定，客户端只做预测与表现",
+     r"(?i)(?:server|服务端|authority|@rpc)"),
+    ("GD268", "P1", "资源加载未判空", "gd", r"(?:load|preload)\w*\s*\(\s*[\"']res://[^\"']+[\"']\s*\)[\s\S]{0,100}?(?:\.|\[)",
+     "资源加载后直接用没判空 —— 加载失败是静默的，用到时才崩且看不出是哪个资源",
+     "判 null 并给出明确错误（路径 + 原因）",
+     r"(?:if\s+\w+\s*==\s*null|is_instance_valid|push_error|判空)"),
+    ("GD269", "P2", "高频创建对象", "gd", r"(?:spawn|生成|create)\w*[\s\S]{0,200}?\.new\s*\(\s*\)[\s\S]{0,150}?add_child",
+     "高频创建并 add_child —— 子弹/特效这类高频对象必须池化，否则内存抖动",
+     "用对象池复用实例",
+     r"(?:pool|池化|_pool|reuse|复用)"),
+    ("GD270", "P1", "存档存运行时态", "gd", r"(?:func\s+\w*save\w*\s*\([^)]*\)|存档)[\s\S]{0,300}?[Nn]ode\W*[:,)]",
+     "把 Node/Object 存进存档 —— 含引擎内部引用，反序列化会丢或崩",
+     "只存可序列化数据（ID/字典/基础类型）",
+     r"(?:to_dict|ID|字典|serialize|纯数据)"),
+    ("GD271", "P2", "过场未禁用输入", "gd", r"(?:cutscene|过场|cinematic)\w*[\s\S]{0,300}?(?:play|start)\s*\(",
+     "过场播放时没禁用玩家输入 —— 输入穿透会把机关全触发一遍",
+     "过场期间切到专用状态，屏蔽玩家输入",
+     r"(?:disable_input|输入锁|set_process_input\s*\(\s*false|屏蔽)"),
+    ("GD272", "P2", "相机未处理遮挡", "gd", r"SpringArm\w*(?:\.new\s*\(|\s*\()",
+     "用了 SpringArm 但没配碰撞 —— 相机会穿墙",
+     "给 SpringArm 设碰撞掩码与碰撞体，或自己做遮挡检测",
+     r"(?:collision_mask|碰撞|occlusion|遮挡|margin)"),
+    ("GD273", "P2", "UI未处理安全区", "gd", r"(?:safe_area|安全区|cutout|刘海)\w*",
+     "提到安全区但没实际适配 —— 刘海屏上 UI 会被挡",
+     "用 DisplayServer.get_display_safe_area() 做边距适配",
+     r"(?:get_display_safe_area|适配|margin|offset)"),
+    ("GD274", "P1", "版本号硬编码", "gd", r"(?i)(?:version|版本)\w*\s*(?::=|=)\s*[\"']\d+\.\d+",
+     "版本号硬编码在代码里 —— 改版本要改代码，且容易漏改一处",
+     "版本号集中在 project.godot 或单一常量",
+     r"(?:ProjectSettings|project.godot|config_version|集中)"),
+
+
+    # ---- 类型专项补充（GD275-GD320）----
+    ("GD275", "P1", "波次用group判空", "gd", r"get_nodes_in_group\s*\(\s*[^)]*\)\s*\.is_empty\s*\(\s*\)",
+     "用 get_nodes_in_group().is_empty() 判波次清空 —— 池里休眠怪、退场怪会污染计数",
+     "显式计数：spawned == killed + escaped",
+     r"(?:spawned_count|killed_count|escaped_count)"),
+    ("GD276", "P2", "建塔后未强制更新导航", "gd", r"set_cell\s*\([^)]*\)[\s\S]{0,300}?map_get_path\s*\(",
+     "改了地图后立刻 map_get_path() —— NavigationServer 改动要下一物理帧才生效，拿到的是旧数据",
+     "改完地图调 NavigationServer2D.map_force_update() 再取路径",
+     r"map_force_update"),
+    ("GD277", "P2", "name字符串判敌人", "gd", r"(?:body|other|area)\.name\s*==\s*[\"\']",
+     "用 body.name == \"Enemy\" 做分发 —— TileMap 配了碰撞也会触发 body_entered，会误伤",
+     "给敌人统一接口 take_damage()，塔只持\"可伤害\"引用",
+     r"(?:take_damage|is_in_group\s*\(\s*[\"\']enemy)"),
+    ("GD278", "P2", "Timer串高频刷怪", "gd", r"wait_time\s*=\s*(?:0\.0[0-9]|0\.1)\s*$",
+     "用极短 wait_time 的 Timer 串高频刷怪 —— Timer 每帧最多处理一次超时，行为会依赖帧率",
+     "用累加器显式结算：while acc >= interval: spawn()",
+     r"(?:_acc|accumulator)\s*\+="),
+    ("GD279", "P2", "塔射程用body_entered", "gd", r"(?:body_entered|area_entered)\s*\.\s*connect[\s\S]{0,200}?(?:range|射程|tower|塔)",
+     "用 body_entered 做塔的射程检测 —— 20塔×200怪是信号风暴",
+     "降频用 PhysicsDirectSpaceState2D.intersect_shape() 集中查询",
+     r"(?:intersect_shape|PhysicsShapeQuery)"),
+    ("GD280", "P2", "敌人未关物理处理", "gd", r"if\s+not\s+\w*(?:active|visible)\w*\s*:\s*return",
+     "屏幕外/休眠对象用 if not active: return —— 空转仍被引擎每帧调用",
+     "set_physics_process(false) 真正停掉，不是提前 return",
+     r"set_physics_process\s*\(\s*false"),
+    ("GD281", "P1", "每帧遍历group取单位", "gd", r"(?:_process|_physics_process)\w*[\s\S]{0,300}?get_nodes_in_group\s*\(\s*",
+     "在每帧函数里 get_nodes_in_group() —— 全树扫描，单位多时明显掉帧",
+     "UnitManager 持有 Array[Unit]，启停只改数组",
+     ""),
+    ("GD282", "P1", "camera调用不存在方法", "gd", r"\w*camera\w*\s*\.\s*screen_to_world\w*\s*\(",
+     "调用 Camera2D.screen_to_world_point() —— 该方法不存在",
+     "用 get_screen_transform().affine_inverse() * screen_point",
+     ""),
+    ("GD283", "P2", "战争迷雾用Light2D", "gd", r"(?:fog|迷雾|视野)[\s\S]{0,200}?Light2D",
+     "用 Light2D 做战争迷雾 —— 那是 2D 光照阴影，不是可见性系统",
+     "用独立 TileMapLayer 的 visible/explored 格子状态 + 脏区批量提交",
+     r"(?:TileMapLayer|set_cell|脏区|dirty)"),
+    ("GD284", "P2", "迷雾每帧set_cell", "gd", r"(?:_process|_physics_process)\w*[\s\S]{0,300}?set_cell\s*\(\s*",
+     "每帧对迷雾层 set_cell —— 反复触发导航/渲染重算",
+     "收集脏区，逻辑帧末尾一次性提交",
+     r"(?:_dirty|脏区|flush|_flush_dirty)"),
+    ("GD285", "P2", "单位全指向同目标", "gd", r"(?:for\s+\w+\s+in\s+\w*(?:units|squad|selected)\w*)[\s\S]{0,300}?target_position\s*=\s*\w+\.global_position",
+     "编队内所有单位指向同一目标点 —— 会挤成一团，RVO 只是缓解且引入抖动",
+     "SquadFormation 算菱形/网格偏移位，各 agent 各自寻路",
+     r"(?:formation|偏移|offset)"),
+    ("GD286", "P1", "Array.shuffle洗牌", "gd", r"\.\s*shuffle\s*\(\s*\)",
+     "用 Array.shuffle() 洗牌 —— 走全局 RNG，无法复现也无法服务器校验",
+     "用 RandomNumberGenerator 实例写 Fisher-Yates",
+     ""),
+    ("GD287", "P1", "混用全局随机与rng", "gd", r"(?<![.\w])(?:randi|randf|randi_range|randf_range)\s*\(\s*\)",
+     "用全局随机函数 —— 与 RandomNumberGenerator 是不同状态，混用导致同种子不同结果",
+     "整局只用一个 rng 实例，所有随机走 rng.randf()/rng.randi_range()",
+     ""),
+    ("GD288", "P2", "卡牌存档用JSON", "gd", r"(?:card|卡牌|deck|牌)[\s\S]{0,250}?(?:JSON\.stringify|JSON\.parse_string|to_json)",
+     "卡牌存档用 JSON —— 无法表达 Resource 引用与 Effect 子类类型",
+     "用 ResourceSaver 存 .tres/.res，或自定义二进制协议",
+     r"(?:ResourceSaver|\.res|\.tres)"),
+    ("GD289", "P2", "卡牌是PackedScene", "gd", r"(?:card|卡牌)\w*\s*:\s*PackedScene",
+     "卡牌数据用 PackedScene —— 同一张卡在多处各一份实例，成倍耗内存",
+     "数据用 Resource，只有 CardView 是场景",
+     ""),
+    ("GD290", "P1", "效果直接调伤害", "gd", r"\w+\.take_damage\s*\(\s*[\d\w]+\s*\)",
+     "效果里直接 target.take_damage(5) —— 跳过响应链，\"受伤时\"类效果无法响应",
+     "生成 DamageEvent 入栈，由栈结算并允许响应/修改/取消",
+     r"(?:_stack|Event|入栈|emit)"),
+    ("GD291", "P2", "洗牌同帧回抽", "gd", r"if\s+\w*deck\w*\.is_empty\s*\(\s*\)\s*:[\s\S]{0,200}?(?:shuffle|_reshuffle)",
+     "牌库空了洗弃牌堆后同帧继续抽 —— 会抽到刚洗进去的同一张",
+     "洗后标记 is_reshuffling，本轮该次抽牌按洗前判定处理",
+     r"(?:is_reshuffling|洗前)"),
+    ("GD292", "P2", "生成直接set_cell", "gd", r"(?:for\s+\w+\s+in\s+\w*(?:room|cell|tile)\w*)[\s\S]{0,300}?set_cell\s*\(\s*",
+     "生成循环里逐格 set_cell —— 失败难回滚且逐格触发重算",
+     "先建纯数据 Dungeon 中间表示，校验连通性后一次性提交",
+     r"(?:连通性|validate_|中间表示|_commit|批量提交)"),
+    ("GD293", "P2", "生成时导航开着", "gd", r"(?:generate|生成)\w*[\s\S]{0,300}?set_cell\s*\(\s*",
+     "生成时开着 navigation_enabled —— 每个 set_cell 触发导航更新",
+     "生成前关掉，最后一次提交后再开",
+     r"navigation_enabled\s*=\s*false"),
+    ("GD294", "P1", "meta只在退出时存", "gd", r"(?:_exit_tree|NOTIFICATION_WM_CLOSE_REQUEST)[\s\S]{0,300}?(?:save|ResourceSaver)",
+     "只在退出时存 meta 进度 —— 崩溃/强杀会丢整局进度",
+     "关键节点变化即存（过关结算后、解锁时）",
+     r"(?:过关|解锁|结算后|关键节点)"),
+    ("GD295", "P1", "覆盖写存档", "gd", r"ResourceSaver\.save\s*\(\s*[^)]+\)\s*$",
+     "直接覆盖写存档文件 —— 崩溃会留下半截文件，存档彻底损坏",
+     "先写 .tmp 再原子重命名",
+     r"(?:\.tmp|rename|原子)"),
+    ("GD296", "P1", "FLAG_COMPRESS当加密", "gd", r"(?:secret|key|password|付费|purchase)\w*[\s\S]{0,250}?FLAG_COMPRESS",
+     "把 FLAG_COMPRESS 当加密 —— 它是 Zstandard 压缩，不是加密",
+     "敏感存档要签名或服务端权威",
+     r"(?:hmac|sign|签名|服务端|server)"),
+    ("GD297", "P2", "道具池每次重算总权重", "gd", r"for\s+\w+\s+in\s+\w*(?:pool|items)\w*\s*:[\s\S]{0,200}?(?:total|sum)\s*\+=",
+     "每次抽取遍历全池算总权重 —— O(n)，池大且高频时明显",
+     "用累积权重 + bsearch 降到 O(log n)，或别名法 O(1)",
+     r"(?:_cum|bsearch|累积)"),
+    ("GD298", "P1", "产出delta直乘", "gd", r"(?:output|产出|produce|rate)\w*\s*\*\s*delta",
+     "产出率直接乘 delta —— 帧率不同结果不同，且无法复用于离线结算",
+     "固定步长 + 累加器：while acc >= STEP: tick(STEP)",
+     r"(?:FIXED_STEP|_acc|accumulator)"),
+    ("GD299", "P1", "离线收益简单相乘", "gd", r"(?:offline|离线)\w*[\s\S]{0,250}?(?:rate|产出)\w*\s*\*\s*\w*(?:seconds|elapsed|diff)",
+     "离线收益 = 每秒产出 × 离线秒数 —— 忽略依赖链、上限、buff",
+     "把离线时间切片，循环推进完整 Economy.tick() 并每步截断",
+     r"(?:while\s+\w+\s*<\s*\w+|tick\s*\(\s*FIXED|循环推进)"),
+    ("GD300", "P1", "离线用本地时间", "gd", r"(?:offline|离线|daily|每日)\w*[\s\S]{0,250}?get_datetime_dict_from_system\s*\(\s*\)",
+     "离线/每日结算用本地系统时间 —— 改时钟就能重复领，跨时区会缺或多一天",
+     "时间源用 UTC，关键判定以服务端时间为准",
+     r"(?:utc|UTC|server_time|服务端时间)"),
+    ("GD301", "P2", "建筑放置用Area2D", "gd", r"(?:can_place|放置|placement)\w*[\s\S]{0,250}?(?:overlaps_area|overlaps_body|get_overlapping)",
+     "网格建筑放置用 Area2D 重叠检测 —— 网格放置查二维数组是 O(1)",
+     "查 BuildingGrid 的二维数组；Area2D 只适合自由放置",
+     r"(?:_grid|grid\s*\[|二维数组)"),
+        ("GD303", "P2", "资源键用String", "gd", r"Dictionary\s*\[\s*String\s*,",
+     "资源字典键用 String —— 每次哈希新字符串",
+     "用 StringName 作键，且 Dictionary[Key,Value] 类型化能早报错",
+     r"StringName"),
+    ("GD304", "P1", "just_pressed在physics里", "gd", r"func\s+_physics_process\s*\([^)]*\)[\s\S]{0,400}?is_action_just_pressed\s*\(\s*",
+     "在 _physics_process 里 is_action_just_pressed —— 渲染帧与物理帧错位时按键会被吞",
+     "在 _input/_process 捕获置缓冲标志，_physics_process 消费",
+     r"(?:\w*buffer\w*|jump_buffer)"),
+    ("GD305", "P2", "松跳速度归零", "gd", r"velocity\.y\s*=\s*0\s*$",
+     "松开跳跃键把 velocity.y 归零 —— 每次短按高度完全一致，手感发飘",
+     "截断到 CUT_SPEED（如 -150），不是归零",
+     r"(?:CUT_SPEED|maxf\s*\(\s*velocity\.y)"),
+    ("GD306", "P1", "平台手动改position", "gd", r"(?:platform|平台)\w*\.position\s*\+=",
+     "手动 position += v*delta 移动平台 —— 不产生接触速度叠加，角色不跟着走",
+     "用物理移动的平台（AnimatableBody/CharacterBody），让引擎处理接触",
+     r"(?:move_and_slide|AnimatableBody)"),
+    ("GD307", "P2", "冲刺改碰撞形状", "gd", r"(?:dash|冲刺|slide|滑铲)\w*[\s\S]{0,250}?(?:shape\s*\.\s*radius|shape\s*\.\s*height|\.disabled\s*=)",
+     "冲刺/滑铲时改碰撞形状尺寸或 disabled —— 会重建接触，容易卡墙",
+     "用固定形状 + 状态分层 collision mask",
+     r"(?:collision_mask|collision_layer)"),
+    ("GD308", "P1", "每帧重设instance_count", "gd", r"(?:_process|_physics_process)\w*[\s\S]{0,300}?(?<!visible_)instance_count\s*=",
+     "每帧设置 MultiMesh.instance_count —— 会清空并重分配整个 buffer，抵消合批收益",
+     "加载时一次定到上限，运行时只改 visible_instance_count",
+     ""),
+    ("GD309", "P1", "子弹用Area2D", "gd", r"(?:bullet|子弹|projectile)\w*[\s\S]{0,250}?Area2D",
+     "每颗子弹一个 Area2D —— 千颗子弹千个每帧回调，本类游戏最典型的死法",
+     "数据层定长数组批量积分 + MultiMesh 渲染 + 只查玩家判定点",
+     r"(?:MultiMesh|PackedFloat32Array|intersect_point)"),
+    ("GD310", "P2", "弹幕逻辑用delta", "gd", r"(?:bullet|子弹)\w*[\s\S]{0,250}?(?:position|pos)\s*\+=\s*\w*(?:vel|velocity)\w*\s*\*\s*delta",
+     "弹幕位置积分直接用 delta —— 帧率不同弹幕密度不同，且无法确定性回放",
+     "固定逻辑步长（如 1/60）累加器推进",
+     r"(?:LOGIC_STEP|FIXED|_acc\s*\+=\s*delta)"),
+    ("GD311", "P2", "判定点用精灵中心", "gd", r"(?:hit|命中|graze|擦弹)\w*[\s\S]{0,200}?(?:global_position|position)\s*\)",
+     "命中判定用精灵中心坐标 —— 判定点应明显更小并单独渲染提示",
+     "判定点 2–4px 独立定义；擦弹是另一个独立半径",
+     r"(?:hit_point|HIT_RADIUS|GRAZE_RADIUS)"),
+    ("GD312", "P2", "intersect_point用默认上限", "gd", r"intersect_point\s*\(\s*[^,)]+\s*\)",
+     "intersect_point 不传 max_results —— 默认 32，密集弹幕会被截断",
+     "显式传足够大的 max_results，或先做距离粗筛",
+     r"intersect_point\s*\(\s*[^,)]+\s*,\s*\d"),
+    ("GD313", "P2", "ResourceSaver不判返回值", "gd", r"ResourceSaver\.save\s*\(",
+     "调用 ResourceSaver.save() 不判返回值 —— 磁盘满/路径错会静默失败",
+     "判返回值 != OK 并给出明确错误",
+     r"(?:==\s*OK|!\s*=\s*OK|if\s+\w+\s*(?:!=|==))"),
+    ("GD314", "P1", "await后未判活", "gd", r"await\s+[\s\S]{0,150}?(?:\.\s*\w+|\w+\s*\()",
+     "await 之后直接使用对象 —— 等待期间节点可能已被销毁",
+     "await 后用 is_instance_valid() 判活再继续",
+     r"is_instance_valid"),
+    ("GD315", "P1", "queue_free后仍使用", "gd", r"queue_free\s*\(\s*\)[\s\S]{0,150}?(?:self\.\w+|\w+\.\w+\s*=)",
+     "queue_free() 之后仍访问节点 —— 实际释放发生在帧末，状态已不可靠",
+     "释放后立即返回，不要继续使用",
+     ""),
+    ("GD316", "P0", "密码学用随机而非rng", "gd", r"(?:token|nonce|salt|secret)\w*\s*(?::=|=)\s*(?:randi|randf|rand_from_seed)",
+     "用普通随机函数生成 token/nonce/salt —— 可预测，不是密码学安全随机",
+     "敏感随机用 Crypto.generate_random_bytes()",
+     r"(?:Crypto\.|generate_random_bytes)"),
 ]
 
 DOMAIN_RULES = [
@@ -2147,6 +2453,643 @@ func pause() -> void:
 func slowmo() -> void:
     TimeScale.slow_to(0.3)
 '''
+# ---- 域专项重建样本（GD241-GD274）----
+SELF_RB_BAD = '''extends Node3D
+
+var is_dead = false
+var max_hp = base_hp * 2
+var GAME_VERSION = "1.0"
+
+func _ready() -> void:
+    chara.up_direction = Vector3.ZERO
+
+func chat(text: String) -> void:
+    var clean := text.replace("bad", "***")
+    send(clean)
+
+func on_join() -> void:
+    player_name = "p" + str(multiplayer.get_unique_id())
+
+func ledge() -> void:
+    global_position = ledge_pos
+
+func flip_gravity() -> void:
+    gravity = gravity.rotated(Vector3.FORWARD, PI)
+
+func save() -> void:
+    var d := {"node": self}
+    store(d)
+
+func respawn() -> void:
+    hp = max_hp
+
+func check_flag() -> void:
+    if flags.has("door_opened"):
+        pass
+
+func ending() -> void:
+    if flags_a:
+        ending_a()
+    elif flags_b:
+        ending_b()
+
+func mirror() -> void:
+    while true:
+        dir = dir.reflect(n)
+
+func interact() -> void:
+    if Input.is_action_pressed("ui_accept"):
+        trigger()
+
+func hitstop() -> void:
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08).timeout
+
+func slowmo() -> void:
+    Engine.time_scale = 0.3
+
+func pause() -> void:
+    get_tree().paused = true
+
+func purchase() -> void:
+    if buy_success:
+        grant_item()
+
+func gacha() -> void:
+    var r := randf()
+    if r < 0.01:
+        give_ssr()
+
+func daily() -> void:
+    var t := Time.get_datetime_dict_from_system()
+    if t.hour == 5:
+        reset_daily()
+
+func fire() -> void:
+    velocity = Vector3.FORWARD * 3000
+
+func predict_line() -> void:
+    var g := gravity
+    var p := pos + vel * t + 0.5 * g * t * t
+
+func load_table(path: String) -> void:
+    var d := JSON.parse_string(read(path))
+
+func remap() -> void:
+    InputMap.action_erase_events("jump")
+
+func cast_skill(name: String) -> void:
+    if name == "fireball":
+        do_fire()
+
+func damage_calc(d: float) -> float:
+    return d * (1 + buff_a) * (1 + buff_b)
+
+func hit_check() -> void:
+    if distance_to(target) < 2.0:
+        apply_damage()
+
+func load_res() -> void:
+    var r := load("res://x.tres")
+    r.use()
+
+func spawn_enemy() -> void:
+    var e := Enemy.new()
+    add_child(e)
+
+func cutscene() -> void:
+    player.play("intro")
+
+func setup_camera() -> void:
+    var arm := SpringArm3D.new()
+
+func safe_ui() -> void:
+    var area := safe_area
+
+func shoot() -> void:
+    bullet.velocity = dir * 3000
+'''
+
+SELF_RB_CLEAN = '''extends Node3D
+
+enum State { ALIVE, DYING, DEAD }
+var state: State = State.ALIVE
+var base_value := 100.0
+var additive := 0.0
+var multipliers: Array = []
+
+func _ready() -> void:
+    chara.up_direction = Vector3.UP
+
+func chat(text: String) -> void:
+    request_server_filter.rpc_id(1, text)
+
+func on_join() -> void:
+    player_name = account_id
+
+func ledge() -> void:
+    var tw := create_tween()
+    tw.tween_property(self, "position", ledge_pos, 0.2)
+
+func flip_gravity() -> void:
+    gravity = gravity.rotated(Vector3.FORWARD, PI)
+    camera.up_direction = gravity_normal
+    input_map.swap()
+
+func save() -> void:
+    if state != State.ALIVE:
+        return
+    var d := to_dict()
+    store(d)
+
+func respawn() -> void:
+    kill_all_tweens()
+    hp = get_max_hp()
+
+func check_flag() -> void:
+    if flags.has(FlagDef.DOOR_OPENED):
+        pass
+
+func ending() -> void:
+    var e := ending_table.pick(conditions)
+    e.apply()
+
+func mirror() -> void:
+    for i in range(MAX_BOUNCES):
+        dir = dir.bounce(n)
+
+func interact() -> void:
+    if Input.is_action_pressed(ACTION_INTERACT):
+        trigger()
+
+func hitstop() -> void:
+    Engine.time_scale = 0.0
+    await get_tree().create_timer(0.08, true).timeout
+    Engine.time_scale = 1.0
+
+func slowmo() -> void:
+    Engine.time_scale = 0.3
+    await get_tree().create_timer(1.0, true).timeout
+    Engine.time_scale = 1.0
+
+func pause() -> void:
+    get_tree().paused = true
+    menu.process_mode = Node.PROCESS_MODE_ALWAYS
+
+func purchase() -> void:
+    var st := await server_verify_order(order_id)
+    if st == "paid":
+        grant_item()
+
+func gacha() -> void:
+    var r := await request_draw.rpc_id(1)
+
+func daily() -> void:
+    var t := Time.get_datetime_dict_from_unix_time(server_time_utc)
+    if t.hour == 5:
+        reset_daily()
+
+func fire() -> void:
+    bullet.velocity = Vector3.FORWARD * 3000
+    raycast_scan(prev_pos, bullet.global_position)
+
+func predict_line() -> void:
+    var p := simulate_ballistic(pos, vel)
+
+func load_table(path: String) -> void:
+    var d := JSON.parse_string(read(path))
+    validate_schema(d)
+
+func remap() -> void:
+    InputMap.action_erase_events("jump")
+    save_keymap()
+
+func cast_skill(res: SkillResource) -> void:
+    res.execute()
+
+func damage_calc(d: float) -> float:
+    return d * (1.0 + additive_total()) * multiplier_total()
+
+func hit_check() -> void:
+    request_hit.rpc_id(1, target_id)
+
+func load_res() -> void:
+    var r := load("res://x.tres")
+    if r == null:
+        push_error("load failed")
+        return
+    r.use()
+
+func spawn_enemy() -> void:
+    var e := pool.acquire()
+    add_child(e)
+
+func cutscene() -> void:
+    disable_input()
+    player.play("intro")
+
+func setup_camera() -> void:
+    var arm := SpringArm3D.new()
+    arm.collision_mask = 1
+
+func safe_ui() -> void:
+    var area := DisplayServer.get_display_safe_area()
+'''
+
+SELF_GTD_GD = '''extends Node2D
+
+func wave_clear() -> bool:
+    return get_nodes_in_group("enemies").is_empty()
+
+func build_tower() -> void:
+    tile.set_cell(Vector2i(1, 1), 0, Vector2i(0, 0))
+    var p := NavigationServer2D.map_get_path(m, a, b, true, 1)
+
+func on_body_entered(body: Node) -> void:
+    if body.name == "Enemy":
+        body.queue_free()
+
+func spawn_timer() -> void:
+    t.wait_time = 0.05
+
+func tower_range() -> void:
+    body_entered.connect(_on_tower_range)
+
+func enemy_tick() -> void:
+    if not active:
+        return
+'''
+
+SELF_GRTS_GD = '''extends Node2D
+
+func _process(delta: float) -> void:
+    var units := get_nodes_in_group("units")
+
+func pick(p: Vector2) -> Vector2:
+    return camera.screen_to_world_point(p)
+
+var fog_light: Light2D
+
+func move_squad() -> void:
+    for u in units:
+        u.target_position = leader.global_position
+'''
+
+SELF_GRTS2_GD = '''extends Node2D
+
+func _physics_process(delta: float) -> void:
+    fog.set_cell(Vector2i(0, 0), 1, Vector2i(0, 0))
+'''
+
+SELF_GCARD_GD = '''extends Node2D
+
+func shuffle_deck() -> void:
+    deck.shuffle()
+
+func draw_one() -> void:
+    var r := randf()
+
+func persist() -> void:
+    var card_json := JSON.stringify(deck)
+
+var card: PackedScene
+
+func play(e) -> void:
+    e.take_damage(5)
+
+func draw_more() -> void:
+    if deck.is_empty():
+        _reshuffle()
+'''
+
+SELF_GROGUE_GD = '''extends Node2D
+
+func build() -> void:
+    for room in rooms:
+        tile.set_cell(room.cell, 0, Vector2i(0, 0))
+
+func generate_map() -> void:
+    ground.set_cell(Vector2i(2, 2), 0, Vector2i(0, 0))
+
+func _exit_tree() -> void:
+    ResourceSaver.save(meta, "user://meta.res")
+
+func quick_save() -> void:
+    ResourceSaver.save(state, "user://s.res")
+
+func save_purchase() -> void:
+    ResourceSaver.save(purchase_data, "user://p.res", ResourceSaver.FLAG_COMPRESS)
+
+func roll_item() -> int:
+    for it in item_pool:
+        total += it.weight
+    return 0
+'''
+
+SELF_GIDLE_GD = '''extends Node2D
+
+func _process(delta: float) -> void:
+    var v := output_rate * delta
+
+func settle() -> float:
+    var offline_gain = offline_rate * elapsed
+    return offline_gain
+
+func daily_reset() -> void:
+    var t := Time.get_datetime_dict_from_system()
+
+func can_place(c: Vector2i) -> bool:
+    return not area.get_overlapping_bodies().is_empty()
+
+var amounts: Dictionary[String, float] = {}
+'''
+
+SELF_GPLAT_GD = '''extends Node2D
+
+func _physics_process(_d: float) -> void:
+    if Input.is_action_just_pressed("jump"):
+        jump()
+
+func release_jump() -> void:
+    velocity.y = 0
+
+func move_platform(delta: float) -> void:
+    platform.position += Vector2.RIGHT * 200.0 * delta
+
+func dash() -> void:
+    shape.radius = 0.5
+'''
+
+SELF_GBULLET_GD = '''extends Node2D
+
+func _process(delta: float) -> void:
+    mm.instance_count = live_count
+
+var bullet_area: Area2D
+
+func step(delta: float) -> void:
+    bullet.position += bullet_vel * delta
+
+func hit_check() -> bool:
+    return dist(bullet.global_position)
+'''
+
+SELF_GBULLET2_GD = '''extends Node2D
+
+func collide() -> void:
+    var hits := get_world_2d().direct_space_state.intersect_point(q)
+'''
+
+SELF_GMISC_GD = '''extends Node2D
+
+func persist() -> void:
+    ResourceSaver.save(state, "user://s.res")
+
+func wait_done() -> void:
+    await get_tree().create_timer(1.0).timeout
+    refresh()
+
+func die() -> void:
+    queue_free()
+    self.hp = 0
+
+func make_token() -> int:
+    var token := randi()
+    return token
+'''
+
+SELF_GTDOK_GD = '''extends Node2D
+
+var spawned_count := 0
+var killed_count := 0
+var escaped_count := 0
+
+func wave_clear() -> bool:
+    return spawned_count == killed_count + escaped_count
+
+func build_tower() -> void:
+    tile.set_cell(Vector2i(1, 1), 0, Vector2i(0, 0))
+    NavigationServer2D.map_force_update()
+
+func on_body_entered(body: Node) -> void:
+    if body.has_method("take_damage"):
+        body.take_damage(10.0, 0)
+
+func spawn_timer(delta: float) -> void:
+    _acc += delta
+
+func tower_range() -> void:
+    var hits := get_world_2d().direct_space_state.intersect_shape(q, 32)
+
+func enemy_idle() -> void:
+    set_physics_process(false)
+'''
+
+SELF_GRTSOK_GD = '''extends Node2D
+
+var _units: Array = []
+
+func _process(delta: float) -> void:
+    tick(_units)
+
+func pick(p: Vector2) -> Vector2:
+    return get_screen_transform().affine_inverse() * p
+
+func move_squad() -> void:
+    for i in _units.size():
+        _units[i].target_position = leader.global_position + formation_offset(i)
+'''
+
+SELF_GRTS2OK_GD = '''extends Node2D
+
+var _dirty: Array = []
+
+func _physics_process(delta: float) -> void:
+    _collect(_dirty)
+
+func flush() -> void:
+    for c in _dirty:
+        fog.set_cell(c, 1, Vector2i(0, 0))
+    _dirty.clear()
+'''
+
+SELF_GCARDOK_GD = '''extends Node2D
+
+var rng := RandomNumberGenerator.new()
+
+func shuffle_deck() -> void:
+    for i in range(deck.size() - 1, 0, -1):
+        var j := rng.randi_range(0, i)
+        var t = deck[i]
+        deck[i] = deck[j]
+        deck[j] = t
+
+func draw_one() -> void:
+    var r := rng.randf()
+
+func persist() -> void:
+    var err := ResourceSaver.save(deck_state, "user://deck.res.tmp")
+    if err != OK:
+        push_error("deck save failed")
+        return
+    DirAccess.rename_absolute("user://deck.res.tmp", "user://deck.res")
+
+var card_data: CardData
+
+func play(e) -> void:
+    _stack.push_back(DamageEvent.new(self, e, 5))
+
+func draw_more() -> void:
+    if is_reshuffling:
+        return
+    if deck.is_empty():
+        _reshuffle()
+'''
+
+SELF_GROGUEOK_GD = '''extends Node2D
+
+func build() -> void:
+    var d := build_layout()
+    if not validate_connectivity(d):
+        return
+    ground.navigation_enabled = false
+    for room in rooms:
+        ground.set_cell(room.cell, 0, Vector2i(0, 0))
+    ground.navigation_enabled = true
+
+func generate_map() -> void:
+    ground.navigation_enabled = false
+    ground.set_cell(Vector2i(2, 2), 0, Vector2i(0, 0))
+    ground.navigation_enabled = true
+
+func on_clear() -> void:
+    save_meta()
+
+func save_meta() -> void:
+    var e1 := ResourceSaver.save(meta, "user://meta.res.tmp")
+    if e1 != OK:
+        push_error("meta save failed")
+        return
+    DirAccess.rename_absolute("user://meta.res.tmp", "user://meta.res")
+
+func quick_save() -> void:
+    var e2 := ResourceSaver.save(state, "user://s.res.tmp")
+    if e2 != OK:
+        push_error("state save failed")
+        return
+    DirAccess.rename_absolute("user://s.res.tmp", "user://s.res")
+
+func save_purchase() -> void:
+    var sig := hmac(purchase_data)
+    var e3 := ResourceSaver.save(purchase_data, "user://p.res")
+    if e3 != OK:
+        push_error("purchase save failed")
+
+func roll_item() -> int:
+    return _cum.bsearch(rng.randf() * _cum[-1])
+'''
+
+SELF_GIDLEOK_GD = '''extends RefCounted
+
+const FIXED_STEP := 0.25
+var _acc := 0.0
+
+func advance(delta: float) -> void:
+    _acc += delta
+    while _acc >= FIXED_STEP:
+        tick(FIXED_STEP)
+        _acc -= FIXED_STEP
+
+func settle(seconds: float) -> float:
+    var t := 0.0
+    while t < seconds:
+        tick(FIXED_STEP)
+        t += FIXED_STEP
+    return t
+
+func daily_reset() -> void:
+    var t := Time.get_unix_time_from_utc()
+
+func can_place(c: Vector2i) -> bool:
+    return _grid[c.y][c.x] == null
+
+var amounts: Dictionary[StringName, float] = {}
+'''
+
+SELF_GPLATOK_GD = '''extends CharacterBody2D
+
+var jump_buffer_timer := 0.0
+
+func _input(event: InputEvent) -> void:
+    if event.is_action_pressed("jump"):
+        jump_buffer_timer = 0.15
+
+func _physics_process(_d: float) -> void:
+    if jump_buffer_timer > 0.0 and is_on_floor():
+        jump_buffer_timer = 0.0
+
+func release_jump() -> void:
+    velocity.y = maxf(velocity.y, -150.0)
+
+func move_platform(delta: float) -> void:
+    platform.move_and_slide()
+
+func dash() -> void:
+    collision_mask = DASH_MASK
+'''
+
+SELF_GBULLETOK_GD = '''extends Node2D
+
+const LOGIC_STEP := 1.0 / 60.0
+var _acc := 0.0
+
+func _process(delta: float) -> void:
+    _acc += delta
+    while _acc >= LOGIC_STEP:
+        step(LOGIC_STEP)
+        _acc -= LOGIC_STEP
+
+func flush() -> void:
+    mm.visible_instance_count = live_count
+
+func step(dt: float) -> void:
+    for i in live_count:
+        _pos[i] += _vel[i] * dt
+
+func hit_check() -> bool:
+    return dist(hit_point) < HIT_RADIUS
+'''
+
+SELF_GBULLET2OK_GD = '''extends Node2D
+
+func collide() -> void:
+    var hits := get_world_2d().direct_space_state.intersect_point(q, 64)
+'''
+
+SELF_GMISCOK_GD = '''extends Node2D
+
+func persist() -> void:
+    var err := ResourceSaver.save(state, "user://s.res.tmp")
+    if err != OK:
+        push_error("save failed")
+        return
+    DirAccess.rename_absolute("user://s.res.tmp", "user://s.res")
+
+func wait_done() -> void:
+    await get_tree().create_timer(1.0).timeout
+    if is_instance_valid(self):
+        refresh()
+
+func die() -> void:
+    queue_free()
+    return
+
+func make_token() -> PackedByteArray:
+    return Crypto.new().generate_random_bytes(16)
+'''
+
+
+
 SELF_UI_BAD = '''extends RichTextLabel
 
 func say(nick: String, msg: String) -> void:
@@ -2548,6 +3491,27 @@ def self_test() -> int:
             'sec.gd': SELF_SEC_BAD, 'secok.gd': SELF_SEC_CLEAN,
             'hot.gd': SELF_HOT_BAD, 'hotok.gd': SELF_HOT_CLEAN,
             'long.gd': SELF_LONG_BAD,
+            'rb.gd': SELF_RB_BAD, 'rbok.gd': SELF_RB_CLEAN,
+            'gtd.gd': SELF_GTD_GD,
+            'grts.gd': SELF_GRTS_GD,
+            'grts2.gd': SELF_GRTS2_GD,
+            'gcard.gd': SELF_GCARD_GD,
+            'grogue.gd': SELF_GROGUE_GD,
+            'gidle.gd': SELF_GIDLE_GD,
+            'gplat.gd': SELF_GPLAT_GD,
+            'gbullet.gd': SELF_GBULLET_GD,
+            'gbullet2.gd': SELF_GBULLET2_GD,
+            'gmisc.gd': SELF_GMISC_GD,
+            'gtdok.gd': SELF_GTDOK_GD,
+            'grtsok.gd': SELF_GRTSOK_GD,
+            'grts2ok.gd': SELF_GRTS2OK_GD,
+            'gcardok.gd': SELF_GCARDOK_GD,
+            'grogueok.gd': SELF_GROGUEOK_GD,
+            'gidleok.gd': SELF_GIDLEOK_GD,
+            'gplatok.gd': SELF_GPLATOK_GD,
+            'gbulletok.gd': SELF_GBULLETOK_GD,
+            'gbullet2ok.gd': SELF_GBULLET2OK_GD,
+            'gmiscok.gd': SELF_GMISCOK_GD,
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
@@ -2741,6 +3705,52 @@ def self_test() -> int:
             check(rid in ids('perc.gd'), 'perc.gd 命中 %s' % rid)
         for rid in ('GD144', 'GD145'):
             check(rid not in ids('percok.gd'), 'percok.gd 不误报 %s' % rid)
+        for rid in ('GD241', 'GD242', 'GD243', 'GD244', 'GD245', 'GD246', 'GD247', 'GD248', 'GD249', 'GD250', 'GD251', 'GD252', 'GD253', 'GD254', 'GD255', 'GD256', 'GD257', 'GD258', 'GD259', 'GD260', 'GD261', 'GD262', 'GD263', 'GD264', 'GD265', 'GD266', 'GD267', 'GD268', 'GD269', 'GD270', 'GD271', 'GD272', 'GD273', 'GD274'):
+            check(rid in ids('rb.gd'), 'rb.gd 命中 %s' % rid)
+
+        # ---- 类型专项（GD275-GD316）样本断言 ----
+        for rid in ('GD275', 'GD276', 'GD277', 'GD278', 'GD279', 'GD280'):
+            check(rid in ids('gtd.gd'), 'td.gd 命中 %s' % rid)
+        for rid in ('GD275', 'GD276', 'GD277', 'GD278', 'GD279', 'GD280'):
+            check(rid not in ids('gtdok.gd'), 'tdok.gd 不报 %s' % rid)
+        for rid in ('GD281', 'GD282', 'GD283', 'GD285'):
+            check(rid in ids('grts.gd'), 'rts.gd 命中 %s' % rid)
+        for rid in ('GD281', 'GD282', 'GD283', 'GD285'):
+            check(rid not in ids('grtsok.gd'), 'rtsok.gd 不报 %s' % rid)
+        for rid in ('GD284',):
+            check(rid in ids('grts2.gd'), 'rts2.gd 命中 %s' % rid)
+        for rid in ('GD284',):
+            check(rid not in ids('grts2ok.gd'), 'rts2ok.gd 不报 %s' % rid)
+        for rid in ('GD286', 'GD287', 'GD288', 'GD289', 'GD290', 'GD291'):
+            check(rid in ids('gcard.gd'), 'card.gd 命中 %s' % rid)
+        for rid in ('GD286', 'GD287', 'GD288', 'GD289', 'GD290', 'GD291'):
+            check(rid not in ids('gcardok.gd'), 'cardok.gd 不报 %s' % rid)
+        for rid in ('GD292', 'GD293', 'GD294', 'GD295', 'GD296', 'GD297'):
+            check(rid in ids('grogue.gd'), 'rogue.gd 命中 %s' % rid)
+        for rid in ('GD292', 'GD293', 'GD294', 'GD295', 'GD296', 'GD297'):
+            check(rid not in ids('grogueok.gd'), 'rogueok.gd 不报 %s' % rid)
+        for rid in ('GD298', 'GD299', 'GD300', 'GD301', 'GD303'):
+            check(rid in ids('gidle.gd'), 'idle.gd 命中 %s' % rid)
+        for rid in ('GD298', 'GD299', 'GD300', 'GD301', 'GD303'):
+            check(rid not in ids('gidleok.gd'), 'idleok.gd 不报 %s' % rid)
+        for rid in ('GD304', 'GD305', 'GD306', 'GD307'):
+            check(rid in ids('gplat.gd'), 'plat.gd 命中 %s' % rid)
+        for rid in ('GD304', 'GD305', 'GD306', 'GD307'):
+            check(rid not in ids('gplatok.gd'), 'platok.gd 不报 %s' % rid)
+        for rid in ('GD308', 'GD309', 'GD310', 'GD311'):
+            check(rid in ids('gbullet.gd'), 'bullet.gd 命中 %s' % rid)
+        for rid in ('GD308', 'GD309', 'GD310', 'GD311'):
+            check(rid not in ids('gbulletok.gd'), 'bulletok.gd 不报 %s' % rid)
+        for rid in ('GD312',):
+            check(rid in ids('gbullet2.gd'), 'bullet2.gd 命中 %s' % rid)
+        for rid in ('GD312',):
+            check(rid not in ids('gbullet2ok.gd'), 'bullet2ok.gd 不报 %s' % rid)
+        for rid in ('GD313', 'GD314', 'GD315', 'GD316'):
+            check(rid in ids('gmisc.gd'), 'misc.gd 命中 %s' % rid)
+        for rid in ('GD313', 'GD314', 'GD315', 'GD316'):
+            check(rid not in ids('gmiscok.gd'), 'miscok.gd 不报 %s' % rid)
+        for rid in ('GD241', 'GD242', 'GD243', 'GD244', 'GD245', 'GD246', 'GD247', 'GD248', 'GD249', 'GD250', 'GD251', 'GD252', 'GD253', 'GD254', 'GD255', 'GD256', 'GD257', 'GD258', 'GD259', 'GD260', 'GD261', 'GD262', 'GD263', 'GD264', 'GD265', 'GD266', 'GD267', 'GD268', 'GD269', 'GD270', 'GD271', 'GD272', 'GD273', 'GD274'):
+            check(rid not in ids('rbok.gd'), 'rbok.gd 不误报 %s' % rid)
         check('GD146' in ids('bone.gd'), 'bone.gd 命中 GD146（不存在的 IK 节点）')
         check('GD146' not in ids('boneok.gd'), 'boneok.gd 不误报 GD146')
 
