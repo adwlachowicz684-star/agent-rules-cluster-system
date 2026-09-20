@@ -295,6 +295,69 @@ def _frontmatter(text):
     return fm
 
 
+def check_doc_shape(cfg, limits=None):
+    """文档形态检查：接近上限预警 + 单文件章节过多 → 建议拆分。
+
+    为什么需要「接近上限」（80%）这一档：
+    只在上限处报警，往往已经长到拆不动——400 行的文件要拆成三份，
+    得重写目录和交叉引用，代价高到让人倾向于"先声明豁免算了"。
+    80% 时提示还有余裕规划，是把拆分从"救火"变成"排期"。
+
+    为什么需要「章节过多」：
+    体积没超但 `##` 章节已经十几个，说明这一个文件里塞了多个主题。
+    此时按主题拆开，每份都能独立定向加载——
+    不拆的话，每次为了看其中一节都得读整个文件。
+    """
+    limits = limits or {}
+    issues = []
+    targets = [ROOT / "SKILL.md"]
+    for sub in ("reference", "SKILLS", "assets"):
+        d = ROOT / sub
+        if d.exists():
+            targets += sorted(d.rglob("*.md"))
+
+    for f in targets:
+        if not f.exists():
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        n = len(text.splitlines())
+        rel = str(f.relative_to(ROOT))
+
+        if rel == "SKILL.md":
+            lim = int(limits.get("SKILL.md", 200))
+        elif rel.startswith("SKILLS/"):
+            lim = int(limits.get(f.name, 200))
+        elif rel.startswith("reference/"):
+            lim = int(limits.get("reference", 400))
+        else:
+            lim = int(limits.get("assets", 300))
+
+        if lim > 0 and n < lim and n >= int(lim * 0.8):
+            issues.append({
+                "level": "info",
+                "file": rel,
+                "lines": n, "limit": lim,
+                "issue": "接近体积上限（%d/%d，%d%%）" % (n, lim, n * 100 // lim),
+                "hint": "现在规划拆分，别等超限——超限后拆要重写目录与交叉引用"})
+
+        # SKILL.md 是入口导航，天生多主题；它的章节多恰恰说明
+        # 「内容已下沉到 reference/」——不该按内容文档的标准要求它拆。
+        if rel == "SKILL.md":
+            continue
+        heads = [l for l in text.splitlines() if l.startswith("## ")]
+        if len(heads) > 12:
+            issues.append({
+                "level": "info",
+                "file": rel,
+                "issue": "单文件 %d 个 ## 章节（>12）" % len(heads),
+                "hint": "一个文件塞了多个主题 → 按主题拆开，"
+                        "每份可独立定向加载"})
+    return issues
+
+
 def check_frontmatter(cfg):
     issues, seen = [], {}
     targets = []
@@ -372,6 +435,60 @@ def check_refs(cfg, root=None):
                 "issue": "引用了不存在的 %s" % rel,
                 "hint": "脚本改名后文档里的旧名不会自动跟着变 → 照着敲会 "
                         "command not found。改指向或删引用"})
+    return issues
+
+
+def check_markdown_headings(cfg, root=None):
+    """Markdown 标题不得有重复的 `#`（如 `## ## 标题`），也不得缩进。
+
+    为什么需要：往 Markdown 里**插入**段落时，常见写法是
+    `text.replace(anchor, new_text + anchor)`。若 `new_text` 结尾带了 `## `
+    （为下一段预留），拼接后就成了 `## ## 标题` —— 渲染成错误的层级，
+    而**写它的人看不出来**（diff 里是两个正常的 `##`，谁也不会盯着数）。
+
+    本仓库实测：同一处写法连犯 3 次，次次都以为改完了，
+    直到逐行看渲染结果才发现。这类缺陷 100% 静默：
+    没有任何检查会去数 `#` 的个数。
+
+    判据要点：两组 `##` 之间是**空格**，只 `lstrip("#")` 会剩 ` ## 标题`，
+    不以 `#` 开头 → 漏判。必须先 `lstrip("#")` 再 `lstrip()`。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    files = [base / "SKILL.md"]
+    for sub in ("reference", "SKILLS", "assets"):
+        d = base / sub
+        if d.exists():
+            files += sorted(d.rglob("*.md"))
+    for f in files:
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        in_fence = False
+        for i, line in enumerate(text.splitlines(), 1):
+            s2 = line.strip()
+            if s2.startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue          # 代码块里的 # 是代码，不是标题
+            if not s2.startswith("#"):
+                continue
+            if line.startswith(" "):
+                issues.append({
+                    "level": "warn",
+                    "file": "%s:%d" % (f.relative_to(base), i),
+                    "issue": "标题有缩进，多数渲染器不认：%s" % s2[:40],
+                    "hint": "去掉行首空格"})
+            core = s2.lstrip("#").lstrip()
+            if core.startswith("#"):
+                issues.append({
+                    "level": "error",
+                    "file": "%s:%d" % (f.relative_to(base), i),
+                    "issue": "标题 # 重复（拼接时多带了一组）：%s" % s2[:40],
+                    "hint": "常见于 replace(anchor, new + anchor) 且 new 结尾带了 "
+                            "'## ' —— 检查插入文本的末尾"})
     return issues
 
 
@@ -748,6 +865,43 @@ trigger: 测试
         chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
             '命中数有区分度时不误报')
 
+        # ---- 文档形态：接近上限 + 章节过多 ----
+        # 正反两侧：超限前 80% 要提示、章节 >12 要提示；
+        # 小文件 + 少章节不该报。只造正向会让「正常文档被误报」从未验证。
+        sh = vroot / 'reference'
+        sh.mkdir(parents=True, exist_ok=True)
+        (sh / 'big.md').write_text(
+            '# t\n\n' + '\n'.join('## 章节%d\n\n内容\n' % i for i in range(14)),
+            encoding='utf-8')
+        got = check_doc_shape(cfg, {'reference': 400})
+        chk(any('接近体积上限' in i['issue'] for i in got),
+            '接近上限能查出（提前量，别等超限才报）')
+        chk(any('章节' in i['issue'] for i in got),
+            '章节过多能查出（>12，提示按主题拆分）')
+        (sh / 'big.md').write_text(
+            '# t\n\n## 一\n\n内容\n\n## 二\n\n内容\n', encoding='utf-8')
+        chk(not any(i['file'].endswith('big.md') for i in
+                    check_doc_shape(cfg, {'reference': 400})),
+            '章节少的小文件不误报')
+
+        # ---- 标题重复 #（拼接时多带一组）----
+        # 正反两侧：有重复 → 报错；正常标题 / 代码块里的 # → 不报。
+        # 只造正向会让「代码块里的 # 不被误判」从没被验证过。
+        hh = vroot / 'reference'
+        hh.mkdir(parents=True, exist_ok=True)
+        (hh / 'h.md').write_text(
+            '# 正常标题\n\n## 正常二级\n\n## ## 拼接多带了一组\n',
+            encoding='utf-8')
+        chk(any('标题 # 重复' in i['issue']
+                for i in check_markdown_headings(cfg, vroot)),
+            '标题重复 # 能查出（`## ## x`，拼接时多带了一组）')
+        (hh / 'h.md').write_text(
+            '# 正常标题\n\n## 正常二级\n\n```\n## ## 这是代码不是标题\n```\n',
+            encoding='utf-8')
+        chk(not any('标题 # 重复' in i['issue']
+                    for i in check_markdown_headings(cfg, vroot)),
+            '代码块里的 # 不误报')
+
         # ---- 豁免可验证（第八条）----
         # 正反两侧：有豁免且有人读 → 不报；有豁免但没人读 → 必须报。
         # 只造正向会让「检查项能识别豁免」这条从没被验证过。
@@ -804,7 +958,8 @@ def main():
     issues = (check_root(cfg) + check_size(cfg, limits)
               + check_frontmatter(cfg) + check_landing(cfg)
               + check_refs(cfg) + check_duplicates(cfg)
-              + check_degeneracy(cfg) + check_exemptions(cfg))
+              + check_degeneracy(cfg) + check_exemptions(cfg)
+              + check_markdown_headings(cfg) + check_doc_shape(cfg, limits))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
