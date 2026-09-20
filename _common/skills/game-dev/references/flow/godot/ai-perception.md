@@ -90,6 +90,9 @@ var result := get_world_3d().direct_space_state.intersect_ray(query)
 
 ## 6. 相关文档
 
+> 本篇是**感知机制本身**。感知之上的玩法层——警戒等级、搜查、暗杀、尸体、伪装、视野锥 → 见 `stealth-ai.md`
+
+
 - 决策（FSM/BT/GOAP） → `ai-behavior.md`
 - 寻路与避障 → `ai-navigation.md`
 - 射线与碰撞层 → `physics.md`

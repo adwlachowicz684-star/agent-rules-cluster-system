@@ -127,6 +127,8 @@
 | `time-progression` | `audit/godot/time-progression.md` |
 | `account-security` | `audit/godot/account-security.md` |
 | `backend-stability` | `audit/godot/backend-stability.md` |
+| `stealth-ai` | `audit/godot/stealth-ai.md` |
+| `firearms` | `audit/godot/firearms.md` |
 | `build-affix` | `audit/godot/build-affix.md` |
 | `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
 

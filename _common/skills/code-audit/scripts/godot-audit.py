@@ -1088,6 +1088,47 @@ EXTRA_DOMAIN_RULES = [
      "战力/战评分被直接用作匹配依据 —— 战力测的是配置和养成不是操作；跨职业不可比、会诱导堆无用词条、装备版本变化让旧号集体虚高",
      "匹配用独立 MMR/Elo/Glicko + 近期表现 + 角色熟练度 + 位置 + 延迟；战力只作 role_fit 或解释性展示。展示也要分维度 + 职业百分位，而不是一个大数字",
      r"(?:mmr|elo|glicko|skill_?rating|隐藏分|role_fit|分维度|百分位|percentile|dimension)"),
+    # ---- 潜行AI · 枪械射击（GD357-GD364）----
+    ("GD357", "P1", "警戒做成布尔", "gd",
+     r"(?i)(?:alerted|警戒|发现玩家|察觉|警觉)\s*(?::=|=|:)\s*(?:true|false)",
+     "警戒用 bool 表示「发现/未发现」—— 会把看见影子、听见响声、看见尸体、看见玩家本人压缩成同一种后果，玩家也无法从守卫行为反推自己暴露了多少",
+     "拆成 EvidenceTier（UNSEEN/GLIMPSE/CIRCUMSTANTIAL/IDENTIFIED/HOSTILE，我知道多少）+ ActionState（PATROL/OBSERVE/INVESTIGATE/SEARCH/ENGAGE/EVASION_COOLDOWN/CALMING，我在做什么）两段；降级必须经过 EVASION → CALMING，禁止 HOSTILE 直接跳 UNSEEN",
+     r"(?:EvidenceTier|ActionState|EVASION_COOLDOWN|CALMING|证据等级|行动状态|降级|脱战冷却)"),
+    ("GD358", "P1", "单源怀疑度无上限", "gd",
+     r"(?i)(?:suspicion|怀疑度|警戒值|alert_?value)\s*\+=\s*[\w.]+",
+     "怀疑度直接累加且无单源上限 —— 一次爆炸、落地或同伴误报就会立即把守卫推进战斗，玩家会觉得被莫名其妙发现",
+     "每类证据用 value × exposure × distance × context 累积，并以 per_source_cap 做软上限（噪声 35 / 清晰目击 50 / 尸体 70），任何单源都不得直通满值",
+     r"(?:per_source_cap|单源|来源上限|contributed|source_already|软上限|capped)"),
+    ("GD359", "P1", "搜查点等于最后已知位置", "gd",
+     r"(?i)(?:target|goal|objective|目标)\s*(?::=|=)\s*(?:last_known|最后已知|最后位置)",
+     "搜查只以「最后已知位置」为唯一目标 —— 守卫会在玩家曾站过的点反复停留，或忽略玩家沿走廊转移的可能",
+     "建立 SearchProblem：以 last_known 生成扇形候选点 + 噪声/尸体/开门方向分支点 + 逃离方向外推点，按可达性/覆盖增量/重复度评分；终止要同时看覆盖、冷却与持续发现",
+     r"(?:coverage|覆盖|candidate|候选|SearchProblem|visited_set|可达|nav)"),
+    ("GD360", "P1", "尸体可见性用固定半径", "gd",
+     r"(?i)(?:body|尸体|corpse|dead_?body)[\s\S]{0,200}?distance_to\s*\([^)]*\)\s*<\s*[\d.]+",
+     "尸体是否被发现用固定半径判定 —— 倒下的位置会改变原本的掩体关系，固定半径会错判（墙角尸体被隔墙发现）",
+     "尸体的可见性要像玩家可见性一样按视线/距离/遮挡/光照/姿势计算；发现后记录发现者集合并广播合适范围，避免每名守卫重复触发",
+     r"(?:line_of_sight|视线|遮挡|occlusion|raycast|intersect_ray|光照|lighting|发现者|discoverer)"),
+    ("GD361", "P1", "后坐力写成镜头抖动", "gd",
+     r"(?i)(?:recoil|后坐力|[\s\S]{0,60}?)?\bcamera\b[\s\S]{0,80}?(?:rotate|rotation)[\s\S]{0,160}?(?:shoot|fire|弹道|bullet_dir|aim_dir)",
+     "后坐力被实现成直接改摄像机旋转并以此生成子弹方向 —— 准星与落点永久错位，玩家压枪后枪口停在准星下方",
+     "拆成三个独立变量：视觉后坐力（只驱动摄像机）+ 模式后坐力（确定性 pattern_offset，决定弹道中心）+ 扩散（随机半径）。final_aim = aim + pattern_offset + spread_sample",
+     r"(?:pattern_offset|模式|spread|扩散|viewkick|分离|独立变量|decay_delay)"),
+    ("GD362", "P1", "换弹完成由动画结束驱动", "gd",
+     r"(?i)(?:reload|换弹|装填)\w*[\s\S]{0,240}?(?:animation_finished|anim_finished|动画结束|on_anim|await\s+anim)",
+     "换弹的弹药写入由「动画播完」驱动 —— 动画因切枪被打断时逻辑函数不运行，出现「取消换弹但弹药没加」",
+     "逻辑装填门限（MAG_SWAP_TIME）独立于动画：到点即 add_magazine()，其后才是 chambering/ready/收尾；取消走统一 cancel(reason) 路径",
+     r"(?:MAG_SWAP_TIME|logical_time|逻辑门限|逻辑装填|add_magazine|cancel|phase)"),
+    ("GD363", "P1", "切枪取消换弹但弹药已加", "gd",
+     r"(?i)(?:switch_?weapon|切换武器|切枪|\bswap\b|换武器)[\s\S]{0,240}?(?:queue_free|\bfree\(|instantiate|remove_child)",
+     "切换武器时销毁并重建实例 —— 正在换弹的旧武器 notify 永不触发，切回时读到默认满弹，等于「切枪免费满弹」",
+     "切换是 disable 不是销毁；弹药保存在武器实例或 loadout 中；切走时若正在换弹，明确调 cancel(reason) 决定保留多少弹药",
+     r"(?:disable|visible\s*=|保存|loadout|cancel|reason|保留|restore)"),
+    ("GD364", "P0", "命中判定由客户端上报", "gd",
+     r"(?i)(?:rpc|remote|@rpc)[\s\S]{0,200}?(?:hit_result|命中结果|damage\s*[:=]|扣血|deal_damage|apply_damage|hit_target)",
+     "客户端通过 RPC 上报「我打中了 X，扣 Y 血」—— 命中、伤害、穿透与部位完全可被伪造，这是射击类最严重的作弊入口",
+     "客户端只提交 input_time + seed + origin + aim；服务端验证发送者/武器/时间/弹药/冷却/位置/方向后自行 resolver 判定，再下发 on_shot_confirmed",
+     r"(?:authority|服务端|server_?side|validate|校验|_is_valid|build_authoritative|权威)"),
 ]
 
 DOMAIN_RULES = [
@@ -3621,6 +3662,67 @@ func find_match(p) -> int:
     return mmr_rating(p) + role_fit(p)
 '''
 
+SELF_OPS8_BAD = '''extends Node2D
+
+var alerted := false
+var suspicion := 0.0
+
+func on_noise() -> void:
+    suspicion += 25.0
+
+func start_search() -> void:
+    target = last_known_position
+
+func check_body(b) -> bool:
+    return b.position.distance_to(eye) < 6.0
+
+func fire() -> void:
+    camera.rotate_x(0.05)
+    shoot(camera.global_basis.z)
+
+func reload_done() -> void:
+    await anim.animation_finished
+    magazine = capacity
+
+func swap() -> void:
+    current.queue_free()
+    current = weapon_scene.instantiate()
+
+func report_hit(t, d) -> void:
+    rpc("apply_damage", t, d)
+'''
+
+SELF_OPS8_CLEAN = '''extends Node2D
+
+var tier: int = EvidenceTier.UNSEEN
+var action: int = ActionState.PATROL
+
+func on_noise(src) -> void:
+    suspicion = clamp(suspicion + contributed_capped(src), 0, 100)
+
+func start_search() -> void:
+    planner.build_candidates(last_known, threat_direction)
+
+func check_body(b) -> bool:
+    return has_line_of_sight(eye, b) and lighting_at(b) > 0.2
+
+func fire() -> void:
+    pattern_offset += pattern[shot_index]
+    viewkick.vector += view_kick_table[shot_index]
+    shoot(aim + pattern_offset + spread_sample())
+
+func reload_tick(dt: float) -> void:
+    logical_time += dt
+    if logical_time >= MAG_SWAP_TIME: add_magazine()
+
+func swap() -> void:
+    current.disable()
+    current = loadout.get(next_weapon)
+
+func request_fire(t: int, seed_: int, o: Vector3, a: Vector3) -> void:
+    rpc_id(1, "server_request_fire", t, seed_, o, a)
+'''
+
 SELF_OPS4_BAD = '''extends Node2D
 
 var _cd_timer: Timer
@@ -4073,7 +4175,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4347,6 +4449,11 @@ def self_test() -> int:
             check(rid in ids('ops7.gd'), 'ops7.gd 命中 %s' % rid)
         for rid in ('GD352', 'GD353', 'GD354', 'GD355', 'GD356'):
             check(rid not in ids('ops7ok.gd'), 'ops7ok.gd 不报 %s' % rid)
+        # ---- 潜行AI · 枪械射击（GD357-GD364）----
+        for rid in ('GD357', 'GD358', 'GD359', 'GD360', 'GD361', 'GD362', 'GD363', 'GD364'):
+            check(rid in ids('ops8.gd'), 'ops8.gd 命中 %s' % rid)
+        for rid in ('GD357', 'GD358', 'GD359', 'GD360', 'GD361', 'GD362', 'GD363', 'GD364'):
+            check(rid not in ids('ops8ok.gd'), 'ops8ok.gd 不报 %s' % rid)
 
 
 
