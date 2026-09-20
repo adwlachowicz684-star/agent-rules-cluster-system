@@ -953,6 +953,32 @@ EXTRA_DOMAIN_RULES = [
      "补偿/邮件附件发放没有幂等键 —— 断网重试、并发点击会重复发道具",
      "按 (player_id, compensate_id) 建幂等；先查发放日志，已发过直接返回首次结果",
      r"(?:idempot|幂等|dedup|compensate_id|grant_log|已发放|_log)"),
+    # ---- 合规·装备养成（GD331-GD335）----
+    ("GD331", "P0", "身份敏感信息明文持久化", "gd",
+     r"(?i)(?:id_card|idcard|identity_no|id_number|身份证号?|realname_id)\w*[\s\S]{0,200}?(?:\.save|save\w*\s*\(|set_value|store|存档|持久化|config\.set|db\.insert|\.write)",
+     "身份证号/实名证件号被明文写进存档或配置 —— 属敏感个人信息，泄露即合规事故，且违反最小必要原则",
+     "服务端完成实名核验后只保留核验结果与不可反解的凭证引用；客户端不留存证件号原件，必须留存时先哈希/脱敏并限期删除",
+     r"(?:hash|sha256|脱敏|mask|tokenize|不留存|仅校验|凭证|credential)"),
+    ("GD332", "P0", "防沉迷/未成年判定用本地系统时间", "gd",
+     r"(?i)(?:is_minor|未成年|minor|防沉迷|addiction)\w*[\s\S]{0,300}?(?:get_unix_time_from_system|get_datetime_from_system|get_date_dict_from_system|OS\.get_date|本地时间|系统时间)",
+     "防沉迷时段用客户端系统时间判定 —— 改表即可绕过，且跨时区/夏令时会错放行或错拦截",
+     "时段与时长一律由服务端按 UTC + 法定节假日日历判定；客户端只展示服务端返回的剩余时间",
+     r"(?:server|服务端|utc|权威|get_unix_time_from_server|server_now)"),
+    ("GD333", "P1", "注销账号直接删数据", "gd",
+     r"(?i)(?:注销|delete_account|销号|删除账号|remove_account)\w*[\s\S]{0,300}?(?:DELETE\s+FROM|db\.delete|\.erase\s*\(|remove_all|drop_table)",
+     "注销账号直接执行删除 —— 订单/退款/税务/安全事件等法定保留数据会被一并抹掉，且无法证明已履行删除义务",
+     "做成状态机 requested→identity_verified→anonymized→pending_retention_review→purged；可识别字段立即匿名化，法定保留数据去标识化+访问隔离+到期删除标记，并同步通知第三方",
+     r"(?:anonym|匿名化|purge|retention|保留期|request_id|核验|状态机|去标识)"),
+    ("GD334", "P1", "装备词条存最终数值", "gd",
+     r"(?i)(?:affix|词条|词缀)\w*[\s\S]{0,200}?(?:final_value|finalvalue|最终值|final_stat|显示值|cached_value)",
+     "装备实例只存最终属性值 —— 策划改了词条上限后历史装备无法重算，也无法区分「故意保留的旧装备」与「Bug 装备」",
+     "实例只存 affix_id + roll（0..1 原始位置）+ generation_version；最终值一律由唯一计算器现算",
+     r"(?:\.roll\b|roll\s*[:=]|snapshot|快照|generation_version)"),
+    ("GD335", "P1", "分解返还按模板原价", "gd",
+     r"(?i)(?:分解|decompose|dismantle|熔炼|拆解|回收)\w*[\s\S]{0,300}?(?:base_cost|template_cost|base_price|原价|模板价格|def_cost)",
+     "分解按模板原价返还 —— 返还 ≥ 获取成本时玩家可刷分解套利，是经济通胀的头号来源",
+     "按装备当前养成状态（强化/品阶/词条）折算返还；绑定与已装备物品明确不可分解；与强化/洗练共用同一事务与审计日志",
+     r"(?:current|当前|enhance|强化|折算|evaluate|按状态|state)"),
 ]
 
 DOMAIN_RULES = [
@@ -3270,6 +3296,59 @@ func compensate(pid: int, cid: int) -> void:
     add_item(pid, 1001, 5)
 '''
 
+SELF_OPS3_BAD = '''extends Node2D
+
+var id_card: String
+
+func submit_realname(name: String, id: String) -> void:
+    id_card = id
+    save_profile()
+
+func can_play() -> bool:
+    if is_minor:
+        var t := Time.get_unix_time_from_system()
+        return t < limit
+    return true
+
+func delete_account(uid: int) -> void:
+    db.DELETE FROM players WHERE uid = uid
+
+func roll_affix(inst) -> void:
+    inst.affix.final_value = calc(inst)
+
+func decompose(inst) -> int:
+    return inst.base_cost
+'''
+
+SELF_OPS3_CLEAN = '''extends Node2D
+
+var _verify_credential: String
+
+func submit_realname(name: String, id: String) -> void:
+    var h := id.sha256_text()
+    _verify_credential = h
+    save_profile()
+
+func can_play() -> bool:
+    if is_minor:
+        var t := server_now_utc()
+        return t < limit
+    return true
+
+func delete_account(uid: int) -> void:
+    var st := load_state(uid)
+    if st != "identity_verified":
+        return
+    anonymize_pii(uid)
+    mark_retention_review(uid)
+
+func roll_affix(inst) -> void:
+    inst.affix.roll = randf()
+
+func decompose(inst) -> int:
+    return evaluate_current_value(inst)
+'''
+
 
 
 
@@ -3700,7 +3779,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -3949,6 +4028,11 @@ def self_test() -> int:
             check(rid in ids('ops2.gd'), 'ops2.gd 命中 %s' % rid)
         for rid in ('GD323', 'GD324', 'GD325', 'GD326', 'GD327', 'GD328', 'GD329', 'GD330'):
             check(rid not in ids('ops2ok.gd'), 'ops2ok.gd 不报 %s' % rid)
+        # ---- 合规·装备养成（GD331-GD335）----
+        for rid in ('GD331', 'GD332', 'GD333', 'GD334', 'GD335'):
+            check(rid in ids('ops3.gd'), 'ops3.gd 命中 %s' % rid)
+        for rid in ('GD331', 'GD332', 'GD333', 'GD334', 'GD335'):
+            check(rid not in ids('ops3ok.gd'), 'ops3ok.gd 不报 %s' % rid)
 
 
 

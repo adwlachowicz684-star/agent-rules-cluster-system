@@ -122,5 +122,6 @@
 | **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 反模式条目数：见文件内表格 |
 | **群集行为（boids）与避障** | `boids-swarm.md` | 反模式条目数：见文件内表格 |
 | **分区分服 / 跨服 / 合服 / 匹配** | `sharding-matchmaking.md` | 反模式条目数：见文件内表格 |
+| `compliance` | `audit/godot/compliance.md` |
 
 完整判据见 `../../code-audit/references/p-godot.md`。

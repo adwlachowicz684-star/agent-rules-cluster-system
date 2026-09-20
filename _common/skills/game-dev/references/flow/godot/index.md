@@ -55,7 +55,7 @@
 | **骨骼动画/IK** | `animation-skeletal.md` | 骨骼是有序数组非节点 · 4.7 无 PoleModifier3D/SplineIK3D · modifier 顺序由子节点列表定 · 每帧回滚 |
 | **数据驱动/配表** | `datatable.md` | 数值写代码=程序员成瓶颈 · duplicate() 默认浅拷贝共享子资源 · 外键存 ID 不存引用 · 导入期要校验 · load_threaded 才是异步 |
 | **VFX/游戏感** | `vfx-feel.md` | GPU 粒子不是默认答案（Web/兼容渲染器选 CPU）· 震动要 trauma+噪声不是随机偏移 · time_scale=0 时定时器也停需 ignore_time_scale |
-| **经济/长线系统** | `economy.md` | 货币不能只一个 int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用 UTC |
+| **经济/长线系统** | `economy.md` | 货币不能只一个 int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用 UTC · **装备四层分离（模板/实例/词条快照/绑定）· 失败回退让期望次数从 31 涨到 2557 · 词条存 roll 不存最终值 · 分解按当前状态折算** |
 | **输入重绑定** | `input-remap.md` | 4.x 用 action_get_events 非 get_action_list · 键位以 physical_keycode 为主键 · 振动不会自己停需显式 stop |
 | **无障碍/字幕** | `accessibility.md` | 无障碍≠难度选项 · 颜色即信息时滤镜无效要形状冗余 · 字幕要含非语音线索 · 闪烁每秒≤3 次且面积≤1/4 |
 | **回放/录像** | `replay.md` | Godot 物理官方不保证确定性 · 录的是每 tick 动作状态非按键流 · MovieMaker 是离线逐帧非实时录屏 |
@@ -146,6 +146,7 @@ my_game/
 | **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 观战者是纯接收端 · Peer ID 是会话 ID · close() 不发射断开 · 重连以连续权威快照为准 · 角色保留+AI托管 · 仲裁要 quorum |
 | **群集行为（boids）与避障** | `boids-swarm.md` | 三规则加权 · 网格裁剪邻居 · avoidance_enabled 默认 false · velocity_computed 要自己移动 · 静态障碍不能每帧移动 |
 | **分区分服 / 跨服 / 合服 / 匹配** | `sharding-matchmaking.md` | 全局账号+逻辑服角色 · 各服自增 ID 会撞车 · 合服快照 dry-run 幂等 · 邮件附件幂等会满 · 匹配判定服务端 |
+| **合规/法务/版号（上线门槛）** | `compliance.md` | **Godot 无任何合规 API** · 版号 80 工作日是受理后不含补正 · 防沉迷现行是周五六日及法定节假日 20–21 时 1 小时（2019 口径已作废）· 实名是登录前置含游客模式 · 未满 8 岁禁付、8–16 岁 50/200、16–18 岁 100/400 · 注销是状态机不是 DELETE · 数据出境按当年累计人数 |
 
 **节点树即架构** —— Godot 里"父子关系"既是层级也是生命周期。
 子节点会随父节点一起释放，这是设计上的便利，也是泄漏的来源
