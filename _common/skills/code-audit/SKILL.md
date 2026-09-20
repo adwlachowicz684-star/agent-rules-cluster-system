@@ -87,7 +87,7 @@ structures   跳过  ——  未检出 TypedArray/对象池/分桶
 | **`p-rust.md`** ⭐ | 仓库有 `.rs`（`Cargo.toml` / `src-tauri/` 强信号） | panic 静默化、整数 release 回绕、unsafe 无契约、同步锁跨 await、Tauri 入参未校验 |
 | **`p-cocos.md`** | Cocos Creator 项目（配套 `cocos-audit.py`：CC-11~21） | 六大泄漏源、生命周期、迁移、包体 |
 | **`p-godot.md`** ⚠ | Godot 4.x 项目（`project.godot` / `.gd` / `using Godot`） | `remove_child` 非释放、信号未断、Tween/Timer 失控、3.x 迁移残留；API 级判据见 `godot-api/` |
-| **`godot-antipatterns/`** | Godot 各功能域**反模式清单**（79 份，与 `game-dev` 功能域 1:1 同名，互为镜像；按域名直接查，如写战斗 → `combat.md`）| 只写「不能怎么做」：坑表与漏写清单，用于审核完成效果、约束边界 |
+| **`audit/godot/`**（在 `game-dev` skill 内） | Godot 各功能域**反模式清单**（与 `flow/godot/` 1:1 同名互为镜像；按域名直接查，如写战斗 → `game-dev/references/audit/godot/combat.md`）| 只写「不能怎么做」：坑表与漏写清单，用于审核完成效果、约束边界 |
 
 ⚠ `p-godot.md` 搭建中：34 条 GD 规则无 TP 样本；6 条判据仍是 `### N. 中文` 旧格式 → 未进 items.json（`p-cocos.md` 曾栽同坑：393 行产出 0 条）。新引擎骨架见 `engine-template.md`。
 

@@ -314,8 +314,8 @@ def main():
               # game-dev / code-audit / localization 三 skill 互相指向对方文件是常态
               # （split-dev-audit.md 定的分工：开发侧指审查侧判据，审查侧指开发侧写法）。
               # 从本 skill 解析必然"不存在"——显式登记而非关掉检查。
-              'game-dev/references/godot/shaders.md',
-              'game-dev/references/godot/i18n.md',
+              'game-dev/references/flow/godot/shaders.md',
+              'game-dev/references/flow/godot/i18n.md',
               'code-audit/references/p-cocos.md',
               'code-audit/scripts/route.py',
               '../code-audit/scripts/route.py',
@@ -324,8 +324,8 @@ def main():
               '../../code-audit/references/p-godot.md'}
     # 按前缀放行（整目录互指，逐个登记太脆）：
     # 开发侧 godot 文档 ↔ 审查侧反模式清单是 1:1 互指，共 79 组。
-    # 注意路径已被 _CMD_RX 规范化：它从 `game-dev/references/godot/x.md`
-    # 里截取的是 `references/godot/x.md`（正则不要求行首），
+    # 注意路径已被 _CMD_RX 规范化：它从 `game-dev/references/flow/godot/x.md`
+    # 里截取的是 `references/flow/godot/x.md`（正则不要求行首），
     # 所以这里两种写法都要列，否则放行不生效。
 
     for _tf in _targets:
@@ -344,12 +344,6 @@ def main():
         # 注意文件名段不含 '/'，所以不会误伤 references/godot-api/ 这类引用。
         _ctxt2 = re.sub(r'references/(?:flow|audit)/godot/[A-Za-z0-9_.-]+\.md',
                         ' ', _ctxt2)
-        # 拆分前的旧平铺布局（game-dev/references/godot/ 与
-        # code-audit/references/godot-antipatterns/）仍有文件互指旧路径。
-        # 它们是 flow/godot 与 audit/godot 的前身，内容已被新目录完整取代，
-        # 保留只是待清理 —— 这里按旧前缀放行，避免 77 条噪音淹没真断链。
-        # TODO(清理)：删除两套旧目录后，本条可一并移除。
-        _ctxt2 = re.sub(r'references/godot/[A-Za-z0-9_.-]+\.md', ' ', _ctxt2)
         for _m in sorted(set(_CMD_RX.findall(_ctxt2))):
             if not _exists(_m, _tf):
                 add('error', 'LK002',
