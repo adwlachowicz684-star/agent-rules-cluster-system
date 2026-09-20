@@ -327,10 +327,7 @@ def main():
     # 注意路径已被 _CMD_RX 规范化：它从 `game-dev/references/godot/x.md`
     # 里截取的是 `references/godot/x.md`（正则不要求行首），
     # 所以这里两种写法都要列，否则放行不生效。
-    _CROSS_PREFIX = ('game-dev/references/godot/',
-                     'references/godot/',           # game-dev 侧目录，本 skill 内不存在
-                     'code-audit/references/godot-antipatterns/',
-                     'code-audit: godot-antipatterns/')
+
     for _tf in _targets:
         if os.path.basename(_tf) == 'changelog.md':
             continue      # 同上：历史记录里的旧名是合法的
@@ -343,11 +340,16 @@ def main():
         _ctxt2 = _ctxt
         for _c in _CROSS:
             _ctxt2 = _ctxt2.replace(_c, ' ')
-        # 按前缀整目录放行：开发侧 godot 文档 ↔ 审查侧反模式清单 1:1 互指（79 组），
-        # 逐个登记太脆。注意文件名段不含 '/'，所以不会误伤
-        # references/godot-api/ 与 references/godot-antipatterns/ 的引用。
-        _ctxt2 = re.sub(r'(?:game-dev/)?references/godot/[A-Za-z0-9_.-]+\.md',
+        # 同 skill 内的 flow/ → audit/ 互指（game-dev 拆分后的镜像引用）。
+        # 注意文件名段不含 '/'，所以不会误伤 references/godot-api/ 这类引用。
+        _ctxt2 = re.sub(r'references/(?:flow|audit)/godot/[A-Za-z0-9_.-]+\.md',
                         ' ', _ctxt2)
+        # 拆分前的旧平铺布局（game-dev/references/godot/ 与
+        # code-audit/references/godot-antipatterns/）仍有文件互指旧路径。
+        # 它们是 flow/godot 与 audit/godot 的前身，内容已被新目录完整取代，
+        # 保留只是待清理 —— 这里按旧前缀放行，避免 77 条噪音淹没真断链。
+        # TODO(清理)：删除两套旧目录后，本条可一并移除。
+        _ctxt2 = re.sub(r'references/godot/[A-Za-z0-9_.-]+\.md', ' ', _ctxt2)
         for _m in sorted(set(_CMD_RX.findall(_ctxt2))):
             if not _exists(_m, _tf):
                 add('error', 'LK002',

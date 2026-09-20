@@ -22,6 +22,7 @@
 """
 
 import os
+import os as _os
 import re
 import sys
 import json
@@ -326,7 +327,7 @@ DOMAINS = [
     ('弹幕射击', ['弹幕', 'bullet hell', 'shmup', 'stg', '射击游戏弹幕', '擦弹', 'graze', '弹幕图案'],
      'references/flow/godot/genres-bullet-hell.md',
      'MultiMesh 定容量 · 只查判定点 · 固定逻辑步长 · 图案数据化'),
-        ('破坏/布料/软体', ['破坏', '可破坏', '破碎', '碎片', 'destruction', '布料', 'cloth', 'softbody', '绳索'],
+    ('破坏/布料/软体', ['破坏', '可破坏', '破碎', '碎片', 'destruction', '布料', 'cloth', 'softbody', '绳索'],
      'references/flow/godot/destruction-cloth.md',
      '预切分凸碎片 · 碎片池与预算 · SoftBody3D 只用于旗帜/果冻 · Jolt'),
     ('遮挡剔除/实例化', ['遮挡剔除', 'occlusion', 'occluder', '实例化', 'multimesh', 'gpu粒子', 'gpuparticles', 'compute', '计算着色器'],
@@ -341,8 +342,8 @@ DOMAINS = [
     ('观战/重连/延迟补偿', ['观战', 'spectator', '断线重连', '重连', '主机迁移', 'migration', '延迟补偿', 'lag compensation', '服务端回溯', 'rewind判定', '插值缓冲', 'interpolation buffer', '预测纠正', '观战延迟'],
      'references/flow/godot/spectate-reconnect.md',
      '关战者是纯接收端不参与判定 · Peer ID是会话ID不是身份 · close()不发射peer_disconnected · 重连以收到连续权威快照为准 · 角色保留+AI托管不能queue_free · 仲裁要quorum否则双主 · 缓冲与延迟是同一枚货币'),
-        ('群集/避障', ['群集', 'boids', 'boid', '群体行为', 'flock', 'swarm', '鱼群', '鸟群', 'avoidance', '避障', 'rvo', 'velocity_computed', 'set_velocity', '动态障碍'],
-     'references/flow/godot/physics-constraints.md',
+    ('群集/避障', ['群集', 'boids', 'boid', '群体行为', 'flock', 'swarm', '鱼群', '鸟群', 'avoidance', '避障', 'rvo', 'velocity_computed', 'set_velocity', '动态障碍'],
+     'references/flow/godot/boids-swarm.md',
      'avoidance_enabled默认false · 收到velocity_computed要自己移动 · 静态障碍不能每帧移动 · 邻居查询要用网格裁剪避免On² · Navigation定去哪boids定怎么一起走'),
     ('分服/合服/匹配', ['分区分服', '分服', '跨服', '合服', '合区', 'shard', '匹配机制', 'matchmaking', 'elo', 'glicko', 'trueskill', '技能分', '匹配池', '全局id', '雪花id'],
      'references/flow/godot/sharding-matchmaking.md',
@@ -549,6 +550,17 @@ def cmd_self_test():
     d = match_domains('时间倒带 rewind 玩法')
     chk(bool(d) and d[0][0] == '时间操控',
         '"倒带 rewind" → 时间操控（玩法层，得到 %s）' % (d[0][0] if d else '无'))
+
+    # 所有域指向的文档必须真实存在。
+    # 教训：群集/避障域曾被改名（physics-constraints.md → boids-swarm.md），
+    # 但路由里的路径没跟着改 —— 关键词命中、自检全绿，用户却拿到一个不存在的文件名。
+    # 关键词冲突检查抓不到这错，必须显式验证路径。
+    _bad = []
+    for _d in DOMAINS:
+        _fp = _os.path.join(_os.path.dirname(HERE), _d[2])
+        if not _os.path.isfile(_fp):
+            _bad.append('%s → %s' % (_d[0], _d[2]))
+    chk(not _bad, '所有域指向的文档都存在（缺 %d: %s）' % (len(_bad), _bad[:3]))
 
     # ---- 群集/避障 与 分服/合服/匹配 ----
     for q, want in (('boids 群集怎么做', '群集/避障'),
