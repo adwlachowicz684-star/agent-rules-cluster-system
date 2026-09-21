@@ -234,18 +234,38 @@ func play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
 
 **高频音效**（脚步、枪声）用 `AudioStreamPolyphonic` 更好 —— 一个播放器处理多个声部：
 
+⚠ **属性名是 `polyphony`，不是 `max_polyphony`** ——
+`AudioStreamPolyphonic` 只有 `polyphony`（默认 **32**，范围 **1–128**）。
+⛔ 写 `max_polyphony` 会直接报"该属性不存在"的赋值错误。
+
 ```gdscript
 func _ready() -> void:
     _sfx_poly.stream = AudioStreamPolyphonic.new()
-    _sfx_poly.max_polyphony = 16      # 超出会裁掉最旧的
-    _sfx_poly.play()
+    _sfx_poly.play()                   # ⚠ 必须先 play()
+    # ⚠ stream 设为 AudioStreamPolyphonic 且 play() 之后才拿得到 playback
+    var pl := _sfx_poly.get_stream_playback() as AudioStreamPlaybackPolyphonic
+    print(pl)                          # ⛔ 没 play() 这里是 null
 
 func play_sfx_poly(stream: AudioStream) -> void:
     var playback := _sfx_poly.get_stream_playback() as AudioStreamPlaybackPolyphonic
-    playback.play_stream(stream)
+    var id := playback.play_stream(stream)
+    if id == AudioStreamPlaybackPolyphonic.INVALID_ID:
+        push_warning("声部已满，本次被丢弃")   # ⚠ 不是"裁掉最旧的"
 ```
 
-⚠ `max_polyphony` 超限会**静默裁掉最旧的声音** —— 表现为"连点时丢音"。
+⚠ **`play_stream()` 在"正在播放的流数 == `polyphony`"时返回 `INVALID_ID`（-1）**。
+官方原话是"returns `INVALID_ID` if the amount of streams currently playing equals
+`AudioStreamPolyphonic.polyphony`"。
+⛔ **不是裁掉最旧的声音，而是本次新的被丢弃** —— 表现为"连点时丢音"。
+需要更多同时发声就把 `polyphony` 调大（上限 128）。
+
+⚠ 返回的是**整数 ID**，可用于 `set_stream_volume` / `set_stream_pitch_scale` / `stop_stream`。
+该 ID 在三种情况**失效**：流播完（非循环时）、playback 被 stop、调了 `stop_stream`。
+⛔ 拿失效 ID 去调 `set_stream_volume` 是无效操作（不报错，只是没效果）。
+
+⚠ `get_stream_playback()` 必须在 `play()` 之后调用，
+且 stream 已设为 `AudioStreamPolyphonic`，否则拿到 null ——
+这是该函数返回 null 的头号原因。节点也要 `add_child` 进树才发声。
 
 ### 2D 位置音效
 
