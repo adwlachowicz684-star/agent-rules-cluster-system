@@ -81,7 +81,126 @@ soft.pin_point(0, true)          # 固定顶点
 ⚠ **成本随顶点数与 `simulation_precision` 上升，不是随 `total_mass`** ——
 先用低模软体，再以蒙皮网格显示细节。
 
-## 4. 物理引擎选择
+## 4. 碎片刚体的休眠与回收
+
+⚠ **碎裂的性能瓶颈不是"长尾物理"，是峰值** ——
+切分、凸包生成、刚体创建、渲染实例上传集中在一帧。
+但**第二贵的**是"64 个碎片一直醒着"，这条容易被忽略。
+
+### ⚠ `apply_force` 唤不醒休眠的刚体
+
+⚠ **休眠刚体对 `apply_force` 无反应**（需要超过唤醒阈值）。
+✅ 一次性冲击用 `apply_impulse`（**任何非零冲量都会立即唤醒**）；
+持续力要先显式置 `sleeping = false`：
+
+```gdscript
+func apply_wind(dir: Vector3) -> void:
+    if sleeping:            # ⚠ 持续力必须先手动唤醒
+        sleeping = false
+    apply_force(dir * 2.0)
+
+func shatter_push(v: Vector3) -> void:
+    apply_impulse(v)        # ✅ 冲量自动唤醒
+```
+
+⛔ 症状：碎片落地休眠后，"爆炸把它们推开"完全没反应——
+不是力太小，是**根本没唤醒**。
+
+### 三条休眠策略（按优先级）
+
+| 策略 | 适用 |
+|---|---|
+| ✅ **允许休眠**（默认 `can_sleep = true`） | 绝大多数碎片 |
+| ⚠ 调低 `Sleep Threshold Linear` / 提高 `Time Before Sleep` | 需要碎片"自然停稳"的物理谜题 |
+| ⛔ `can_sleep = false` | ⚠ **慎用**：200 个常醒刚体远贵于 200 个可休眠的 |
+
+ⓘ 官方默认：线速度阈值 0.1、进入休眠 0.5s。
+低速运动的碎片可能**提前休眠**（表现为"差一点没碰到开关"）。
+
+### ⚠ 回收优先于休眠
+
+⚠ **休眠只是省 CPU，不省内存和实例数。**
+碎片池必须有**寿命回收**（超时淡出或直接回池），
+否则打碎 100 个物件后场景里有几千个节点——
+即使全部休眠，遍历与内存仍在涨。
+
+ⓘ 官方对"永远冻结"的建议同样值得记：
+*"For a body that is always frozen, use `StaticBody3D` or `AnimatableBody3D`
+instead."* —— 需要"不动但能挡"的碎片别用 `freeze = true` 的 RigidBody3D。
+
+## 5. 碰撞形状选型：官方的性能排序
+
+⚠ 官方对 `ConcavePolygonShape3D` 的明确警告（三条都是硬的）：
+
+| 官方原话要点 | 含义 |
+|---|---|
+| *"the **slowest** collision shape to check collisions against"* | 应限于关卡几何 |
+| *"intended to work with **static** PhysicsBody3D... will not work with `CharacterBody3D` or `RigidBody3D`"* | ⛔ 动态碎片**不能用** trimesh |
+| *"**hollow**... extra prone to being tunneled through by (small) fast physics bodies"* | 小而快的碎片会**穿过去** |
+
+✅ 所以碎片一律用 `ConvexPolygonShape3D`：它是**实心**的，能检测"完全在内部"的碰撞。
+
+⚠ 但官方也说了 `ConvexPolygonShape3D` **比球/盒等基元形状慢**，
+且建议"先考虑基元形状" —— 碎片形状能用一个盒子近似就别用凸包。
+
+ⓘ 生成方式（官方两条路径）：
+编辑器里选中 `MeshInstance3D` → 视口上方 Mesh 菜单 →
+**Create Multiple Convex Collision Siblings**；
+脚本里 `MeshInstance3D.create_multiple_convex_collisions()`（运行时凸分解）。
+
+⚠ 运行时凸分解**正是"碎裂峰值"的一部分** —— 能离线预烘焙就不要运行时算。
+
+## 6. 软体：官方教程里的四条硬警告
+
+⚠ **`SoftBody3D` 没有子节点。** 官方原话：*"it does not have a
+`CollisionShape3D` or a `MeshInstance3D` child node. Instead, the collision
+shape is **derived from the mesh** assigned to the node. This mesh is also
+directly used for rendering."*
+
+⛔ 给它加 `CollisionShape3D` 子节点是常见错误——**不生效**。
+
+### ① `simulation_precision` 别低于 5
+
+⚠ 官方原话：*"Try to keep the Simulation Precision **above 5**; otherwise, the
+soft body may **collapse**."*
+
+ⓘ 源码范围 `1,100,1`，默认 5。提高能显著改善效果，但**直接增加成本**。
+
+### ② `pressure_coefficient > 0` 要求网格封闭
+
+⚠ 官方原话：*"if the shape is **not completely closed** and you set pressure to
+a value greater than 0.0, the soft body will **fly around like a plastic bag
+under strong wind**."*
+
+⛔ 症状极具迷惑性：软体莫名乱飞，看起来像物理引擎坏了，其实只是网格没封口。
+
+### ③ `drag_coefficient` 是**未使用**的
+
+⚠ 官方文档明确：*"This value is **currently unused** by Godot's default
+physics implementation."*
+
+⛔ 调它没有任何效果。**4.6+ 新项目默认 Jolt**，但调参仍要在**目标引擎下实测**。
+
+### ④ 软体受 Area3D 的风力影响
+
+ⓘ 官方：SoftBody3D *"is subject to wind forces defined in `Area3D`"*，
+对应 `Area3D.wind_source_path` / `wind_force_magnitude` / `wind_attenuation_factor`。
+
+✅ 旗帜飘动不必自己施力 —— 用 Area3D 的风即可。
+ⓘ 这是布料表现里最省事的一条路径，文档里此前完全没提。
+
+### ⑤ 视觉平滑度只能靠提高 tick
+
+⚠ 官方原话：*"physics interpolation **currently does not affect soft bodies**.
+If you want soft body simulation to look smoother at higher framerates, you'll
+have to increase `Physics > Common > Physics Ticks per Second`, which comes at a
+**performance cost**."*
+
+⛔ 开了物理插值就以为软体会变平滑——**不会**。
+
+ⓘ 还有个 4.x 属性此前没提：**`shrinking_factor`**（范围 -1–1）。
+
+## 7. 物理引擎选择
 
 ⚠ **官方建议 `SoftBody3D` 用 Jolt Physics** ——
 `physics/3d/physics_engine` 项目设置可切换，

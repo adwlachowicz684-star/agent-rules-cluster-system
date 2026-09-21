@@ -23,3 +23,13 @@
 | 13 | 软体成本随 total_mass | 随顶点数与 simulation_precision |
 | 14 | 旧项目自动用 Jolt | 4.6+ 仅新项目默认，旧项目要手动切 |
 | 15 | 社区破坏插件直接兼容 4.7 | 要校验是否针对 4.7 API 与 Jolt 重编译 |
+| 16 | 碎片落地后 apply_force 还能推动 | ⚠ **唤不醒休眠体**；一次性用 `apply_impulse` |
+| 17 | 休眠能解决碎片性能 | 只省 CPU，**不省内存与实例数**，要回收 |
+| 18 | 碎片用 trimesh 碰撞体 | 官方：**最慢** + 只适配静态 + **空心**会穿透 |
+| 19 | 给 SoftBody3D 加 CollisionShape3D | 官方：碰撞形状**由网格推导**，加子节点不生效 |
+| 20 | `simulation_precision` 调低省性能 | 低于 5 会 **collapse（塌陷）** |
+| 21 | `pressure` 调大更饱满 | 网格未封闭时会**像塑料袋乱飞** |
+| 22 | `drag_coefficient` 能调空气阻力 | 官方：**目前未使用**，调了无效 |
+| 23 | 开了物理插值软体就平滑 | 官方：物理插值**不影响软体**，只能加 tick |
+| 24 | 布料飘动要自己施力 | `Area3D` 有内建风力，官方明确软体会受影响 |
+| 25 | 不动的碎片用 freeze 的 RigidBody | 官方：应改用 `StaticBody3D` / `AnimatableBody3D` |
