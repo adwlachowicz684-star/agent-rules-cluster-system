@@ -99,6 +99,37 @@ ur.commit_action()
 ⚠ **属性编辑优先走 `EditorProperty.emit_changed()`** ——
 这样能自动接入 UndoRedo，不用手动建动作。
 
+### ⚠ 自定义控件必须能聚焦
+
+⚠ **自定义属性控件里的可交互控件要 `add_focusable()`** ——
+否则键盘/手柄**选不中**它，表现为"能用鼠标点，但 Tab 键跳过"。
+
+```gdscript
+func _update_property() -> void:
+    _btn.text = str(get_edited_property_value())
+    _btn.add_focusable()          # ⚠ 不加则键盘不可达
+```
+
+⚠ **`_update_property()` 与 `emit_changed()` 是配套的两件事**：
+`_update_property()` 负责把**值刷回控件**，
+`emit_changed()` 负责把**控件改动上报**。
+⛔ 只写后者 → 值变了但界面不刷新；只写前者 → 改了不生效。
+
+### ⚠ 卸载必须对称
+
+⚠ **`_exit_tree` 里不调 `remove_inspector_plugin` 仍生效** ——
+插件已卸载但钩子还挂着，表现为"改了脚本后检视器重复渲染两次"。
+
+```gdscript
+func _exit_tree() -> void:
+    remove_inspector_plugin(_inspector)   # ⚠ 与 add 成对，缺了不会报错
+    _inspector = null
+```
+
+ⓘ 这条与第 0 节"安装与卸载必须对称"是同一条原则，
+但**检视器插件这一处最容易被漏** —— 因为它不报错、不崩溃，
+只是行为变得诡异。
+
 用途：给自定义 Resource 做专属编辑界面、给特定类型加自定义控件。
 
 ## 4. 自定义导入器

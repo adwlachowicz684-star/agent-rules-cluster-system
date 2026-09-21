@@ -43,6 +43,33 @@ func _tick() -> void:
 
 ## 2. 框选：世界坐标转换 + Rect2，不要用 Area2D 套
 
+### ⚠ 查询结果默认只返回 32 个
+
+⚠ **官方签名**：`intersect_point(parameters, max_results: int = 32)`、
+`intersect_shape(parameters, max_results: int = 32)`、
+`collide_shape(parameters, max_results: int = 32)`。
+
+⛔ **RTS 里这是直接的功能 bug**：框选 200 个单位，只回来 32 个，
+玩家看到的是"选了一部分"，且**没有任何报错**。
+
+⚠ 更隐蔽的是**它按返回顺序截断，不是按优先级** ——
+被丢掉的 168 个是"引擎先碰到的 32 个之外的"，
+不是"最该选中的"。表现就是框选结果**随单位摆放顺序变化**。
+
+```gdscript
+var q := PhysicsShapeQueryParameters2D.new()
+q.shape = rect_shape
+q.collision_mask = UNIT_LAYER
+var hits := space.intersect_shape(q, MAX_SELECT)   # ⚠ 显式传，别用默认
+```
+
+✅ 两条应对：
+1. **显式传 `max_results`**，值取"最多可同时选中数 × 余量"
+2. ⚠ **满了要能判断"可能还有"** —— 返回数 == max_results 时应提示或改用空间哈希自算
+
+ⓘ 第二条常被漏：达到上限时静默截断，
+玩家以为全选了，实际漏了一大半。**没有任何迹象**。
+
 ⚠ **`Camera2D` 没有 `screen_to_world_point()` 方法。**
 屏幕点转世界坐标：
 

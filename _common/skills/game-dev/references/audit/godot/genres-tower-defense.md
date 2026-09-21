@@ -8,7 +8,7 @@
 
 | # | 本能以为 | 实际 |
 |---|---|---|
-| 1 | 每只怪 `NavigationAgent2D.target_position=goal` 就自动走 | agent 只给路径，移动要自己写并调 `move_and_slide()` |
+| 1 | 每只怪 `NavigationAgent2D.target_position=goal` 就自动走 （→ `ai-navigation.md`）| agent 只给路径，移动要自己写并调 `move_and_slide()` |
 | 2 | 建塔后怪立刻重算路径 | NavigationServer 改动要下一物理帧才生效，要 `map_force_update()` |
 | 3 | `body.name=="Enemy"` 做伤害分发 | TileMap 配了碰撞也会触发 `body_entered`，要用接口 |
 | 4 | `get_nodes_in_group("enemies").is_empty()` 判波次清 | 池里休眠怪、退场怪污染计数，要显式计数 |

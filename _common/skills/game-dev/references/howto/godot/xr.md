@@ -43,6 +43,31 @@ func _process(_d: float) -> void:
         pass
 ```
 
+### ⚠ `has_tracking_data` 为真不等于真的被追踪
+
+⚠ **`XRController3D.has_tracking_data` 为真时，位姿**仍可能**是推断出来的**
+（控制器丢失后由平台用最后已知状态或手臂模型推算）。
+
+⛔ 症状：手柄放在桌上/拿出了追踪范围，`has_tracking_data` **照样为 true**，
+游戏以为手还在，抓取、瞄准、手势全部基于一个**假位姿**在跑。
+
+✅ 判据要**两个一起看**：
+
+```gdscript
+if not ctrl.has_tracking_data:
+    _on_lost()                      # 明确丢失
+elif not ctrl.has_tracking_data or ctrl.tracking_confidence < CONF_THRESHOLD:
+    _on_unreliable()                # ⚠ 有"数据"但不可信
+```
+
+⚠ **`has_tracking_data` 是布尔，不能表达"可信度"** ——
+需要分级还必须看 `tracking_confidence`（待核对：目标 OpenXR 运行时是否上报该值 ·
+验证：真机将被遮挡/移出版图时的返回值打日志）。
+
+⛔ **推论**：任何"手的位置驱动玩法"的逻辑，
+都要有"位姿不可信"的降级路径（暂停交互 / 保持上一有效姿态 / 提示玩家），
+⛔ 不能假设位姿永远有效。
+
 ⚠ **`XRController3D` 没有速度 API** —— 只有 `get_float` / `get_vector2` / `is_button_pressed`。
 释放物体时需要的速度必须自己算，而且要**多样本平均**：
 

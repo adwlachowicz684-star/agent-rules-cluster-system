@@ -32,9 +32,9 @@
 | 16 | 离线只存总金币 | 要结构化事件日志（含 config_version、seed、prev/next_anchor） |
 | 17 | 回放用 `_process(delta)` | 帧率一变输入映射与碰撞时序就漂移；必须**固定 tick** |
 | 18 | 回放用全局 `randf()` / 时间戳 / 节点 ID | 无法复现；要 **seeded RNG bank** 且可保存 state |
-| 19 | 可以依赖 `RandomNumberGenerator` 跨版本一致 | ⛔ 官方明确算法是**实现细节**，不能依赖 |
+| 19 | 可以依赖 `RandomNumberGenerator` 跨版本一致 （→ `replay.md`）| ⛔ 官方明确算法是**实现细节**，不能依赖 |
 | 20 | 行动顺序依赖 `Dictionary` | ⚠ 官方警告迭代时删除**不可预测**；要 ID 全序 |
-| 21 | 时间源用 `Time.get_unix_time_from_system()` | 只能从 `sim_tick` + 固定 STEP 推出 |
+| 21 | 时间源用 `Time.get_unix_time_from_system()` （→ `time-progression.md`）| 只能从 `sim_tick` + 固定 STEP 推出 |
 | 22 | 网络包直接改模拟状态 | 要转成**带目标 tick 的命令**，否则不同机器到达 tick 不同 |
 | 23 | 回放能跨版本播放 | ⚠ 商业产品也只支持**同版本**；不是实现偷懒 |
 | 24 | 回放校验和不匹配 = 作弊 | 只证明确定性已破坏或文件被改动，不必然是作弊 |

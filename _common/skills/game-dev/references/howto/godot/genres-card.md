@@ -90,7 +90,10 @@ func shuffle(arr: Array) -> void:
 ⚠ **`Array.shuffle()` 用的是全局 RNG 状态** —— 无法复现、无法做服务器校验。
 
 ⚠ **所有随机都要走同一个 `rng` 实例** ——
-全局 `randf()/randi()` 与 `RandomNumberGenerator` 是不同状态，
+全局 `randf()/randi()` 与 `rng.randf()`（`RandomNumberGenerator` 实例）是**两套独立状态**，
+⚠ **混用会导致同种子下每次结果不同** —— 一部分洗牌走了实例、一部分走了全局流，
+回放与验证都无从谈起。
+⛔ 项目内统一只用一种；参与结果的**一律用带种子的实例**。
 混用会让"同种子不同结果"。
 
 ## 5. 牌库空了重新洗弃牌堆要防同帧回抽

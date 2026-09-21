@@ -1025,6 +1025,24 @@ def cmd_self_test():
         chk(not _missing, '流程侧各域都有指向审核部分（缺 %d: %s）'
             % (len(_missing), _missing[:3]))
 
+        # ⚠ howto ↔ audit 对称性：审核项里出现的技术点，做法侧必须讲过。
+        #   否则这条审核项无处可依 —— 审核时无法确认为什么不能这么做，
+        #   改的时候也不知道该怎么做。这类断链会随文档增多而累积。
+        try:
+            import importlib.util as _ilu
+            _sp = _ilu.spec_from_file_location(
+                '_sym', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'check-symmetry.py'))
+            _sym = _ilu.module_from_spec(_sp)
+            _sp.loader.exec_module(_sym)
+            _gaps = _sym.scan()
+            chk(not _gaps, 'howto↔audit 对称：审核项的技术点都在做法侧讲过'
+                           '（缺 %d: %s）' % (
+                               sum(len(g['miss']) for g in _gaps),
+                               [(g['file'], sorted(g['miss'])[:2]) for g in _gaps[:2]]))
+        except Exception as _e:      # ⓘ 扫描器自身出错不应静默放行
+            chk(False, 'howto↔audit 对称扫描器可运行（%s）' % _e)
+
     # ⚠ 迁移防回流：三层目录名必须正确，且不得残留旧名。
     #   改名后若有人按旧记忆加文件/写链接，会从这里冒出来。
     _ref = _os.path.join(_skill, 'references')

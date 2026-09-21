@@ -31,6 +31,8 @@
 ```
 
 ⚠ **距离用 `distance_squared_to()`** 避免开方。
+⛔ 不要写 `a.position.distance_to(b.position)` 再比较阈值 ——
+比较大小时开方是纯浪费；要真实距离才开方（`sqrt()`）。
 ⚠ **角度用 `dot()`** 避免 `acos()`。
 ⚠ **两项优化都要求方向向量已归一化。**
 

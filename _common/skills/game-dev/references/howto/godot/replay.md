@@ -73,8 +73,37 @@ func _physics_process(delta: float) -> void:
 核心规则用整数或定点；⛔ 禁止 fast math / FMA 等破坏承诺的优化。
 
 **② 所有参与结果的随机必须来自独立 seeded RNG。**
-⚠ 官方明确 `RandomNumberGenerator` 底层算法是**实现细节**，不能依赖跨 Godot 版本复现；
-需要长期稳定时自实现已知算法或锁死算法与版本。
+⚠ 官方原话：*"It currently uses **PCG32**... The underlying algorithm is an
+implementation detail. As a result, it should not be depended upon for
+reproducible random streams **across Godot versions**."*
+
+→ 同一版本内可复现；**跨版本不保证**。需要长期稳定时自实现已知算法或锁死算法与版本。
+
+### ⚠ RNG 没有雪崩效应
+
+⚠ **官方原话**：*"The RNG does not have an **avalanche effect**, and can output
+**similar random streams given similar seeds**. Consider using a hash function to
+improve your seed quality if they're sourced externally."*
+
+⛔ 这条对"拿业务 ID 当种子"的系统是**直接的功能缺陷**：
+用关卡号 `1 / 2 / 3` 当种子 → 三关的怪物分布**几乎一样**；
+用玩家 ID 当种子 → 相邻 ID 的玩家开箱结果高度相似。
+
+✅ 种子要先过哈希：
+
+```gdscript
+rng.seed = hash("loot:%d:%d" % [player_id, chest_id])   # ✅ 先哈希
+rng.seed = player_id                                     # ⛔ 无雪崩，结果相似
+```
+
+⚠ **存档/快照要存 `state` 而不是只存 `seed`** ——
+`seed` 只记录初始输入，`state` 才是**当前推进位置**。
+ⓘ 官方也警告：设置 `seed` 会**改变内部 `state`**，
+所以必须**先设 seed 再设 state**，顺序反了会覆盖。
+
+⚠ 另有一条：官方注明**不要把 `state` 设成任意值**，
+只能设成**从 `state` 属性本身取到的值**；
+用任意输入初始化应该用 `seed`。
 
 ```gdscript
 class_name RngBank
