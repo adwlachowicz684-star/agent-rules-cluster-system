@@ -388,3 +388,88 @@ func arrive(target: Vector2, spd: float, slow_radius: float) -> Vector2:
 ⚠ **关闭 `avoidance_enabled` 时 `velocity_computed` 不触发** ——
 如果你把所有移动都写在信号回调里，关掉避障后敌人就完全不动了。
 
+## 8. 官方明确列出的路径跟随坑
+
+⚠ **引擎从不替你移动父节点。**
+官方原话：*"The navigation system never moves the parent node of a NavigationAgent.
+The movement is entirely in the hands of users and their custom scripts."*
+⛔ 设了 `target_position` 就以为敌人会走，是最常见的误解。
+
+### ⚠ `get_next_path_position()` 在信号回调里调用会无限递归
+
+官方原话：*"Several methods of this class, such as `get_next_path_position()`,
+can trigger a new path calculation. Calling these in your callback to an agent's
+signal, such as `waypoint_reached`, can cause **infinite recursion**."*
+
+✅ 只在 `_physics_process()` 里调，或用 `call_deferred()` / `CONNECT_DEFERRED` 延迟。
+
+### ⚠ 到达之后不要再调
+
+官方原话：*"The function should **not** be called after the target position or
+path end has been reached as it can make the agent **jitter in place** due to the
+repeated path updates. Always check very early in script with
+`is_navigation_finished()`."*
+
+```gdscript
+func _physics_process(_d: float) -> void:
+    if _agent.is_navigation_finished():      # ⚠ 必须最早判
+        return
+    var next := _agent.get_next_path_position()
+    ...
+```
+
+### 两个经典的"抖动/回头"症状（官方给了成因）
+
+| 症状 | 官方给的原因 |
+|---|---|
+| 在两个位置之间**反复横跳**（dancing） | 每帧都请求新路径（`path_max_distance` 设太短是典型诱因） |
+| 有时**往回走**（backtracking） | 移动太快，越过 `path_desired_distance` 却没推进路径索引 |
+
+✅ 两者都是**阈值与"每帧移动距离"不匹配**：
+`path_desired_distance` / `target_desired_distance` 要按 `speed * delta` 量级设，
+⛔ 高速单位用默认值（2D 默认约 20 / 10 像素）必然出问题。
+
+ⓘ 经验式：阈值 ≥ `speed * delta * 2`。
+
+### 三个距离属性的职责
+
+| 属性 | 作用 |
+|---|---|
+| `path_desired_distance` | 距下一个路径点多近 → 推进内部索引 |
+| `target_desired_distance` | 距终点多近 → 判定到达 |
+| `path_max_distance` | 偏离理想路径多远 → **请求新路径** |
+
+⚠ `path_changed` 信号在"被推离当前路径段超过 `path_max_distance`"时发出——
+它是**重算开销的信号**，频繁触发说明阈值或碰撞设置有问题。
+
+### `navigation_finished` 只发一次
+
+⚠ 官方原话：*"This signal is emitted **only once per loaded path**."*
+⛔ 把它当"每帧轮询是否到达"用会漏。到达判定要用 `is_navigation_finished()`。
+
+### `avoidance_priority` 是群体让路的指挥棒
+
+⚠ 官方原话：*"The agent does not adjust the velocity for other agents ... that have
+a **lower** `avoidance_priority`. This in turn makes the other agents with lower
+priority adjust their velocities **even more**."*
+
+ⓘ 这是**阵型/编队**的关键——给队长/Boss 设高优先级，
+小兵会主动让路，而不是互相推挤（见 `ai-tactics.md`）。
+
+### 内建调试可视化
+
+⚠ `NavigationAgent2D/3D` 有 `debug_enabled`、
+`debug_path_custom_color` / `debug_path_custom_line_width` / `debug_path_custom_point_size`。
+⛔ 不要自己画路径调试线——引擎已内建，且能反映真实内部状态。
+ⓘ 全局开关在项目设置的导航调试区。
+
+### 导航地图没同步时路径为空
+
+⚠ 官方：*"If an agent queries a path before the navigation map synchronization,
+e.g. in a `_ready()` function, the path might return **empty**. In this case
+`get_next_path_position()` will return the same position as the agent parent node
+and the agent will consider the path **end reached**."*
+
+⛔ 症状是"敌人站着不动但 AI 认为已到达"——
+不是寻路失败，是**路径为空**。用延迟一帧或等 `map_changed` 信号（本文第 2 节已做）。
+

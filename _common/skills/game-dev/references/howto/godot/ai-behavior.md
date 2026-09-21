@@ -232,10 +232,58 @@ func clear() -> void:
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/ai-behavior.md`
 
 
-## 5. 与已有文档的关系
+## 5. Idle 不是"什么都不做"
+
+⚠ **待机是最容易被写成空状态的一个状态。**
+写空之后的两个后果：
+- 单位看起来是**死的**（站着不动、不转头、无微小动作）
+- 从 Idle 转出时**没有自然的过渡**，表现为"突然弹起来追人"
+
+✅ Idle 至少要负责三件事：
+
+| 职责 | 说明 |
+|---|---|
+| **朝向** | 缓慢转向巡逻方向 / 最后已知方向 / 随机环视 |
+| **微动作** | 呼吸、重心、偶尔的 idle 动画变体 |
+| **退出条件** | 明确写出"满足什么就离开 Idle" |
+
+⚠ **Idle 里也要跑感知** —— 很多实现把感知写在 Chase 分支里，
+结果"没发现玩家"是因为**根本没在检测**，而不是"检测了没看到"。
+⛔ 这个 bug 的表现是"敌人背对玩家时永远发现不了"，
+而排查时你会去调视野角度，其实与角度无关。
+
+⚠ **Idle 的退出要有最短驻留**，否则在阈值边界会
+Idle ↔ Alert 每帧抖动（表现为敌人原地抽搐）。
+
+```gdscript
+const MIN_IDLE_TIME := 0.4
+
+func _tick_idle(delta: float) -> void:
+    _idle_time += delta
+    _scan()                       # ⚠ Idle 也要感知
+    if _idle_time >= MIN_IDLE_TIME and _can_see_player():
+        _set_state(State.CHASE)   # ⚠ 最短驻留后才允许转出
+```
+
+ⓘ 相关：感知的警戒等级与传播见 `ai-perception.md` 第 4 节；
+潜行玩法的警戒两段语义见 `stealth-ai.md` 第 0 节。
+
+## 6. 战术层不在这里
+
+⚠ **"我们怎么打"不是决策层的事。**
+目标选择迟滞、仇恨表、阵型槽位、掩体预约、攻击令牌、AI 的 LOD 与性能预算、
+调试可视化 → 全部见 `ai-tactics.md`。
+
+ⓘ 判据：只留一个敌人时还成立的规则才放决策层。
+
+## 7. 与已有文档的关系
+
+战术层（目标/阵型/掩体/协同/LOD/调试） → **`ai-tactics.md`**
+
 
 - 巡逻/追击/状态机基础 → `ai-navigation.md`
 - 寻路（NavigationAgent2D / AStarGrid2D）→ `ai-navigation.md`
 - 群体避障（RVO）→ `ai-navigation.md`
 
 本文档只讲**决策层**（选什么行为），不重复寻路和执行细节。
+战术层见 `ai-tactics.md`。
