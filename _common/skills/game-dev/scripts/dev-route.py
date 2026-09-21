@@ -248,7 +248,7 @@ DOMAINS = [
     ('云存档/跨端', ['云存档', '云同步', '跨端进度', '跨平台存档', 'cloud save', 'steam cloud', '存档冲突', 'icloud', '进度同步', '多设备存档', '存档槽'],
      'references/howto/godot/cloud-save.md',
      '核心是冲突不是传输 · 不能用文件修改时间判冲突 · Godot无内置云存档要平台SDK · iOS Caches不备份 · HTML5用IndexedDB'),
-    ('调试工具/GM', ['gm命令', '作弊码', '调试面板', '调试工具', 'devtools', '跳关', '无敌', '控制台', 'console', 'debug draw', '启动参数', '命令行参数', 'performance'],
+    ('调试工具/GM', ['gm命令', '作弊码', '调试面板', '调试工具', 'devtools', '跳关', '无敌', '控制台', 'console', 'debug draw', '启动参数', '命令行参数', 'performance', '编辑器工具', 'editorscript', 'editor script', '一次性脚本', '批量改资源', '批量处理资源', '资源批量', 'resourcesaver批量'],
      'references/howto/godot/devtools.md',
      '自定义参数要放--后用get_cmdline_user_args · Performance部分监控release恒为0且有1秒延迟 · 作弊要视觉标识+审计日志 · 无内置DebugDraw3D'),
     ('玩家Mod', ['模组', '玩家mod', 'mod加载', 'mod支持', '创意工坊', 'modding', 'load_resource_pack', 'pck覆盖', 'zip-slip', 'mod冲突', 'mod卸载', 'mod'],

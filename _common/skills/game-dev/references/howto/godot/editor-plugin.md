@@ -133,10 +133,19 @@ ur.commit_action()
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/editor-plugin.md`
 
 
-## 7. 相关文档
+## 7.  EditorScript（一次性脚本）不在这里
+
+⚠ **只跑一次、不做成插件的脚本**（批量改名、统计、修数据）
+用 `EditorScript`，⛔ 不要为此做一个插件 → 见 `devtools.md#6. 编辑器工具：一次性脚本与批量改资源`。
+
+ⓘ 该文含官方明确的三条坑：输出走 stdout 不在 Output 面板、
+是 `RefCounted` 异步会出错、`add_root_node`/`get_scene` 已废弃。
+
+## 8. 相关文档
 
 - 决策 / 插件类型概览 → `gdext-plugin.md`
 - GDExtension 实战 → `gdextension-deep.md`
 - 导入管线 → `advanced-topics.md`
 - CI 与发布 → `cicd-publish.md`
 - 架构规范 → `architecture.md`
+- 一次性脚本与批量改资源 → `devtools.md`
