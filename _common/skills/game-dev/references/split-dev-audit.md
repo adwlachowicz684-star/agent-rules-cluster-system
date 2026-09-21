@@ -1,11 +1,10 @@
 # 开发 skill 与审查 skill 的信息分工
 
-> **本分工已于 2026-09-20 全量落地**：
-> Godot 82 个功能域文档的「常见坑 / 常见漏写」章节（79 份、1666 行）
-> 已全部迁到 `code-audit/references/godot-antipatterns/`（1:1 同名），
-> 开发侧原地只留**一行指向**。
-> 即：**game-dev 只写「怎么做」，code-audit 只写「不能怎么做」**。
-> 保留在开发文档里的 `⚠` 只用于提示正确做法的前提，不写判据。
+> **本分工已于 2026-09-20 全量落地，且是 skill 内拆分**：
+> 本 skill 的 `references/` 分两部分——
+> `howto/godot/`（怎么做）与 `audit/godot/`（不能怎么做），同名互为镜像（79 组）。
+> **流程走完，回到本 skill 的 `audit/` 部分自审自己的产出**，不必跳到别处。
+> `code-audit` 仍是独立 skill，负责跨项目/跨语言的正式代码审查，两者不冲突。
 
 同目录下的 `code-audit`（审查）与本 skill（开发）会涉及**大量相同的 API**。
 必须有一条明确的切割线，否则两份文档会互相抄，最后都变成半吊子。
@@ -44,8 +43,8 @@
 
 | | 位置 | 内容 |
 |---|---|---|
-| 「怎么做」 | `game-dev/references/godot/<域>.md` | 选型 + 完整代码 + 参数含义 + 末尾一行指向 |
-| 「不能怎么做」 | `code-audit/references/godot-antipatterns/<域>.md` | 坑表 / 漏写清单，注明镜像来源 |
+| 「怎么做」 | `game-dev/references/howto/godot/<域>.md` | 选型 + 完整代码 + 参数含义 + 末尾一行指向 |
+| 「不能怎么做」 | `game-dev/references/audit/godot/<域>.md` | 坑表 / 漏写清单，注明镜像来源 |
 
 两份**同名互为镜像**：改一侧的域名或拆分方式，要同步另一侧。
 

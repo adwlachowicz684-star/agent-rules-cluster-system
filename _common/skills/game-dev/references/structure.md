@@ -1,8 +1,5 @@
 # 结构框架总纲
 
-ⓘ **本文件是目标结构的设计文档，当前尚未迁移**（见文末「迁移映射」）。
-框架定稿后按映射一次性改名，在此之前以下路径名按映射表反向理解。
-
 ---
 
 ## 1. 命名
@@ -285,29 +282,28 @@ character/05 ──┘
 
 ---
 
-## 7. 迁移映射
+## 7. 迁移记录
 
-ⓘ 定稿后执行，一次到位。当前**尚未执行**。
+✅ **已执行**（目录改名 + 265 处引用替换）。
 
-| 现在 | 目标 | 动作 |
+| 原 | 现 | 动作 |
 |---|---|---|
 | `references/procedure/` | `references/flow/` | 目录改名 |
 | `references/flow/godot/` | `references/howto/godot/` | 目录改名 |
 | `references/audit/godot/` | 不变 | — |
-| 265 处 `flow/godot` 引用 | `howto/godot` | 全局替换（⚠ 注意不要误伤已指向新 flow 的引用） |
+| 265 处 `flow/godot` 引用 | `howto/godot` | 全局替换 |
 | 22 处 `procedure` 引用 | `flow` | 全局替换 |
 
-⚠ **迁移的两个风险点**：
+⚠ **执行时踩到的两个坑**（留给以后参考）：
 
-1. **替换顺序**：先把 `procedure/` 改名成 `flow/` 会与现有 `flow/` 冲突。
-   ✅ 正确顺序：`flow/godot` → 先移到临时名 `howto/` → 再把 `procedure/` 改名 `flow/`。
+1. **改名顺序**：必须先把 `flow/godot` 移到 `howto/`，再把 `procedure/` 改名 `flow/`。
    ⛔ 反过来会覆盖。
-2. **引用替换不能用无脑 sed**：`flow/godot` 这个串里，`flow` 既是旧的做法层
-   又是新的流程层。必须先按上下文区分，或先完成目录改名再替换引用。
+2. **裸词 `procedure` 不能无脑替换**：`code-audit/references/godot-api/lang.md` 里有
+   "remote procedure calls"——是英文单词不是目录。
+   ✅ 只替换带斜杠的 `procedure/`（路径），裸词按中文语境逐处处理。
 
-✅ 迁移完成后的判据：全量自检通过 + 随机抽 10 个域的链接实际打开确认。
-
----
+ⓘ 替换后自检里"流程文件要指回 flow/ 或 audit/"一条的语义也变了：
+流程层文件里写的是 `howto/godot/` 新名，故该检查改为 `howto/godot/`。
 
 ## 8. 自检应如何随之演进
 
