@@ -2,7 +2,7 @@
 # 审核清单索引（不能怎么做）
 
 > 本目录**只写「不能怎么做」**：反模式、坑表、漏写清单、约束边界。
-> 「怎么做」见同 skill 的流程部分 `flow/godot/<同名>.md`。
+> 「怎么做」见同 skill 的流程部分 `howto/godot/<同名>.md`。
 
 **用法**：流程走完（实现完某个功能）后，打开**同名**文件逐条对照自己的产出。
 
@@ -135,4 +135,4 @@
 | `build-affix` | `audit/godot/build-affix.md` |
 | `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
 
-完整判据见 `../../code-audit/references/p-godot.md`。
+完整判据见 `../../../../code-audit/references/p-godot.md`。

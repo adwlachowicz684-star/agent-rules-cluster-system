@@ -2,7 +2,7 @@
 # level-design — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/level-design.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/level-design.md`
 >
 > 边界：本篇是**人怎么设计并搭建关卡**（与"程序化关卡生成"是两回事）。
 

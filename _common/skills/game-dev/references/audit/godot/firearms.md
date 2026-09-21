@@ -2,7 +2,7 @@
 # firearms — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/firearms.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/firearms.md`
 >
 > 边界：本篇是**枪械这一武器门类**。伤害与对抗层见 `audit/godot/combat.md`；
 > 投射物穿透与预测线见 `audit/godot/projectile.md`。

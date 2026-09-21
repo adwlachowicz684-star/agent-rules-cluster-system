@@ -2,7 +2,7 @@
 # lifeskill-housing — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/lifeskill-housing.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/lifeskill-housing.md`
 >
 > 边界：本篇是**生活玩法本身**。时间推进的数学见 `audit/godot/time-progression.md`。
 

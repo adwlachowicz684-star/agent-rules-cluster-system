@@ -2,7 +2,7 @@
 # hotupdate — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/hotupdate.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/hotupdate.md`
 
 ⚠ **两条硬限制先立住**：① **Godot 没有 `unload_resource_pack()`，只能重启进程**；
 ② **补丁必须在 autoload 的 `_init()` 里加载**，写进 `_ready()` 就永远不生效。
