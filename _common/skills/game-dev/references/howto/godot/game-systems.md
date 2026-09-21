@@ -2,6 +2,10 @@
 
 三个系统共用同一个设计原则：**内容资产（定义）与运行时事实（进度）分开**。
 
+> **审核**：`audit/godot/game-systems.md`（只写「不能怎么做」）
+> **流程**：库存部分见 `flow/godot/inventory/`（按功能点，含验收清单）
+> 实现完必须回去过一遍审核清单。
+
 ```
 定义层（Resource，不可变，进版本库）
   ↓ 引用
@@ -537,3 +541,13 @@ func serialize() -> Dictionary:
 | 实例 id 用随机数 | 存档回读后 id 冲突 |
 | 客户端库存权威 | 改内存加物品 |
 | UI 直接改库存数据 | 无法测试，逻辑散落 |
+
+---
+
+## 相关文档
+
+- 审核（不能怎么做）：`audit/godot/game-systems.md`
+- 库存流程（按什么顺序做）：`flow/godot/inventory/00-域流程总览.md`
+- 装备四层：`howto/godot/economy.md`
+- 背包格 UI：`howto/godot/ui.md`
+- 玩家交易：`howto/godot/player-trading.md`

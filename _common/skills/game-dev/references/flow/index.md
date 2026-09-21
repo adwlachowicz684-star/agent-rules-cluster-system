@@ -18,6 +18,7 @@
 | **角色控制** | `godot/character/00-域流程总览.md` | 6 | 移动基座 / 跳跃手感 / 相机跟随 / 输入映射 / 动画接入 / 手感验收 |
 | **存档** | `godot/save/00-域流程总览.md` | 6 | 结构设计 / 读写落盘 / 加密完整性 / 迁移 / 云存档 / 全链路验收 |
 | **战斗结算** | `godot/combat/00-域流程总览.md` | 7 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
+| **背包与物品** | `godot/inventory/00-域流程总览.md` | 7 | 定义实例 / 容器 / 堆叠唯一 / 移动原子性 / 存档 / UI 绑定 / 验收 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
 
 ## 角色控制域（`godot/character/`）
 
@@ -56,6 +57,19 @@
 | 06 | [对抗层](godot/combat/06-对抗层.md) | 02 04 | 硬直/霸体/格挡/招架/处决/部位 |
 | 07 | [战斗验收](godot/combat/07-战斗验收.md) | 01–06 | 域级总验 + 接缝复查 |
 
+## 背包与物品域（`godot/inventory/`）
+
+| # | 功能点 | 前置 | 交付物 |
+|---|---|---|---|
+| 00 | [域流程总览](godot/inventory/00-域流程总览.md) | — | 定做什么 + 拆解与依赖顺序 |
+| 01 | [物品定义与实例](godot/inventory/01-物品定义与实例.md) | 无 | 模板/实例两层分离 |
+| 02 | [库存容器与放入取出](godot/inventory/02-库存容器与放入取出.md) | 01 | 返回实际数量的 add/remove |
+| 03 | [堆叠/唯一/容量](godot/inventory/03-堆叠唯一与容量.md) | 02 | 规则在定义里，满包策略三选一 |
+| 04 | [移动与原子性](godot/inventory/04-移动与原子性.md) | 02 03 | 试算→提交，零脏数据 |
+| 05 | [存档序列化](godot/inventory/05-存档序列化.md) | 02 | slots+instances+next_id 三件套 |
+| 06 | [UI 绑定](godot/inventory/06-UI绑定.md) | 02 | 单向数据流 + queue_free |
+| 07 | [背包验收](godot/inventory/07-背包验收.md) | 01–06 | 域级总验 + 消失路径排查 |
+
 ## 通用骨架（兜底）
 
 | 文件 | 用途 |
@@ -69,7 +83,6 @@
 | 优先级 | 域 | 对应 flow 文档 |
 |---|---|---|
 | 高 | UI | `howto/godot/ui.md`、`ui-advanced.md` |
-| 高 | 背包与物品 | `howto/godot/game-systems.md`、`economy.md` |
 | 高 | 网络同步 | `howto/godot/multiplayer.md`、`netsync-advanced.md` |
 | 高 | 配置表 | `howto/godot/datatable.md` |
 | 高 | 音频管理 | `howto/godot/input-audio.md`、`audio-advanced.md` |
