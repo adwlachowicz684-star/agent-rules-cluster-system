@@ -2,7 +2,7 @@
 # player-trading — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/player-trading.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/player-trading.md`
 >
 > 边界：本篇是**资产流通**（已存在的资产怎么从 A 到 B）。
 > 产出与消耗侧见 `audit/godot/economy.md`；商业化/支付见 `audit/godot/monetization.md`。
