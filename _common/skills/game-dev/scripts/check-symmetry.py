@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-howto ↔ audit 对称性扫描。
+howto ↔ audit 对称性扫描（ⓘ 只作参考，不强求一对一）。
 
 背景：audit 是「不能怎么做」，howto 是「怎么做」。
 若 audit 里出现了一个技术点，而 howto 里从头到尾没提过它，
 这条审核项就无处可依 —— 审核时无法确认为什么不能这么做，
 改的时候也不知道该怎么做。这类断链会随文档增多而累积。
+
+⚠ 边界（重要）：
+  - **不要求一对一**：全局性内容（如"参数类型不符"）横跨所有域，
+    ⛔ 不可能每个功能里单独写一份。这类内容放 `common/audit/global.md`，
+    通过锚点被多个域引用，**不强求 howto/godot 里也有一份**。
+  - **多对多**：一个全局块可被多个域引用，一个域也可引用多个块。
+    判定"已覆盖"时，指向的 common 块内容也算覆盖。
+  - 因此本扫描只是**提示**，用于发现"确实漏了"的项，
+    ⛔ 不是"必须清零"的硬性约束。
 
 判据：从 audit 表格的「实际」列抽取技术标识（类名 / API / 常量 / 属性名），
       在对应 howto 全文里查找。未命中 = 不对称。
@@ -57,6 +66,28 @@ def is_tech(tok: str) -> bool:
     return False
 
 
+def common_pool():
+    """全局层（common/）里讲过的技术点。
+
+    ⓘ 为什么算覆盖：全局块是"不可能每个域单独写"的内容，
+      通过锚点被多个域引用。若要求每个域都自带一份，
+      就退化成几十处重复，改一处要改几十处。
+    """
+    pool = set()
+    for sub in ('howto', 'audit'):
+        d = os.path.join(ROOT, 'common', sub)
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            if f.endswith('.md'):
+                pool |= set(TOKEN.findall(
+                    open(os.path.join(d, f), encoding='utf-8').read()))
+    return pool
+
+
+COMMON = None
+
+
 def howto_tokens(name: str):
     p = os.path.join(HOWTO, name)
     if not os.path.isfile(p):
@@ -65,6 +96,9 @@ def howto_tokens(name: str):
 
 
 def scan():
+    global COMMON
+    if COMMON is None:
+        COMMON = common_pool()
     out = []
     for fn in sorted(os.listdir(AUDIT)):
         if not fn.endswith('.md'):
@@ -94,7 +128,7 @@ def scan():
                 rp = os.path.join(HOWTO, r)
                 if os.path.isfile(rp):
                     extra |= set(TOKEN.findall(open(rp, encoding='utf-8').read()))
-            pool = ht | extra
+            pool = ht | extra | COMMON
             line_toks = [t for t in TOKEN.findall(actual) if is_tech(t)]
             for tok in TOKEN.findall(actual):
                 if not is_tech(tok):

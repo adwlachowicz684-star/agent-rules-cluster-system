@@ -104,3 +104,10 @@ offset = Vector2(randf_range(-10,10), randf_range(-10,10))
 - 战斗 → `combat.md`
 - 性能 → `perf-profiling.md`
 - 对象池 → `systems.md`
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-07`　手感优先于正确性

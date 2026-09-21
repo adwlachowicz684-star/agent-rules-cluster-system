@@ -1043,6 +1043,31 @@ def cmd_self_test():
         except Exception as _e:      # ⓘ 扫描器自身出错不应静默放行
             chk(False, 'howto↔audit 对称扫描器可运行（%s）' % _e)
 
+    # ⚠ 全局层多对多索引：common/ 里的块是"不可能每个功能单独写"的内容，
+    #   必须能被多个域索引到，否则就是"放着该有用的时候用不上"。
+    #   ⛔ 单向登记不算索引：表里写了但文档里没有，做的时候照样找不到。
+    _cmn = os.path.join(_skill, 'references', 'common')
+    chk(os.path.isdir(_cmn), '全局层 common/ 目录存在')
+    if os.path.isdir(_cmn):
+        try:
+            import importlib.util as _ilu2
+            _sp2 = _ilu2.spec_from_file_location(
+                '_cidx', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      'check-common-index.py'))
+            _ci = _ilu2.module_from_spec(_sp2)
+            _sp2.loader.exec_module(_ci)
+            _bad = _ci.scan()
+            chk(not _bad, '全局层多对多索引成立（表↔文档双向、无孤儿、无断链）'
+                          '：%d 个问题 %s' % (len(_bad), _bad[:2]))
+        except Exception as _e2:     # ⓘ 检查器自身出错不应静默放行
+            chk(False, '全局层索引检查器可运行（%s）' % _e2)
+        # common.md 必须指向全局块，否则它是个没人能到达的孤岛
+        _cm = os.path.join(_skill, 'references', 'common.md')
+        if os.path.isfile(_cm):
+            _t = open(_cm, encoding='utf-8').read()
+            chk('common/howto/principles.md' in _t and 'common/audit/global.md' in _t,
+                'common.md 指向全局块（否则全局层无人可达）')
+
     # ⚠ 迁移防回流：三层目录名必须正确，且不得残留旧名。
     #   改名后若有人按旧记忆加文件/写链接，会从这里冒出来。
     _ref = _os.path.join(_skill, 'references')
