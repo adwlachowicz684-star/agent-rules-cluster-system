@@ -1094,6 +1094,29 @@ def cmd_self_test():
             _it = open(_os.path.join(_proc, 'index.md'), encoding='utf-8').read()
             chk('_骨架.md' in _it, 'index.md 指向通用骨架（未细化的域有兜底入口）')
 
+        # 节点规范：Step 要有稳定 ID（后续流程工具按节点记进度）、
+        # 要有【读】howto（按需取用，不通读）、功能点要有整体审核节（两级审核）。
+        # ⓘ 现有 12 个功能点已补齐，故可直接强检。
+        _no_id, _no_read, _no_audit_sec = [], [], []
+        for _root, _dirs, _files in _os.walk(_proc):
+            for _f in sorted(_files):
+                if _f in ('README.md', 'index.md') or _f.startswith('_'):
+                    continue
+                if not _f.endswith('.md') or _f.startswith('00-') or '验收' in _f:
+                    continue
+                _txt = open(_os.path.join(_root, _f), encoding='utf-8').read()
+                _steps = re.findall(r'^### Step \d+', _txt, flags=re.M)
+                _ids = re.findall(r'^### Step \d+[^\n]*`\[[^\]]+\]`', _txt, flags=re.M)
+                if len(_steps) != len(_ids):
+                    _no_id.append('%s(%d/%d)' % (_f, len(_ids), len(_steps)))
+                if _steps and '【读】' not in _txt:
+                    _no_read.append(_f)
+                if '整体审核' not in _txt:
+                    _no_audit_sec.append(_f)
+        chk(not _no_id, '每个 Step 有稳定节点 ID（缺 %d: %s）' % (len(_no_id), _no_id[:2]))
+        chk(not _no_read, '功能点有【读】howto 锚点（缺 %s）' % _no_read[:2])
+        chk(not _no_audit_sec, '功能点有整体审核节（两级审核）（缺 %s）' % _no_audit_sec[:2])
+
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []
         for _root, _dirs, _files in _os.walk(_proc):
