@@ -2,7 +2,7 @@
 # account-security — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/account-security.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/account-security.md`
 >
 > 边界：本篇是**账号本身**。反外挂与存档加密见 `audit/godot/security.md`。
 

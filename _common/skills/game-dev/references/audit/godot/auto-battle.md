@@ -2,7 +2,7 @@
 # auto-battle — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/auto-battle.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/auto-battle.md`
 >
 > 边界：本篇是**同一战斗逻辑在四种输入源下的复用**。
 > 一次战斗怎么打见 `audit/godot/combat.md`；离线锚点见 `audit/godot/time-progression.md`。

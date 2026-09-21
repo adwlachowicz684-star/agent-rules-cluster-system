@@ -12,25 +12,27 @@ description: 游戏开发技能矩阵。按「引擎 + 功能域」路由：先�
 >
 > | 部分 | 目录 | 内容 | 组织 | 什么时候用 |
 > |---|---|---|---|---|
-> | **工序** | `references/procedure/godot/<域>/` | 按什么顺序做、每步产出什么、怎么验收 | 按**功能点** | **开工第一步** |
-> | **流程**（怎么做） | `references/flow/godot/` | 实现方案、选型依据、完整代码、参数含义 | 按**域** | 实现时查细节 |
-> | **审核**（不能怎么做） | `references/audit/godot/` | 反模式、坑表、漏写清单、约束边界 | 按**域** | **实现完，回头审自己的产出** |
->
-> 后两者**同名互为镜像**（如 `references/flow/godot/combat.md` ↔ `references/audit/godot/combat.md`）：
-> 流程文档末尾留一行指向自己的审核清单，**实现完必须回去过一遍**。
+> | **流程**（怎么定、按什么顺序做） | `references/flow/godot/<域>/` | 定做什么 → 定流程 → 逐步取用 | 按**功能点** | **开工第一步** |
+> | **做法**（怎么做） | `references/howto/godot/` | 实现方案、选型依据、完整代码、参数含义 | 按**域** | 按流程每步的【读】取用 |
+> | **审核**（不能怎么做） | `references/audit/godot/` | 反模式、坑表、漏写清单、约束边界 | 按**域** | 按流程每步的【审】取用 |
+
+⚠ **howto 和 audit 不是入口，是被流程调度的资源。**
+⛔ 不要一上来就读 howto 全文——先定流程，流程告诉你读哪一段、审哪几条。
+同一域「做个伤害结算」和「做一套连招系统」是两条不同流程。
 
 ```
 第 1 步  识别引擎：project.godot → Godot；.uproject → Unreal …
 第 2 步  定位功能域：角色控制 / UI / 存档 / 动画 / 音频 / 3D / 网络
-第 3 步  ⚠ 打开 procedure/godot/<域>/00-域流程总览.md，按功能点顺序开发
-第 4 步  实现时缺细节 → 查 flow/godot/<域>.md（完整代码，可直接抄）
-第 5 步  按项目的具体约束调整（2D 还是 3D、单人还是联网）
-第 6 步  ⚠ 自审：打开 audit/godot/<域>.md，逐条过一遍再交付
+第 3 步  ⚠ 定做什么：写下「做什么 / ⛔不做什么 / 验收标准」
+第 4 步  ⚠ 定流程：打开 flow/godot/<域>/00-域流程总览.md，
+         挑本次需要的功能点（⛔ 不是全做）；无细化流程则套 flow/_骨架.md
+第 5 步  逐步执行：每个节点按【读】howto 片段 →【做】→【产出】→【判据】→【审】audit 条目
+第 6 步  功能点收尾：过该点的「整体审核」节，逐条过 audit
 ```
 
-⚠ **有 `procedure/` 的域，必须走第 3 步**，⛔ 不要直接跳到 `flow/` 抄代码——
-`flow/` 告诉你"这个东西怎么做"，`procedure/` 告诉你"先做哪一步、做完怎么验"。
-没铺 procedure 的域见 `references/procedure/index.md` 的"待铺域"。
+ⓘ 节点格式见 `references/structure.md` 第 4 节。节点 ID（如 `[character/01#S3]`）
+是稳定标识，⛔ 不要中途改。
+没铺流程的域见 `references/flow/index.md` 的"待铺域"，一律套 `flow/_骨架.md`。
 
 ## 核心原则
 
@@ -39,11 +41,11 @@ description: 游戏开发技能矩阵。按「引擎 + 功能域」路由：先�
    还是 RigidBody、计时用 Timer 节点还是 `create_timer()`），选错了后面全歪。
 3. **标注引擎版本。** Godot 4.x 与 3.x 大量不兼容，模板必须写明版本。
 4. **工序、流程、审核三层分开，但同属本 skill。** 「按什么顺序做」在
-   `references/procedure/`，「怎么做」在 `references/flow/`，「不能怎么做」在
+   `references/flow/`，「怎么做」在 `references/flow/`，「不能怎么做」在
    `references/audit/`。流程文档里保留的 `⚠` 只用于**提示正确做法的前提**
    （如"这个 API 4.7 才有"），不写"如果出现 X 就错了"这类判据
    （见 `references/split-dev-audit.md`）。
-   ⚠ **一个功能点验收通过才进下一个**（见 `references/procedure/README.md`）。
+   ⚠ **一个功能点验收通过才进下一个**（见 `references/flow/README.md`）。
 5. **交付前必须走第 5 步自审。** 只写不看坑表等于把审查环节省了——
    坑表就在本 skill 里，不用跳到别处。
 
@@ -64,8 +66,8 @@ python3 scripts/verify.py --verify=V5001 --result=failed  # 运行时录入验�
 | 路径 | 作用 |
 |---|---|
 | `references/common.md` | 跨引擎通用：开发流程、选型原则、项目结构 |
-| `references/procedure/` | **开发工序**（按什么顺序做，按功能点分文件）+ 总索引 |
-| `references/flow/godot/` | Godot 4.x 流程部分（怎么做，按功能域分文件） |
+| `references/flow/` | **开发工序**（按什么顺序做，按功能点分文件）+ 总索引 |
+| `references/howto/godot/` | Godot 4.x 流程部分（怎么做，按功能域分文件） |
 | `references/audit/godot/` | Godot 4.x 审核部分（不能怎么做，与流程部分同名镜像） |
 | `scripts/dev-route.py` | 引擎识别 + 功能域路由 |
 | `scripts/verify.py` | 待核对项：收集 · 过滤 · 运行时录入验证结果 |

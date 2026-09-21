@@ -1,7 +1,7 @@
 # Godot 4.x Shader API 审查判据
 
 ⚠ 本文件是**审查查表**：每条给出可匹配的源码特征、级别、确认方法。
-正确写法见 `game-dev/references/godot/shaders.md`（本文档不重复代码）。
+正确写法见 `game-dev/references/howto/godot/shaders.md`（本文档不重复代码）。
 
 ## 1. 语言与类型（GDS01–GDS08 已进扫描器）
 
@@ -45,6 +45,6 @@
 
 ## 4. 与开发文档的分工
 
-- **正确写法、完整代码、配方** → `game-dev/references/godot/shaders.md`
+- **正确写法、完整代码、配方** → `game-dev/references/howto/godot/shaders.md`
 - **判据、特征、级别、确认方法** → 本文件
 - 两边用规则 ID 互相指向，不复制内容
