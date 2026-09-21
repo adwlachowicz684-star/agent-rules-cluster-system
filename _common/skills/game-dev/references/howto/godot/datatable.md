@@ -85,7 +85,144 @@ return template.duplicate_deep(Resource.DEEP_DUPLICATE_INTERNAL) as SkillData
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/datatable.md`
 
 
-## 6. 相关文档
+## 6. 导出与运行时加载的冲突（隐藏最深的一条）
+
+⚠ **项目设置 `editor/export/convert_text_resources_to_binary` 若为 `true`，
+导出后 `load()` 读不了被转换的文件。**
+
+官方文档的原文是：开启该选项时 `@GDScript.load` 将**无法读取**导出项目中
+被转换的文件；若要在运行时加载 PCK 内的文件，必须把该选项设为 `false`。
+
+⛔ 症状极具迷惑性：**编辑器里一切正常，导出后配表全空**。
+而报错往往不是"文件不存在"，而是拿到一个空资源，
+问题会在运行时以完全无关的形式出现（"技能伤害全是 0"）。
+
+```text
+editor/export/convert_text_resources_to_binary = false   # 运行时要读 .tres 就必须关
+```
+
+## 7. duplicate 的精确语义（4.x 官方文档口径）
+
+⚠ 文档里"深拷贝"这个词在 Godot 里**不是**"全复制"，要按官方口径理解：
+
+| 调用 | 官方说明 |
+|---|---|
+| `duplicate(false)` | 浅拷贝：嵌套的 Array / Dictionary / **Resource 都不复制，与原对象共享** |
+| `duplicate(true)` | 递归复制嵌套数组、字典、packed array；⚠ **其中的 Resource 只有 "local" 的才复制**，等价于 `duplicate_deep(DEEP_DUPLICATE_INTERNAL)` |
+
+`DeepDuplicateMode` 三级：`DEEP_DUPLICATE_INTERNAL`（无路径或场景本地路径的子资源）
+/ `DEEP_DUPLICATE_ALL`（全部，含单独存的大资源）/ 不复制。
+
+```gdscript
+template.duplicate_deep(Resource.DEEP_DUPLICATE_INTERNAL) as SkillData
+```
+
+⚠ **两个额外约束，官方文档明确写了**：
+
+1. ⛔ **对自定义 Resource，若 `_init()` 定义了必需参数，`duplicate()` 会失败。**
+   配表类想用带参构造函数（比如 `SkillData.new(id, dmg)`）就会踩这条——
+   ⚠ 配表类**不要定义带必需参数的 `_init()`**，改成无参构造 + 属性赋值。
+
+2. `duplicate(true)` 时**每个资源只复制一次**：
+   若 A 引用了 B 两次，得到的新 A' 会引用**同一个** B' 两次
+   （⛔ 不是两个独立的 B'）。这对"想让每行完全独立"的预期是个意外。
+
+还有两个 property usage 标记会覆盖上述行为：
+`PROPERTY_USAGE_ALWAYS_DUPLICATE`（总是复制）/ `PROPERTY_USAGE_NEVER_DUPLICATE`（从不复制）。
+
+⚠ `resource_local_to_scene` 也能让资源在每个场景实例里唯一，
+但官方文档写明：**运行时改这个属性对已创建的副本无效**。
+
+## 8. 异步加载的三个 API 与一个阻塞陷阱
+
+```gdscript
+ResourceLoader.load_threaded_request(path)      # 返回 Error
+ResourceLoader.load_threaded_get_status(path, _progress)   # 每帧轮询
+ResourceLoader.load_threaded_get(path)          # ⚠ 可能阻塞
+```
+
+⚠ **`load_threaded_get()` 在加载未完成时，会阻塞调用线程直到加载结束** ——
+官方原话就是这个。所以 ⛔ 不能在轮询之外"顺手"调它，
+必须在 `get_status()` 返回 `THREAD_LOAD_LOADED` 之后再取。
+
+⚠ **重复对同一路径 `load_threaded_request()` 会返回 `ERR_ALREADY_IN_USE`** ——
+玩家连点两次触发、或同一表被两个系统同时请求，都会刷出这个错误。
+✅ 用一个"请求中"的集合做守卫。
+
+```gdscript
+var _pending: Dictionary = {}      # path -> true
+
+func request(path: String) -> void:
+    if _pending.has(path):
+        return                      # ⚠ 守卫
+    var err := ResourceLoader.load_threaded_request(path)
+    if err != OK:
+        push_error("异步加载请求失败 %s: %d" % [path, err])
+        return
+    _pending[path] = true
+
+func _process(_delta: float) -> void:
+    for path in _pending.keys():
+        var st := ResourceLoader.load_threaded_get_status(path, _progress)
+        if st == ResourceLoader.THREAD_LOAD_LOADED:
+            var res := ResourceLoader.load_threaded_get(path)   # ✅ 已就绪才取
+            _pending.erase(path)
+            _on_loaded(path, res)
+        elif st == ResourceLoader.THREAD_LOAD_FAILED:
+            push_error("异步加载失败 %s" % path)
+            _pending.erase(path)
+```
+
+ⓘ `use_sub_threads = true` 会更快，但官方文档说明它**可能影响主线程造成卡顿**。
+
+## 9. 缓存、热重载与"重新 load 没用"
+
+⚠ **热重载不是"重新 `load()` 一次"** —— 已有实例和运行时索引不会自动刷新。
+
+三个相关事实：
+
+1. `ResourceLoader.has_cached(path)` 可查询是否已缓存；
+   资源一旦加载就**缓存在内存**，后续 `load()` 返回的是同一个引用。
+2. `Resource.take_over_path(path)` 可以**覆盖**某个路径上的缓存条目
+   （而直接设 `resource_path` 在该路径已有缓存时会报错）。
+3. 想真正热重载，必须：重新生成资源 → `take_over_path` → **重建索引**
+   → **通知持有旧实例的地方重建**，或干脆重启当前关卡。
+
+⚠ `ResourceSaver.save()` 的 flags 里 `FLAG_REPLACE_SUBRESOURCE_PATHS`
+会接管已存子资源的路径（即 `take_over_path()`），批量保存时有用。
+
+## 10. UID 与路径变更（4.4+）
+
+Godot 4.4 起的 UID 系统：每个资源有 `uid://` 标识，
+保存在 **`.uid` 伴随文件**里。⚠ **移动或重命名资源时 UID 不变**，
+引用得以保持——这解决了"策划改了表格文件名，代码里全断"的问题。
+
+ⓘ 相关 API：`ResourceSaver.get_resource_id_for_path(path, generate)`、
+`ResourceSaver.set_uid(path, uid)`、`ResourceUID.create_id()`。
+
+⚠ 官方文档注明：**项目运行时生成的 UID 不会被保存**
+（那段代码只在编辑器模式执行）。所以导入器生成资源时
+不要指望运行时自动补 UID。
+
+## 11. 版本演进：删行与历史存档
+
+⚠ **导入期校验能拦住"新增的悬空引用"，拦不住历史存档里已有的 ID。**
+
+玩家存档里存着 `skill.fireball`（v3），而 v5 删掉了这一行——
+导入期校验通过（表里没问题），运行时读档才炸。
+
+三种处理：
+
+| 策略 | 做法 | 代价 |
+|---|---|---|
+| **永不删除** | 只标记 `deprecated` | 表会膨胀，但最安全 |
+| **重定向表** | 保留 `old_id -> new_id` 映射，读档时翻译 | 要维护映射 |
+| **兜底替换** | 找不到就换成默认项并记录 | 玩家会感到物品变了 |
+
+⚠ 无论选哪种，**读档时都不要崩**——
+配表问题是数据问题，不应该让玩家丢档。
+
+## 12. 相关文档
 
 - 存档与序列化 → `io-network.md`
 - 经济与掉落 → `economy.md`

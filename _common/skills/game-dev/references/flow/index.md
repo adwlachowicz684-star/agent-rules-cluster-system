@@ -20,7 +20,8 @@
 | **战斗结算** | `godot/combat/00-域流程总览.md` | 7 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
 | **背包与物品** | `godot/inventory/00-域流程总览.md` | 7 | 定义实例 / 容器 / 堆叠唯一 / 移动原子性 / 存档 / UI 绑定 / 验收 |
 | **UI** | `godot/ui/00-域流程总览.md` | 7 | 布局地基 / 数据绑定 / 文本长内容 / 菜单面板 / 焦点导航 / 大列表 / 验收 |
-| **网络同步** | `godot/netsync/00-域流程总览.md` | 7 | 模型选型 / 传输层RPC / 服务器权威 / 预测回滚 / 远端插值 / 迁移断线 / 上线验收 | 布局地基 / 数据绑定 / 文本长内容 / 菜单面板 / 焦点导航 / 大列表 / 验收 | 定义实例 / 容器 / 堆叠唯一 / 移动原子性 / 存档 / UI 绑定 / 验收 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
+| **网络同步** | `godot/netsync/00-域流程总览.md` | 7 | 模型选型 / 传输层RPC / 服务器权威 / 预测回滚 / 远端插值 / 迁移断线 / 上线验收 |
+| **配置表** | `godot/datatable/00-域流程总览.md` | 7 | 边界选型 / schema / 导入管线 / 导入期校验 / 加载索引 / 实例热重载 / 版本演进 | 模型选型 / 传输层RPC / 服务器权威 / 预测回滚 / 远端插值 / 迁移断线 / 上线验收 | 布局地基 / 数据绑定 / 文本长内容 / 菜单面板 / 焦点导航 / 大列表 / 验收 | 定义实例 / 容器 / 堆叠唯一 / 移动原子性 / 存档 / UI 绑定 / 验收 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
 
 ## 角色控制域（`godot/character/`）
 
@@ -98,6 +99,19 @@
 | 06 | [authority 迁移与断线](godot/netsync/06-authority迁移与断线.md) | 02 03 | peer_disconnected 清理 |
 | 07 | [上线验收](godot/netsync/07-上线验收.md) | 01–06 | 劣化网络 + 作弊实测 |
 
+## 配置表域（`godot/datatable/`）
+
+| # | 功能点 | 前置 | 交付物 |
+|---|---|---|---|
+| 00 | [域流程总览](godot/datatable/00-域流程总览.md) | — | 定做什么 + 拆解与依赖顺序 |
+| 01 | [配表边界与格式选型](godot/datatable/01-配表边界与格式选型.md) | 无 | 进表/留代码清单 + 数据源 |
+| 02 | [表结构与 schema 定义](godot/datatable/02-表结构与schema定义.md) | 01 | Resource 类 + ID 规范 |
+| 03 | [导入管线与常量生成](godot/datatable/03-导入管线与常量生成.md) | 02 | CSV→tres + ids.gd |
+| 04 | [导入期校验](godot/datatable/04-导入期校验.md) | 03 | 四类校验 + 阻止导入 |
+| 05 | [运行时加载与索引](godot/datatable/05-运行时加载与索引.md) | 02 03 | 只读索引 + 异步加载 |
+| 06 | [运行时实例与热重载](godot/datatable/06-运行时实例与热重载.md) | 05 | duplicate_deep + 重载策略 |
+| 07 | [版本演进与验收](godot/datatable/07-版本演进与验收.md) | 01–06 | 删行策略 + 域级总验 |
+
 ## 通用骨架（兜底）
 
 | 文件 | 用途 |
@@ -111,7 +125,6 @@
 | 优先级 | 域 | 对应 flow 文档 |
 |---|---|---|
 | 高 | UI | `howto/godot/ui.md`、`ui-advanced.md` |
-| 高 | 配置表 | `howto/godot/datatable.md` |
 | 高 | 音频管理 | `howto/godot/input-audio.md`、`audio-advanced.md` |
 | 中 | 敌人 AI | `howto/godot/ai-behavior.md`、`ai-navigation.md` |
 | 中 | 关卡流程 | `howto/godot/level-design.md` |
