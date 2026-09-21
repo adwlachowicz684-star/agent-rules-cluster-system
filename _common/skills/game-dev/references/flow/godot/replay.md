@@ -42,6 +42,97 @@
 ⚠ **输入录制记录的是固定物理 tick 的动作状态，不是原始按键事件流。**
 ⚠ **回放必须在同一 tick 率下按固定步推进** —— 帧率不同会直接跑偏。
 
+## 3.1 固定时间步：tick 是输入的横坐标
+
+⚠ 官方明确区分物理 tick 与渲染帧：`_process()` 频率随硬件和优化变化，
+同一物理逻辑在不同 tick 率下也会改变响应、碰撞与轨迹。
+⛔ 逻辑层不能把 `delta` 当输入时间、把 `_process` 调用次数当帧数。
+
+```gdscript
+const STEP_MS := 1000 / 60.0
+var accumulator_ms := 0.0
+var sim_tick := 0
+
+func _physics_process(delta: float) -> void:
+    accumulator_ms += delta * 1000.0
+    while accumulator_ms >= STEP_MS:
+        accumulator_ms -= STEP_MS
+        sim_tick += 1
+        input_port.begin_tick(sim_tick)
+        simulation.step(STEP_MS)
+        event_sink.flush(sim_tick)
+```
+
+⚠ 录制键按 `(sim_tick, actor, intent)` 存储；回放时即使某帧晚到，
+也把输入**安排到目标 tick**，⛔ 不能"现在读到就立即生效"。
+⚠ 回放要把真实时间**放大**，⛔ 不能改变模拟步长。
+
+## 3.2 ⚠ 五个确定性杀手（必须逐项关掉）
+
+**① 浮点不保证位一致** —— 跨编译器、优化、CPU 扩展精度、数学库、线程调度都会改变结果。
+核心规则用整数或定点；⛔ 禁止 fast math / FMA 等破坏承诺的优化。
+
+**② 所有参与结果的随机必须来自独立 seeded RNG。**
+⚠ 官方明确 `RandomNumberGenerator` 底层算法是**实现细节**，不能依赖跨 Godot 版本复现；
+需要长期稳定时自实现已知算法或锁死算法与版本。
+
+```gdscript
+class_name RngBank
+var combat: RandomNumberGenerator
+var spawn: RandomNumberGenerator
+var cosmetic: RandomNumberGenerator   # 表现层可本地实时随机，不参与结果
+
+func snapshot() -> Dictionary: return {"combat": combat.state, "spawn": spawn.state}
+func restore(state: Dictionary) -> void:
+    combat.state = state["combat"]
+    spawn.state = state["spawn"]
+```
+
+**③ 遍历顺序必须显式。** ⚠ 官方警告：**迭代字典时删除元素会产生不可预测行为**。
+行动顺序要用 actor ID + 阵营优先级 + 稳定副键构成**全序**，
+⛔ 不能依赖 `Dictionary`、节点创建顺序、内存地址或场景树顺序。
+
+```gdscript
+# ⛔ 错误：顺序依赖字典迭代，删除期间还修改
+for key in buffs:
+    if buffs[key].expired: buffs.erase(key)
+
+# ✅ 正确：稳定顺序 + 安全删除
+var expired := []
+for key in buffs.keys():
+    if buffs[key].expired: expired.append(key)
+for key in expired: buffs.erase(key)
+```
+
+**④ 时间源必须统一** —— 只能从 `sim_tick` 和固定 STEP 推出，
+⛔ 不用 `OS.get_ticks_msec()`、`Time.get_unix_time_from_system()`、`_process(delta)`、
+动画完成时间或音频时钟决定命中、Buff 结束、技能释放。
+
+**⑤ 外部输入必须队列化** —— 网络包、服务端命令、文件加载完成、信号回调、线程结果、UI 事件
+⛔ 不得直接改写模拟状态，要转换成**带目标 tick 的命令**。
+（网络抖动会让同一命令在不同机器不同 tick 到达，从而破坏回放。）
+
+## 3.3 跳转、校验和与存储分层
+
+⚠ **跳转要从最近检查点快照恢复**，⛔ 不能把当前渲染节点位置写回模拟器：
+先定位快照 → 恢复 seed/state 与已确认输入前缀 → 从该 tick 重新推进。
+
+⚠ **输入录制的校验和是反作弊与调试双重工具：**
+对每个 tick 或检查点算 `HMAC-SHA256(master_key, tick || sorted_entity_state || sorted_event_state)`。
+⚠ 不匹配**不必然证明作弊**，但证明确定性已破坏或文件被改动 → 拒绝竞技提交并记录证据。
+
+⚠ 存储分层：默认只存 `version + seed + compressed intents`；
+每 K tick 存一份轻量快照；每 N tick 存一次结构化事件供拖拽。
+⚠ 若允许分享，要提供"匿名化"模式，移除账号、好友、精确输入时间。
+
+## 3.4 ⚠ 跨版本不兼容是产品约束，不是实现偷懒
+
+《英雄联盟》官网明确写"录像只能在当前版本下播放"，建议剪辑成视频保存高光。
+原因**不是文件格式**，而是地图、单位、技能、平衡、碰撞、随机和配置均可能改变。
+
+✅ 必须保存 `app_version, content_version, rules_hash, stage/map_version, seed, config_digest`，
+**默认同版本才允许重演**。
+
 ## 4. MovieMaker 不是实时录屏
 
 ⚠ **`--write-movie` 是逐帧模拟 + 离线渲染**，帧节奏完美但很慢。

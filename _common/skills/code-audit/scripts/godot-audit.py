@@ -1170,6 +1170,68 @@ EXTRA_DOMAIN_RULES = [
      "出价、购买、结算等写操作用 unreliable 追求速度 —— 乱序成交、一次出价应用两次、重复扣款都是不可逆伤害",
      "全部写操作 RPC 用 reliable（保证到达与顺序）；reliable 不保证幂等，仍要配版本锁与结算令牌",
      r"(?<!un)reliable"),
+    # ---- 自动战斗/扫荡/离线挂机（GD373-GD378）----
+    ("GD373", "P0", "客户端算扫荡结果", "gd",
+     r"(?i)func\s+\w*(?:sweep|quick_battle|快速战斗|扫荡)\w*\s*\([^)]*\)",
+     "扫荡/快速战斗的胜负、掉落、奖励由客户端计算 —— 玩家可改伤害、掉率和次数，这是最直接的刷资源入口",
+     "扫荡是服务端纯函数：只保留影响产出的变量（阵容、配置版本、种子、次数、倍率、掉落规则），结果服务端算并签名",
+     r"(?:is_server|服务端|MarketService|resolve|服务端算|sweep_resolve|服务端权威)"),
+    ("GD374", "P1", "扫荡无幂等", "gd",
+     r"(?i)func\s+\w*(?:request_sweep|commit_sweep|do_sweep)\w*\s*\(",
+     "扫荡请求没有幂等键 —— 断线重发、双击、队列重试会重复发奖，重复扣体力",
+     "用 request_id + ticket_id + preview_id 做业务层幂等，奖励每一项用 source_type:source_id:player:item:seq 键，重复投递只返回首次结果",
+     r"(?:nonce|idempot|幂等|request_id|ticket|source_key|首次结果)"),
+    ("GD375", "P1", "预览与发放两套算法", "gd",
+     r"(?i)(?:preview|预览)[\s\S]{0,200}?(?:reward|掉落|奖励)",
+     "预览算一遍、发放时再算一遍 —— 玩家看到一项奖励、实际到账另一项，是最伤信任的事故",
+     "预告是服务端审批过的结果摘要：preview_id 绑定舞台/次数/配置版本/倍率/种子/快照，发放必须复用同一 preview_id 事务",
+     r"(?:preview_id|同一|复用|同一笔事务|persist|pending_batch|首次结果)"),
+    ("GD376", "P1", "离线按真实时间跑循环", "gd",
+     r"(?i)for\s+\w+\s+in\s+range\s*\([^)]*(?:offline|离线|elapsed|seconds)[^)]*\)",
+     "离线期间按真实时间循环跑战斗 —— N 个离线玩家线性放大 CPU，且重启、扩容、补算、跨日活动会重复或遗漏",
+     "按结算锚点一次性分段推导：elapsed = clamp(now - last_settled_at, 0, CAP)，锚点只推进已结算部分，余数留在区间里",
+     r"(?:last_settled_at|锚点|anchor|分段|segment|一次性|clamp)"),
+    ("GD377", "P1", "离线用本地时间", "gd",
+     r"(?i)(?:OS\.get_(?:unix_)?time|Time\.get_unix_time_from_system|get_datetime_from_system)[\s\S]{0,120}?(?:offline|离线)",
+     "离线时长读设备系统时间 —— 改系统时间直接刷资源，且后台进程被杀、热改变规则",
+     "离线时长必须服务端 now 与锚点计算；客户端不得根据本地时间算离线了多久",
+     r"(?:is_server|服务端|server_now|服务端时间|服务端\s*now)"),
+    ("GD378", "P1", "自动AI读取隐藏信息", "gd",
+     r"(?i)func\s+choose_intent\w*\s*\([^)]*\)[\s\S]{0,300}?(?:enemy\.\w*(?:hp|intent|plan)|\.intent_next|_debug|hidden)",
+     "自动战斗 AI 读取玩家看不到的信息（隐藏血量、行动计划、调试接口）—— 托管客观强于手动，把一键托管变成隐性强制",
+     "AI 只持有 Observation：可见血量区间、可见目标、自己技能 CD、自己能合法知道的状态；与玩家消费同一 Intent 接口",
+     r"(?:observation|可见|visible|可见性|同\s*Intent|玩家可见)"),
+    # ---- 外观与个性化（GD379-GD384）----
+    ("GD379", "P0", "外观与装备共用一个实例", "gd",
+     r"(?i)(?:set_appearance|apply_skin|换装|equip_cosmetic)\s*\([^)]*(?:equip|装备)\w*\s*[,)]",
+     "外观直接复用装备实例 —— 装备被交易、分解、回滚后同一引用连带影响已展示时装，客户端缓存也会失控",
+     "外观存为独立模板 ID + 实例 ID，建立服务端映射表；Godot 侧只从外观实例读显示什么，从服务端签名的战斗快照读数值",
+     r"(?:appearance_instance|外观实例|instance_id|template_id|独立|映射表|分离)"),
+    ("GD380", "P0", "客户端决定称号", "gd",
+     r"(?i)(?:set_title|设置称号|title_id\s*=)[\s\S]{0,80}?(?!.*(?:rpc|服务端|server))",
+     "称号由客户端本地设置 —— 可伪造内部称号 ID，冒充 GM 或客服，是权限伪造与社会工程攻击入口",
+     "服务端签发白名单、拥有状态与展示签名；客户端不保存内部称号枚举，只保存可展示文本与脱敏 UI 标记",
+     r"(?:rpc|服务端|server|签名|signature|白名单|whitelist)"),
+    ("GD381", "P1", "染色改共享材质", "gd",
+     r"(?i)(?:\.set_shader_parameter\s*\(|\.albedo_color\s*=|material\.set)\s*[^\n]*(?!.*instance)",
+     "直接写共享 Material/ShaderMaterial 参数做染色 —— 一个玩家的染色会污染所有同材质对象（duplicate 默认浅拷贝，子资源仍共享）",
+     "用 make_instance_material() + set_surface_override_material() 建实例材质，只有 Shader 和只读纹理共享；颜色只写实例参数",
+     r"(?:instance|set_surface_override_material|make_instance_material|resource_local_to_scene|实例材质)"),
+    ("GD382", "P1", "换网格无骨骼校验", "gd",
+     r"(?i)\.mesh\s*=\s*\w+",
+     "直接赋 mesh 却不校验骨骼层级、Bone Rest 与 Skin —— 骨骼同名也不代表动画能共用，会 T-pose、手脚漂移、披风错挂",
+     "换网格前校验骨架兼容指纹（骨骼名集合、父子层级、Bone Rest、Skin 绑定、挂点），失败时回退上一组已验证外观",
+     r"(?:bone_profile|骨架指纹|Skeleton3D|\.skeleton\s*=|\.skin\s*=|BoneAttachment|bone_map)"),
+    ("GD383", "P1", "坐骑皮肤改移速或碰撞", "gd",
+     r"(?i)(?:skin|皮肤)[\s\S]{0,120}?(?:speed|velocity|移速|collision|碰撞)",
+     "坐骑皮肤携带移速、碰撞或技能参数 —— 外观一旦有数值优势就不再是「无属性付费」，付费平衡承诺失效",
+     "坐骑皮肤只访问渲染层和附件层，不接触移速、碰撞和技能；用能力模板，丢弃皮肤自带的移动/碰撞参数",
+     r"(?:能力模板|ability_template|丢弃|不接触|渲染层|cosmetic_only|仅外观)"),
+    ("GD384", "P1", "外观加载无回退", "gd",
+     r"(?i)ResourceLoader\.load_threaded_request\s*\(",
+     "外观异步加载没有默认外观、超时、令牌与取消路径 —— 资源缺失会让玩家永久裸模，旧加载完成还会覆盖新选择",
+     "默认外观采用零外部依赖资源（回退路径自身不能依赖网络）；请求带 slot_version 或令牌，有超时与等待列表，失败回退默认",
+     r"(?:apply_default|默认外观|timeout|超时|令牌|token|slot_version|cancel|回退)"),
 ]
 
 DOMAIN_RULES = [
@@ -3703,6 +3765,101 @@ func find_match(p) -> int:
     return mmr_rating(p) + role_fit(p)
 '''
 
+SELF_AB1_BAD = '''extends Node
+
+func do_sweep(stage, count) -> void:
+    var win = power > 1000
+    wallet.add(gold * count)
+    inventory.add(drop_random())
+
+func request_sweep(stage) -> void:
+    do_sweep(stage, 10)
+
+func preview_sweep(stage) -> void:
+    var reward = estimate(stage)
+    show(reward)
+
+func settle_offline(seconds) -> void:
+    for i in range(offline_seconds):
+        do_battle()
+
+func calc_gain() -> float:
+    var t = OS.get_unix_time()
+    var offline_gain = t - last_time
+    return offline_gain
+
+func choose_intent(actor) -> int:
+    if enemy.intent_next == ATTACK: return GUARD
+    return combat._debug.next_move()
+
+func set_appearance(equip_inst) -> void:
+    mesh_inst.mesh = equip_inst.mesh
+
+func set_title(id: int) -> void:
+    title_label.text = TITLES[id]
+
+func tint(mat: Material, c: Color) -> void:
+    mat.albedo_color = c
+
+func swap_mesh(m: Mesh) -> void:
+    mesh_inst.mesh = m
+
+func apply_horse_skin(skin) -> void:
+    speed = skin.speed
+
+func load_skin(path) -> void:
+    ResourceLoader.load_threaded_request(path)
+'''
+
+SELF_AB1_CLEAN = '''extends Node
+
+func request_sweep(stage_id: int, nonce: String) -> void:
+    if not multiplayer.is_server(): return
+    SweepService.resolve(stage_id, nonce, request_id)
+
+func commit_sweep(preview_id: String, ticket_id: String) -> void:
+    if idempotency.committed(ticket_id): return cached_first_result
+
+func persist_preview(pid) -> void:
+    pending_batch.save(pid, version, seed, multipliers)
+
+func settle_offline(last_settled_at: int) -> void:
+    var cut = clamp(server_now - last_settled_at, 0, CAP)
+    last_settled_at = now
+
+func check_offline() -> float:
+    return server_now - last_settled_at
+
+func choose_intent(actor, observation) -> int:
+    if observation.visible_threat > 0.5: return GUARD
+    return BASIC_ATTACK
+
+func set_appearance(instance_id: int, template_id: int) -> void:
+    var t = server_map.lookup(instance_id, template_id)
+    mesh_inst.mesh = t.mesh
+
+@rpc("authority", "reliable")
+func set_title(id: int) -> void:
+    if not signature.valid(id): return
+
+func tint(mat: Material, c: Color) -> void:
+    var inst = make_instance_material(mat)
+    inst.albedo_color = c
+
+func swap_mesh(m: Mesh) -> void:
+    if not bone_profile.matches(m): return
+    mesh_inst.mesh = m
+    mesh_inst.skeleton = skel_path
+
+func apply_horse_skin(skin) -> void:
+    var tmpl = ability_template.get(skin.type)
+    mesh_inst.mesh = skin.mesh
+
+func load_skin(path) -> void:
+    ResourceLoader.load_threaded_request(path)
+    if timeout: apply_default(slot, target)
+'''
+
 SELF_OPS9_BAD = '''extends Node
 
 func buy(listing, price) -> void:
@@ -4274,7 +4431,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN, 'ops9.gd': SELF_OPS9_BAD, 'ops9ok.gd': SELF_OPS9_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN, 'ops9.gd': SELF_OPS9_BAD, 'ops9ok.gd': SELF_OPS9_CLEAN, 'ab1.gd': SELF_AB1_BAD, 'ab1ok.gd': SELF_AB1_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4558,6 +4715,11 @@ def self_test() -> int:
             check(rid in ids('ops9.gd'), 'ops9.gd 命中 %s' % rid)
         for rid in ('GD365', 'GD366', 'GD367', 'GD368', 'GD369', 'GD370', 'GD371', 'GD372'):
             check(rid not in ids('ops9ok.gd'), 'ops9ok.gd 不报 %s' % rid)
+        # ---- 自动战斗/扫荡 与 外观与个性化（GD373-GD384）----
+        for rid in ('GD373', 'GD374', 'GD375', 'GD376', 'GD377', 'GD378', 'GD379', 'GD380', 'GD381', 'GD382', 'GD383', 'GD384'):
+            check(rid in ids('ab1.gd'), 'ab1.gd 命中 %s' % rid)
+        for rid in ('GD373', 'GD374', 'GD375', 'GD376', 'GD377', 'GD378', 'GD379', 'GD380', 'GD381', 'GD382', 'GD383', 'GD384'):
+            check(rid not in ids('ab1ok.gd'), 'ab1ok.gd 不报 %s' % rid)
 
 
 
