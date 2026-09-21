@@ -2,7 +2,7 @@
 # sharding-matchmaking — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/sharding-matchmaking.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/sharding-matchmaking.md`
 
 ⚠ **一句话**：合服是**带在线写入的全局状态迁移** —— 停服只是把问题简化成离线迁移；
 真正难的不是搬数据，而是**证明每一行资产、关系、引用与业务语义都对得上**，且失败时能退回已知安全点。

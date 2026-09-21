@@ -2,7 +2,7 @@
 # stealth-ai — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/stealth-ai.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/stealth-ai.md`
 >
 > 边界：本篇是**感知之上的玩法层**。感知机制本身见 `audit/godot/ai-perception.md`。
 
