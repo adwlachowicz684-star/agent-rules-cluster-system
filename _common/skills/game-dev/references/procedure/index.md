@@ -1,0 +1,52 @@
+# 功能点总索引（Godot 4.x）
+
+> 用法：找到你的域 → 打开 `00-域流程总览.md` → 按依赖顺序做功能点。
+> 每个功能点做完验收通过，才进下一个。
+
+## 已铺域
+
+| 域 | 入口 | 功能点数 | 覆盖 |
+|---|---|---:|---|
+| **角色控制** | `godot/character/00-域流程总览.md` | 6 | 移动基座 / 跳跃手感 / 相机跟随 / 输入映射 / 动画接入 / 手感验收 |
+| **存档** | `godot/save/00-域流程总览.md` | 6 | 结构设计 / 读写落盘 / 加密完整性 / 迁移 / 云存档 / 全链路验收 |
+
+## 角色控制域（`godot/character/`）
+
+| # | 功能点 | 前置 | 交付物 |
+|---|---|---|---|
+| 00 | [域流程总览](godot/character/00-域流程总览.md) | — | 拆解与依赖顺序 |
+| 01 | [移动基座](godot/character/01-移动基座.md) | 无 | 能跑能撞墙的角色 |
+| 02 | [跳跃手感](godot/character/02-跳跃手感.md) | 01 | 土狼时间/缓冲/可变高度 |
+| 03 | [相机跟随](godot/character/03-相机跟随.md) | 01 | 不抖不穿墙的相机 |
+| 04 | [输入映射](godot/character/04-输入映射.md) | 01 | 可重绑定的输入层 |
+| 05 | [动画接入](godot/character/05-动画接入.md) | 01 02 | 动作与状态对上 |
+| 06 | [手感验收](godot/character/06-手感验收.md) | 01–05 | 可签核的验收报告 |
+
+## 存档域（`godot/save/`）
+
+| # | 功能点 | 前置 | 交付物 |
+|---|---|---|---|
+| 00 | [域流程总览](godot/save/00-域流程总览.md) | — | 拆解与依赖顺序 |
+| 01 | [存档结构设计](godot/save/01-存档结构设计.md) | 无 | 带版本头的数据结构 |
+| 02 | [读写与原子落盘](godot/save/02-读写与原子落盘.md) | 01 | 断电不坏的存档 |
+| 03 | [加密与完整性](godot/save/03-加密与完整性.md) | 02 | 防改档 + 能发现损坏 |
+| 04 | [存档迁移](godot/save/04-存档迁移.md) | 01 02 | 版本链式升级 |
+| 05 | [云存档接入](godot/save/05-云存档接入.md) | 02 03 | 多端同步与冲突策略 |
+| 06 | [全链路验收](godot/save/06-全链路验收.md) | 01–05 | 可签核的验收报告 |
+
+## 待铺域（按优先级）
+
+⚠ 以下域**尚未铺 procedure**，需要时先补再开发，⛔ 不要凭记忆开工。
+
+| 优先级 | 域 | 对应 flow 文档 |
+|---|---|---|
+| 高 | UI | `flow/godot/ui.md`、`ui-advanced.md` |
+| 高 | 背包与物品 | `flow/godot/game-systems.md`、`economy.md` |
+| 高 | 战斗结算 | `flow/godot/combat.md` |
+| 高 | 网络同步 | `flow/godot/multiplayer.md`、`netsync-advanced.md` |
+| 高 | 配置表 | `flow/godot/datatable.md` |
+| 高 | 音频管理 | `flow/godot/input-audio.md`、`audio-advanced.md` |
+| 中 | 敌人 AI | `flow/godot/ai-behavior.md`、`ai-navigation.md` |
+| 中 | 关卡流程 | `flow/godot/level-design.md` |
+| 中 | 存档之外的持久化 | `flow/godot/cloud-save.md` |
+

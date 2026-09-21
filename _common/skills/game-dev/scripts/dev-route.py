@@ -1022,6 +1022,77 @@ def cmd_self_test():
         chk(not _missing, '流程侧各域都有指向审核部分（缺 %d: %s）'
             % (len(_missing), _missing[:3]))
 
+    # 工序层 procedure/ 的一致性：铺开后最容易退化的是"模板缺节"和"索引断链"。
+    # ⚠ 这两类问题不会报错——文件在、链接也在，但按它开发会漏掉验收环节。
+    _proc = _os.path.join(_skill, 'references', 'procedure')
+    chk(_os.path.isdir(_proc), '工序层 procedure/ 目录存在')
+    if _os.path.isdir(_proc):
+        # ⚠ 三类文件套三种模板，⛔ 不能一刀切：
+        #   00-总览 是入口（没有参考实现），*-验收 是验收步（同样没有），
+        #   其余才是功能点（七节齐全）。早期一刀切把前两类误判为缺节。
+        _REQ_FP = ['## 0.', '## 1. 前置检查清单', '## 2. 工序',
+                   '## 3. 参考实现', '## 4. 验收清单', '## 5. 常见返工', '## 6. 下一步']
+        _REQ_ENTRY = ['## 0.', '## 1. 功能点拆解']
+        _REQ_ACCEPT = ['## 0.', '## 2. 工序', '## 3. 验收清单']
+        _bad = []
+        _n_fp = _n_entry = _n_acc = 0
+        for _root, _dirs, _files in _os.walk(_proc):
+            for _f in sorted(_files):
+                if not _f.endswith('.md'):
+                    continue
+                # ⓘ README.md 与 index.md 是层说明/索引，不是功能点，跳过模板校验
+                if _f in ('README.md', 'index.md'):
+                    continue
+                _txt = open(_os.path.join(_root, _f), encoding='utf-8').read()
+                if _f.startswith('00-'):
+                    _req, _n_entry, _kind = _REQ_ENTRY, _n_entry + 1, '总览'
+                elif '验收' in _f:
+                    _req, _n_acc, _kind = _REQ_ACCEPT, _n_acc + 1, '验收'
+                else:
+                    _req, _n_fp, _kind = _REQ_FP, _n_fp + 1, '功能点'
+                _miss = [h for h in _req if h not in _txt]
+                if _miss:
+                    _bad.append('%s(%s) 缺 %s' % (_f, _kind, _miss[:2]))
+        chk(not _bad, '工序文件按类型模板齐全（缺 %d: %s）' % (len(_bad), _bad[:2]))
+        chk(_n_fp >= 10, '工序功能点数 ≥10（当前 %d）' % _n_fp)
+        chk(_n_entry >= 2, '域总览入口 ≥2（当前 %d）' % _n_entry)
+
+        # 每个域都要有 00-域流程总览（入口），否则调用方不知道从哪开始
+        _no_entry = []
+        for _d in sorted(_os.listdir(_proc)):
+            _dd = _os.path.join(_proc, _d)
+            if not _os.path.isdir(_dd):
+                continue
+            for _eng in sorted(_os.listdir(_dd)):
+                _ed = _os.path.join(_dd, _eng)
+                if not _os.path.isdir(_ed):
+                    continue
+                if not any(f.startswith('00-') for f in _os.listdir(_ed)):
+                    _no_entry.append('%s/%s' % (_d, _eng))
+        chk(not _no_entry, '每个域都有 00-域流程总览（缺 %s）' % _no_entry[:2])
+
+        # index.md 里的链接必须真实存在 —— 断链时用户点进去是 404
+        _idx = _os.path.join(_proc, 'index.md')
+        if _os.path.exists(_idx):
+            _itxt = open(_idx, encoding='utf-8').read()
+            _links = re.findall(r'\]\(([^)]+\.md)\)', _itxt)
+            _broken = [l for l in _links
+                       if not _os.path.exists(_os.path.join(_proc, l))]
+            chk(not _broken, 'procedure/index.md 链接无断链（断 %d: %s）'
+                % (len(_broken), _broken[:2]))
+            chk(len(_links) >= 10, 'procedure/index.md 索引条目 ≥10（当前 %d）' % len(_links))
+
+        # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
+        _no_ref = []
+        for _root, _dirs, _files in _os.walk(_proc):
+            for _f in sorted(_files):
+                if _f in ('README.md', 'index.md') or not _f.endswith('.md'):
+                    continue
+                _txt = open(_os.path.join(_root, _f), encoding='utf-8').read()
+                if 'flow/godot/' not in _txt and 'audit/godot/' not in _txt:
+                    _no_ref.append(_f)
+        chk(not _no_ref, '工序文件都指向 flow/ 或 audit/（缺 %s）' % _no_ref[:2])
+
     # 环境系统 不被旧域抢走（网络同步进阶是既有域，不新建）
     for need, want in (('水面', '环境系统'), ('浮力', '环境系统'), ('天空', '环境系统'),
                        ('昼夜循环', '环境系统'), ('天气', '环境系统')):
