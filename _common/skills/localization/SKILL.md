@@ -17,7 +17,7 @@ description: 本地化与国际化（i18n / l10n）工作流。覆盖多语言�
 | **流程 / 管理** | **本 skill** | 翻译流程、文案管理、术语表、QA、协作、版本同步 |
 | **技术实现** | 各开发技能 | `tr()` / `TranslationServer` / CSV 导入 / 字体回退 / RTL |
 
-**引擎侧的写法已经落地在** `game-dev/references/godot/i18n.md`（Godot 4.x）。
+**引擎侧的写法已经落地在** `game-dev/references/howto/godot/i18n.md`（Godot 4.x）。
 那边只讲"怎么接、怎么切、怎么打包"，不讲"文案怎么管、翻译怎么验收"。
 
 ⚠ 两边不要重复写。改引擎 API 去开发技能，改流程来这里。
@@ -50,7 +50,7 @@ localization/
 
 内容未填充前，遇到本地化需求：
 
-1. **技术实现** → 直接去 `game-dev/references/godot/i18n.md`
+1. **技术实现** → 直接去 `game-dev/references/howto/godot/i18n.md`
 2. **流程类问题** → 如实说明本 skill 尚在填充，并给出最小可行做法
    （先定 Key 规范 + 单一 CSV 源 + 伪翻译自测，这三条能挡住 80% 的坑）
 3. **不要编造流程** —— 空着比写错好，写错的流程会被当标准执行

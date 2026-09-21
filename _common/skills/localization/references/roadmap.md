@@ -59,7 +59,7 @@
 
 技术实现（引擎 API 层）**不在本 skill 重复写**：
 
-- Godot 4.x → `game-dev/references/godot/i18n.md`
+- Godot 4.x → `game-dev/references/howto/godot/i18n.md`
 - 其它引擎 → 各开发技能对应文件
 
 本 skill 引用它们，不复制。改引擎 API 去开发技能改。

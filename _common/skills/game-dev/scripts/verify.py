@@ -52,7 +52,11 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                    # game-dev/
-DOCS = os.path.join(ROOT, 'references', 'godot')
+# 流程与审核两部分都要扫（待核对项可能写在任一侧）
+DOCS_FLOW = os.path.join(ROOT, 'references', 'flow', 'godot')
+DOCS_AUDIT = os.path.join(ROOT, 'references', 'audit', 'godot')
+DOCS = DOCS_FLOW
+DOCS_ALL = [d for d in (DOCS_FLOW, DOCS_AUDIT) if os.path.isdir(d)]
 STATE_PATH = os.path.join(ROOT, '.verify-state.json')
 
 # 标记：⚠ 待核对：xxx · 验证：yyy
