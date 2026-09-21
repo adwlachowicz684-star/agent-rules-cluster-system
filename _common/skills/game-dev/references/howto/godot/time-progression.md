@@ -216,15 +216,12 @@ last_settled_at += cycles * restore_interval_ms   # 余数留在区间
 
 ## 10. 待核对项（运行时验证）
 
-⚠ 待核对：4.7.2 下 `Time` 三个 API 的返回类型与单调性保证 ·
-验证：目标版本实测 `get_unix_time_from_system()`（float，有尾误差）与
+⚠ 待核对：4.7.2 下 `Time` 三个 API 的返回类型与单调性保证 · 验证：目标版本实测 `get_unix_time_from_system()`（float，有尾误差）与
 `get_ticks_msec()`（int64）的边界，本轮按官方文档书写
 
-⚠ 待核对：封顶时长与体力参数取值 ·
-验证：本报告 4–24 小时是行业区间，**不是本项目设计值**，须由数值策划重标
+⚠ 待核对：封顶时长与体力参数取值 · 验证：本报告 4–24 小时是行业区间，**不是本项目设计值**，须由数值策划重标
 
-⚠ 待核对：`NOTIFICATION_APPLICATION_PAUSED` 在各平台的实际可用时长 ·
-验证：真机实测 iOS 约 5 秒限制下的持久化耗时
+⚠ 待核对：`NOTIFICATION_APPLICATION_PAUSED` 在各平台的实际可用时长 · 验证：真机实测 iOS 约 5 秒限制下的持久化耗时
 
 ## 11. 相关文档
 

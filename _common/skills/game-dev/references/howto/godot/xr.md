@@ -61,8 +61,7 @@ elif not ctrl.has_tracking_data or ctrl.tracking_confidence < CONF_THRESHOLD:
 ```
 
 ⚠ **`has_tracking_data` 是布尔，不能表达"可信度"** ——
-需要分级还必须看 `tracking_confidence`（待核对：目标 OpenXR 运行时是否上报该值 ·
-验证：真机将被遮挡/移出版图时的返回值打日志）。
+需要分级还必须看 `tracking_confidence`（⚠ 待核对：目标 OpenXR 运行时是否上报该值 · 验证：真机将被遮挡/移出版图时的返回值打日志）。
 
 ⛔ **推论**：任何"手的位置驱动玩法"的逻辑，
 都要有"位姿不可信"的降级路径（暂停交互 / 保持上一有效姿态 / 提示玩家），

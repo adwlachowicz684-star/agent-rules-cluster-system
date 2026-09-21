@@ -53,7 +53,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                    # game-dev/
 # 流程与审核两部分都要扫（待核对项可能写在任一侧）
-DOCS_FLOW = os.path.join(ROOT, 'references', 'flow', 'godot')
+# ⚠ 迁移：原 flow/godot/（做法层，按域分文件）已改名 howto/godot/。
+#   改名后 flow/ 下是**功能点子目录**，不再有直接的 .md，
+#   os.listdir() 过滤 .md 会得到空列表 → 收集到 0 条而**不报错**。
+#   ⛔ 这是"路径失效静默变成空结果"的典型：脚本正常退出，只是什么都没找到。
+DOCS_FLOW = os.path.join(ROOT, 'references', 'howto', 'godot')
 DOCS_AUDIT = os.path.join(ROOT, 'references', 'audit', 'godot')
 DOCS = DOCS_FLOW
 DOCS_ALL = [d for d in (DOCS_FLOW, DOCS_AUDIT) if os.path.isdir(d)]
@@ -90,6 +94,11 @@ def collect():
     if not os.path.isdir(DOCS):
         return items
     files = sorted(f for f in os.listdir(DOCS) if f.endswith('.md'))
+    if not files:
+        # ⚠ 目录存在却没有 md：说明路径指错了层（如上一次的迁移遗漏）。
+        #   ⛔ 静默返回 0 条会让整套待核对机制形同虚设，必须显式报出。
+        print('⚠ %s 下没有 .md 文件，待核对项收集为空（路径可能指错层）' % DOCS,
+              file=sys.stderr)
     for order, fn in enumerate(files, 1):
         path = os.path.join(DOCS, fn)
         with open(path, encoding='utf-8', errors='replace') as fh:

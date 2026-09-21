@@ -1061,6 +1061,25 @@ def cmd_self_test():
                           '：%d 个问题 %s' % (len(_bad), _bad[:2]))
         except Exception as _e2:     # ⓘ 检查器自身出错不应静默放行
             chk(False, '全局层索引检查器可运行（%s）' % _e2)
+        # ⚠ 待核对机制必须真的能收集到条目。
+        #   上一次迁移把 flow/godot → howto/godot，而 verify.py 里仍是旧路径：
+        #   目录存在但没有 .md → 收集到 0 条而**不报错**，整套机制形同虚设。
+        #   ⛔ 这类"路径失效静默变成空结果"必须靠"结果数 > 0"来兜，
+        #      只检查"脚本能跑通"是查不出来的。
+        try:
+            _sp3 = _ilu2.spec_from_file_location(
+                '_vfy', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'verify.py'))
+            _vf = _ilu2.module_from_spec(_sp3)
+            _sp3.loader.exec_module(_vf)
+            _n = len(_vf.collect())
+            chk(_n > 0, '待核对机制能收集到条目（当前 %d 条；0 条说明扫描路径指错层）' % _n)
+            _nohow = _vf.collect_nohow()
+            chk(not _nohow,
+                '所有待核对项都写了验证方法（缺 %d: %s）'
+                % (len(_nohow), [x['claim'][:20] for x in _nohow[:2]]))
+        except Exception as _e3:     # ⓘ 检查器自身出错不应静默放行
+            chk(False, '待核对项检查器可运行（%s）' % _e3)
         # common.md 必须指向全局块，否则它是个没人能到达的孤岛
         _cm = os.path.join(_skill, 'references', 'common.md')
         if os.path.isfile(_cm):
