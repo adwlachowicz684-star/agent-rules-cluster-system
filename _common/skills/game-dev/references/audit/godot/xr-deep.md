@@ -2,7 +2,7 @@
 # xr-deep — 反模式清单（审核用）
 
 > 本文件**只写「不能怎么做」**，用于流程结束后审核自己的产出、约束边界。
-> 「怎么做」见同 skill 的流程部分：`flow/godot/xr-deep.md`
+> 「怎么做」见同 skill 的流程部分：`howto/godot/xr-deep.md`
 
 ## 常见坑
 
