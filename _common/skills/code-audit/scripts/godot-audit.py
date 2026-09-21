@@ -1129,6 +1129,47 @@ EXTRA_DOMAIN_RULES = [
      "客户端通过 RPC 上报「我打中了 X，扣 Y 血」—— 命中、伤害、穿透与部位完全可被伪造，这是射击类最严重的作弊入口",
      "客户端只提交 input_time + seed + origin + aim；服务端验证发送者/武器/时间/弹药/冷却/位置/方向后自行 resolver 判定，再下发 on_shot_confirmed",
      r"(?:authority|服务端|server_?side|validate|校验|_is_valid|build_authoritative|权威)"),
+    # ---- 玩家交易/拍卖行（GD365-GD372）----
+    ("GD365", "P0", "客户端决定成交价", "gd",
+     r'(?i)rpc\s*\(\s*"[^"]*(?:confirm|purchase|buy|成交)[^"]*"[^)]*(?:price|gold|价格|金额)',
+     "客户端把算好的成交价通过 RPC 上报 —— 允许改价、零元购、负数税，这是交易系统最严重的作弊入口",
+     "服务端从最新挂单重新读取价格并校验版本；返回结构只放服务端算出的价格/税/余额哈希/状态/错误码，绝不返回「已成交，请客户端扣款」",
+     r"(?:is_server|服务端|MarketService|authority|服务端算|重新读取|重读)"),
+    ("GD366", "P0", "上架未托管物品", "gd",
+     r"(?i)(?:create_listing|market\.add|上架|挂单)",
+     "上架后物品仍在背包、等成交时才检查 —— 卖家可继续装备、销毁、邮寄或再次挂单，造成双卖与重复销毁",
+     "上架那一刻就把实例移入市场托管（escrow.place + mark_market_listed），让实例同时只有一个权威位置",
+     r"(?:escrow|托管|mark_market_listed|移出背包|暂存|ESCROW)"),
+    ("GD367", "P1", "购买与竞价无幂等", "gd",
+     r"(?i)func\s+\w*(?:buy|buyout|bid)\w*\s*\(",
+     "购买/竞价没有幂等键 —— 玩家连点、断线重发、服务端重试会让同一请求成交两次，重复扣款不可逆",
+     "每个客户端请求带唯一 nonce，服务端用会话+玩家+操作+挂单版本+请求哈希生成 idempotency_key，配结算令牌防重",
+     r"(?:nonce|idempot|幂等|token|令牌|request_id|唯一键)"),
+    ("GD368", "P1", "成交无延迟到账", "gd",
+     r"(?i)(?:on_deal_done|成交|settle|结算)\w*\s*\(",
+     "货款立即到账、附件立即可领、物品立即可再卖 —— 盗号者最优路径是登录→批量挂单→低价扫给同伙→转服，而二次密码等只提高门槛、不能撤销已完成盗窃",
+     "高价值资产分级延迟到账（热更新策略表，不追溯旧订单），延迟结束进入可领取状态由玩家主动领取并复查封禁/所有权/上限",
+     r"(?:delay|延迟|schedule_delayed|到账|冻结|hold|保护|领取)"),
+    ("GD369", "P1", "撤销只回滚货币", "gd",
+     r"(?i)func\s+(?:rollback|undo|撤销)\w*\s*\(",
+     "撤销只把货币加回去 —— 盗号成交后买家可能已把货款用于强化或转给第三人，只追回货币无法恢复装备，且关联转移未冻结",
+     "撤销全有或全无：同时回滚物品、货币、税与关联转移，按实例快照恢复而非只看当前余额；无法回滚时走独立系统账人工补偿",
+     r"(?:snapshot|快照|restore_from_snapshot|before_balance|全有或全无|回滚物品)"),
+    ("GD370", "P1", "绑定只检查布尔", "gd",
+     r"(?i)(?:\.bound\b|is_bound|\bbound\b|绑定)",
+     "只检查 is_bound 布尔 —— 会漏掉「绑定于 A、本应不可转、却被客户端改成可交易」的篡改，绑定物品被洗白",
+     "绑定是迁移函数的输入：用 trade_policy 按实例 bind_state + origin 每次重新求值（ALLOWED/DENIED/CONVERT/DELAYED），快照随审计保存，回滚按快照恢复",
+     r"(?:trade_policy|bind_state|快照|origin|evaluate|策略)"),
+    ("GD371", "P1", "交易日志只写结果", "gd",
+     r"(?i)(?:log_trade|记录交易|交易日志)",
+     "交易日志只写「A 给 B 1000 金」—— 没有前后余额、实例快照、绑定、税、挂单版本，误扣误发后无法定责与回滚",
+     "每次状态迁移写两个事件：DECISION 存校验结果与策略版本，EFFECT 存转移后余额与库存版本；撤销另建 REVERSAL_REQUEST/EFFECT",
+     r"(?:DECISION|EFFECT|snapshot|快照|policy_version|audit|前后余额)"),
+    ("GD372", "P1", "写操作 RPC 用不可靠传输", "gd",
+     r"(?i)@rpc\s*\([^)]*unreliable[^)]*\)[\s\S]{0,120}?func\s+\w*(?:bid|buy|settle|purchase|transfer|trade)\w*\s*\(",
+     "出价、购买、结算等写操作用 unreliable 追求速度 —— 乱序成交、一次出价应用两次、重复扣款都是不可逆伤害",
+     "全部写操作 RPC 用 reliable（保证到达与顺序）；reliable 不保证幂等，仍要配版本锁与结算令牌",
+     r"(?<!un)reliable"),
 ]
 
 DOMAIN_RULES = [
@@ -3662,6 +3703,64 @@ func find_match(p) -> int:
     return mmr_rating(p) + role_fit(p)
 '''
 
+SELF_OPS9_BAD = '''extends Node
+
+func buy(listing, price) -> void:
+    wallet.gold -= price
+    inventory.add(listing.item)
+    rpc("confirm_purchase", listing.id, price)
+
+func create_listing(item, price) -> void:
+    market.add(item, price)
+
+func on_deal_done(trade) -> void:
+    wallet.gold += trade.price
+
+func rollback(trade) -> void:
+    wallet.gold += trade.price
+
+func can_trade(item) -> bool:
+    return not item.bound
+
+func log_trade(a, b, gold) -> void:
+    print("trade %d -> %d : %d" % [a, b, gold])
+
+@rpc("any_peer", "unreliable")
+func place_bid(id: int, amount: int) -> void:
+    bids.append(amount)
+'''
+
+SELF_OPS9_CLEAN = '''extends Node
+
+@rpc("any_peer", "reliable")
+func request_buyout(listing_id: int, nonce: String) -> void:
+    if not multiplayer.is_server(): return
+    MarketService.on_buyout(peer_id, listing_id, nonce, request_id)
+
+func request_listing(inst_id: int, qty: int, price: int, idem: String) -> void:
+    escrow.place(inst_id, qty)
+    inventory.mark_market_listed(inst_id)
+
+func settle(token: String) -> void:
+    if not settlement_token.consume(token): return
+    schedule_delayed_settlement(trade, delay_policy)
+
+func rollback(trade) -> void:
+    restore_from_snapshot(trade.item_snapshot)
+    restore_currency(trade.before_balance)
+
+func can_trade(item) -> bool:
+    return trade_policy.evaluate(item.bind_state, item.origin)
+
+func log_trade(a, b, gold) -> void:
+    audit.write(DECISION, snapshot_before, price, policy_version)
+    audit.write(EFFECT, snapshot_after, balance_after)
+
+@rpc("any_peer", "reliable")
+func request_bid(id: int, amount: int, nonce: String) -> void:
+    if not multiplayer.is_server(): return
+'''
+
 SELF_OPS8_BAD = '''extends Node2D
 
 var alerted := false
@@ -4175,7 +4274,7 @@ def self_test() -> int:
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
-            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN,
+            'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN, 'ops9.gd': SELF_OPS9_BAD, 'ops9ok.gd': SELF_OPS9_CLEAN,
             'v47.gd': SELF_V47_BAD, 'v47ok.gd': SELF_V47_CLEAN,
             'net.gd': SELF_NET_BAD, 'netok.gd': SELF_NET_CLEAN,
             'awt.gd': SELF_AWT_BAD, 'awtok.gd': SELF_AWT_CLEAN,
@@ -4454,6 +4553,11 @@ def self_test() -> int:
             check(rid in ids('ops8.gd'), 'ops8.gd 命中 %s' % rid)
         for rid in ('GD357', 'GD358', 'GD359', 'GD360', 'GD361', 'GD362', 'GD363', 'GD364'):
             check(rid not in ids('ops8ok.gd'), 'ops8ok.gd 不报 %s' % rid)
+        # ---- 玩家交易/拍卖行（GD365-GD372）----
+        for rid in ('GD365', 'GD366', 'GD367', 'GD368', 'GD369', 'GD370', 'GD371', 'GD372'):
+            check(rid in ids('ops9.gd'), 'ops9.gd 命中 %s' % rid)
+        for rid in ('GD365', 'GD366', 'GD367', 'GD368', 'GD369', 'GD370', 'GD371', 'GD372'):
+            check(rid not in ids('ops9ok.gd'), 'ops9ok.gd 不报 %s' % rid)
 
 
 
