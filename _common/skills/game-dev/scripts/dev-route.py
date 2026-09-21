@@ -1140,6 +1140,28 @@ def cmd_self_test():
         chk(not _no_read, '功能点有【读】howto 锚点（缺 %s）' % _no_read[:2])
         chk(not _no_audit_sec, '功能点有整体审核节（两级审核）（缺 %s）' % _no_audit_sec[:2])
 
+        # ⚠ 【读】锚点必须真实存在。这一条是框架的核心收益——
+        #   "流程告诉你读哪一段"只有在锚点没写错时才成立。
+        #   写错章节名不报错、不崩溃，只会让人读到错误的地方，是最隐蔽的退化。
+        _badref = []
+        for _root2, _d2, _f2 in _os.walk(_proc):
+            for _fn in sorted(_f2):
+                if not _fn.endswith('.md') or _fn.startswith('_'):
+                    continue
+                _txt = open(_os.path.join(_root2, _fn), encoding='utf-8').read()
+                for _m in re.finditer(r'【读】`howto/godot/([\w-]+)\.md#([^`]+)`', _txt):
+                    _doc, _ref = _m.group(1), _m.group(2).strip()
+                    _hp = _os.path.join(_skill, 'references', 'howto', 'godot', _doc + '.md')
+                    if not _os.path.exists(_hp):
+                        _badref.append('%s→%s(文件缺)' % (_fn, _doc)); continue
+                    _hds = [x.strip() for x in
+                            re.findall(r'^#{2,3}\s+(.*)$',
+                                       open(_hp, encoding='utf-8').read(), flags=re.M)]
+                    if not any(_h == _ref or _h.startswith(_ref) for _h in _hds):
+                        _badref.append('%s→%s' % (_fn, _ref))
+        chk(not _badref, '【读】锚点指向的 howto 章节真实存在（错 %d: %s）'
+            % (len(_badref), _badref[:3]))
+
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []
         for _root, _dirs, _files in _os.walk(_proc):

@@ -17,6 +17,7 @@
 |---|---|---:|---|
 | **角色控制** | `godot/character/00-域流程总览.md` | 6 | 移动基座 / 跳跃手感 / 相机跟随 / 输入映射 / 动画接入 / 手感验收 |
 | **存档** | `godot/save/00-域流程总览.md` | 6 | 结构设计 / 读写落盘 / 加密完整性 / 迁移 / 云存档 / 全链路验收 |
+| **战斗结算** | `godot/combat/00-域流程总览.md` | 7 | 命中判定 / 伤害结算 / 帧数据 / Buff 状态 / 打击感 / 对抗层 / 战斗验收 |
 
 ## 角色控制域（`godot/character/`）
 
@@ -42,6 +43,19 @@
 | 05 | [云存档接入](godot/save/05-云存档接入.md) | 02 03 | 多端同步与冲突策略 |
 | 06 | [全链路验收](godot/save/06-全链路验收.md) | 01–05 | 可签核的验收报告 |
 
+## 战斗结算域（`godot/combat/`）
+
+| # | 功能点 | 前置 | 交付物 |
+|---|---|---|---|
+| 00 | [域流程总览](godot/combat/00-域流程总览.md) | — | 定做什么 + 拆解与依赖顺序 |
+| 01 | [命中判定](godot/combat/01-命中判定.md) | 无 | AttackContext + 去重的一次命中 |
+| 02 | [伤害结算](godot/combat/02-伤害结算.md) | 01 | 顺序写死、可复现的结算管线 |
+| 03 | [帧数据与判定窗](godot/combat/03-帧数据与判定窗.md) | 01 02 | 由动画事件驱动的前后摇 |
+| 04 | [Buff 与状态](godot/combat/04-Buff与状态.md) | 02 | 纯数据状态 + 固定 tick 的 DoT |
+| 05 | [打击感反馈](godot/combat/05-打击感反馈.md) | 02 | 顿帧/击退/屏震/特效/音效同步 |
+| 06 | [对抗层](godot/combat/06-对抗层.md) | 02 04 | 硬直/霸体/格挡/招架/处决/部位 |
+| 07 | [战斗验收](godot/combat/07-战斗验收.md) | 01–06 | 域级总验 + 接缝复查 |
+
 ## 通用骨架（兜底）
 
 | 文件 | 用途 |
@@ -56,7 +70,6 @@
 |---|---|---|
 | 高 | UI | `howto/godot/ui.md`、`ui-advanced.md` |
 | 高 | 背包与物品 | `howto/godot/game-systems.md`、`economy.md` |
-| 高 | 战斗结算 | `howto/godot/combat.md` |
 | 高 | 网络同步 | `howto/godot/multiplayer.md`、`netsync-advanced.md` |
 | 高 | 配置表 | `howto/godot/datatable.md` |
 | 高 | 音频管理 | `howto/godot/input-audio.md`、`audio-advanced.md` |
