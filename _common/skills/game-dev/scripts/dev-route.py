@@ -1040,8 +1040,9 @@ def cmd_self_test():
             for _f in sorted(_files):
                 if not _f.endswith('.md'):
                     continue
-                # ⓘ README.md 与 index.md 是层说明/索引，不是功能点，跳过模板校验
-                if _f in ('README.md', 'index.md'):
+                # ⓘ README.md / index.md 是层说明与索引，_ 前缀是层内基础件
+                #   （如 _骨架.md），三者都不是功能点，不套功能点模板
+                if _f in ('README.md', 'index.md') or _f.startswith('_'):
                     continue
                 _txt = open(_os.path.join(_root, _f), encoding='utf-8').read()
                 if _f.startswith('00-'):
@@ -1081,6 +1082,17 @@ def cmd_self_test():
             chk(not _broken, 'procedure/index.md 链接无断链（断 %d: %s）'
                 % (len(_broken), _broken[:2]))
             chk(len(_links) >= 10, 'procedure/index.md 索引条目 ≥10（当前 %d）' % len(_links))
+
+        # 框架设施：结构总纲 + 通用骨架。
+        # ⚠ 骨架是兜底设施 —— 110 个域只有少数有细化流程，其余全靠它，
+        #   它丢了就退回"凭记忆开工"。
+        chk(_os.path.exists(_os.path.join(_skill, 'references', 'structure.md')),
+            '结构框架总纲 references/structure.md 存在')
+        _skel = _os.path.join(_proc, '_骨架.md')
+        chk(_os.path.exists(_skel), '通用骨架 _骨架.md 存在')
+        if _os.path.exists(_skel) and _os.path.exists(_os.path.join(_proc, 'index.md')):
+            _it = open(_os.path.join(_proc, 'index.md'), encoding='utf-8').read()
+            chk('_骨架.md' in _it, 'index.md 指向通用骨架（未细化的域有兜底入口）')
 
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []
