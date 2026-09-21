@@ -287,3 +287,11 @@ func _tick_idle(delta: float) -> void:
 
 本文档只讲**决策层**（选什么行为），不重复寻路和执行细节。
 战术层见 `ai-tactics.md`。
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-01`　状态机优于 if 嵌套
+【读】 `common/howto/principles.md#GC-06`　性能：先定位再优化

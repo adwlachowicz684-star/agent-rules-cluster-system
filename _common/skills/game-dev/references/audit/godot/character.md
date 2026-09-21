@@ -16,3 +16,12 @@
 | 没设 `up_direction` | `is_on_floor()` 永远 false，跳不起来 | 人工 |
 | 没加 `CollisionShape2D` | 不碰任何东西，直接穿墙 | 人工 |
 | 每帧 `_anim.play()` | 动画卡在第一帧 | GD54 |
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【审】 `common/audit/global.md#GA-02`　资源没配对
+【审】 `common/audit/global.md#GA-04`　每帧做本该事件驱动的事
+【审】 `common/audit/global.md#GA-06`　状态机只写 enter 不写 exit

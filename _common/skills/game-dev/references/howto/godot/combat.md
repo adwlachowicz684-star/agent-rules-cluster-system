@@ -535,3 +535,13 @@ CharacterBody3D
 - 性能（大量单位）→ `performance.md`
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/combat.md`
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-01`　状态机优于 if 嵌套
+【读】 `common/howto/principles.md#GC-02`　频繁生成/销毁要池化
+【读】 `common/howto/principles.md#GC-04`　事件解耦 vs 直接引用
+【读】 `common/howto/principles.md#GC-07`　手感优先于正确性

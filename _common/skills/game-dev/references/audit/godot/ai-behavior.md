@@ -18,3 +18,11 @@
 | 插件版本不锁 | 上游改动导致 CI 随机红 |
 | 只在编辑器里测过 | 运行时 tick 时机与编辑器不同 |
 | AI 与物理帧不同步 | 抖动、判定不稳定（AI 应走 `_physics_process`） |
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【审】 `common/audit/global.md#GA-04`　每帧做本该事件驱动的事
+【审】 `common/audit/global.md#GA-06`　状态机只写 enter 不写 exit

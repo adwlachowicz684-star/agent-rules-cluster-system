@@ -323,3 +323,9 @@ func _on_body_entered(_body: Node) -> void:
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/systems.md`
 
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-08`　常见架构模式速查

@@ -294,3 +294,11 @@ _death_timer.start(MAX_DEATH_ANIM_SEC)     # ⚠ 超时强制进入下一阶段
 - 投射物清理与对象池（死亡/重生时清飞行中投射物） → `projectile.md`
 - 对象池本身 → `systems.md`
 - Tween/Timer 生命周期 → `systems.md` / `animation-advanced.md`
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-01`　状态机优于 if 嵌套
+【读】 `common/howto/principles.md#GC-04`　事件解耦 vs 直接引用

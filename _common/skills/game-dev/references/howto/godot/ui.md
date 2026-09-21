@@ -262,3 +262,13 @@ display/window/size/window_height = 720
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/ui.md`
 
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-01`　状态机优于 if 嵌套
+【读】 `common/howto/principles.md#GC-02`　频繁生成/销毁要池化
+【读】 `common/howto/principles.md#GC-04`　事件解耦 vs 直接引用
+【读】 `common/howto/principles.md#GC-05`　缓存必须有失效路径
+【读】 `common/howto/principles.md#GC-06`　性能：先定位再优化

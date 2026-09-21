@@ -315,3 +315,10 @@ func predict(from: Vector3, vel0: Vector3) -> PackedVector3Array:
 - 重放/预测必须用 `FIXED_DT`（同一条原理） → `netsync-advanced.md`
 - 死亡重生时清理飞行中投射物 → `survival.md`
 - 枪械本体（后坐力/扩散/换弹/ADS） → `firearms.md`
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-02`　频繁生成/销毁要池化

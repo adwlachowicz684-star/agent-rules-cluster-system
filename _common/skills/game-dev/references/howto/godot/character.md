@@ -233,3 +233,12 @@ func _process(_delta: float) -> void:
 | `move_and_slide(velocity, up)` | 设 `velocity` / `up_direction` 属性，调 `move_and_slide()` |
 | `move_and_slide_with_snap(...)` | `floor_snap_length` 属性 |
 | `is_on_floor()` 依赖 `up` 参数 | 依赖 `up_direction` 属性 |
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-01`　状态机优于 if 嵌套
+【读】 `common/howto/principles.md#GC-03`　数据与逻辑分离
+【读】 `common/howto/principles.md#GC-07`　手感优先于正确性

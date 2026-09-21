@@ -44,3 +44,11 @@
 | 34 | 恢复中途就给控制权 | 出现"世界没恢复完就能操作"的撕裂 |
 | 35 | 重复踩检查点覆盖 | ⚠ 会把玩家**拉回更早的点**，默认应忽略 |
 | 36 | `process_always` 是个属性 | 不存在；正确枚举是 `PROCESS_MODE_PAUSABLE` |
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【审】 `common/audit/global.md#GA-02`　资源没配对
+【审】 `common/audit/global.md#GA-06`　状态机只写 enter 不写 exit

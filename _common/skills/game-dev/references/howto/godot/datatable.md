@@ -230,3 +230,12 @@ Godot 4.4 起的 UID 系统：每个资源有 `uid://` 标识，
 - 调试工具 → `debugging.md`
 - 导入管线 → `advanced-topics.md`
 - 资源与美术 → `art-assets.md`
+
+## 全局块（跨功能通用）
+
+> ⚠ 以下是**多个功能域共用**的全局内容，不在本域重复展开。
+> 多对多索引见 `common/index.md`。
+
+【读】 `common/howto/principles.md#GC-03`　数据与逻辑分离
+【读】 `common/howto/principles.md#GC-05`　缓存必须有失效路径
+【读】 `common/howto/principles.md#GC-08`　常见架构模式速查
