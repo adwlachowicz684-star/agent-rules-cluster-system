@@ -6,13 +6,13 @@
 
 ## 常见漏写
 
-| 漏写 | 后果 |
-|---|---|
-| `.godot/` 没进 gitignore | 仓库爆炸、冲突 |
-| Web 用 forward_plus | 浏览器跑不起来 |
-| `assert` 做运行时校验 | release 校验消失 |
-| `print()` 残留 | I/O 开销 + 信息泄露 |
-| Autoload 信号未断开 | 节点永远不释放 |
-| release 未实测 | debug 能跑 release 崩 |
-| 层不起名 | 三个月后没人记得哪层是什么 |
-| 改了物理 tick 未调参数 | 手感全变 |
+| # | 漏写 | 后果 |
+|---|---|---|
+| 1 | `.godot/` 没进 gitignore | 仓库爆炸、冲突 |
+| 2 | Web 用 forward_plus | 浏览器跑不起来 |
+| 3 | `assert` 做运行时校验 | release 校验消失 |
+| 4 | `print()` 残留 | I/O 开销 + 信息泄露 |
+| 5 | Autoload 信号未断开 | 节点永远不释放 |
+| 6 | release 未实测 | debug 能跑 release 崩 |
+| 7 | 层不起名 | 三个月后没人记得哪层是什么 |
+| 8 | 改了物理 tick 未调参数 | 手感全变 |

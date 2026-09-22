@@ -6,17 +6,17 @@
 
 ## 常见漏写
 
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| `HTTPRequest` 未 `add_child` | 请求不执行 | GD47 |
-| `FileAccess.open()` 不判 null | 崩 | 人工 |
-| `FileAccess` 未 `close()` | 句柄泄漏 | GD41 |
-| 写 `res://` | 导出后静默失败 | GD43 |
-| Resource 调 `queue_free()` | 错的，它是 RefCounted | 人工 |
-| `any_peer` RPC 不校验 | 客户端可作弊 | 人工 |
-| 大文件不用 `download_file` | 全读进内存 | 人工 |
-| 循环 `preload` | 解析期报错 | 人工 |
-| 改了 load 出来的共享资源 | 所有引用处一起变 | 人工 |
+| # | 漏写 | 后果 | 审查规则 |
+|---|---|---|---|
+| 1 | `HTTPRequest` 未 `add_child` | 请求不执行 | GD47 |
+| 2 | `FileAccess.open()` 不判 null | 崩 | 人工 |
+| 3 | `FileAccess` 未 `close()` | 句柄泄漏 | GD41 |
+| 4 | 写 `res://` | 导出后静默失败 | GD43 |
+| 5 | Resource 调 `queue_free()` | 错的，它是 RefCounted | 人工 |
+| 6 | `any_peer` RPC 不校验 | 客户端可作弊 | 人工 |
+| 7 | 大文件不用 `download_file` | 全读进内存 | 人工 |
+| 8 | 循环 `preload` | 解析期报错 | 人工 |
+| 9 | 改了 load 出来的共享资源 | 所有引用处一起变 | 人工 |
 
 ## 全局块（跨功能通用）
 

@@ -48,14 +48,14 @@ func _ready() -> void:
 
 ## 常见漏写
 
-| 漏写 | 后果 | 审查规则 |
-|---|---|---|
-| 碰撞层写层号当位值 | 语义全错（第3层写3） | 人工 |
-| 改 `target_position` 未 `force_raycast_update` | 读到旧缓存 | GD23 |
-| `intersect_ray(from,to)` 位置参数 | 3.x 残留，4.x 报错/不生效 | GD24 |
-| RigidBody 连 `body_entered` 未开 `contact_monitor` | 信号永不触发 | GD26 |
-| 每帧 `apply_impulse` | 力放大 60 倍 | GD22 |
-| 移动平台用 StaticBody | 角色滑落/卡住 | 人工 |
-| AnimatableBody 未设 `sync_to_physics` | 站在上面会抖 | 人工 |
-| 物理逻辑放 `_process` | 低帧率抖动/穿模 | GD14 |
-| `intersect_shape` 未调大 `max_results` | 结果静默截断为 32 | 人工 |
+| # | 漏写 | 后果 | 审查规则 |
+|---|---|---|---|
+| 1 | 碰撞层写层号当位值 | 语义全错（第3层写3） | 人工 |
+| 2 | 改 `target_position` 未 `force_raycast_update` | 读到旧缓存 | GD23 |
+| 3 | `intersect_ray(from,to)` 位置参数 | 3.x 残留，4.x 报错/不生效 | GD24 |
+| 4 | RigidBody 连 `body_entered` 未开 `contact_monitor` | 信号永不触发 | GD26 |
+| 5 | 每帧 `apply_impulse` | 力放大 60 倍 | GD22 |
+| 6 | 移动平台用 StaticBody | 角色滑落/卡住 | 人工 |
+| 7 | AnimatableBody 未设 `sync_to_physics` | 站在上面会抖 | 人工 |
+| 8 | 物理逻辑放 `_process` | 低帧率抖动/穿模 | GD14 |
+| 9 | `intersect_shape` 未调大 `max_results` | 结果静默截断为 32 | 人工 |
