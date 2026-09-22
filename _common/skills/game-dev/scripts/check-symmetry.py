@@ -95,6 +95,27 @@ def howto_tokens(name: str):
     return set(TOKEN.findall(open(p, encoding='utf-8').read()))
 
 
+def stats():
+    """输入语料计数。
+
+    ⚠ 注意：这里**不**统计"断链数"—— 断链为 0 是好状态，
+       ⛔ 断言输出非空会导致"修完问题反而失败"。只断言输入。
+    """
+    def _n(d):
+        return len([f for f in os.listdir(d) if f.endswith('.md')]) \
+            if os.path.isdir(d) else 0
+    aud = _n(AUDIT)
+    # 提取到的技术点总数：扫描器若失效（正则/路径），这里会是 0
+    toks = 0
+    for fn in sorted(os.listdir(AUDIT)) if os.path.isdir(AUDIT) else []:
+        if not fn.endswith('.md'):
+            continue
+        txt = open(os.path.join(AUDIT, fn), encoding='utf-8', errors='replace').read()
+        toks += len([t for t in TOKEN.findall(txt) if is_tech(t)])
+    return {'audit_docs': aud, 'howto_docs': _n(HOWTO),
+            'tech_tokens': toks}
+
+
 def scan():
     global COMMON
     if COMMON is None:
@@ -156,7 +177,25 @@ def scan():
     return out
 
 
+def guard():
+    """ⓘ 独立运行时也自检输入语料。"""
+    try:
+        import corpus_guard
+        _, fails = corpus_guard.run([sys.modules[__name__]])
+        for f in fails:
+            print('✗ ' + f, file=sys.stderr)
+        return not fails
+    except Exception as e:
+        # ⚠ 必须 **fail-closed**：守卫自身出错时拒绝放行。
+        #   上一版写的 `return True` 等于"守卫坏了 = 检查通过"，
+        #   ⛔ 这正是本模块要消灭的那类静默放行 —— 在自己身上又犯了一次。
+        print('⛔ 语料守卫不可用，拒绝放行（%s）' % e, file=sys.stderr)
+        return False
+
+
 if __name__ == '__main__':
+    if not guard():
+        sys.exit(2)
     res = scan()
     if '--json' in sys.argv:
         print(json.dumps(res, ensure_ascii=False, indent=1))

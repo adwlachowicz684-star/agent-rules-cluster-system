@@ -88,6 +88,21 @@ def stable_id(path, content):
     return None  # 由 collect() 填充
 
 
+def stats():
+    """输入语料计数。ⓘ 供 corpus-guard 断言「不是静默空转」。
+
+    ⚠ 为什么需要：上一轮迁移后 DOCS_FLOW 仍指向旧路径 flow/godot，
+      该目录下只有功能点子目录、没有 .md → collect() 返回 0 条而**不报错**。
+      ⛔ "能跑通"的检查查不出这种失败，只能靠"语料数 > 0"来兜。
+    """
+    files = ([f for f in os.listdir(DOCS) if f.endswith('.md')]
+             if os.path.isdir(DOCS) else [])
+    return {
+        'howto_docs': len(files),          # 扫到的文档数
+        'claim_items': len(collect()),     # 收集到的待核对条目数
+    }
+
+
 def collect():
     """扫描全部文档，收集待核对项"""
     items = []
@@ -171,6 +186,17 @@ def cmd_verify(vid, result, note):
 
 
 def cmd_list(show_all=False, doc=None, grep=None, stats=False):
+
+    # ⚠ 语料守卫：目录存在却没 .md → 路径指错层（上一轮迁移遗留）
+    _files = ([f for f in os.listdir(DOCS) if f.endswith('.md')]
+              if os.path.isdir(DOCS) else [])
+    if not _files:
+        print('⛔ %s 下没有 .md，待核对项收集为空 —— 扫描路径极可能指错层'
+              % DOCS, file=sys.stderr)
+        return 2
+    if not os.path.isdir(DOCS):
+        print('⛔ 目录不存在：%s' % DOCS, file=sys.stderr)
+        return 2
     items = collect()
     st = load_state()
     if doc:

@@ -105,7 +105,36 @@ def load_docs():
     return out
 
 
+def stats():
+    """输入语料计数。"""
+    files = glob.glob(os.path.join(HOWTO, '*.md'))
+    return {
+        'howto_docs': len(files),
+        'concepts': len(CONCEPTS),
+        'terms': sum(len(v) for v in CONCEPTS.values()),
+    }
+
+
+def guard():
+    """ⓘ 独立运行时也自检输入语料，不只在 dev-route 自检里兜。"""
+    try:
+        import corpus_guard
+        _, fails = corpus_guard.run([sys.modules[__name__]])
+        for f in fails:
+            print('✗ ' + f, file=sys.stderr)
+        return not fails
+    except Exception as e:
+        # ⚠ 必须 **fail-closed**：守卫自身出错时拒绝放行。
+        #   上一版写的 `return True` 等于"守卫坏了 = 检查通过"，
+        #   ⛔ 这正是本模块要消灭的那类静默放行 —— 在自己身上又犯了一次。
+        print('⛔ 语料守卫不可用，拒绝放行（%s）' % e, file=sys.stderr)
+        return False
+
+
 def main():
+
+    if not guard():
+        return 2
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     docs = load_docs()
     if not docs:

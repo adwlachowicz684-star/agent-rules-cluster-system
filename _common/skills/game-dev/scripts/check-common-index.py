@@ -27,7 +27,12 @@ BLOCK_FILES = {
     'GA': os.path.join(ROOT, 'common', 'audit', 'global.md'),
 }
 ROW_RX = re.compile(r'^\|\s*(G[CA]-\d+)\s*\|\s*(.+?)\s*\|(.+)\|\s*$')
-BLOCK_RX = re.compile(r'^##\s+(G[CA]-\d+)')
+# ⚠ 必须带 re.M：没有 MULTILINE 时 `^` 只匹配字符串开头，
+#   于是 `findall(全文)` 恒返回 0 而**不报错**。
+#   原脚本只做逐行 `.match(ln)` 侥幸可用 —— 这是个潜伏陷阱，
+#   谁哪天改成对全文 findall 就会静默得到"0 个块"。
+#   ⓘ 本轮 stats() 就踩中了这个坑，是语料守卫逼出来的。
+BLOCK_RX = re.compile(r'^##\s+(G[CA]-\d+)', re.M)
 
 
 def parse_index():
@@ -76,6 +81,17 @@ def doc_refs(path):
     return out
 
 
+def stats():
+    """输入语料计数。ⓘ 同样不断言"问题数"—— 0 问题才是目标状态。"""
+    table, _ = parse_index()
+    blocks = 0
+    for path in BLOCK_FILES.values():
+        if os.path.isfile(path):
+            blocks += len(BLOCK_RX.findall(
+                open(path, encoding='utf-8').read()))
+    return {'index_rows': len(table), 'blocks': blocks}
+
+
 def scan():
     problems = []
     table, errs = parse_index()
@@ -122,7 +138,25 @@ def scan():
     return problems
 
 
+def guard():
+    """ⓘ 独立运行时也自检输入语料。"""
+    try:
+        import corpus_guard
+        _, fails = corpus_guard.run([sys.modules[__name__]])
+        for f in fails:
+            print('✗ ' + f, file=sys.stderr)
+        return not fails
+    except Exception as e:
+        # ⚠ 必须 **fail-closed**：守卫自身出错时拒绝放行。
+        #   上一版写的 `return True` 等于"守卫坏了 = 检查通过"，
+        #   ⛔ 这正是本模块要消灭的那类静默放行 —— 在自己身上又犯了一次。
+        print('⛔ 语料守卫不可用，拒绝放行（%s）' % e, file=sys.stderr)
+        return False
+
+
 if __name__ == '__main__':
+    if not guard():
+        sys.exit(2)
     res = scan()
     if '--json' in sys.argv:
         print(json.dumps(res, ensure_ascii=False, indent=1))

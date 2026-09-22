@@ -1080,6 +1080,34 @@ def cmd_self_test():
                 % (len(_nohow), [x['claim'][:20] for x in _nohow[:2]]))
         except Exception as _e3:     # ⓘ 检查器自身出错不应静默放行
             chk(False, '待核对项检查器可运行（%s）' % _e3)
+        # ⚠ 扫描器「输入语料」守卫 —— 四个扫描器统一经过 corpus_guard。
+        #   为什么不断言"输出非空"：0 断链 / 0 问题 都是**好状态**，
+        #   ⛔ 断言输出 > 0 会让"修完问题"反而自检失败，判据方向是反的。
+        #   真正的失败信号是"输入语料为 0" —— 那只可能是路径指错层。
+        _here = os.path.dirname(os.path.abspath(__file__))
+        _mods = []
+        for _fn in ('verify.py', 'scan-gaps.py', 'check-symmetry.py',
+                    'check-common-index.py'):
+            try:
+                _sp = _ilu2.spec_from_file_location(
+                    '_cg_' + _fn[:-3], os.path.join(_here, _fn))
+                _m = _ilu2.module_from_spec(_sp)
+                _sp.loader.exec_module(_m)
+                _mods.append(_m)
+            except Exception as _e:
+                chk(False, '可加载扫描器 %s（%s）' % (_fn, _e))
+        try:
+            sys.path.insert(0, _here)
+            import corpus_guard as _cg
+            _ok, _cf = _cg.run(_mods)
+            chk(not _cf, '扫描器输入语料非空（%s）' % '；'.join(_cf[:3]))
+            chk(_ok == len(_mods),
+                '全部 %d 个扫描器通过语料守卫（通过 %d）' % (len(_mods), _ok))
+        except Exception as _e:
+            chk(False, '语料守卫可运行（%s）' % _e)
+        finally:
+            if _here in sys.path:
+                sys.path.remove(_here)
         # common.md 必须指向全局块，否则它是个没人能到达的孤岛
         _cm = os.path.join(_skill, 'references', 'common.md')
         if os.path.isfile(_cm):
