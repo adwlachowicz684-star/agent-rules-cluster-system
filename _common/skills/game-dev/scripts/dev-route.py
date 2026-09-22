@@ -22,6 +22,7 @@
 """
 
 import os
+import glob
 import os as _os
 import re
 import sys
@@ -1318,6 +1319,145 @@ def cmd_self_test():
                         _badref.append('%s→%s' % (_fn, _ref))
         chk(not _badref, '【读】锚点指向的 howto 章节真实存在（错 %d: %s）'
             % (len(_badref), _badref[:3]))
+
+        # ⚠【审】锚点校验 —— 上一轮只校验了【读】，【审】完全没有。
+        #   而【审】才是"这一步特有的坑"，写错条目号 = 审到不相干的条目上，
+        #   表现为"我审过了，但审的不是这一步的坑"。
+        _badsec = []
+        for _root3, _d3, _f3 in _os.walk(_proc):
+            for _fn in sorted(_f3):
+                if not _fn.endswith('.md') or _fn.startswith('_'):
+                    continue
+                _txt = open(_os.path.join(_root3, _fn), encoding='utf-8').read()
+                for _m in re.finditer(r'【审】`([^`]+)`', _txt):
+                    _raw = _m.group(1)
+                    _fp, _sec = (_raw.split('#', 1) + [None])[:2] \
+                        if '#' in _raw else (_raw, None)
+                    _hp = _os.path.join(_skill, 'references', _fp)
+                    if not _os.path.exists(_hp):
+                        _badsec.append('%s→%s(文件缺)' % (_fn, _raw)); continue
+                    if _sec is None or not _os.path.isfile(_hp):
+                        continue        # ⓘ 指向文件/目录：文件存在即通过
+                    _n = _sec.strip()
+                    if not _n.isdigit():
+                        _badsec.append('%s→%s(条目号非数字)' % (_fn, _raw)); continue
+                    # ⚠ 按**连续块**取编号：一个 audit 文件可以有多张表，
+                    #   全文件统计会把"第二张表从 11 重新编号"判成重复（假阳性）。
+                    _rows, _cur = [], []
+                    for _l in open(_hp, encoding='utf-8').read().split('\n'):
+                        if _l.startswith('|'):
+                            _cur.append(_l)
+                        else:
+                            if _cur:
+                                _rows.append(_cur); _cur = []
+                    if _cur:
+                        _rows.append(_cur)
+                    _hit = 0
+                    for _b in _rows:
+                        for _l in _b:
+                            _mm = re.match(r'^\|\s*(\d+)\s*\|', _l)
+                            if _mm and _mm.group(1) == _n:
+                                _hit += 1
+                    if _hit == 0:
+                        _badsec.append('%s→%s(条目号不存在)' % (_fn, _raw))
+                    elif _hit > 1:
+                        # ⚠ 同一编号在多张表里出现 → #N 指向歧义
+                        _badsec.append('%s→%s(条目号歧义×%d)' % (_fn, _raw, _hit))
+        chk(not _badsec, '【审】锚点指向的 audit 条目存在且不歧义（错 %d: %s）'
+            % (len(_badsec), _badsec[:3]))
+
+        # ⚠ audit 条目编号：同一张表内必须连续、不重复、不跳号。
+        #   为什么查这个：【审】用 #N 引用，编号漂了就指向错误条目，
+        #   而这种漂移**没有任何报错** —— 只是审错了地方。
+        #   ⓘ 同样按连续块处理（多张表的文件各自独立编号是合法的）。
+        _badnum = []
+        for _ap in sorted(glob.glob(_os.path.join(
+                _skill, 'references', 'audit', '*', '*.md'))):
+            _rows, _cur = [], []
+            for _l in open(_ap, encoding='utf-8').read().split('\n'):
+                if _l.startswith('|'):
+                    _cur.append(_l)
+                else:
+                    if _cur:
+                        _rows.append(_cur); _cur = []
+            if _cur:
+                _rows.append(_cur)
+            for _b in _rows:
+                _ns = [int(_mm.group(1)) for _l in _b
+                       for _mm in [re.match(r'^\|\s*(\d+)\s*\|', _l)] if _mm]
+                if len(_ns) < 2:
+                    continue
+                _dup = sorted({x for x in _ns if _ns.count(x) > 1})
+                _miss = sorted(set(range(min(_ns), max(_ns) + 1)) - set(_ns))
+                if _dup or _miss:
+                    _badnum.append('%s(重复%s缺%s)' % (
+                        _os.path.basename(_ap), _dup[:2], _miss[:3]))
+        chk(not _badnum, 'audit 表格编号连续无重复（错 %d: %s）'
+            % (len(_badnum), _badnum[:3]))
+
+        # ⚠ 节点 ID 三查。ID 是给流程工具用的稳定标识（structure.md 节点规范），
+        #   ID 一改进度就断 —— 所以这三类错误必须自动拦，不能靠肉眼。
+        #   ① 域内不重复  ② 反引号闭合  ③ 每文件从 S1 连续
+        #   ⓘ ② 尤其值得自动化：我已连续 7 个功能点文件漏写闭合反引号
+        #     （combat/07、inventory/07、ui/07、netsync/07、datatable/04、
+        #      audio/07、ai/07），每次都是写完才发现 —— 说明肉眼不可靠。
+        _dupid, _seen = [], {}
+        _badq = []
+        _badseq = []
+        for _root5, _d5, _f5 in _os.walk(_proc):
+            for _fn in sorted(_f5):
+                if not _fn.endswith('.md') or _fn.startswith('_'):
+                    continue
+                _p5 = _os.path.join(_root5, _fn)
+                _t5 = open(_p5, encoding='utf-8').read()
+                # ① 唯一性（域内）
+                for _m in re.finditer(r'`\[([a-z]+)/(\d+)#(S\d+)\]`', _t5):
+                    _k = (_m.group(1), _m.group(2), _m.group(3))
+                    if _k in _seen and _seen[_k] != _fn:
+                        _dupid.append('%s' % '/'.join(_k))
+                    _seen[_k] = _fn
+                # ② 闭合（跳过代码块，否则 ``` 会被当成未闭合）
+                _incode = False
+                for _i5, _l5 in enumerate(_t5.split('\n'), 1):
+                    if _l5.strip().startswith('```'):
+                        _incode = not _incode
+                        continue
+                    if _incode:
+                        continue
+                    if _l5.count('`') % 2:
+                        _badq.append('%s:%d' % (_fn, _i5))
+                # ③ 连续性（00 总览无 Step，跳过）
+                if _fn.startswith('00'):
+                    continue
+                _ns = sorted({int(_m.group(1))
+                              for _m in re.finditer(r'`\[[a-z]+/\d+#S(\d+)\]`', _t5)})
+                if _ns and _ns != list(range(1, max(_ns) + 1)):
+                    _badseq.append('%s%s' % (_fn, _ns))
+        chk(not _dupid, '节点 ID 域内唯一（重复 %d: %s）' % (len(_dupid), _dupid[:3]))
+        chk(not _badq, '节点 ID 反引号闭合（未闭合 %d: %s）'
+            % (len(_badq), _badq[:3]))
+        chk(not _badseq, '功能点 Step 从 S1 连续（不连续 %d: %s）'
+            % (len(_badseq), _badseq[:2]))
+
+        # ⚠【审】弱引用（指向整个 audit 文件而非具体条目）**不增长**。
+        #   框架要求【审】指向"这一步特有的坑"，指向整张表等于没指 ——
+        #   调用方拿到 30 条清单，不知道哪条跟当前 Step 有关。
+        #   现有 237 个是早期域的历史遗留，一次性改完不现实；
+        #   ✅ 判据取"不增长"：老的不强制，⛔ 新增的一律要带条目号。
+        #   ⓘ 这是「增量不退化」判据 —— 比"必须全改完"可行，
+        #     比"完全不管"强：它至少阻止问题继续扩大。
+        _WEAK_BASE = 237
+        _weak = 0
+        for _root4, _d4, _f4 in _os.walk(_proc):
+            for _fn in sorted(_f4):
+                if not _fn.endswith('.md') or _fn.startswith('_'):
+                    continue
+                _t4 = open(_os.path.join(_root4, _fn), encoding='utf-8').read()
+                for _m in re.finditer(r'【审】`([^`]+)`', _t4):
+                    if '#' not in _m.group(1):
+                        _weak += 1
+        chk(_weak <= _WEAK_BASE,
+            '【审】弱引用不增长（当前 %d / 基线 %d）' % (_weak, _WEAK_BASE))
 
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []
