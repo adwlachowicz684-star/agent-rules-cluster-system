@@ -165,7 +165,7 @@ func submit_input(data: Dictionary) -> void:
 
 【判据】⚠ 打印单个数据包字节数，**远小于 1400**（或已确认分片策略）
 
-【审】`audit/godot/netsync-advanced.md#13`
+【审】`audit/godot/multiplayer.md#16`
 
 ## 3. 参考实现
 
