@@ -1339,8 +1339,17 @@ def cmd_self_test():
                     if _sec is None or not _os.path.isfile(_hp):
                         continue        # ⓘ 指向文件/目录：文件存在即通过
                     _n = _sec.strip()
+                    _hds2 = [x.strip() for x in
+                             re.findall(r'^#{1,4}\s+(.*)$',
+                                        open(_hp, encoding='utf-8').read(),
+                                        flags=re.M)]
                     if not _n.isdigit():
-                        _badsec.append('%s→%s(条目号非数字)' % (_fn, _raw)); continue
+                        # ⓘ 非数字 = **章节锚点**（如全局审查块 GA-01），不是表格条目号。
+                        #   ⚠ 此前一律判"条目号非数字"，导致全局块在流程层**永远用不上**
+                        #   —— howto/audit 引用了 24 次，流程层 0 次，就是这个校验挡的。
+                        if not any(_h == _n or _h.startswith(_n) for _h in _hds2):
+                            _badsec.append('%s→%s(章节锚点不存在)' % (_fn, _raw))
+                        continue
                     # ⚠ 按**连续块**取编号：一个 audit 文件可以有多张表，
                     #   全文件统计会把"第二张表从 11 重新编号"判成重复（假阳性）。
                     _rows, _cur = [], []
@@ -1439,25 +1448,37 @@ def cmd_self_test():
         chk(not _badseq, '功能点 Step 从 S1 连续（不连续 %d: %s）'
             % (len(_badseq), _badseq[:2]))
 
-        # ⚠【审】弱引用（指向整个 audit 文件而非具体条目）**不增长**。
-        #   框架要求【审】指向"这一步特有的坑"，指向整张表等于没指 ——
+        # ⚠【审】必须指向具体条目，⛔ 不许只指向整个 audit 文件。
+        #   框架要求【审】指向"这一步特有的坑"；指向整张表等于没指 ——
         #   调用方拿到 30 条清单，不知道哪条跟当前 Step 有关。
-        #   现有 237 个是早期域的历史遗留，一次性改完不现实；
-        #   ✅ 判据取"不增长"：老的不强制，⛔ 新增的一律要带条目号。
-        #   ⓘ 这是「增量不退化」判据 —— 比"必须全改完"可行，
-        #     比"完全不管"强：它至少阻止问题继续扩大。
-        _WEAK_BASE = 237
-        _weak = 0
+        #
+        #   ⓘ 历史：曾取「基线 ≤237 不增长」的增量判据（237 是早期域遗留）。
+        #     2026-09 已**全部收敛为 0**，因此判据收紧为必须为 0 ——
+        #     ⛔ 增量判据有个陷阱：它允许"旧的永远不改"，
+        #        而弱引用正是最该被改掉的那批（它们指向最老的域）。
+        _weak_bad = []
         for _root4, _d4, _f4 in _os.walk(_proc):
             for _fn in sorted(_f4):
                 if not _fn.endswith('.md') or _fn.startswith('_'):
                     continue
                 _t4 = open(_os.path.join(_root4, _fn), encoding='utf-8').read()
-                for _m in re.finditer(r'【审】`([^`]+)`', _t4):
-                    if '#' not in _m.group(1):
-                        _weak += 1
-        chk(_weak <= _WEAK_BASE,
-            '【审】弱引用不增长（当前 %d / 基线 %d）' % (_weak, _WEAK_BASE))
+                # ⓘ 豁免：**显式声明的全表复查**是有意为之，与"懒得指"是两回事。
+                #   两种合法场合：① 功能点级收尾的「整体审核」节；
+                #               ② 验收域（07-*）里的"域级总验 / 接缝复查"步骤。
+                #   它们的语义本就是"把这张表整体过一遍"。
+                #   ⛔ 判据是**显式写"全部"**：写 `xxx.md` 什么都不加 = 没声明，仍算弱引用。
+                for _m in re.finditer(r'【审】`([^`]+)`([^\n（(]*)', _t4):
+                    if '#' in _m.group(1):
+                        continue
+                    _tail = _m.group(2)
+                    _cut = re.search(r'^##\s*7[^\n]*整体审核', _t4, flags=re.M)
+                    _in_review = (_cut is not None and _m.start() > _cut.start())
+                    if '全部' in _tail and (_in_review or _fn.startswith('07')):
+                        continue
+                    _weak_bad.append('%s→%s' % (_fn, _m.group(1).split('/')[-1]))
+        chk(not _weak_bad,
+            '【审】必须指向具体条目（弱引用 %d: %s）'
+            % (len(_weak_bad), _weak_bad[:3]))
 
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []

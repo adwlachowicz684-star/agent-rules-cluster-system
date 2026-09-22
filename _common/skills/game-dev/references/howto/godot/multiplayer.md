@@ -105,6 +105,11 @@ RPC 一进来就要存下 sender，别等 await 完再取。
 ⚠ RPC 的**节点路径 + 方法名 + 参数**两端必须完全一致。
 动态 `add_child()` 的节点要用可读的固定名字，别用自动生成的 `@Node@2`。
 
+ⓘ **ENet 的 MTU 与最大包大小是两个概念**：
+`ENET_HOST_DEFAULT_MTU = 1400`（实际分片单位）与
+`ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE = 32MB`（只是 ENet 层上限保护），
+⛔ 不能混读。完整说明见 `netsync-advanced.md` 第 2.0.2 节，此处不重复。
+
 ### 传输模式怎么选
 
 | 场景 | 模式 | 理由 |
