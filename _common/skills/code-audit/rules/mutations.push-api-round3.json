@@ -1,0 +1,62 @@
+[
+ {
+  "id": "M-PY19-01b",
+  "desc": "[PY-19] pull 路径的 symlink 目标编码缺 surrogateescape",
+  "old": "        return os.readlink(full).encode(\"utf-8\", \"surrogateescape\")",
+  "new": "        return os.readlink(full).encode()",
+  "rule": "PY-19",
+  "expect": "KILLED",
+  "why": "出口 2/4：_local_bytes，实测崩 UnicodeEncodeError",
+  "target": "target/sample_symlink.py"
+ },
+ {
+  "id": "M-PY19-01c",
+  "desc": "[PY-19] 建 blob 时的 symlink 目标编码缺 surrogateescape",
+  "old": "                raw = os.readlink(full).encode(\"utf-8\", \"surrogateescape\")",
+  "new": "                raw = os.readlink(full).encode()",
+  "rule": "PY-19",
+  "expect": "KILLED",
+  "why": "出口 3/4：推送主路径，实测崩 UnicodeEncodeError",
+  "target": "target/sample_symlink.py"
+ },
+ {
+  "id": "M-PY19-01d",
+  "desc": "[PY-19] symlink 目标解码用 replace（写回后 sha 永久不等）",
+  "old": "        target = data.decode(\"utf-8\", \"surrogateescape\")",
+  "new": "        target = data.decode(\"utf-8\", \"replace\")",
+  "rule": "PY-19",
+  "expect": "KILLED",
+  "why": "出口 4/4：_write_local，实测字节被换成 U+FFFD → 永久误报远端被改动",
+  "target": "target/sample_symlink.py"
+ },
+ {
+  "id": "M-PY19-01e",
+  "desc": "[PY-19 负向对照] 展示用解码，不写回磁盘，不应报",
+  "old": "        return base64.b64decode(data[\"content\"]).decode(\"utf-8\", \"replace\").splitlines()",
+  "new": "        return base64.b64decode(data[\"content\"]).decode(\"utf-8\", \"surrogateescape\").splitlines()",
+  "rule": "PY-19",
+  "expect": "SURVIVED",
+  "why": "预览仅展示，replace 合法；报了说明规则误伤",
+  "target": "target/sample_symlink.py"
+ },
+ {
+  "id": "M-H01-01",
+  "desc": "[H-01] 冲突副产物目录创建不带 mode",
+  "old": "    os.makedirs(CONFLICT_DIR, mode=0o700, exist_ok=True)",
+  "new": "    os.makedirs(CONFLICT_DIR, exist_ok=True)",
+  "rule": "H-01",
+  "expect": "KILLED",
+  "why": "产物装远端文件全文，默认权限同机其他用户可读",
+  "target": "target/sample_conflict.py"
+ },
+ {
+  "id": "M-K43-01",
+  "desc": "[K-43] 路径列表用换行分隔喂 --stdin-paths",
+  "old": "            input=\"\\0\".join(rels) + \"\\0\",",
+  "new": "            input=\"\\n\".join(rels),",
+  "rule": "K-43",
+  "expect": "KILLED",
+  "why": "路径含换行会被拆成两行；同文件三处已用 -z",
+  "target": "target/sample_paths.py"
+ }
+]
