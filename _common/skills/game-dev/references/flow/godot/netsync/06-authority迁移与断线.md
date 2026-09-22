@@ -49,7 +49,7 @@ RPC 失败是"某次调用没成功"，不是"对方走了"——
 
 【判据】⚠ 强杀客户端进程，服务端实体数**回到断开前**（⛔ 不是留一个）
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/multiplayer.md#12`
 
 ### Step 2　authority 迁移要自己广播　`[netsync/06#S2]`
 
@@ -74,7 +74,7 @@ func transfer_authority(node: Node, new_id: int) -> void:
 
 【判据】⚠ 迁移后在另一个客户端打印该节点 authority，**是新的 id**
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/multiplayer.md#7`
 
 ### Step 3　⚠ 空窗期要标 pending_transfer　`[netsync/06#S3]`
 
@@ -90,7 +90,7 @@ func transfer_authority(node: Node, new_id: int) -> void:
 
 【判据】⚠ 人为延迟迁移消息 500ms，空窗期**无异常移动**
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/netsync-advanced.md#25`
 
 ### Step 4　本地不一致时等权威纠正　`[netsync/06#S4]`
 
@@ -109,7 +109,7 @@ if node.get_multiplayer_authority() != new_id:
 
 【判据】⚠ 迁移消息先于节点生成到达，**不崩溃**且后续自动一致
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/netsync-advanced.md#26`
 
 ### Step 5　新增子节点要显式设 authority　`[netsync/06#S5]`
 
@@ -124,7 +124,7 @@ if node.get_multiplayer_authority() != new_id:
 
 【判据】⚠ 迁移父节点后**再**生成子节点，子节点 authority **正确**
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/multiplayer.md#8`
 
 ### Step 6　只有服务端能发起迁移　`[netsync/06#S6]`
 
@@ -138,7 +138,7 @@ if node.get_multiplayer_authority() != new_id:
 
 【判据】⚠ 伪造 RPC 请求迁移别人的载具，**被拒**且有日志
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/netsync-advanced.md#27`
 
 ## 3. 参考实现
 

@@ -22,3 +22,6 @@
 | 12 | 断线靠下次 RPC 失败才发现 | 资源泄漏，应用 `peer_disconnected` |
 | 13 | WebRTC 当 ENet 用 | 默认全网格，N² 连接 |
 | 14 | 预测只存位置 | 无法回滚重放 |
+| 15 | 只连 `peer_connected` 不连断开/失败回调 | 断线时**不知道**；四个回调（`connected`/`disconnected`/`failed`/`server_disconnected`）要成对接 |
+| 16 | `ENET_HOST_DEFAULT_MTU` 当成最大包大小 | ⓘ MTU=1400 影响分片，`MAXIMUM_PACKET_SIZE`=32MB 只是**上限保护**，两者不是一回事 |
+| 17 | 各部件单独测都通过就上线 | ⛔ 部件合格 ≠ 拼起来能用；要有**接缝复查**与集成验收 |

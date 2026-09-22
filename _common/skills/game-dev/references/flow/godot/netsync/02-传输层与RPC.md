@@ -57,7 +57,7 @@ func _ready() -> void:
 
 【判据】⚠ 强杀客户端进程，服务端**收到** `peer_disconnected` 并清理
 
-【审】`audit/godot/multiplayer.md`
+【审】`audit/godot/multiplayer.md#15`
 
 ### Step 2　⚠ @rpc 必须显式写参数　`[netsync/02#S2]`
 
@@ -84,7 +84,7 @@ func _ready() -> void:
 
 【判据】⚠ 全项目搜索 `@rpc\n`（后面直接换行）结果为 **0**
 
-【审】`audit/godot/netsync-advanced.md`
+【审】`audit/godot/netsync-advanced.md#2` `audit/godot/netsync-advanced.md#3`
 
 ### Step 3　channel 必须放最后　`[netsync/02#S3]`
 
@@ -104,7 +104,7 @@ channel: 0        ← ⚠ 必须最后
 
 【判据】⚠ 项目能正常启动、RPC 不报解析错误
 
-【审】`audit/godot/netsync-advanced.md`
+【审】`audit/godot/netsync-advanced.md#16`
 
 ### Step 4　get_remote_sender_id 只在函数内有效　`[netsync/02#S4]`
 
@@ -126,7 +126,7 @@ func submit_input(data: Dictionary) -> void:
 
 【判据】⚠ 在 RPC 里 await 一帧后打印 sender，**不是 0**
 
-【审】`audit/godot/netsync-advanced.md`
+【审】`audit/godot/netsync-advanced.md#8`
 
 ### Step 5　传输层与平台匹配　`[netsync/02#S5]`
 
@@ -149,7 +149,7 @@ func submit_input(data: Dictionary) -> void:
 
 【判据】⚠ 实际导出到目标平台**能连上**（⛔ 不是只在编辑器里通）
 
-【审】`audit/godot/netsync-advanced.md`
+【审】`audit/godot/netsync-advanced.md#11` `audit/godot/netsync-advanced.md#12`
 
 ### Step 6　MTU 与最大包大小是两个概念　`[netsync/02#S6]`
 
@@ -165,7 +165,7 @@ func submit_input(data: Dictionary) -> void:
 
 【判据】⚠ 打印单个数据包字节数，**远小于 1400**（或已确认分片策略）
 
-【审】`audit/godot/netsync-advanced.md`
+【审】`audit/godot/netsync-advanced.md#13`
 
 ## 3. 参考实现
 
