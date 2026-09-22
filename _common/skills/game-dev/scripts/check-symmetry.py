@@ -140,6 +140,15 @@ def scan():
             # ⓘ 扫整行而不是只扫最后一列：技术点同样常出现在「本能以为」列
             #   （如 `| 用 Tween 绑自身 | ... |`），只看末列会漏。
             actual = ' '.join(cells[1:])       # 去掉序号列
+            # ⓘ 豁免一：带 GD 规则编号的行由**自动审查规则**覆盖
+            #   （godot-audit.py 会直接扫代码报错），不依赖 howto 也讲一遍。
+            if re.search(r'\bGD\d+', actual):
+                continue
+            # ⓘ 豁免二：index.md 的「常见漏写速查」是**跨所有域的全局表**，
+            #   它不属于任何单一 howto 域 —— 强制对称会永远报红。
+            #   这正是"全局层内容不必一对一"的情况（见 common/index.md）。
+            if fn == 'index.md':
+                continue
             if '实际' in actual and '本能' in actual:
                 continue        # 表头
             # 若该行已给出指向，就到目标文件里找，不再算断链

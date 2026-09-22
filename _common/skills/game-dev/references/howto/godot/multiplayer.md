@@ -117,6 +117,12 @@ RPC 一进来就要存下 sender，别等 await 完再取。
 ⚠ **别把所有东西都设 `reliable`** —— 重传和队头阻塞会放大延迟，
 高频数据用 reliable 会让卡顿雪崩。
 
+⚠ **`WebRTCMultiplayerPeer` 默认是全网格（mesh）**，⛔ 不能当 ENet 用。
+每个 peer 都要和其他所有 peer 建立连接，
+连接数是 **N² 级** —— 4 人时 6 条，10 人时 45 条。
+ⓘ 它适合**少量 peer 的 P2P**；人数一多，带宽和连接建立开销都会失控，
+这时应走 ENet + 专用服务器的客户端-服务器模型。
+
 ## 2. 场景与状态复制
 
 ### MultiplayerSpawner

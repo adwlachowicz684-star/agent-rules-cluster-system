@@ -102,6 +102,23 @@ Dispose()     C# 侧释放（IDisposable）
 引擎侧生命周期由 `QueueFree`/引用计数管。
 对 `RefCounted`（如 `Resource`）不用手动释放。
 
+⚠ **`await` 之后必须重新判活** —— 等待期间节点可能已被 `QueueFree()`：
+
+```csharp
+await ToSignal(GetTree().CreateTimer(1.0), "timeout");
+// ⛔ 此时 target 可能已释放，直接访问会崩
+if (!GodotObject.IsInstanceValid(target)) return;
+target.DoSomething();
+```
+
+ⓘ `IsInstanceValid()` 判的是**引擎侧对象是否还活着**；
+C# 引用非 null **不等于**对象存活 —— 被释放的对象引用不是 null，
+只是访问它会报错。
+
+⚠ **升级 .NET 版本时 NuGet 包要逐个验证** ——
+引擎升级可能连带提升目标框架（如 net8.0），
+旧包未必有对应 TFM，⛔ 不要假设"编译过了就能用"。
+
 ## 6. 互操作
 
 ```csharp
