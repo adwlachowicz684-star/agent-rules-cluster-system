@@ -76,7 +76,7 @@ if _bgm_player.stream == stream and _bgm_player.playing:
 
 【判据】⚠ 连续调 3 次 `play_bgm(同一首)`，**音乐不中断**
 
-【审】`audit/godot/input-audio.md`
+【审】`audit/godot/audio-advanced.md#4`
 
 ### Step 3　⛔ MP3 不能做无缝循环　`[audio/05#S3]`
 
@@ -129,7 +129,7 @@ create_tween().tween_method(func(db): pb.set_stream_volume(1, db), -80.0, 0.0, 1
 
 【判据】⚠ 分层音乐跑 5 分钟，**层间无漂移**（⛔ 不是逐渐错开）
 
-【审】`audit/godot/audio-advanced.md`
+【审】`audit/godot/audio-advanced.md#18`
 
 ### Step 5　Playlist 的 bpm 对齐　`[audio/05#S5]`
 
@@ -144,7 +144,7 @@ create_tween().tween_method(func(db): pb.set_stream_volume(1, db), -80.0, 0.0, 1
 
 【判据】⚠ intro 接 loop 的瞬间，**听不出接缝**
 
-【审】`audit/godot/audio-advanced.md`
+【审】`audit/godot/audio-advanced.md#19`
 
 ### Step 6　音乐与游戏状态同步　`[audio/05#S6]`
 
