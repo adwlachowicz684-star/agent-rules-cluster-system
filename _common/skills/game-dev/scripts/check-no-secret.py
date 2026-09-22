@@ -52,6 +52,16 @@ def main():
         print('\n  → 改用 gh_auth.get_token()（环境变量或 /data/workspace/.git_token）')
         return 1
     print('凭据扫描：arcs3 内无明文 token（0 处）')
+
+    # ⚠ 凭据文件权限：它在库外不会被推送，但 777 在多用户/多进程环境是真实泄露面。
+    #   ⓘ 沙盒文件系统上 chmod 600 可能不生效（实测改完仍是 777），
+    #     所以这里**告警而不判失败** —— 否则在某些环境会永久报红掩盖真问题。
+    cred = os.path.join(os.path.dirname(ROOT), '.git_token')
+    if os.path.exists(cred):
+        mode = os.stat(cred).st_mode & 0o777
+        if mode & 0o077:
+            print('⚠ 凭据文件权限过宽：%s 当前 %o（期望 600）；'
+                  '沙盒可能不允许 chmod，仅提示' % (cred, mode))
     return 0
 
 

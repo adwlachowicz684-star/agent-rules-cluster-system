@@ -113,14 +113,14 @@ CSGCombiner3D          # 只负责组织合并，把局部运算隔离开
 ✅ 推荐的实例化结构：
 
 ```gdscript
-# 关卡数据（Resource）—— 策划改这个，⛔ 不改场景
+### 关卡数据（Resource）—— 策划改这个，⛔ 不改场景
 class_name LevelData extends Resource
 @export var spawn_points: Array[Vector3]
 @export var checkpoint_count: int
 @export var enemy_waves: Array[WaveData]
 @export var time_limit_sec: float
 
-# 关卡场景只读 LevelData 并构建，⛔ 场景本身不含玩法数值
+### 关卡场景只读 LevelData 并构建，⛔ 场景本身不含玩法数值
 ```
 
 ## 5. ⚠ .tscn 是文本 ≠ 可安全自动合并
@@ -153,7 +153,49 @@ class_name LevelData extends Resource
 否则"能跳过去"和"能测到"是两回事。
 
 
-## 7. 相关文档
+## 7. 关卡生命周期：统一状态机，⛔ 不要散在各处
+
+关卡不是"一个场景 + 一堆触发区"，它有**自己的状态**：
+
+```text
+LOADING ──→ RUNNING ──┬──→ CLEARED ──→ （切下一关）
+                      └──→ FAILED  ──→ （重生 / 重开）
+                      └──→ PAUSED  ──→ RUNNING
+```
+
+⚠ **为什么必须集中**：散在各处的后果是"通关了但敌人还在追"
+"失败了但还能拾取""加载中玩家已经在操作"——
+每一条单独看都像小 bug 叠加起来就是"关卡状态不可信"。
+
+```gdscript
+enum Phase { LOADING, RUNNING, PAUSED, CLEARED, FAILED }
+
+var phase: Phase = Phase.LOADING
+
+func _try_clear() -> void:
+    # ⚠ 通关判定**每帧都可能为真**（玩家站在触发区里来回走）
+    if phase != Phase.RUNNING:
+        return                     # ⛔ 没有这道门就会重复触发
+    phase = Phase.CLEARED
+    _lock_input()
+    level_cleared.emit()
+```
+
+⛔ **通关/失败不是"弹一个 UI"，是状态转移。** 只弹 UI 不改状态的话，
+结算界面弹出期间玩家仍在被攻击、仍能拾取、仍能再次踩到通关点。
+
+ⓘ 与相邻域的分工：
+
+| 管什么 | 归谁 |
+|---|---|
+| 死亡 / 重生 / 检查点快照 | `howto/godot/survival.md`（⛔ 检查点只覆盖**重生事实**） |
+| 关卡解锁 / 章节进度 | `howto/godot/narrative.md`（⛔ 检查点 ≠ 关卡解锁源） |
+| 本关内的阶段与结算 | 本篇 |
+
+⚠ 暂停相关见 `howto/godot/survival.md`：官方明确**节点停止处理时信号照常触发**，
+设了 `PROCESS_MODE_PAUSABLE` 也不能保证暂停期间什么都没跑。
+
+## 8. 相关文档
 
 
 - 程序化关卡生成 → `procedural-generation.md`

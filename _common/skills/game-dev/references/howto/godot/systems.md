@@ -194,6 +194,94 @@ SaveManager.capture(player, "level2")
 ⚠ `change_scene_to_file` 会**销毁当前场景所有节点**。
 要在切之前把需要的数据存到 Autoload 或存档里，不能指望局部变量。
 
+### ⚠ 官方的切换时序：旧场景立刻出树，**新场景帧末才入树**
+
+`change_scene_to_file` / `change_scene_to_packed` / `change_scene_to_node`
+三者的操作顺序是同一份（官方在 `change_scene_to_node()` 里写明）：
+
+1. **当前场景节点立即从树中移除** —— 从这一刻起，
+   旧场景里调用 `get_tree()` 返回 **null**，`current_scene` 也是 null
+2. **到帧末**才删除旧场景，然后把新场景加入树
+3. 之后 `get_tree()` / `current_scene` 恢复正常
+
+⚠ 这条解释了一类常见崩溃：**在旧场景的 `_exit_tree()` / 通知回调里调
+`get_tree()`，拿到的是 null**。⛔ 不要在那里做"退出前再存一次盘"之类的事。
+
+✅ 要可靠地访问新场景，必须等 `scene_changed` 信号：
+
+```gdscript
+func goto(path: String) -> void:
+    get_tree().change_scene_to_file(path)
+    await get_tree().scene_changed        # ⚠ 不等这行，新场景还没入树
+    var lvl := get_tree().current_scene
+```
+
+ⓘ 官方保证"两个场景不会同时运行"，所以⛔ 不要试图在切换期间跨场景传引用。
+
+### reload_current_scene 与 Autoload 的重载边界
+
+官方口径：它只是"用原始 PackedScene 的新实例替换 current_scene"。
+Autoload **不在重载范围内**，因此不会被重新执行 `_ready()`。
+
+⛔ 后果：Autoload 里用 `@onready var X = $"../Main/..."` 持有 current_scene
+内部节点的引用，重载后**全部失效**（指向已释放的对象），
+而 Autoload 自己不会重新赋值 —— 表现为"重开一局后各种空引用"。
+
+✅ 正确做法：Autoload 只持有**数据**，节点引用在进入场景时显式注册：
+
+```gdscript
+# ❌ Autoload 里这样写，重载后必然失效
+@onready var _level: Node = $"../Main/Level"
+
+# ✅ 由场景自己注册，退出时注销
+func _enter_tree() -> void:
+    GameState.level = self
+
+func _exit_tree() -> void:
+    if GameState.level == self:
+        GameState.level = null
+```
+
+### 异步加载：进度来自 `load_threaded_get_status()` 的 progress 数组
+
+`change_scene_to_file` 会同步加载，大场景会**卡一帧**。要走进度条就得自己来：
+
+```gdscript
+var _path := "res://levels/level_2.tscn"
+var _progress: Array = []
+
+func start_async_load(path: String) -> void:
+    _path = path
+    # ⚠ 返回值要接：重复对同一路径请求会返回 ERR_ALREADY_IN_USE
+    var err := ResourceLoader.load_threaded_request(_path)
+    if err != OK and err != ERR_ALREADY_IN_USE:
+        push_error("异步加载请求失败 %s: %d" % [_path, err])
+
+func _process(_d: float) -> void:
+    var st := ResourceLoader.load_threaded_get_status(_path, _progress)
+    match st:
+        ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+            if not _progress.is_empty():
+                _bar.value = _progress[0] * 100.0   # ⓘ 官方：0.0–1.0 的单元素数组
+        ResourceLoader.THREAD_LOAD_LOADED:
+            var ps: PackedScene = ResourceLoader.load_threaded_get(_path)
+            get_tree().change_scene_to_packed(ps)
+            set_process(false)
+        ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+            push_error("场景加载失败 %s" % _path)
+            set_process(false)
+```
+
+⚠ **`load_threaded_get()` 在未完成时会阻塞调用线程**直到加载结束
+（见 `howto/godot/openworld.md`）。⛔ 在轮询之外"顺手调一下"，
+异步就退化成同步，白做。
+
+ⓘ 小场景几毫秒就加载完，进度条会**闪一下就消失** —— 观感上像卡了一下。
+设一个最小展示时间（0.5–1 秒）比"立刻切"更稳。
+
+⚠ `instantiate()` **必须在主线程**。真正的大头常常不是加载而是实例化
+（见 `howto/godot/openworld.md#Chunk 流式加载`）。
+
 ## 3. 事件总线（Autoload）
 
 避免节点之间互相持有引用 —— 那会形成引用环，节点释放了但被环吊住。

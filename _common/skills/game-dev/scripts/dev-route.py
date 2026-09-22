@@ -1320,6 +1320,30 @@ def cmd_self_test():
         chk(not _badref, '【读】锚点指向的 howto 章节真实存在（错 %d: %s）'
             % (len(_badref), _badref[:3]))
 
+        # ⚠ 每个 Step 都必须有【读】和【审】。
+        #   ⓘ 为什么查：上一轮"弱引用清零"只统计了**出现过**的【审】，
+        #     结果 narrative 域有 14 个 Step **压根没有【审】**，
+        #     既不算弱引用也不报错 —— 静默地没有审核链接。
+        #     同理，删掉某个 Step 的【读】也不会让任何现有检查变红。
+        _nostep = []
+        for _root3, _d3, _f3 in _os.walk(_proc):
+            for _fn3 in sorted(_f3):
+                if not _fn3.endswith('.md') or _fn3.startswith('_'):
+                    continue
+                _t3 = open(_os.path.join(_root3, _fn3), encoding='utf-8').read()
+                for _b3 in re.split(r'\n(?=### Step )', _t3):
+                    if not _b3.startswith('### Step'):
+                        continue
+                    _m3 = re.search(r'#S(\d+)\]', _b3)
+                    if not _m3:
+                        continue
+                    if '【读】' not in _b3:
+                        _nostep.append('%s S%s 缺【读】' % (_fn3, _m3.group(1)))
+                    if '【审】' not in _b3:
+                        _nostep.append('%s S%s 缺【审】' % (_fn3, _m3.group(1)))
+        chk(not _nostep, '每个 Step 都有【读】与【审】（缺 %d: %s）'
+            % (len(_nostep), _nostep[:3]))
+
         # ⚠【审】锚点校验 —— 上一轮只校验了【读】，【审】完全没有。
         #   而【审】才是"这一步特有的坑"，写错条目号 = 审到不相干的条目上，
         #   表现为"我审过了，但审的不是这一步的坑"。
