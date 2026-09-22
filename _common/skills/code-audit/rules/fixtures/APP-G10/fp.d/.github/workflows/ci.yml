@@ -1,9 +1,0 @@
-name: ci
-on: [push]
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - run: npm ci
-      - run: npm run config:check
-      - run: npm run test
