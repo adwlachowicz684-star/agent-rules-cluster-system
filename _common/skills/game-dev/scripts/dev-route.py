@@ -1709,6 +1709,34 @@ def cmd_self_test():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+        # ⚠ 仓库内禁止明文凭据：token 统一走 gh_auth（环境变量 / 库外凭据文件）。
+        #   ⛔ 有人图省事把 token 粘回脚本 → 推送即公开泄露。这条防回潮。
+        try:
+            import importlib.util as _ilu2
+            _sp2 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 'check-no-secret.py')
+            _sp2c = _ilu2.spec_from_file_location('cns', _sp2)
+            _cns = _ilu2.module_from_spec(_sp2c)
+            _sp2c.loader.exec_module(_cns)
+            _badsec2 = []
+            _orig = _cns.ROOT
+            for _rd, _dd, _ff in _os.walk(_orig):
+                _dd[:] = [x for x in _dd if x not in _cns.SKIP_DIR]
+                for _f in _ff:
+                    if _os.path.splitext(_f)[1].lower() in _cns.SKIP_EXT:
+                        continue
+                    _fp2 = _os.path.join(_rd, _f)
+                    try:
+                        _tt = open(_fp2, encoding='utf-8').read()
+                    except (OSError, UnicodeDecodeError):
+                        continue
+                    if any(rx.search(_tt) for _, rx in _cns.PATS):
+                        _badsec2.append(_os.path.relpath(_fp2, _orig))
+            chk(not _badsec2, '仓库内无明文凭据（发现 %d: %s）'
+                % (len(_badsec2), _badsec2[:3]))
+        except Exception as _e2:
+            chk(False, '凭据扫描可执行（%s）' % str(_e2)[:60])
+
         # ⚠【审】映射相关性：弱引用清零后，"指到了"已能自动校验，
         #   但"指对了没有"仍不能 —— 这条补上后半段。
         #   ⛔ 指错的后果是"我审过了，但审的不是这一步的坑"，比弱引用更隐蔽。
