@@ -91,48 +91,48 @@
 
 写完对照一遍：
 
-| 漏写 | 审查规则 |
-|---|---|
-| Autoload 信号未断开 | GD15 |
-| `remove_child` 后没 `queue_free` | GD01 |
-| `create_tween()` 未保存引用 | GD02 |
-| `FileAccess` 未 `close()` | GD41 |
-| 存档写 `res://` | GD43 |
-| `instantiate()` 后未 `add_child()` | GD46 |
-| 动态 `AudioStreamPlayer` 未 `queue_free()` | GD52 |
-| `assert` 做运行时校验 | GD71 |
-| `duplicate()` 浅拷贝 | GD73 |
-| `print()` 留在正式代码 | GD74 |
-| `await` 后未判 `is_instance_valid` | GD75 |
-| 每帧赋值 `Label.text` | GD13 |
-| `move_and_slide(...)` 带参 | GD09 |
-| `velocity *= delta` | GD21 |
-| **塔防 / 波次 / 索敌** | `genres-tower-defense.md` | 反模式条目数：见文件内表格 |
-| **RTS / 框选 / 编队 / 战争迷雾** | `genres-rts.md` | 反模式条目数：见文件内表格 |
-| **卡牌 / 效果栈 / 连锁** | `genres-card.md` | 反模式条目数：见文件内表格 |
-| **Roguelike / 元进度** | `genres-roguelike.md` | 反模式条目数：见文件内表格 |
-| **自走棋 / 战棋 / 六边形** | `genres-tactics.md` | 反模式条目数：见文件内表格 |
-| **模拟经营 / 放置 / 离线收益** | `genres-idle-sim.md` | 反模式条目数：见文件内表格 |
-| **平台跳跃手感** | `platformer-feel.md` | 反模式条目数：见文件内表格 |
-| **弹幕射击 / SHMUP** | `genres-bullet-hell.md` | 反模式条目数：见文件内表格 |
-| **破坏 / 布料 / 软体** | `destruction-cloth.md` | 反模式条目数：见文件内表格 |
-| **遮挡剔除 / 实例化 / GPU 粒子** | `occlusion-instancing.md` | 反模式条目数：见文件内表格 |
-| **版本控制 / 资源组织** | `vcs-collab.md` | 反模式条目数：见文件内表格 |
-| **性能预算 / CI / 评审 / 技术债** | `project-governance.md` | 反模式条目数：见文件内表格 |
-| **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 反模式条目数：见文件内表格 |
-| **群集行为（boids）与避障** | `boids-swarm.md` | 反模式条目数：见文件内表格 |
-| **分区分服 / 跨服 / 合服 / 匹配** | `sharding-matchmaking.md` | 反模式条目数：见文件内表格 |
-| `compliance` | `audit/godot/compliance.md` |
-| `companion` | `audit/godot/companion.md` |
-| `time-progression` | `audit/godot/time-progression.md` |
-| `account-security` | `audit/godot/account-security.md` |
-| `backend-stability` | `audit/godot/backend-stability.md` |
-| `player-trading` | `audit/godot/player-trading.md` |
-| `auto-battle` | `audit/godot/auto-battle.md` |
-| `cosmetic` | `audit/godot/cosmetic.md` |
-| `stealth-ai` | `audit/godot/stealth-ai.md` |
-| `firearms` | `audit/godot/firearms.md` |
-| `build-affix` | `audit/godot/build-affix.md` |
-| `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
+| # | 漏写 | 审查规则 |
+|---|---|---|
+| 1 | Autoload 信号未断开 | GD15 |
+| 2 | `remove_child` 后没 `queue_free` | GD01 |
+| 3 | `create_tween()` 未保存引用 | GD02 |
+| 4 | `FileAccess` 未 `close()` | GD41 |
+| 5 | 存档写 `res://` | GD43 |
+| 6 | `instantiate()` 后未 `add_child()` | GD46 |
+| 7 | 动态 `AudioStreamPlayer` 未 `queue_free()` | GD52 |
+| 8 | `assert` 做运行时校验 | GD71 |
+| 9 | `duplicate()` 浅拷贝 | GD73 |
+| 10 | `print()` 留在正式代码 | GD74 |
+| 11 | `await` 后未判 `is_instance_valid` | GD75 |
+| 12 | 每帧赋值 `Label.text` | GD13 |
+| 13 | `move_and_slide(...)` 带参 | GD09 |
+| 14 | `velocity *= delta` | GD21 |
+| 15 | **塔防 / 波次 / 索敌** | `genres-tower-defense.md` | 反模式条目数：见文件内表格 |
+| 16 | **RTS / 框选 / 编队 / 战争迷雾** | `genres-rts.md` | 反模式条目数：见文件内表格 |
+| 17 | **卡牌 / 效果栈 / 连锁** | `genres-card.md` | 反模式条目数：见文件内表格 |
+| 18 | **Roguelike / 元进度** | `genres-roguelike.md` | 反模式条目数：见文件内表格 |
+| 19 | **自走棋 / 战棋 / 六边形** | `genres-tactics.md` | 反模式条目数：见文件内表格 |
+| 20 | **模拟经营 / 放置 / 离线收益** | `genres-idle-sim.md` | 反模式条目数：见文件内表格 |
+| 21 | **平台跳跃手感** | `platformer-feel.md` | 反模式条目数：见文件内表格 |
+| 22 | **弹幕射击 / SHMUP** | `genres-bullet-hell.md` | 反模式条目数：见文件内表格 |
+| 23 | **破坏 / 布料 / 软体** | `destruction-cloth.md` | 反模式条目数：见文件内表格 |
+| 24 | **遮挡剔除 / 实例化 / GPU 粒子** | `occlusion-instancing.md` | 反模式条目数：见文件内表格 |
+| 25 | **版本控制 / 资源组织** | `vcs-collab.md` | 反模式条目数：见文件内表格 |
+| 26 | **性能预算 / CI / 评审 / 技术债** | `project-governance.md` | 反模式条目数：见文件内表格 |
+| 27 | **观战 / 断线重连 / 主机迁移 / 延迟补偿** | `spectate-reconnect.md` | 反模式条目数：见文件内表格 |
+| 28 | **群集行为（boids）与避障** | `boids-swarm.md` | 反模式条目数：见文件内表格 |
+| 29 | **分区分服 / 跨服 / 合服 / 匹配** | `sharding-matchmaking.md` | 反模式条目数：见文件内表格 |
+| 30 | `compliance` | `audit/godot/compliance.md` |
+| 31 | `companion` | `audit/godot/companion.md` |
+| 32 | `time-progression` | `audit/godot/time-progression.md` |
+| 33 | `account-security` | `audit/godot/account-security.md` |
+| 34 | `backend-stability` | `audit/godot/backend-stability.md` |
+| 35 | `player-trading` | `audit/godot/player-trading.md` |
+| 36 | `auto-battle` | `audit/godot/auto-battle.md` |
+| 37 | `cosmetic` | `audit/godot/cosmetic.md` |
+| 38 | `stealth-ai` | `audit/godot/stealth-ai.md` |
+| 39 | `firearms` | `audit/godot/firearms.md` |
+| 40 | `build-affix` | `audit/godot/build-affix.md` |
+| 41 | `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
 
 完整判据见 `../../../../code-audit/references/p-godot.md`。
