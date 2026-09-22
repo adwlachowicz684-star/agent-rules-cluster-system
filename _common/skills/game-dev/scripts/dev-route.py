@@ -1199,6 +1199,40 @@ def cmd_self_test():
                 % (len(_broken), _broken[:2]))
             chk(len(_links) >= 10, 'flow/index.md 索引条目 ≥10（当前 %d）' % len(_links))
 
+            # ⚠ Markdown 表格列数必须一致。
+            #   上一版 index.md 的"已铺域"表里，AI 那一行被脚本拼接时
+            #   把后面几个域的覆盖格**全部并进了同一行** → 渲染出来是一张
+            #   长到看不见末尾的畸形表，而**链接检查、条目计数全都是绿的**。
+            #   ⛔ 断链检查查不出这种"结构正确、内容错位"的问题。
+            _rows = [l for l in _itxt.split('\n')
+                     if l.startswith('|') and not l.startswith('|---')]
+            # ⓘ 按**连续块**分组：一个文件里可以有多张不同列数的表，
+            #   但同一张表内部列数必须一致。
+            #   ⛔ 第一版我写成"全文件取占多数的列数为正常" ——
+            #      结果把合法的 2 列表（框架设施表）判成异常（假阳性）。
+            #   ⚠ 假阳性会诱导人去放宽判据；正确做法是收紧到"连续块"。
+            _blocks, _cur = [], []
+            for _l in _itxt.split('\n'):
+                if _l.startswith('|'):
+                    _cur.append(_l)
+                else:
+                    if _cur:
+                        _blocks.append(_cur); _cur = []
+            if _cur:
+                _blocks.append(_cur)
+            _odd = []
+            for _b in _blocks:
+                _body = [l for l in _b if not l.startswith('|---')]
+                if not _body:
+                    continue
+                _ncol = _body[0].count('|')
+                for _l in _body[1:]:
+                    if _l.count('|') != _ncol:
+                        _odd.append(_l)
+            chk(not _odd,
+                'flow/index.md 表格列数一致（异常 %d 行: %s）'
+                % (len(_odd), [r[:40] for r in _odd[:2]]))
+
         # 框架设施：结构总纲 + 通用骨架。
         # ⚠ 骨架是兜底设施 —— 110 个域只有少数有细化流程，其余全靠它，
         #   它丢了就退回"凭记忆开工"。
@@ -1242,6 +1276,36 @@ def cmd_self_test():
                 if not _fn.endswith('.md') or _fn.startswith('_'):
                     continue
                 _txt = open(_os.path.join(_root2, _fn), encoding='utf-8').read()
+                # ⚠ 原来只匹配 `howto/godot/xxx.md#章节` 一种写法。
+                #   实际库里还有 structure.md、flow/godot/<域>/、audit/godot/ 等写法，
+                #   它们**完全没被检查** —— 上一轮手工扫才发现 8 处断链/基准混用。
+                #   ⛔ 自检只覆盖一类写法 = 声称"锚点已校验"实际只校验了一部分。
+                #   ✅ 改为：任何 【读】`...` 都校验，路径基准统一为 references/。
+                for _m in re.finditer(r'【读】`([^`]+)`', _txt):
+                    _raw = _m.group(1)
+                    _fp, _ref = (_raw.split('#', 1) + [None])[:2] \
+                        if '#' in _raw else (_raw, None)
+                    if _fp.startswith('howto/godot/'):
+                        _doc = _fp[len('howto/godot/'):]
+                        if not _doc.endswith('.md'):
+                            _doc += '.md'
+                        _hp = _os.path.join(_skill, 'references', 'howto',
+                                            'godot', _doc)
+                    else:
+                        _hp = _os.path.join(_skill, 'references', _fp)
+                    if _os.path.isdir(_hp):
+                        continue            # ⓘ 指向域目录是合法写法
+                    if not _os.path.exists(_hp):
+                        _badref.append('%s→%s(文件缺)' % (_fn, _raw)); continue
+                    if _ref is None:
+                        continue            # ⓘ 无章节锚点，文件存在即通过
+                    _hds = [x.strip() for x in
+                            re.findall(r'^#{1,4}\s+(.*)$',
+                                       open(_hp, encoding='utf-8').read(),
+                                       flags=re.M)]
+                    if not any(_ref.strip() in _h for _h in _hds):
+                        _badref.append('%s→%s' % (_fn, _raw))
+                    continue
                 for _m in re.finditer(r'【读】`howto/godot/([\w-]+)\.md#([^`]+)`', _txt):
                     _doc, _ref = _m.group(1), _m.group(2).strip()
                     _hp = _os.path.join(_skill, 'references', 'howto', 'godot', _doc + '.md')
