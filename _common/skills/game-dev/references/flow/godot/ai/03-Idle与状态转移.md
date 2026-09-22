@@ -58,7 +58,7 @@ MIN_IDLE_TIME 实测值
 
 【判据】⚠ 盯着待机敌人看 10 秒，**能观察到至少 2 次动作变化**
 
-【审】`audit/godot/ai-behavior.md`
+【审】`audit/godot/ai-behavior.md#11`
 
 ### Step 2　⚠ Idle 里也要跑感知　`[ai/03#S2]`
 
@@ -74,7 +74,7 @@ MIN_IDLE_TIME 实测值
 
 【判据】⚠ 从背后接近待机敌人，**进入视野后能被发现**
 
-【审】`audit/godot/ai-perception.md`
+【审】`audit/godot/ai-perception.md#1`
 
 ### Step 3　最短驻留防抖动　`[ai/03#S3]`
 
@@ -101,7 +101,7 @@ Chase ↔ Attack 在攻击距离边界也会抖。
 【判据】⚠ 让敌人在阈值边界停留 10 秒，
 　　　**状态切换次数 < 3**（⛔ 不是每帧切）
 
-【审】`audit/godot/ai-behavior.md`
+【审】`audit/godot/ai-behavior.md#13`
 
 ### Step 4　转移集中成表　`[ai/03#S4]`
 
@@ -118,7 +118,7 @@ Chase ↔ Attack 在攻击距离边界也会抖。
 
 【判据】⚠ 指着转移表，**能回答任意两个状态间是否存在路径**
 
-【审】`audit/godot/ai-behavior.md`
+【审】`audit/godot/ai-behavior.md#12`
 
 ### Step 5　进入/退出钩子统一　`[ai/03#S5]`
 
@@ -134,7 +134,7 @@ Chase ↔ Attack 在攻击距离边界也会抖。
 
 【判据】⚠ 从**任意**状态进入 STAGGER，表现一致（⛔ 不只是从 Chase 进）
 
-【审】`audit/godot/ai-behavior.md`
+【审】`audit/godot/ai-behavior.md#14`
 
 ### Step 6　死亡不是状态之一那么简单　`[ai/03#S6]`
 
@@ -151,7 +151,7 @@ Chase ↔ Attack 在攻击距离边界也会抖。
 【判据】⚠ 杀死一个正在攻击的敌人后，
 　　　**其余敌人立即能补上攻击位**（⛔ 不是集体停下）
 
-【审】`audit/godot/ai-behavior.md`
+【审】`audit/godot/ai-behavior.md#15`
 
 ## 3. 参考实现
 
