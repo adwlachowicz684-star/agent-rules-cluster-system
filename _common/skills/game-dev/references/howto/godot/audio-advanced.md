@@ -23,6 +23,11 @@ func setup_buses() -> void:
 它把"全部静音"和"界面反馈静音"耦合了——玩家调低 Master 想保留语音时，
 按钮声也没了；暂停时想保留 UI 反馈也做不到。
 
+⚠ **Master 上要挂限制器（Limiter）作为最后一道保险。**
+大量音效叠加会超过 0 dBFS 导致**削波爆音**。
+ⓘ 这不是"让声音更好听"的润色，是防止硬件/耳朵受损的保护；
+没有它时，爆音只在"恰好多个音效同帧"时出现，很难复现。
+
 ## 1. 音量：dB 不是线性
 
 ```gdscript
@@ -60,6 +65,27 @@ p.play()
 `AudioStreamPlayer3D.new()` 不 `add_child` 就是普通播放器。
 
 ## 3. 音效池
+
+### 多声部：池之外的另一条路
+
+ⓘ 池解决"同一音效连点"，**多声部**解决"同一播放器同时发多个声"。
+需要动态叠加（如和弦、连续脚步尾音）时用 `AudioStreamPolyphonic`：
+
+```gdscript
+var _poly := AudioStreamPolyphonic.new()
+_poly.polyphony = 16          # ⚠ 属性名是 polyphony，不是 max_polyphony
+```
+
+⚠ **属性名是 `polyphony`**（默认 **32**，范围 **1–128**），
+⛔ 写 `max_polyphony` 会直接报"该属性不存在"。
+
+⚠ **`play_stream()` 在"正在播放的流数 == `polyphony`"时返回 `INVALID_ID`** ——
+⛔ 不是"裁掉最旧的声音"，而是**本次新的被丢弃**。
+这个区别决定排查方向：不是音量被抢，是这次压根没播。
+
+ⓘ 完整说明（含返回的整数 ID 何时失效）见 `input-audio.md` 第 5 节。
+
+### 池 + 随机音高
 
 同时播几十个相同音效会爆音。用池 + 随机音高：
 
