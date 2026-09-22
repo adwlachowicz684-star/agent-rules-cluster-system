@@ -1709,6 +1709,29 @@ def cmd_self_test():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+        # ⚠【审】映射相关性：弱引用清零后，"指到了"已能自动校验，
+        #   但"指对了没有"仍不能 —— 这条补上后半段。
+        #   ⛔ 指错的后果是"我审过了，但审的不是这一步的坑"，比弱引用更隐蔽。
+        try:
+            # ⓘ 文件名带连字符（check-map-relevance.py）**不能直接 import**，
+            #   要用 importlib 按路径加载。
+            import importlib.util as _ilu
+            _sp = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                'check-map-relevance.py')
+            _spec = _ilu.spec_from_file_location('cmr', _sp)
+            _cmr = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_cmr)
+            _tot, _susp, _stale = _cmr.scan()
+            chk(_tot > 0, '【审】映射扫描能取到样本（当前 %d 个强引用）' % _tot)
+            chk(not _susp,
+                '【审】映射与所在 Step 相关（零交集 %d: %s）'
+                % (len(_susp), ['%s %s %s' % x[:3] for x in _susp[:3]]))
+            chk(not _stale,
+                '【审】映射豁免未过期（过期 %d: %s）'
+                % (len(_stale), ['%s %s %s' % x for x in _stale[:3]]))
+        except Exception as _e:
+            chk(False, '【审】映射相关性扫描可执行（%s）' % str(_e)[:60])
+
     print()
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
