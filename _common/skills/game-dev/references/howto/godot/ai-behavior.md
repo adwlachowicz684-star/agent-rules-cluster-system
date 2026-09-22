@@ -46,6 +46,13 @@ RUNNING   当前 tick 无法完成，父节点下次 tick 继续交给同一节�
 ⚠ **RUNNING 没有 abort 机制** → 低优先级长任务永远阻塞高优先级反应
 （比如正在巡逻时被攻击却不能打断）。
 
+⚠ **FAILURE 不要用 `push_error`** —— FAILURE 每 tick 都可能发生，
+刷屏会把真正的错误**淹没在噪音里**。
+⛔ 用 `push_error` 表达"没找到目标"，日志里全是红色，出真故障时就找不到了。
+
+ⓘ 判据：这条失败**需要人去修吗**？需要 → `push_error`；
+不需要（只是本次路径不通）→ 静默返回 FAILURE，最多 `print_verbose`。
+
 ## 2. 不依赖插件的最小行为树
 
 ```gdscript
@@ -267,6 +274,35 @@ func _tick_idle(delta: float) -> void:
 
 ⓘ 相关：感知的警戒等级与传播见 `ai-perception.md` 第 4 节；
 潜行玩法的警戒两段语义见 `stealth-ai.md` 第 0 节。
+
+### 两个容易被当成"普通状态"的状态：DEAD 与 STAGGER
+
+⚠ **`DEAD` 不是"一个不再转移的状态"，它是一个清理入口。**
+只把它当成转移表的终点，死亡单位会继续占用：
+攻击令牌、预约的掩体、感知候选、威胁表条目。
+
+⛔ 这是"AI 集体发呆"最常见的源头之一 ——
+令牌没回收，其他单位全在等一个永远不来的释放。
+
+```gdscript
+func _on_enter_dead() -> void:
+    _stop_all_ticks()          # ⚠ 不再 tick 决策/感知/移动
+    _release_attack_token()    # → ai-tactics.md
+    _release_reserved_cover()  # → ai-tactics.md
+    _perception.unregister(self)
+    _threat_table.remove(_id)
+```
+
+⚠ **`STAGGER`（硬直/受击）的重点是"打断什么"，不是"播放什么动画"。**
+进入时必须显式停掉那些**不会自己停**的东西：
+寻路（`velocity` 不清零会滑行）、当前 Task、正在播放的 Tween。
+
+⛔ 只播动画不停寻路的后果：硬直中单位**顺着惯性滑行**，
+看起来像"被打了还往前冲"。
+
+ⓘ 因此进入/退出逻辑要统一走 `_on_enter` / `_on_exit`，
+⛔ 不要散落在各处写"开始时清一下、结束时停一下"——
+散落的典型后果正是上面这个：`Chase → STAGGER` 忘了停寻路。
 
 ## 6. 战术层不在这里
 
