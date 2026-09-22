@@ -57,7 +57,7 @@ func crossfade(to: AudioStream, time := 1.5) -> void:
 
 【判据】⚠ 切歌过程中**无突然变大声**
 
-【审】`audit/godot/audio-advanced.md` 第 6 条（淡出到 0 → 要淡到 -80）
+【审】`audit/godot/audio-advanced.md#6`（淡出到 0 → 要淡到 -80）
 
 ### Step 2　同一首别重开　`[audio/05#S2]`
 
@@ -94,7 +94,7 @@ OGG 的循环点是导入时设定的，⛔ 不是自动对齐到节拍。
 
 【判据】⚠ 听满 3 个循环，**接口处无咔哒**
 
-【审】`audit/godot/audio-advanced.md` 第 10 条（MP3 能做无缝循环 BGM → 不能）
+【审】`audit/godot/audio-advanced.md#10`（MP3 能做无缝循环 BGM → 不能）
 
 ### Step 4　⚠ 4.3+ 用内置类型做动态音乐　`[audio/05#S4]`
 
@@ -163,7 +163,7 @@ create_tween().tween_method(func(db): pb.set_stream_volume(1, db), -80.0, 0.0, 1
 
 【判据】⚠ 暂停/恢复/切场景，音乐表现**符合设计**（⛔ 不是碰巧对）
 
-【审】`audit/godot/audio-advanced.md` 第 8 条
+【审】`audit/godot/audio-advanced.md#8`
 
 ## 3. 参考实现
 

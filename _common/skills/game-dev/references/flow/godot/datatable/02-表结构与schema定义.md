@@ -54,7 +54,7 @@ class_name SkillData extends Resource
 
 【判据】⚠ 类里**没有任何** `current_*` / `_cd` / `runtime_*` 之类字段
 
-【审】`audit/godot/datatable.md` 第 3 条（Resource 存运行时状态没事 → 会被共享）
+【审】`audit/godot/datatable.md#3`（Resource 存运行时状态没事 → 会被共享）
 
 ### Step 2　外键存 ID 不存引用　`[datatable/02#S2]`
 
@@ -69,7 +69,7 @@ class_name SkillData extends Resource
 
 【判据】⚠ 类定义里**没有** `@export var xxx: SkillData`（引用类型外键）
 
-【审】`audit/godot/datatable.md` 第 6 条（外键存引用更方便 → 删行、合并、文本编辑都会炸）
+【审】`audit/godot/datatable.md#6`（外键存引用更方便 → 删行、合并、文本编辑都会炸）
 
 ### Step 3　文本存 key 不存明文　`[datatable/02#S3]`
 
@@ -85,7 +85,7 @@ class_name SkillData extends Resource
 
 【判据】⚠ CSV 里**没有任何**中文/英文展示文本（只有 ID、数值、key）
 
-【审】`audit/godot/datatable.md` 第 14 条（本地化文本直接放表里 → 要放 key）
+【审】`audit/godot/datatable.md#14`（本地化文本直接放表里 → 要放 key）
 
 ### Step 4　ID 命名空间　`[datatable/02#S4]`
 
@@ -107,7 +107,7 @@ class_name SkillData extends Resource
 
 【判据】⚠ 所有表的 ID 都带表名前缀，全库**无重复** ID
 
-【审】`audit/godot/datatable.md` 第 11/12 条
+【审】`audit/godot/datatable.md#11` `audit/godot/datatable.md#12`
 
 ### Step 5　⛔ 不要带必需参数的 _init()　`[datatable/02#S5]`
 
@@ -125,7 +125,7 @@ class_name SkillData extends Resource
 
 【判据】⚠ 对每个配表类调 `template.duplicate(true)`，**不报错且非 null**
 
-【审】`audit/godot/datatable.md` 第 4/5 条
+【审】`audit/godot/datatable.md#4` `audit/godot/datatable.md#5`
 
 ## 3. 参考实现
 
