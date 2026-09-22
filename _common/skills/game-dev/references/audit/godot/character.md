@@ -16,6 +16,8 @@
 | 4 | 没设 `up_direction` | `is_on_floor()` 永远 false，跳不起来 | 人工 |
 | 5 | 没加 `CollisionShape2D` | 不碰任何东西，直接穿墙 | 人工 |
 | 6 | 每帧 `_anim.play()` | 动画卡在第一帧 | GD54 |
+| 7 | `collision_layer` / `collision_mask` 随便填 | 角色 layer 与地面 mask **必须对齐**；错了对齐表现为"穿墙"或"撞空气" |
+| 8 | 撞墙抖动就调参 | 抖动通常是形状卡在两个碰撞体缝隙，或 `floor_snap` 与墙相互作用；先查几何再调参 |
 
 ## 全局块（跨功能通用）
 

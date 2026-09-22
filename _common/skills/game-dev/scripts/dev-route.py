@@ -1143,6 +1143,26 @@ def cmd_self_test():
     # ⚠ 这两类问题不会报错——文件在、链接也在，但按它开发会漏掉验收环节。
     _ORPHAN_FILE_MAX = 88   # ⓘ 基线：当前未铺流程的域数；铺一个域应下降
     _proc = _os.path.join(_skill, 'references', 'flow')
+    # ⚠ 全库文件必须是合法 UTF-8。
+    #   ⓘ 为什么查：曾出现某个 .md 中间一段字节被截断（写入时损坏），
+    #     而流程层的读取用严格 utf-8 会抛 UnicodeDecodeError；
+    #     若某处用了 errors='ignore' 就会**静默丢字**，检查全绿但内容已残。
+    #     这类损坏不报错、不崩溃，只表现为"文档里少了一句话"。
+    _badenc = []
+    for _r7, _d7, _f7 in _os.walk(_os.path.join(_skill, 'references')):
+        for _fn7 in sorted(_f7):
+            if not _fn7.endswith('.md'):
+                continue
+            _p7 = _os.path.join(_r7, _fn7)
+            try:
+                _b7 = open(_p7, 'rb').read().decode('utf-8')
+            except UnicodeDecodeError as _e7:
+                _badenc.append('%s@%d' % (_fn7, _e7.start)); continue
+            if '\ufffd' in _b7:
+                _badenc.append('%s(含替换符)' % _fn7)
+    chk(not _badenc, 'references 全部为合法 UTF-8（坏 %d: %s）'
+        % (len(_badenc), _badenc[:3]))
+
     chk(_os.path.isdir(_proc), '工序层 flow/ 目录存在')
     if _os.path.isdir(_proc):
         # ⚠ 三类文件套三种模板，⛔ 不能一刀切：
@@ -1344,6 +1364,35 @@ def cmd_self_test():
                         _nostep.append('%s S%s 缺【审】' % (_fn3, _m3.group(1)))
         chk(not _nostep, '每个 Step 都有【读】与【审】（缺 %d: %s）'
             % (len(_nostep), _nostep[:3]))
+
+        # ⚠【读】/【审】必须是"反引号包裹 + 带锚点"的精确引用。
+        #   ⓘ 为什么查：早期域（character / save）写成了裸文本
+        #     `【读】howto/godot/character.md —— 只查本步涉及的章节`，
+        #     既没有反引号也没有 `#章节`。而锚点校验的正则
+        #     「`【读】\`([^\`]+)\``」要求紧跟反引号 →
+        #     ⛔ 这些**从未被校验过**，也从未被统计为弱/强引用。
+        #     这又是一个"只统计存在项"的盲区：文件级引用不在任何口径里。
+        _BARE_MAX = 0        # ⓘ 修完应为 0
+        _bare = []
+        for _r6, _d6, _f6 in _os.walk(_proc):
+            for _fn6 in sorted(_f6):
+                if not _fn6.endswith('.md') or _fn6.startswith('_'):
+                    continue
+                _t6 = open(_os.path.join(_r6, _fn6), encoding='utf-8').read()
+                for _tg in ('【读】', '【审】'):
+                    for _m6 in re.finditer(_tg + r'([^\n]*)', _t6):
+                        _v6 = _m6.group(1).strip()
+                        if _v6.startswith('`'):
+                            continue        # ✅ 反引号包裹
+                        # ⓘ【审】后接说明文字是合法写法（"是**步骤级…**"、
+                        #   "列过的条目再过一遍"）。只有**含 .md 的裸文本**
+                        #   才是真问题——它是文件级引用，指向不够精确。
+                        if '.md' not in _v6:
+                            continue
+                        _bare.append('%s %s→%s' % (_fn6, _tg, _v6[:34]))
+        chk(len(_bare) <= _BARE_MAX,
+            '【读】/【审】必须是反引号包裹的精确引用（裸 %d > %d: %s）'
+            % (len(_bare), _BARE_MAX, _bare[:3]))
 
         # ⚠ 孤儿 audit 文件：既没被任何 Step 的【审】引用，
         #   也没有任何功能点在「整体审核」节里做全表复查。

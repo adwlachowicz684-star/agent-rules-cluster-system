@@ -117,6 +117,31 @@ if real_v.y > FALL_DAMAGE_SPEED:
 ⚠ **平台停下/掉头时角色抖动** —— 确认平台运动在物理帧内完成、
 角色与平台同层同物理空间。
 
+
+## 8. 顶点悬停（apex）：降低顶点附近的重力
+
+> ⓘ 本节为流程 `flow/godot/character/02-跳跃手感.md` S6 提供取用锚点。
+
+顶点悬停不是"变慢"，而是**在上升末段到下落初段临时降低重力**，
+让这段滞空时间变长，玩家能更从容地做空中决策。
+
+```gdscript
+const APEX_THRESHOLD := 60.0      # 待实测：|velocity.y| 小于此值视为顶点附近
+const APEX_GRAVITY_SCALE := 0.5   # 待实测
+
+var g := gravity
+if is_jumping and absf(velocity.y) < APEX_THRESHOLD:
+    g *= APEX_GRAVITY_SCALE
+velocity.y += g * delta
+```
+
+⚠ 三个必须注意的点：
+
+1. **只在上升/下落都生效**，⛔ 不要在"落地瞬间"也生效——会出现贴地飘。
+2. **阈值用 `absf(velocity.y)` 而不是 `velocity.y < 0`**：后者只覆盖上升段，
+   下落初段会突然恢复正常重力，手感是"断崖式"的。
+3. **必须实测录像逐帧看**，不能凭感觉调。判据是"上升末段到下落初段明显变慢"。
+
 ## 7. 碰撞形状不要高频变更
 
 ⚠ **冲刺时改 `CollisionShape2D.shape.radius` 或 `disabled` 会重建接触** ——
