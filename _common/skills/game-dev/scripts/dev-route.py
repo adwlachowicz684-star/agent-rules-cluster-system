@@ -1141,6 +1141,7 @@ def cmd_self_test():
 
     # 工序层 flow/ 的一致性：铺开后最容易退化的是"模板缺节"和"索引断链"。
     # ⚠ 这两类问题不会报错——文件在、链接也在，但按它开发会漏掉验收环节。
+    _ORPHAN_FILE_MAX = 88   # ⓘ 基线：当前未铺流程的域数；铺一个域应下降
     _proc = _os.path.join(_skill, 'references', 'flow')
     chk(_os.path.isdir(_proc), '工序层 flow/ 目录存在')
     if _os.path.isdir(_proc):
@@ -1343,6 +1344,40 @@ def cmd_self_test():
                         _nostep.append('%s S%s 缺【审】' % (_fn3, _m3.group(1)))
         chk(not _nostep, '每个 Step 都有【读】与【审】（缺 %d: %s）'
             % (len(_nostep), _nostep[:3]))
+
+        # ⚠ 孤儿 audit 文件：既没被任何 Step 的【审】引用，
+        #   也没有任何功能点在「整体审核」节里做全表复查。
+        #   ⓘ 这是"该有用时索引不到"最直接的一种：条目存在、规则也对，
+        #     但没有任何流程会让人去看它。
+        _refd_files = set()
+        for _r4, _d4, _f4 in _os.walk(_proc):
+            for _fn4 in _f4:
+                if not _fn4.endswith('.md') or _fn4.startswith('_'):
+                    continue
+                _t4 = open(_os.path.join(_r4, _fn4), encoding='utf-8').read()
+                for _m4 in re.finditer(r'`(?:audit/godot/)?([\w-]+)\.md#\d+`', _t4):
+                    _refd_files.add(_m4.group(1))
+                _mz = re.search(r'##\s*\d+\s*　?整体审核.*$', _t4, re.S)
+                if _mz:
+                    for _m5 in re.finditer(r'`(?:audit/godot/)?([\w-]+)\.md(?:#\d+)?`',
+                                           _mz.group(0)):
+                        _refd_files.add(_m5.group(1))
+        _orphan_file = []
+        _adir = _os.path.join(_skill, 'references', 'audit', 'godot')
+        for _f5 in sorted(_os.listdir(_adir)):
+            _p5 = _os.path.join(_adir, _f5)
+            if not _f5.endswith('.md'):
+                continue
+            _d5 = _os.path.basename(_p5)[:-3]
+            if _d5 in _refd_files:
+                continue
+            _has = any(re.match(r'^\|\s*\d+\s*\|', _l)
+                       for _l in open(_p5, encoding='utf-8'))
+            if _has:
+                _orphan_file.append(_d5)
+        chk(len(_orphan_file) <= _ORPHAN_FILE_MAX,
+            'audit 孤儿文件数不增长（当前 %d / 上限 %d: %s）'
+            % (len(_orphan_file), _ORPHAN_FILE_MAX, _orphan_file[:3]))
 
         # ⚠【审】锚点校验 —— 上一轮只校验了【读】，【审】完全没有。
         #   而【审】才是"这一步特有的坑"，写错条目号 = 审到不相干的条目上，

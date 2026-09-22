@@ -44,6 +44,14 @@ def tokens(text):
     return t
 
 
+def _all_refs(block):
+    """取【审】整行里的所有 `xxx.md#N` 引用（与 dev-route 口径一致）。"""
+    out = []
+    for ln in re.findall(r'【审】([^\n]+)', block):
+        out += re.findall(r'`([\w/-]+\.md#\d+)`', ln)
+    return out
+
+
 def entry_text(path, num):
     p = os.path.join(SKILL, 'references', path)
     if not os.path.exists(p):
@@ -77,6 +85,18 @@ EXEMPT = {
         '"拖放只转发意图"是"UI 不该改数据"这一原则的具体做法',
     ('07-音频验收.md', 'S3', 'audio-advanced.md#7'):
         '"三种状态行为"的验收点就是暂停后 UI 音是否还在响',
+    # ⓘ 以下为"多对多"的合法交叉引用：同一条目在验收步被复查，
+    #   与它在教学步的字面不同，但语义就是同一件事。
+    ('07-版本演进与验收.md', 'S4', 'datatable.md#4'):
+        '验收时复查"模板共享"；与 06 S2 的深拷贝是同一件事的验收侧',
+    ('03-导入管线与常量生成.md', 'S1', 'datatable.md#16'):
+        '读 CSV 时就要区分空串/0/缺列，三者字面上不出现在 Step 标题里',
+    ('03-导入管线与常量生成.md', 'S2', 'datatable.md#16'):
+        '类型转换同样要区分空串/0/缺列',
+    ('07-上线验收.md', 'S3', 'netsync-advanced.md#15'):
+        '"专用服务器"与"家用宽带不能开服"是同一件事的正反两面',
+    ('01-感知接入.md', 'S1', 'ai-perception.md#6'):
+        '"感知独立成层"包含统一查询接口，无命中返回值是接口的一部分',
 }
 
 
@@ -97,7 +117,12 @@ def scan():
             #   关键标识常在标题里（如"focus_neighbor 显式或自动"），
             #   只看【做】会把明明相关的映射判成零交集（假阳性）。
             stok = tokens(b)
-            for a in re.findall(r'【审】`([^`]+)`', b):
+            # ⚠ 原来只取【审】后紧跟的**第一个**反引号内容。
+            #   实际写法常是 `【审】`a`（说明） `b` `c`` ——
+            #   b、c 的相关性**从未被检查过**。⛔ 又是"只查了一部分"。
+            for a in [x for ln in re.findall(r'【审】([^\n]+)', b)
+                      for x in re.findall(r'[^\s`]+`?', ln)
+                      if False] or _all_refs(b):
                 if '#' not in a:
                     continue
                 path, sec = a.split('#', 1)
