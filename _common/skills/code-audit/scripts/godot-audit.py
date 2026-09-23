@@ -4338,6 +4338,36 @@ void process() {
 }
 '''
 
+# ⓘ GD15 是**唯一**既不在任何规则表里、也没有样本的 special 规则
+#   —— 它硬编码在 analyze() 的第 7 段（`add(i, "GD15", …)`）。
+#   ⛔ 不在表里意味着 C4 按「规则表」统计时看不到它，
+#      所以它成了 C4 报 0 缺口、而 `--test` 报 1 条未覆盖的那个**真缺口**。
+#      两边口径不一致本身就是一个信号：任何"只数表里的项"的检查都会漏掉它。
+SELF_GD15_BAD = '''extends Node
+
+func _ready():
+	$Bus.pressed.connect(on_pressed)
+
+func _exit_tree():
+	queue_free()
+
+func on_pressed():
+	pass
+'''
+
+SELF_GD15_CLEAN = '''extends Node
+
+func _ready():
+	$Bus.pressed.connect(on_pressed)
+
+func _exit_tree():
+	if $Bus.pressed.is_connected(on_pressed):
+		$Bus.pressed.disconnect(on_pressed)
+
+func on_pressed():
+	pass
+'''
+
 SELF_DEBUG_BAD = '''extends Node
 
 func _process(delta):
@@ -4601,6 +4631,7 @@ def self_test() -> int:
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
             'gap.gd': SELF_GAP_BAD, 'gapok.gd': SELF_GAP_CLEAN,
+            'gd15.gd': SELF_GD15_BAD, 'gd15ok.gd': SELF_GD15_CLEAN,
             'gap.cs': SELF_GAPCS_BAD, 'gapok.cs': SELF_GAPCS_CLEAN,
             'part.gdshader': SELF_GAPPART_BAD, 'partok.gdshader': SELF_GAPPART_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
@@ -5106,6 +5137,14 @@ def self_test() -> int:
                          _probs[:1] or '无'))
             except Exception as _e:
                 check(False, 'check-rule-regex.py 输出可解析（%s）' % str(_e)[:40])
+
+        # ⚠ GD15：硬编码 special 规则，不在任何规则表里
+        #   ⓘ 它是 C4 的盲区——C4 按规则表统计，看不见它；
+        #      也是 --test 唯一报出的那条真未覆盖。补样本后两边口径才对齐。
+        check('GD15' in ids('gd15.gd'),
+              'gd15.gd 命中 GD15（清理回调里未 disconnect）')
+        check('GD15' not in ids('gd15ok.gd'),
+              'gd15ok.gd 不报 GD15（已 is_connected + disconnect）')
 
         # --- 缺口样本：14 条此前无任何验证的规则 ---
         # ⓘ 这 14 条既无 tp fixture 也无内联断言（check-rule-regex.py C4 查出），

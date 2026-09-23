@@ -23,6 +23,7 @@ rule-registry.py —— 规则注册表管理（rule_id / 漂移检查 / fixture
     python3 rule-registry.py --json              # 机器可读
 """
 
+import ast
 import os
 import glob
 import re
@@ -40,6 +41,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 REG = os.path.join(SKILL, 'rules', 'registry.json')
 ITEMS = os.path.join(SKILL, 'rules', 'items.json')
+
+# 所有扫描器（注册表 / 体检 / 内联覆盖共用的**单一来源**）
+# ⓘ 为什么集中在这里：check-rule-regex.py 原本自己维护一份，
+#   两边各自维护必然漂移 —— 新增扫描器时改一处忘另一处，
+#   那一边就会静默地少查一个（表现为"0 问题"）。
+SCANNERS = [
+    'godot-audit.py', 'cocos-audit.py', 'scan-ts.py', 'scan-py.py',
+    'scan-app.py', 'scan-cpp.py', 'scan-go.py', 'scan-java.py',
+    'scan-rust.py',
+]
 FIXDIR = os.path.join(SKILL, 'rules', 'fixtures')
 GAPS = os.path.join(SKILL, 'rules', 'gaps.json')
 
@@ -1463,6 +1474,73 @@ def cmd_cross():
 SKIPPED_NO_RULE = set()
 
 
+def collect_inline_verified():
+    """各扫描器里「被内联自检断言过」的规则 ID → {scanner: set(native_id)}。
+
+    ⓘ 为什么需要：fixture 与内联样本是**两种等价的验证手段**。
+      godot-audit 的 296 条规则 **0 个 tp fixture**，全靠 self_test() 里的
+      内联样本；只按 fixture 目录统计会得到「未覆盖 297」——一个与事实
+      相反的数字。脚本里已有注释明言「自检报出与事实相反的覆盖率，
+      比不报更糟」，而它自己正是这么干的。
+
+    ⓘ 提取口径必须按各扫描器的实际写法分别取，不能用统一正则：
+      · scan-* 写在 SELF_TEST_CASES / SELF_TEST_CONTEXT_CASES
+        （有的是 dict 以规则 ID 为 key，有的是 list 元组首元素）
+      · godot-audit.py 写在 self_test() 里，形态有三种：
+        for rid, label in (('GD21','…'), …) / for rid in ('GD91', …)
+        / check('GD11' not in ids('x.gd'), …)
+      · 用统一正则会漏掉 `'(GDxx)' not in` 那类（此前把 GD11 误报成未覆盖）。
+    """
+    out = {}
+    for fn in SCANNERS:
+        p = os.path.join(HERE, fn)
+        if not os.path.exists(p):
+            continue
+        try:
+            tree = ast.parse(open(p, encoding='utf-8').read())
+        except (SyntaxError, OSError):
+            continue
+        ids = set()
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Assign)
+                    and isinstance(node.value, (ast.List, ast.Dict))):
+                continue
+            names = [tg.id for tg in node.targets if isinstance(tg, ast.Name)]
+            if not any(n.startswith('SELF_TEST') for n in names):
+                continue
+            v = node.value
+            if isinstance(v, ast.Dict):
+                for k in v.keys:
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                        ids.add(k.value)
+            else:
+                for el in v.elts:
+                    if isinstance(el, ast.Tuple) and el.elts \
+                            and isinstance(el.elts[0], ast.Constant) \
+                            and isinstance(el.elts[0].value, str):
+                        ids.add(el.elts[0].value)
+        out.setdefault(fn, set()).update(ids)
+    # godot-audit.py：self_test() 里的 rid 断言
+    gp = os.path.join(HERE, 'godot-audit.py')
+    if os.path.exists(gp):
+        try:
+            s = open(gp, encoding='utf-8').read()
+        except OSError:
+            s = ''
+        i = s.find('def self_test')
+        body = s[i:] if i >= 0 else ''
+        ids = set()
+        for m in re.finditer(r"for rid, label in \((.*?)\):", body, re.S):
+            ids |= set(re.findall(r"\('(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"for rid in \(([^)]*)\):", body):
+            ids |= set(re.findall(r"'(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"'(GD(?:S)?\d{2,4})'\s*(?:not\s+)?in\s+", body):
+            ids.add(m.group(1))
+        out.setdefault('godot-audit.py', set()).update(ids)
+    return out
+
+
+
 def cmd_test():
     """跑 fixture：TP 必须命中、FP 必须不命中（实际执行扫描器，不是只看文件在不在）。"""
     if not os.path.isdir(FIXDIR):
@@ -1503,12 +1581,29 @@ def cmd_test():
                 vb = VARIANT_RX.match(rid)
                 if vb and vb.group('base') not in have_fx:
                     have_fx.add(vb.group('base'))
+    # ⚠ 已被内联自检断言覆盖的规则**不算未覆盖**。
+    #   只按 fixture 目录统计会把 godot 的 296 条（全靠内联样本验证）
+    #   全部算成「未覆盖」，输出一个与事实相反的数字。
+    #   内联覆盖取的是 native_id，注册表里是 rule_id（可能带前缀），
+    #   两边都取来比对，避免「已验证」被判成「没验证」。
+    _inline = collect_inline_verified()
+    _covered_inline = set()
+    for r in reg['rules']:
+        s = r.get('scanner')
+        ni = r.get('native_id')
+        if ni and s and ni in (_inline.get(s) or set()):
+            _covered_inline.add(r['rule_id'])
+        elif r['rule_id'] in (_inline.get(s) or set()):
+            _covered_inline.add(r['rule_id'])
     uncovered = sorted(r['rule_id'] for r in reg['rules']
-                       if r['rule_id'] not in have_fx)
+                       if r['rule_id'] not in have_fx
+                       and r['rule_id'] not in _covered_inline)
     print('\nfixture 实测：通过 %d · 失败 %d · 未覆盖规则 %d'
           % (ok, fail, len(uncovered)))
+    print('  （另有 %d 条靠扫描器内联自检断言验证，不计入未覆盖）'
+          % len(_covered_inline))
     if uncovered:
-        print('  ▲ 无 tp 也无 fp 样本：%s' % ', '.join(uncovered[:12]))
+        print('  ▲ 既无 fixture 也无内联断言：%s' % ', '.join(uncovered[:12]))
         if len(uncovered) > 12:
             print('    …共 %d 条' % len(uncovered))
         print('    → 加规则请配样本，否则自检对它等于没跑')
