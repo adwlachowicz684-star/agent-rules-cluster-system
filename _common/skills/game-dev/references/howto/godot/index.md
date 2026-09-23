@@ -57,6 +57,7 @@
 | **数据驱动/配表** | `datatable.md` | 数值写代码=程序员成瓶颈 · duplicate() 默认浅拷贝共享子资源 · 外键存 ID 不存引用 · 导入期要校验 · load_threaded 才是异步 |
 | **VFX/游戏感** | `vfx-feel.md` | GPU 粒子不是默认答案（Web/兼容渲染器选 CPU）· 震动要 trauma+噪声不是随机偏移 · time_scale=0 时定时器也停需 ignore_time_scale |
 | **经济/长线系统** | `economy.md` | 货币不能只一个 int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用 UTC · **装备四层分离（模板/实例/词条快照/绑定）· 失败回退让期望次数从 31 涨到 2557 · 词条存 roll 不存最终值 · 分解按当前状态折算** |
+| **宝石/符文** | `gem-rune.md` | 宝石是 Resource 不是 Node · 插槽类型来自配表 · 镶嵌是事务（先删后插=资产消失）· 拆卸损耗必须明示 · 合成防套利环 · 套装按槽位去重 |
 | **输入重绑定** | `input-remap.md` | 4.x 用 action_get_events 非 get_action_list · 键位以 physical_keycode 为主键 · 振动不会自己停需显式 stop |
 | **无障碍/字幕** | `accessibility.md` | 无障碍≠难度选项 · 颜色即信息时滤镜无效要形状冗余 · 字幕要含非语音线索 · 闪烁每秒≤3 次且面积≤1/4 |
 | **回放/录像** | `replay.md` | Godot 物理官方不保证确定性 · 录的是每 tick 动作状态非按键流 · MovieMaker 是离线逐帧非实时录屏 |

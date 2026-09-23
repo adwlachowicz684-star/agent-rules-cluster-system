@@ -56,7 +56,8 @@ CONCEPTS_CORE = {
     '宝石/符文':        ['宝石', '符文', '镶嵌', 'gem', 'rune'],
     '精炼/淬炼':        ['精炼', '淬炼', '洗练', '重铸', 'refine'],
     '卡牌构筑':         ['卡组', '卡池', '构筑', 'deck build'],
-    'roguelike词条':    ['roguelike', '遗物', '词条选择', '局内成长'],
+    'roguelike':        ['roguelike', '房间图', '关卡生成'],
+    '局内构筑/遗物':     ['遗物', '词条选择', '局内成长', 'relic'],
     '天气/季节':        ['天气', '季节', 'weather', 'season'],
     '昼夜循环':         ['昼夜', '日夜', 'day night', 'time of day'],
     '竞技场/排位':      ['竞技场', '排位', '天梯', '段位', 'arena', 'ranked', 'ladder'],
@@ -98,12 +99,67 @@ CONCEPTS_CORE = {
 }
 
 # 弱词：单独命中时**不能**证明覆盖，只能算「疑似」
+# ⚠ 人工复核结论：扫不出结论的概念，人打开看一眼，**记录下来**。
+#
+#   ⛔ 为什么不只靠自动判据：「核心词高频但未成节」这一档，机器**无法**
+#      区分「顺带提到」和「写了但没起小节」——两者在词频上完全相同。
+#      ⛔ 更糟的是：不记录结论的话，下一轮扫描会**原样再报一遍**，
+#        人又要重新核实一次，而且可能得出不同结论（结论漂移）。
+#
+#   ✅ 结论四选一：
+#     blank            真空白 —— 命中全是别的话题，可新建
+#     partial          部分覆盖 —— 有涉及但不是这个主题，反哺指定文档
+#     covered_by_other 已被别的文档覆盖 —— 概念名起错了，改概念名
+#     concept_split    概念本身混了两个主题 —— 拆开
+REVIEWED = {
+    'roguelike': (
+        'covered_by_other',
+        'roguelike 由 `genres-roguelike.md` 专讲（生成管线+房间图+道具池+'
+        '可复现RNG），已覆盖；但「遗物/词条选择/局内成长」是**局内构筑**，'
+        '另一回事且未覆盖。概念表已拆为「roguelike」与「局内构筑/遗物」。'),
+    '宝石/符文': (
+        'blank',
+        'economy 的「镶嵌×3」只是数值管线的一环（`EquipmentInstance` 的'
+        '一个字段名、属性链 `…→强化→镶嵌→外部buff`），全篇没讲宝石/符文'
+        '系统本身（插槽数/宝石等级/拆卸损耗/套装触发）。'),
+    '植被/ foliage': (
+        'blank',
+        '四处命中分属四个不同话题：upscaling 讲 MSAA 对 alpha scissor 的坑、'
+        'procedural-generation 讲泊松采样布点、openworld 讲装饰内容、'
+        'plugins 讲插件选型。**没有一篇在讲植被系统本身**。'),
+    '竞技场/排位': (
+        'partial',
+        'sharding-matchmaking 的「段位×8」出现在**合服保留优先级**与'
+        '**赛季结算**语境（按段位排序决定保留谁、赛季时间语义），'
+        '不是匹配赛制本身。赛制/ELO/匹配池/禁用英雄未讲。'),
+    '关卡流程': (
+        'covered_by_other',
+        '⚠ 本扫描器只扫 howto，**看不出流程层已有域**。'
+        '流程层 `flow/godot/level/` 已铺（8 文件 / 37 节点）；'
+        'howto 层分散在 level-design / systems / camera-cutscene / '
+        'tilemap / openworld 五篇。建议反哺而非新建。'),
+    '公会战': (
+        'partial',
+        'social 里只出现 1 次，是关系链/组队语境的顺带提及，'
+        '公会战本身（报名/编队/集结/结算/跨服）未讲。'),
+    '局内构筑/遗物': (
+        'partial',
+        '「遗物」散在 build-affix(×2) 与 genres-roguelike(×1)，'
+        '都是举例。局内构筑系统本身（遗物池/稀有度/协同/三选一/局外解锁）未讲，'
+        '应反哺 `genres-roguelike.md`。'),
+    'VIP/累充': (
+        'partial',
+        'monetization 的「月卡×3」只讲**到期时间必须按 UTC 算**，'
+        'VIP 等级、累充档位、权益分层、累充进度跨档结算未讲。'),
+}
+
 CONCEPTS_WEAK = {
     '转职/觉醒':        ['进阶'],
     '宝石/符文':        ['插槽', 'socket'],
     '精炼/淬炼':        ['品阶'],
     '卡牌构筑':         ['deck', 'build'],
-    'roguelike词条':    ['rogue'],
+    'roguelike':        ['rogue'],
+
     '竞技场/排位':      ['rank'],
     '跨服/据点战':      ['据点'],
     '公会战':           ['团战'],
@@ -253,6 +309,7 @@ def main():
     print('\n### ⚠ 仅提及（命中但没成节、出现 <3 次）—— 先反哺，不要新建')
     if not mention:
         print('  （无）')
+    unreviewed = []
     for name, terms, hits in mention:
         core = set(CONCEPTS_CORE.get(name, []) or terms)
         hs = sorted(hits, key=lambda h: -h[2])[:3]
@@ -261,6 +318,11 @@ def main():
                     '' if t in core else ',弱词')
                          for d, t, c, ih, l in hs)
         print('  • %-16s → %s' % (name, locs))
+        rv = REVIEWED.get(name)
+        if rv:
+            print('       ✅ 已复核（%s）：%s' % (rv[0], rv[1]))
+        else:
+            unreviewed.append(name)
 
     print('\n### ⚠ 疑似覆盖（核心词高频但未成节）—— 必须人工复核')
     if not suspect:
@@ -269,8 +331,20 @@ def main():
         hs = sorted(freq, key=lambda h: -h[2])[:3]
         locs = ', '.join('%s(%s×%d)' % (d, tt, c) for d, tt, c, ih, l in hs)
         print('  • %-16s → %s' % (name, locs))
-        print('       └ 可能是「顺带提到」也可能是「写了但没起小节」，'
-              '打开看一眼再决定')
+        rv = REVIEWED.get(name)
+        if rv:
+            # ✅ 已复核：直接给结论 + 理由，不必再打开看一遍
+            print('       ✅ 已复核（%s）：%s' % (rv[0], rv[1]))
+        else:
+            print('       ⚠ 未复核 —— 可能是「顺带提到」也可能是'
+                  '「写了但没起小节」，打开看一眼再决定')
+            unreviewed.append(name)
+
+    if unreviewed:
+        print('\n  ⚠ 有 %d 个疑似概念尚未人工复核：%s'
+              % (len(unreviewed), '、'.join(unreviewed)))
+        print('     复核后把结论写进 REVIEWED 表，'
+              '⛔ 否则下一轮会原样再报一遍、且可能得出不同结论')
 
     print('\n### 已覆盖（核心词成节）—— 不要新建')
     for name, hits, solid in covered:

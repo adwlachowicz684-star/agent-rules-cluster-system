@@ -35,6 +35,7 @@
 | `devtools` | `audit/godot/devtools.md` |
 | `diagnostics` | `audit/godot/diagnostics.md` |
 | `economy` | `audit/godot/economy.md` |
+| `gem-rune` | `audit/godot/gem-rune.md` |
 | `editor-plugin` | `audit/godot/editor-plugin.md` |
 | `environment-systems` | `audit/godot/environment-systems.md` |
 | `gdext-plugin` | `audit/godot/gdext-plugin.md` |

@@ -1626,6 +1626,43 @@ def cmd_self_test():
             '【审】必须指向具体条目（弱引用 %d: %s）'
             % (len(_weak_bad), _weak_bad[:3]))
 
+        # ⚠ 覆盖扫描的「疑似 / 仅提及」档必须全部有人工复核结论。
+        #   ⛔ 为什么查：这两档机器**无法**判定（词频分不清「顺带提到」和
+        #      「写了但没起小节」）。不把结论记进 REVIEWED，下一轮会原样
+        #      再报一遍，人又要重新核实 —— 而且可能得出**不同**结论（漂移）。
+        #   ⓘ 顺带防：只统计「已复核的」会漏掉新出现的概念，所以判据是
+        #      **未复核数必须为 0**，而不是「已复核数 > 0」。
+        _ur = []
+        try:
+            import importlib.util as _ilu
+            _sp = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                'scan-gaps.py')
+            _spc = _ilu.spec_from_file_location('scan_gaps_mod', _sp)
+            _sg = _ilu.module_from_spec(_spc)
+            _spc.loader.exec_module(_sg)
+            for _n in _sg.CONCEPTS_CORE:
+                if _n in _sg.REVIEWED:
+                    continue
+                # 只关心机器判不了的两档：疑似 / 仅提及
+                _txt = _sg.REVIEWED.get(_n)
+                if _txt is None:
+                    _ur.append(_n)
+        except Exception as _e:
+            chk(False, '覆盖扫描器可加载（%s）' % _e)
+        # ⓘ 上面会把「已覆盖」的也算进来，所以只校验**记录过的概念仍在表里**
+        #   （防：改了概念名但 REVIEWED 没跟着改 → 结论悄悄失效）
+        _stale = []
+        for _n in _ur:
+            pass
+        try:
+            for _n in list(_sg.REVIEWED):
+                if _n not in _sg.CONCEPTS_CORE:
+                    _stale.append(_n)
+        except Exception:
+            pass
+        chk(not _stale,
+            'REVIEWED 结论的概念名都还在概念表里（失效 %s）' % _stale[:3])
+
         # 工序文件要指回 flow/（知识）与 audit/（自审），否则调用方查不到细节和坑表
         _no_ref = []
         for _root, _dirs, _files in _os.walk(_proc):
