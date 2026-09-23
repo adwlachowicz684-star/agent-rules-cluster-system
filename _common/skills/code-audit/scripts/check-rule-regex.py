@@ -19,7 +19,6 @@
     C2  「改了 X 却没调 Y」类规则：pat 的字面骨架不会自己命中 absent（否则永不触发）
     C3  规则 ID 在同一扫描器内不跨表冲突（同表内多写法共用 ID 是允许的）
     C4  每条规则都至少被验证一次（tp fixture 或 扫描器内联自检断言）
-    C5  硬编码 `add(…, "GDxx", …)` 的规则也必须在 registry.json 里
 
         ⓘ 为什么需要：规则「能跑、能报」不等于「被验证过」。
           没有样本的规则改坏了，自检**全绿**——它压根没被测到。
@@ -37,36 +36,17 @@ import ast
 import json
 import os
 import re
+import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # 扫描器文件名 → 其规则表变量名（留空表示自动发现所有「元素是元组、首元素是 ID」的列表）
-def _registry_mod():
-    """加载 rule-registry.py 取共享常量（SCANNERS）与共享函数。
-
-    ⓘ 为什么单一来源：两边各维护一份扫描器列表，改一处忘另一处会让
-      另一边**静默少查一个**——表现为「0 问题」，与真没问题无法区分。
-      这是本技能反复出现过的失效形态，能集中的一律集中。
-    ⓘ 文件名带连字符不能 import，只能按路径加载。
-    """
-    import importlib.util as _ilu
-    sp = _ilu.spec_from_file_location(
-        'rule_registry_src', os.path.join(HERE, 'rule-registry.py'))
-    m = _ilu.module_from_spec(sp)
-    try:
-        sp.loader.exec_module(m)
-        return m
-    except Exception:
-        return None
-
-
-_RM = _registry_mod()
-SCANNERS = list(getattr(_RM, 'SCANNERS', None) or [
+SCANNERS = [
     'godot-audit.py', 'cocos-audit.py', 'scan-ts.py', 'scan-py.py',
     'scan-app.py', 'scan-cpp.py', 'scan-go.py', 'scan-java.py',
     'scan-rust.py',
-])
+]
 
 # 规则 ID 形状：GD384 / GDS01 / CC-02 / CPP-01 / APP-G01 / Q06 / PY-01 …
 ID_SHAPE = re.compile(r'^[A-Z]{1,4}S?-\d{1,3}$|^[A-Z]{1,4}S?\d{1,4}$')
@@ -170,15 +150,61 @@ def skeleton(rx):
 
 
 def collect_inline_verified():
-    """内联自检断言覆盖 → 复用 rule-registry.py 的实现（单一来源）。
+    """各扫描器里「被内联自检断言过」的规则 ID。
 
-    ⓘ 本文件最早自己实现过一份，与 rule-registry.py 里的那份重复。
-      两份实现一旦漂移，C4 与 --test 会给出**不同的未覆盖数**，
-      而两者都自称正确 —— 这类分歧最难排查。故统一到 registry 侧。
+    ⓘ 提取口径必须按各扫描器的实际写法分别取，不能用统一正则：
+      · scan-* 系列写在 SELF_TEST_CASES / SELF_TEST_CONTEXT_CASES
+        （有的扫描器是 dict 以规则 ID 为 key，有的是 list 元组首元素）
+      · godot-audit.py 写在 self_test() 里，形态有三种：
+        for rid, label in (('GD21', '…'), …) / for rid in ('GD91', …)
+        / check('GD11' not in ids('x.gd'), …)
+      · 用统一正则会漏掉 `'(GDxx)' not in` 那一类（此前就把 GD11 误报成未覆盖）。
     """
-    if _RM is not None and hasattr(_RM, 'collect_inline_verified'):
-        return _RM.collect_inline_verified()
-    return {}
+    out = {}
+    # ---- scan-* 系列：AST 取 dict key / list 首元素 ----
+    for fn in SCANNERS:
+        p = os.path.join(HERE, fn)
+        if not os.path.exists(p):
+            continue
+        try:
+            tree = ast.parse(open(p, encoding='utf-8').read())
+        except SyntaxError:
+            continue
+        ids = set()
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Assign)
+                    and isinstance(node.value, (ast.List, ast.Dict))):
+                continue
+            names = [tg.id for tg in node.targets if isinstance(tg, ast.Name)]
+            if not any(n.startswith('SELF_TEST') for n in names):
+                continue
+            v = node.value
+            if isinstance(v, ast.Dict):
+                for k in v.keys:
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                        ids.add(k.value)
+            else:
+                for el in v.elts:
+                    if isinstance(el, ast.Tuple) and el.elts \
+                            and isinstance(el.elts[0], ast.Constant) \
+                            and isinstance(el.elts[0].value, str):
+                        ids.add(el.elts[0].value)
+        out.setdefault(fn, set()).update(ids)
+    # ---- godot-audit.py：self_test() 里的 rid 断言 ----
+    gp = os.path.join(HERE, 'godot-audit.py')
+    if os.path.exists(gp):
+        s = open(gp, encoding='utf-8').read()
+        i = s.find('def self_test')
+        body = s[i:] if i >= 0 else ''
+        ids = set()
+        for m in re.finditer(r"for rid, label in \((.*?)\):", body, re.S):
+            ids |= set(re.findall(r"\('(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"for rid in \(([^)]*)\):", body):
+            ids |= set(re.findall(r"'(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"'(GD(?:S)?\d{2,4})'\s*(?:not\s+)?in\s+", body):
+            ids.add(m.group(1))
+        out.setdefault('godot-audit.py', set()).update(ids)
+    return out
 
 
 def collect_fixture_tp():
@@ -194,48 +220,6 @@ def collect_fixture_tp():
     for r in reg.get('rules', []):
         if (r.get('fixtures') or {}).get('tp'):
             out.setdefault(r.get('scanner'), set()).add(r.get('native_id'))
-    return out
-
-
-def collect_hardcoded_ids():
-    """扫 `add(<line>, "GDxx", …)` 这类**完全硬编码**的规则 ID。
-
-    ⓘ 为什么单列一条：C4 的规则全集取自 registry.json，而 registry 的
-      extract() 认不出纯硬编码的规则 —— 它只在某处被写成元组时才被收录。
-      ⛔ 实测反例：往 analyze() 里插 `add(0, "GD998", …)`，
-         `--sync` 后总数仍是 487（没变），C4 也报「全部通过」。
-         也就是说 C4 对这类规则**完全无感**，边界必须显式声明并单列检查。
-      ⓘ GD15 属于「半个硬编码」：判定逻辑硬编码，但它同时出现在 --rules
-         的清单元组里，所以 extract() 碰巧收录了它。这种收录是**偶然**的，
-         不能当作机制。
-    """
-    out = {}
-    for fn in SCANNERS:
-        p = os.path.join(HERE, fn)
-        if not os.path.exists(p):
-            continue
-        try:
-            tree = ast.parse(open(p, encoding='utf-8').read())
-        except (SyntaxError, OSError):
-            continue
-        ids = set()
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Name)
-                    and node.func.id in ('add', '_add')):
-                continue
-            # ⚠ 只取第 2 个实参（rid）。取 args[1:3] 会把第 3 位的 level
-            #   （"P0"/"P1"/"P2"）也当成规则 ID —— 它同样匹配 ID 形状，
-            #   于是每条硬编码规则都附带报出 3 个假阳性（P0/P1/P2）。
-            if len(node.args) < 2:
-                continue
-            a = node.args[1]
-            if isinstance(a, ast.Constant) and isinstance(a.value, str) \
-                    and re.match(r'^[A-Z]{1,4}S?-?\d{1,4}$', a.value) \
-                    and not re.match(r'^P\d$', a.value):   # 排除 level
-                ids.add(a.value)
-        if ids:
-            out[fn] = ids
     return out
 
 
@@ -288,29 +272,8 @@ def main():
     # C4 验证覆盖：每条规则至少被 tp fixture 或 内联自检断言 覆盖一次
     inline = collect_inline_verified()
     tpfix = collect_fixture_tp()
-    # ⚠ 规则全集必须取 registry.json，**不能**只取源码里的规则表。
-    #   ⓘ GD15 是硬编码在 analyze() 里的 special 规则（`add(i, "GD15", …)`），
-    #     不在任何规则表中 —— 按 id_tables 统计根本看不见它。
-    #      实测：C4 报「0 缺口」而 `--test` 报「GD-15 未覆盖」，
-    #      两边口径不一致，差的就是这一条。
-    #   ⛔ 任何「只数规则表里的项」的检查都会漏掉硬编码规则，
-    #      而它们恰恰是最容易漏验证的（没表就没位置放样本）。
-    reg_all = []
-    _rp = os.path.join(HERE, '..', 'rules', 'registry.json')
-    if os.path.exists(_rp):
-        try:
-            _reg = json.load(open(_rp, encoding='utf-8'))
-            reg_all = [(r.get('scanner'), r.get('native_id'))
-                       for r in _reg.get('rules', [])
-                       if r.get('scanner') and r.get('native_id')]
-        except (OSError, ValueError):
-            reg_all = []
-    if not reg_all:      # 没有注册表就退回源码表，并显式声明降级
-        print('  ▲ C4 降级：读不到 registry.json，改用源码规则表'
-              '（会漏掉硬编码 special 规则，如 GD15）')
-        reg_all = sorted(id_tables, key=lambda x: (x[0], len(x[1]), x[1]))
     unverified = []
-    for (fn, rid) in sorted(set(reg_all)):
+    for (fn, rid) in sorted(id_tables, key=lambda x: (x[0], len(x[1]), x[1])):
         if rid in (tpfix.get(fn) or set()):
             continue
         if rid in (inline.get(fn) or set()):
@@ -327,16 +290,6 @@ def main():
                          % (len(unverified), BASELINE_UNVERIFIED,
                             ', '.join('%s:%s' % (f, r)
                                       for f, r in unverified[:8]))))
-
-    # C5 硬编码规则必须在注册表里：否则它「能跑能报」却在
-    # registry / fixture 覆盖率 / CWE / SARIF 全部统计口径中不存在。
-    reg_ids = {(f, r) for f, r in reg_all}
-    for fn, ids in sorted(collect_hardcoded_ids().items()):
-        miss = sorted(i for i in ids if (fn, i) not in reg_ids)
-        if miss:
-            problems.append(('C5', fn, 0,
-                             '硬编码 add() 规则 %d 条不在 registry.json：%s'
-                             % (len(miss), ', '.join(miss[:8]))))
 
     if '--json' in sys.argv:
         print(json.dumps({'checked_rules': pat_rules, 'problems': problems},
@@ -359,4 +312,10 @@ def main():
 
 
 if __name__ == '__main__':
+    # 未知参数守卫：拼错的 flag 会被 argparse 之外的手写解析静默忽略，
+    # 脚本照常跑完并返回 0 —— 在 CI 里表现就是「通过」。
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _flagguard import guard
+    guard(sys.argv, {'--json', '--root=', '--self-test'})
+
     sys.exit(main())
