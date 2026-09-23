@@ -36,63 +36,107 @@ import glob
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOWTO = os.path.join(ROOT, 'references', 'howto', 'godot')
 
-# 概念 → 说法列表（第一个是主说法，其余是同义/原子词）
-# ⚠ 维护原则：新增概念时，把「所有可能已经写过的说法」都列上，
-#    否则会重演"录像回放"的误判。
-CONCEPTS = {
-    '转职/觉醒':        ['转职', '觉醒', '进阶', '职业进阶', 'class change', 'awaken'],
-    '宝石/符文':        ['宝石', '符文', '镶嵌', '插槽', 'gem', 'rune', 'socket'],
-    '精炼/淬炼':        ['精炼', '淬炼', '洗练', '重铸', '品阶', 'refine'],
-    '卡牌构筑':         ['构筑', '卡组', '卡池', '抽卡组', 'deck', 'build'],
-    'roguelike词条':    ['roguelike', 'rogue', '词条选择', '局内成长', '遗物'],
+# 概念 → 说法，分两级
+#   core：强特征词。命中它，就能确定文档真的在讲这个东西。
+#   weak：宽泛/易歧义词。命中它**不足以**判定覆盖，只能算「疑似」。
+#
+# ⚠ 为什么要分两级：2026-09 实测，扁平词表 + 「成节即算覆盖」的判据
+#   产生了**反向误判** —— 把空白报成已覆盖，比漏报更危险：
+#     · 「转职/觉醒」→ 词表里的「进阶」命中 movement-advanced 的标题
+#       《进阶移动：二段跳、爬墙抓边…》→ 判已覆盖。实为「移动进阶」，
+#       与转职无关；「转职」「觉醒」在全部 howto 里 0 命中。
+#     · 「宝石/符文」→ 「socket」在 firearms.md 出现 5 次 → 判已覆盖。
+#       实为 shoulder socket（摄像机肩部挂点）/ 命中源 socket，
+#       是骨骼挂点不是宝石插槽；「宝石」「符文」同样 0 命中。
+#   ⛔ 上一版 WEAK 集合更是把「宝石」「符文」「存档」这些**核心词**
+#      列成了弱词，方向完全反了 —— 弱词应按「词本身的泛化度」定义，
+#      而不是按「它属于哪个概念」。
+CONCEPTS_CORE = {
+    '转职/觉醒':        ['转职', '觉醒', 'class change', 'awaken', '职业进阶'],
+    '宝石/符文':        ['宝石', '符文', '镶嵌', 'gem', 'rune'],
+    '精炼/淬炼':        ['精炼', '淬炼', '洗练', '重铸', 'refine'],
+    '卡牌构筑':         ['卡组', '卡池', '构筑', 'deck build'],
+    'roguelike词条':    ['roguelike', '遗物', '词条选择', '局内成长'],
     '天气/季节':        ['天气', '季节', 'weather', 'season'],
     '昼夜循环':         ['昼夜', '日夜', 'day night', 'time of day'],
     '竞技场/排位':      ['竞技场', '排位', '天梯', '段位', 'arena', 'ranked', 'ladder'],
-    '跨服/据点战':      ['跨服', '据点', '攻城', '国战', 'server war', 'siege'],
-    '公会战':           ['公会战', '帮战', '团战', 'guild war'],
-    '排行榜':           ['排行榜', '榜单', '排名', 'leaderboard', 'ranking'],
+    '跨服/据点战':      ['跨服', '据点战', '攻城', '国战', 'server war', 'siege'],
+    '公会战':           ['公会战', '帮战', 'guild war'],
+    '排行榜':           ['排行榜', '榜单', 'leaderboard'],
     '成就':             ['成就', 'achievement', '奖杯', 'trophy'],
-    '签到/活跃度':      ['签到', '活跃度', '日常', 'daily check', 'login reward'],
-    'VIP/累充':         ['vip', '累充', '首充', '充值档位', '月卡'],
-    '客服/工单':        ['客服', '工单', '申诉', 'ticket', 'support'],
-    '植被/ foliage':    ['植被', 'foliage', '草', '树', '植被系统'],
-    '云层/天空':        ['云', '天空', 'sky', 'cloud'],
+    '签到/活跃度':      ['签到', '活跃度', 'login reward', 'daily check'],
+    'VIP/累充':         ['vip', '累充', '首充', '月卡', '充值档位'],
+    '客服/工单':        ['客服', '工单', 'ticket'],
+    '植被/ foliage':    ['植被', 'foliage'],
+    '云层/天空':        ['云层', '天空', 'sky', 'volumetric'],
     '后处理':           ['后处理', 'post process', 'bloom', '景深', 'dof'],
-    '粒子/拖尾':        ['粒子', '拖尾', '残影', 'particle', 'trail', 'ghost'],
-    '关卡流程':         ['关卡流程', '关卡编辑', '触发器', 'trigger'],
+    '粒子/拖尾':        ['粒子', '拖尾', '残影', 'particle', 'trail'],
+    '关卡流程':         ['关卡流程', '关卡编辑', '触发器'],
     '传送点/复活点':    ['传送点', '复活点', '检查点', 'checkpoint', 'teleport'],
-    '编辑器工具':       ['编辑器工具', 'tool script', '批量', 'editorplugin'],
-    '资源命名规范':     ['命名规范', '命名约定', '资源规范', 'naming'],
+    '编辑器工具':       ['编辑器工具', 'tool script', 'editorplugin'],
+    '资源命名规范':     ['命名规范', '命名约定', '资源规范'],
     '掉落/开箱':        ['掉落', '开箱', 'loot', 'drop table', '宝箱'],
-    '赛季/赛季制':      ['赛季', 'season pass', 'battlepass', '战令'],
-    '观战/OB':          ['观战', 'ob', 'spectate'],
-    '教学/新手引导':    ['教学', '新手引导', '引导', 'onboarding', 'tutorial'],
+    '赛季/赛季制':      ['赛季', 'battlepass', '战令', 'season pass'],
+    '观战/OB':          ['观战', 'spectate'],
+    '教学/新手引导':    ['新手引导', 'tutorial', 'onboarding'],
     '技能树/天赋':      ['技能树', '天赋', 'talent', 'skill tree'],
     '宠物/坐骑':        ['宠物', '坐骑', 'pet', 'mount'],
     '捏脸/自定义':      ['捏脸', '角色自定义', 'customization'],
-    '战斗手感':         ['手感', '打击感', 'game feel', 'juice'],
-    'AI战术':           ['战术', '阵型', '攻击令牌', '仇恨', '掩体点'],
-    'AI感知':           ['感知', '视锥', '视野', 'perception'],
-    'AI决策':           ['行为树', '状态机', 'goap', '决策', 'behavior tree'],
-    '寻路':             ['寻路', 'navigation', '导航', 'astar', 'pathfinding'],
-    '音频':             ['音频', 'audio', '总线', 'bus'],
-    '存档':             ['存档', 'save', '序列化'],
-    '网络同步':         ['网络', '同步', 'rpc', 'multiplayer', 'network'],
-    '配置表':           ['配表', '配置表', 'datatable', 'csv'],
-    '性能优化':         ['性能', '优化', 'profiler', '帧率'],
-    '热更新':           ['热更新', '热更', 'pck', 'hotupdate'],
-    '安全/反作弊':      ['反作弊', '安全', '加密', '签名', 'security'],
+    '战斗手感':         ['打击感', 'game feel', 'juice'],
+    'AI战术':           ['战术', '阵型', '攻击令牌', '掩体点'],
+    'AI感知':           ['感知', '视锥', 'perception'],
+    'AI决策':           ['行为树', '状态机', 'goap', 'behavior tree'],
+    '寻路':             ['寻路', 'navigation', 'astar', 'pathfinding'],
+    '音频':             ['音频', 'audio', '总线'],
+    '存档':             ['存档', '序列化'],
+    '网络同步':         ['同步', 'rpc', 'multiplayer', 'network'],
+    '配置表':           ['配表', '配置表', 'datatable'],
+    '性能优化':         ['profiler', '帧率'],
+    '热更新':           ['热更新', '热更', 'hotupdate'],
+    '安全/反作弊':      ['反作弊', '签名', 'security'],
     '合规/版号':        ['版号', '合规', '实名', '防沉迷', 'compliance'],
 }
 
-# 太短/太泛的词，命中它们只能算「疑似」不能算「已覆盖」
-WEAK = {
-    '草', '树', '云', '天空', '批量', '日常', '手感', '引导',
-    '同步', '网络', '性能', '优化', '安全', '加密', '音频', '存档',
-    '网络', '导航', '决策', '感知', '视野', '教学', '宠物', '坐骑',
-    '掉落', '赛季', '排位', '成就', '日常', '宝石', '符文',
+# 弱词：单独命中时**不能**证明覆盖，只能算「疑似」
+CONCEPTS_WEAK = {
+    '转职/觉醒':        ['进阶'],
+    '宝石/符文':        ['插槽', 'socket'],
+    '精炼/淬炼':        ['品阶'],
+    '卡牌构筑':         ['deck', 'build'],
+    'roguelike词条':    ['rogue'],
+    '竞技场/排位':      ['rank'],
+    '跨服/据点战':      ['据点'],
+    '公会战':           ['团战'],
+    '排行榜':           ['排名', 'ranking'],
+    '签到/活跃度':      ['日常'],
+    '客服/工单':        ['申诉', 'support'],
+    '植被/ foliage':    ['草', '树'],
+    '云层/天空':        ['云', 'cloud'],
+    '粒子/拖尾':        ['ghost'],
+    '关卡流程':         ['trigger'],
+    '编辑器工具':       ['批量'],
+    '资源命名规范':     ['naming'],
+    '掉落/开箱':        ['drop'],
+    '赛季/赛季制':      ['season'],
+    '观战/OB':          ['ob'],
+    '教学/新手引导':    ['引导', '教学'],
+    '战斗手感':         ['手感'],
+    'AI战术':           ['仇恨'],
+    'AI感知':           ['视野'],
+    'AI决策':           ['决策'],
+    '寻路':             ['导航'],
+    '音频':             ['bus'],
+    '存档':             ['save'],
+    '网络同步':         ['网络'],
+    '配置表':           ['csv'],
+    '性能优化':         ['性能', '优化'],
+    '热更新':           ['pck'],
+    '安全/反作弊':      ['安全', '加密'],
 }
 
+# 扁平视图（供 dev-route 统计、命令行单概念查询用）
+CONCEPTS = {k: CONCEPTS_CORE.get(k, []) + CONCEPTS_WEAK.get(k, [])
+            for k in set(CONCEPTS_CORE) | set(CONCEPTS_WEAK)}
 
 def load_docs():
     """返回 {docname: (text, lines, heads)}"""
@@ -148,8 +192,11 @@ def main():
     else:
         concepts = CONCEPTS
 
-    blank, mention, covered = [], [], []
+    blank, mention, suspect, covered = [], [], [], []
     for name, terms in concepts.items():
+        # ⓘ 命令行单概念查询时 concepts[name] == [name]，该词不在任何
+        #   分级表里 —— 此时视为核心词，否则永远只判「仅提及」。
+        core = set(CONCEPTS_CORE.get(name, []) or terms)
         # (doc, 命中的说法, 该说法出现次数, 是否成节, 文档行数)
         hits = []
         for doc, (text, lines, heads) in docs.items():
@@ -158,8 +205,13 @@ def main():
                 cnt = text.count(t)
                 if cnt:
                     in_head = any(t in h for h in heads)
-                    # 优先取「成节的」说法；其次取出现最多的
-                    score = (1 if in_head else 0, cnt, t not in WEAK)
+                    # ⚠ 第一维是「是否核心词」：核心词永远压过弱词。
+                    #   ⛔ 上一版第一维是 in_head —— 于是「进阶」因为出现在
+                    #      movement-advanced 的标题《进阶移动：二段跳…》里
+                    #      就压过一切，把「转职/觉醒」误判为已覆盖
+                    #      （实测「转职」「觉醒」在全部 howto 里 0 命中）。
+                    score = (1 if t in core else 0,
+                             1 if in_head else 0, cnt)
                     if best is None or score > best[0]:
                         best = (score, doc, t, cnt, in_head, lines)
             if best:
@@ -167,10 +219,24 @@ def main():
         if not hits:
             blank.append((name, terms))
             continue
-        # ⚠ 覆盖判据：成节，或单篇出现 >=3 次（且不是弱词）
-        solid = [h for h in hits if h[3] or (h[2] >= 3 and h[1] not in WEAK)]
+        # ⚠ 覆盖判据：**核心词必须成节**（出现在 #/##/### 标题里）。
+        #   ⛔ 为什么频次不再够用：词频区分不了「专门讲」和「反复顺带提」。
+        #      2026-09 实测三个反例，词频都 ≥3 但都不是该主题：
+        #        · 宝石/符文 ← economy「镶嵌×3」：装备实例的一个字段名、
+        #          数值管线的一环，全篇没讲宝石/符文系统
+        #        · roguelike ← ai-navigation×3：AStarGrid2D 的适用类型举例
+        #        · 植被 ← upscaling×3：MSAA 对 alpha scissor 材质的已知坑
+        #      ⛔ 据此判「已覆盖」就会把真空白当成已做 —— 比漏报危险得多。
+        #   ✅ 成节是「专门讲」的强信号：写作者会给专门的主题单起一节。
+        solid = [h for h in hits if h[1] in core and h[3]]
         if solid:
             covered.append((name, hits, solid))
+            continue
+        # 核心词在正文高频但**没成节** → 疑似，必须人工复核
+        #   （是顺带提到，还是写了但没起小节）
+        freq = [h for h in hits if h[1] in core and h[2] >= 3]
+        if freq:
+            suspect.append((name, terms, freq))
         else:
             mention.append((name, terms, hits))
 
@@ -188,19 +254,37 @@ def main():
     if not mention:
         print('  （无）')
     for name, terms, hits in mention:
+        core = set(CONCEPTS_CORE.get(name, []) or terms)
         hs = sorted(hits, key=lambda h: -h[2])[:3]
-        locs = ', '.join('%s(%s×%d%s)' % (d, t, c, ',成节' if ih else '')
+        locs = ', '.join('%s(%s×%d%s%s)' % (
+                    d, t, c, ',成节' if ih else '',
+                    '' if t in core else ',弱词')
                          for d, t, c, ih, l in hs)
         print('  • %-16s → %s' % (name, locs))
 
-    print('\n### 已覆盖（成节 或 单篇 ≥3 次）—— 不要新建')
+    print('\n### ⚠ 疑似覆盖（核心词高频但未成节）—— 必须人工复核')
+    if not suspect:
+        print('  （无）')
+    for name, terms, freq in suspect:
+        hs = sorted(freq, key=lambda h: -h[2])[:3]
+        locs = ', '.join('%s(%s×%d)' % (d, tt, c) for d, tt, c, ih, l in hs)
+        print('  • %-16s → %s' % (name, locs))
+        print('       └ 可能是「顺带提到」也可能是「写了但没起小节」，'
+              '打开看一眼再决定')
+
+    print('\n### 已覆盖（核心词成节）—— 不要新建')
     for name, hits, solid in covered:
         b = max(solid, key=lambda h: (h[3], h[2]))
         print('  • %-16s → %s（%s×%d%s, %d 行）'
               % (name, b[0], b[1], b[2], ',成节' if b[3] else '', b[4]))
 
-    print('\nⓘ 判据：成节(出现在 ## 标题) 或 单篇出现≥3次 才算覆盖。')
-    print('  "仅提及"通常是别的话题顺带提到 —— 反哺，不要新建域。')
+    print('\nⓘ 判据（三档）：')
+    print('  已覆盖 = 核心词成节；疑似 = 核心词高频但未成节；')
+    print('  仅提及 = 只有弱词命中 或 核心词低频。')
+    print('  ⛔ 弱词（进阶/socket/云/树/ob…）永远不足以判定覆盖：它们是')
+    print('     别的话题里也会出现的泛化词。')
+    print('  ⛔ 频次也不足以判定覆盖：词频区分不了「专门讲」和')
+    print('     「反复顺带提」（实测：镶嵌×3/roguelike×3/植被×3 全是后者）。')
     print('  即便"已覆盖"，也要看行数：薄文档仍需反哺而非新建。')
     return 0
 

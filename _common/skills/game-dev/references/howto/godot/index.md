@@ -7,6 +7,7 @@
 | 我要做… | 看哪个文件 | 关键 API |
 |---|---|---|
 | **角色移动 / 跳跃 / 手感** | `character.md` | `CharacterBody2D/3D` · `velocity` · `move_and_slide()` · 土狼时间 · 跳跃缓冲 |
+| **转职 / 觉醒 / 职业进阶** | `class-awaken.md` | `ClassTemplate/ClassState` 分离 · 转职事务（试算→扣费→提交→回滚） · 装备兼容判定 · 技能映射表 |
 | **UI / 菜单 / HUD / 背包 / 对话** | `ui.md` | `Control` 锚点 · `CanvasLayer` · `GridContainer` · `RichTextLabel` |
 | **存档 / 设置 / 场景切换 / 事件总线 / 对象池** | `systems.md` | `ResourceSaver` · `user://` · `change_scene_to_file` · Autoload signal |
 | **动画 / 状态机 / Tween** | `animation.md` | `AnimationPlayer` · `AnimationTree` 状态机 · `Tween` 链式 · `kill()` |

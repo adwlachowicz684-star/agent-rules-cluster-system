@@ -216,6 +216,9 @@ DOMAINS = [
     ('程序化生成', ['程序化生成', 'pcg', 'procedural', '随机地图', '关卡生成', '地图生成', '地牢生成', 'bsp', '迷宫', '元胞自动机', 'wfc', 'wave function', '泊松', 'poisson', '种子', 'seed', '随机种子', '连通性', 'flood fill', '无尽关卡', '地牢生成', '随机地牢'],
      'references/howto/godot/procedural-generation.md',
      '没seed无法维护 · 全局randi是全局状态 · 元胞自动机最易不可达 · 分帧要先纯数据算完 · ±10⁷是精度问题'),
+    ('转职/觉醒', ['转职', '觉醒', '职业进阶', 'class change', 'awaken', '职业', '转职链', '转职条件', '职业模板', '多职业', '双职业', 'job switch', '转职后悔', '技能映射', '转职装备', '职业成长', 'class template', '觉醒层数'],
+     'references/howto/godot/class-awaken.md',
+     '转职≠觉醒≠多职业 · 模板/实例分离 · 转职是事务(试算→扣费→提交→回滚) · 预览与提交同源 · 装备兼容要在试算判 · 技能点要返还 · history只增不删 · 服务端判定'),
     ('AI感知', ['ai感知', '感知系统', '视锥', '视野', '视线', '遮挡检测', '听觉', '声音传播', '察觉',  '最后已知位置', '目标选择', '感知记忆', '敌人发现玩家', 'vision cone', 'perception', '敌人视野', '敌人发现', '察觉玩家', '感知目标'],
      'references/howto/godot/ai-perception.md',
      '感知≠寻路 · 输出不是bool要有置信度 · 遮挡必须射线 · 4.x要PhysicsRayQueryParameters3D · 检测10Hz够'),
@@ -1109,6 +1112,41 @@ def cmd_self_test():
         finally:
             if _here in sys.path:
                 sys.path.remove(_here)
+        # ⚠ 覆盖扫描器的**判据**自检：光验证「输入语料非空」不够，
+        #   判据本身退化同样会静默给出错误结论。
+        #   ⛔ 2026-09 实测：扁平词表 + 「成节即覆盖」把「转职/觉醒」
+        #      「宝石/符文」全判为已覆盖，而二者核心词实测 0 命中；
+        #      旧 WEAK 集合更是把「宝石」「符文」「存档」这些核心词
+        #      列成了弱词 —— 方向完全反了。
+        try:
+            import importlib.util as _ilu3
+            _sp3 = _ilu3.spec_from_file_location(
+                '_sg', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    'scan-gaps.py'))
+            _sg = _ilu3.module_from_spec(_sp3)
+            _sp3.loader.exec_module(_sg)
+            _core, _weak = _sg.CONCEPTS_CORE, _sg.CONCEPTS_WEAK
+            chk(len(_core) > 0, '覆盖扫描：概念表有核心词分级（%d 个概念）'
+                % len(_core))
+            _nocore = [k for k, v in _core.items() if not v]
+            chk(not _nocore, '覆盖扫描：每个概念都有核心词（缺 %s）'
+                % _nocore[:3])
+            # core 与 weak 不得重叠：重叠会让「弱词」通过 core 通道
+            # 证明覆盖，分级形同虚设 —— 正是上一版的实际失效方式。
+            _ovl = {k: sorted(set(_core.get(k, []))
+                              & set(_weak.get(k, [])))
+                    for k in set(_core) | set(_weak)}
+            _ovl = {k: v for k, v in _ovl.items() if v}
+            chk(not _ovl, '覆盖扫描：核心词与弱词不重叠（重叠 %s）'
+                % list(_ovl.items())[:2])
+            # 弱词不得包含概念的强特征词：上一版正把「宝石」「符文」
+            # 「存档」「音频」列进了 WEAK —— 方向反了。
+            _bad = [k for k, vs in _weak.items()
+                    if any(w in _core.get(k, []) for w in vs)]
+            chk(not _bad, '覆盖扫描：弱词不含该概念的核心词（%s）' % _bad[:3])
+        except Exception as _e:
+            chk(False, '覆盖扫描器判据可校验（%s）' % _e)
+
         # common.md 必须指向全局块，否则它是个没人能到达的孤岛
         _cm = os.path.join(_skill, 'references', 'common.md')
         if os.path.isfile(_cm):

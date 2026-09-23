@@ -25,6 +25,7 @@
 | `camera-cutscene` | `audit/godot/camera-cutscene.md` |
 | `character-customization` | `audit/godot/character-customization.md` |
 | `character` | `audit/godot/character.md` |
+| `class-awaken` | `audit/godot/class-awaken.md` |
 | `cicd-publish` | `audit/godot/cicd-publish.md` |
 | `cloud-save` | `audit/godot/cloud-save.md` |
 | `combat` | `audit/godot/combat.md` |
