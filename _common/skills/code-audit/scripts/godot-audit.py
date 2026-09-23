@@ -4951,6 +4951,23 @@ def self_test() -> int:
             except Exception as _e:
                 check(False, 'check-rule-regex.py 输出可解析（%s）' % str(_e)[:40])
 
+        # ⚠ 跨扫描器的注册表漂移必须在这里兜住。
+        #   ⓘ 为什么放本扫描器的自检里：`rule-registry.py --check` **没有任何
+        #     自检会调用它**（grep 全库：只有注释提到）。本次 drift 能漂移很久，
+        #     根因就是"没人跑"。它是唯一能发现 GD101–GD384 漏登记的入口，
+        #     而 godot-audit --self-test 是改动规则后必跑的，挂这里最不容易漏。
+        #   ⓘ 实测 --check 在有漂移时**确实返回 1**（不是静默 0）——
+        #     所以只要有人调用它就能发现问题；问题是没人调用。
+        _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'rule-registry.py')
+        if os.path.exists(_rp):
+            _r2 = subprocess.run([sys.executable, _rp, '--check'],
+                                 capture_output=True, text=True, timeout=300)
+            check(_r2.returncode == 0,
+                  'rule-registry --check 无漂移（退出码 %d）' % _r2.returncode)
+        else:
+            check(False, 'rule-registry.py 存在')
+
         print('\n自检：%d 通过 / %d 失败' % (ok, len(fail)))
         for f in fail:
             print('  失败：%s' % f)
