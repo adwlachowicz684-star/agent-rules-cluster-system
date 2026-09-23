@@ -560,6 +560,181 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-101",
+   "native_id": "GD101",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "调试残留",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ed3d68fa",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-102",
+   "native_id": "GD102",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "断言校验",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f3defe03",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-103",
+   "native_id": "GD103",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "动态路径",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "5be39f2d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-104",
+   "native_id": "GD104",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "绝对路径",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ef6330fa",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-105",
+   "native_id": "GD105",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "命令拼接",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "87d56538",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-106",
+   "native_id": "GD106",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "异步异常",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fecc3ad3",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-107",
+   "native_id": "GD107",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "热帧打印",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8d59d832",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-11",
    "native_id": "GD11",
    "scanner": "godot-audit.py",
@@ -579,6 +754,181 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "b709086a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-111",
+   "native_id": "GD111",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "动画未激活",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ff25b654",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-112",
+   "native_id": "GD112",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "音量单位",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fde49bc7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-113",
+   "native_id": "GD113",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "节点未入树",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ad902599",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-114",
+   "native_id": "GD114",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "边界抖动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "248f65da",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-115",
+   "native_id": "GD115",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "坐标累积",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e87d074c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-116",
+   "native_id": "GD116",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "相机越权",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f494088a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-117",
+   "native_id": "GD117",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "无速度传递",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "724feb05",
     "verified_at": null
    },
    "cwe": null,
@@ -610,6 +960,131 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-121",
+   "native_id": "GD121",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "设备ID",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "da412f22",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-122",
+   "native_id": "GD122",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "已移除API",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f474fa4a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-123",
+   "native_id": "GD123",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "旧发布方式",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ba127abc",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-124",
+   "native_id": "GD124",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "朝向基准",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a3be186c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-125",
+   "native_id": "GD125",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "摇杆自制",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e688aab1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-13",
    "native_id": "GD13",
    "scanner": "godot-audit.py",
@@ -629,6 +1104,156 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "8aacbf50",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-131",
+   "native_id": "GD131",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "传输模式",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "210b7c0b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-132",
+   "native_id": "GD132",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "未校验发送者",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e1fd3d2a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-133",
+   "native_id": "GD133",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "sender失效",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e340bddf",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-134",
+   "native_id": "GD134",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "传输模式缺失",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "51c17fa9",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-135",
+   "native_id": "GD135",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "插件缺tool",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "bcdb2ae8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-136",
+   "native_id": "GD136",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "插件未注销",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b90d1939",
     "verified_at": null
    },
    "cwe": null,
@@ -660,6 +1285,181 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-141",
+   "native_id": "GD141",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "全局随机源",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f7fee140",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-142",
+   "native_id": "GD142",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "生成改场景树",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1b922f79",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-143",
+   "native_id": "GD143",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "生成未校验连通",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f4e534a1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-144",
+   "native_id": "GD144",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "射线旧写法",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "af31e660",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-145",
+   "native_id": "GD145",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "感知无记忆",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fe67ad29",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-146",
+   "native_id": "GD146",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "不存在的IK节点",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "48347c49",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-147",
+   "native_id": "GD147",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "两骨IK缺pole",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "16f9507b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-15",
    "native_id": "GD15",
    "scanner": "godot-audit.py",
@@ -679,6 +1479,931 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "d3f9bb5d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-151",
+   "native_id": "GD151",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "共享Resource",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "493f5f12",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-152",
+   "native_id": "GD152",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "配表无校验",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "960a0302",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-153",
+   "native_id": "GD153",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "顿帧无法恢复",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "99193130",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-154",
+   "native_id": "GD154",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "震动写死偏移",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c20d1843",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-155",
+   "native_id": "GD155",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "货币用浮点",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0fc259d8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-156",
+   "native_id": "GD156",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "掉落无保底持久化",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "57998066",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-161",
+   "native_id": "GD161",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "输入3.x残留",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1faa78f7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-162",
+   "native_id": "GD162",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "键字段重复",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "397159bd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-163",
+   "native_id": "GD163",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "振动未停止",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8e8d7def",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-164",
+   "native_id": "GD164",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "回放依赖墙钟",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "049307ff",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-165",
+   "native_id": "GD165",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "录制用rand",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "bc42f3c7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-166",
+   "native_id": "GD166",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "Mod路径拼接",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1496a19c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-167",
+   "native_id": "GD167",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "pack来源未记",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "13187865",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-168",
+   "native_id": "GD168",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "加解密无兜底",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "19f7b045",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-169",
+   "native_id": "GD169",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "存档无版本号",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a906032b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-170",
+   "native_id": "GD170",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "迁移无备份",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "4a230e6d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-171",
+   "native_id": "GD171",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "云存档静默覆盖",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "42bb69f6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-172",
+   "native_id": "GD172",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "时间戳判冲突",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "90aec644",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-173",
+   "native_id": "GD173",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "作弊无标识",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "cdd27be4",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-174",
+   "native_id": "GD174",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "调试面板未隔离",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d279da5a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-181",
+   "native_id": "GD181",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "TAA非Forward+",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "eb37eafa",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-182",
+   "native_id": "GD182",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "超分未分层",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e6a0b4e2",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-183",
+   "native_id": "GD183",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "载具无自定义质心",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "725ee8dd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-184",
+   "native_id": "GD184",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "高速物无CCD",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "09c42ad3",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-185",
+   "native_id": "GD185",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "共享材质直改",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "dee6f263",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-186",
+   "native_id": "GD186",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "blendshape未判空",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "54654121",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-191",
+   "native_id": "GD191",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "BBCode未转义",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fd2f35b7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-192",
+   "native_id": "GD192",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "海量条目无虚拟化",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "458fca42",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-193",
+   "native_id": "GD193",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "UI缺焦点配置",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0d65b24a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-194",
+   "native_id": "GD194",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "assert含副作用",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "49648724",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-195",
+   "native_id": "GD195",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "资源加载未判空",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6c8d6871",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-196",
+   "native_id": "GD196",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "无错误日志钩子",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "5254fbf5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-201",
+   "native_id": "GD201",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "客户端判支付成功",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fbd76d4d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-202",
+   "native_id": "GD202",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "抽卡随机在客户端",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "aa989468",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-204",
+   "native_id": "GD204",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "日期用本地时区",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "36897a3f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-205",
+   "native_id": "GD205",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "高速投射物无扫描",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "9cd9836b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-206",
+   "native_id": "GD206",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "预测与实弹两套公式",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "28ccac5e",
     "verified_at": null
    },
    "cwe": null,
@@ -710,6 +2435,131 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-211",
+   "native_id": "GD211",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "抓边直接赋坐标",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ef88bc4a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-212",
+   "native_id": "GD212",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "up_direction设为零",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c3d250c2",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-213",
+   "native_id": "GD213",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "改重力未同步相机",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d3dc6981",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-214",
+   "native_id": "GD214",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "聊天仅客户端过滤",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "24a012f4",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-215",
+   "native_id": "GD215",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "peer ID当玩家身份",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "edd392f9",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-22",
    "native_id": "GD22",
    "scanner": "godot-audit.py",
@@ -729,6 +2579,156 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "695f41e8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-221",
+   "native_id": "GD221",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "死亡写成布尔",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "af020772",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-222",
+   "native_id": "GD222",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "死亡期间仍可保存",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "bfa2570c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-223",
+   "native_id": "GD223",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "上限存计算结果",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fec11744",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-224",
+   "native_id": "GD224",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "重生未清Tween",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e4a924cb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-225",
+   "native_id": "GD225",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "flag散落手写字符串",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "62baba09",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-226",
+   "native_id": "GD226",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "结局用ifelif链",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3da2240d",
     "verified_at": null
    },
    "cwe": null,
@@ -760,6 +2760,181 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-231",
+   "native_id": "GD231",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "反射无迭代上限",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ad1e45a7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-232",
+   "native_id": "GD232",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "反射用reflect非bounce",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "95a0bf67",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-233",
+   "native_id": "GD233",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "机关状态存动画进度",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "124333e1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-234",
+   "native_id": "GD234",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "交互绑死按键",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ca5e5187",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-235",
+   "native_id": "GD235",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "停帧计时器受缩放",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2e96e33e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-236",
+   "native_id": "GD236",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "改time_scale无恢复",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "da70013c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-237",
+   "native_id": "GD237",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "暂停时UI不可交互",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "81e18a00",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-24",
    "native_id": "GD24",
    "scanner": "godot-audit.py",
@@ -779,6 +2954,481 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "d26e6b63",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-241",
+   "native_id": "GD241",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "聊天仅客户端过滤",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2a8215eb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-242",
+   "native_id": "GD242",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "peerID当玩家身份",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "9d9ebf57",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-243",
+   "native_id": "GD243",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "抓边直接赋坐标",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "159fa9d4",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-244",
+   "native_id": "GD244",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "up_direction设为零",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "141e3232",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-245",
+   "native_id": "GD245",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "改重力未同步相机",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "270de1d2",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-246",
+   "native_id": "GD246",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "死亡写成布尔",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2ba67f2b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-247",
+   "native_id": "GD247",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "死亡期间仍可保存",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d0199a9b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-248",
+   "native_id": "GD248",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "上限存计算结果",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6d5be983",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-249",
+   "native_id": "GD249",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "重生未清Tween",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "88831ed9",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-250",
+   "native_id": "GD250",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "flag散落手写字符串",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "697f2083",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-251",
+   "native_id": "GD251",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "结局用ifelif链",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8b2c49ab",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-252",
+   "native_id": "GD252",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "反射无上限",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "af8aad4f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-253",
+   "native_id": "GD253",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "用reflect非bounce",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f81e176b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-254",
+   "native_id": "GD254",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "机关绑死按键",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "afdea37d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-255",
+   "native_id": "GD255",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "停帧计时器受缩放",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0be996e5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-256",
+   "native_id": "GD256",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "改time_scale无恢复",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c25c9879",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-257",
+   "native_id": "GD257",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "暂停时UI不可交互",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d7292b16",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-258",
+   "native_id": "GD258",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "客户端判支付成功",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "118717e7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-259",
+   "native_id": "GD259",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "抽卡随机在客户端",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ec12205c",
     "verified_at": null
    },
    "cwe": null,
@@ -810,6 +3460,1231 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-260",
+   "native_id": "GD260",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "日期用本地时区",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "248de504",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-261",
+   "native_id": "GD261",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "高速投射物无扫描",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "790ff318",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-262",
+   "native_id": "GD262",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "预测与实弹两套公式",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "736401c6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-263",
+   "native_id": "GD263",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "配表无校验",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c366f9da",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-264",
+   "native_id": "GD264",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "输入重绑定未持久化",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3b309f1b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-265",
+   "native_id": "GD265",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "技能写死硬编码",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d9a68f70",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-266",
+   "native_id": "GD266",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "伤害计算顺序不定",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "afc8c01f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-267",
+   "native_id": "GD267",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "命中判定在客户端",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a0eead83",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-268",
+   "native_id": "GD268",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "资源加载未判空",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3b8e746f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-269",
+   "native_id": "GD269",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "高频创建对象",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "48680967",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-270",
+   "native_id": "GD270",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "存档存运行时态",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2aa57656",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-271",
+   "native_id": "GD271",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "过场未禁用输入",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "cdf3c40e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-272",
+   "native_id": "GD272",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "相机未处理遮挡",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3fe05d3b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-273",
+   "native_id": "GD273",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "UI未处理安全区",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6c2e5728",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-274",
+   "native_id": "GD274",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "版本号硬编码",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "755fc6b6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-275",
+   "native_id": "GD275",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "波次用group判空",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "4febc4fa",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-276",
+   "native_id": "GD276",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "建塔后未强制更新导航",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "107413a6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-277",
+   "native_id": "GD277",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "name字符串判敌人",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "77a5a4e5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-278",
+   "native_id": "GD278",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "Timer串高频刷怪",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "131415eb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-279",
+   "native_id": "GD279",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "塔射程用body_entered",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "36046315",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-280",
+   "native_id": "GD280",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "敌人未关物理处理",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "454ad29a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-281",
+   "native_id": "GD281",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "每帧遍历group取单位",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "becc1f7f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-282",
+   "native_id": "GD282",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "camera调用不存在方法",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f96bfe2b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-283",
+   "native_id": "GD283",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "战争迷雾用Light2D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b1340507",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-284",
+   "native_id": "GD284",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "迷雾每帧set_cell",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3d0e8312",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-285",
+   "native_id": "GD285",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "单位全指向同目标",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "98b35ef4",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-286",
+   "native_id": "GD286",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "Array.shuffle洗牌",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "58a93536",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-287",
+   "native_id": "GD287",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "混用全局随机与rng",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b61b17ed",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-288",
+   "native_id": "GD288",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "卡牌存档用JSON",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "4d644171",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-289",
+   "native_id": "GD289",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "卡牌是PackedScene",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d0d5ee1c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-290",
+   "native_id": "GD290",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "效果直接调伤害",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "05110307",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-291",
+   "native_id": "GD291",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "洗牌同帧回抽",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "44fb28ae",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-292",
+   "native_id": "GD292",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "生成直接set_cell",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2cf05fa4",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-293",
+   "native_id": "GD293",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "生成时导航开着",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "190a9440",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-294",
+   "native_id": "GD294",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "meta只在退出时存",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "7ea5d51d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-295",
+   "native_id": "GD295",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "覆盖写存档",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "965107e7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-296",
+   "native_id": "GD296",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "FLAG_COMPRESS当加密",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "eb48e292",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-297",
+   "native_id": "GD297",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "道具池每次重算总权重",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "be126b6e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-298",
+   "native_id": "GD298",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "产出delta直乘",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "20cea4ce",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-299",
+   "native_id": "GD299",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "离线收益简单相乘",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b8fef123",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-300",
+   "native_id": "GD300",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "离线用本地时间",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d3ac6d78",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-301",
+   "native_id": "GD301",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "建筑放置用Area2D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "84289e31",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-303",
+   "native_id": "GD303",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "资源键用String",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "31e2609c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-304",
+   "native_id": "GD304",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "just_pressed在physics里",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8a95a93e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-305",
+   "native_id": "GD305",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "松跳速度归零",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "30a0af19",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-306",
+   "native_id": "GD306",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "平台手动改position",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "51cfa3e3",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-307",
+   "native_id": "GD307",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "冲刺改碰撞形状",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d47cfd3f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-308",
+   "native_id": "GD308",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "每帧重设instance_count",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "9e0d7de5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-309",
+   "native_id": "GD309",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "子弹用Area2D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "992902a3",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-31",
    "native_id": "GD31",
    "scanner": "godot-audit.py",
@@ -829,6 +4704,256 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "a24cef19",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-310",
+   "native_id": "GD310",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "弹幕逻辑用delta",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8476345b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-311",
+   "native_id": "GD311",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "判定点用精灵中心",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "eb3427c1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-312",
+   "native_id": "GD312",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "intersect_point用默认上限",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "7be72abe",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-313",
+   "native_id": "GD313",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "ResourceSaver不判返回值",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "43a639fd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-314",
+   "native_id": "GD314",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "await后未判活",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f6bebe95",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-315",
+   "native_id": "GD315",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "queue_free后仍使用",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d4c91da8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-316",
+   "native_id": "GD316",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "密码学用随机而非rng",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "458a46cc",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-317",
+   "native_id": "GD317",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "断线直接销毁角色",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "17eb57da",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-318",
+   "native_id": "GD318",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "权威位置硬赋值",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f7429159",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-319",
+   "native_id": "GD319",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "观战流无延迟缓冲",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "579f7ac2",
     "verified_at": null
    },
    "cwe": null,
@@ -860,6 +4985,256 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-320",
+   "native_id": "GD320",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "模拟用渲染delta驱动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3de5e628",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-321",
+   "native_id": "GD321",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "HTTP请求无重试",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fa3e466b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-322",
+   "native_id": "GD322",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "JSON解析未判失败",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "93ebf7cf",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-323",
+   "native_id": "GD323",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "避障未接velocity_computed",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1d435652",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-324",
+   "native_id": "GD324",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "群集全量两两比较",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b8b8b2f1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-325",
+   "native_id": "GD325",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "加速检测用系统时间",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1d7958d5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-326",
+   "native_id": "GD326",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "密钥令牌硬编码",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "085551dd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-327",
+   "native_id": "GD327",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "加密用字面密码",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1db87a89",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-328",
+   "native_id": "GD328",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "客户端自封禁",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "45a1db96",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-329",
+   "native_id": "GD329",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "合服无备份",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1b126002",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-33",
    "native_id": "GD33",
    "scanner": "godot-audit.py",
@@ -885,6 +5260,256 @@
    "fix": ""
   },
   {
+   "rule_id": "GD-330",
+   "native_id": "GD330",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "补偿发放无幂等键",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "81c468d6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-331",
+   "native_id": "GD331",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "身份敏感信息明文持久化",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "eb7ba132",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-332",
+   "native_id": "GD332",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "防沉迷/未成年判定用本地系统时间",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "78e652f1",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-333",
+   "native_id": "GD333",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "注销账号直接删数据",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "aae9d75a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-334",
+   "native_id": "GD334",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "装备词条存最终数值",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2e872152",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-335",
+   "native_id": "GD335",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "分解返还按模板原价",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6c312aba",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-336",
+   "native_id": "GD336",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "冷却/计时用 Timer 节点",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "bb303d94",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-337",
+   "native_id": "GD337",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "进度存剩余秒数而非绝对锚点",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "345d3e00",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-338",
+   "native_id": "GD338",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "离线结算用系统时钟差分",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "d93995f0",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-339",
+   "native_id": "GD339",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "骑乘时两个 CharacterBody 各自移动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1bb4a64f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
    "rule_id": "GD-34",
    "native_id": "GD34",
    "scanner": "godot-audit.py",
@@ -904,6 +5529,1131 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "ee0b3fa8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-340",
+   "native_id": "GD340",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "对象池取出后未重置状态",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ee3248c6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-341",
+   "native_id": "GD341",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "凭据写入本地文件",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b95b8fde",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-342",
+   "native_id": "GD342",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "密码用快速摘要",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "caecf2a8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-343",
+   "native_id": "GD343",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "崩溃上报未脱敏",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "64602ded",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-344",
+   "native_id": "GD344",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "重试无退避与抖动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "11470ebb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-345",
+   "native_id": "GD345",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "外部调用无超时",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "27cc1e65",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-346",
+   "native_id": "GD346",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "词条存最终数值",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3959df37",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-347",
+   "native_id": "GD347",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "减伤/增伤直接连乘无上限",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0a02c231",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-348",
+   "native_id": "GD348",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "采集/刷新用相对倒计时",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "3ec26eab",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-349",
+   "native_id": "GD349",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "放置校验用物理查询",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2eaae9cb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-350",
+   "native_id": "GD350",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "家园状态无版本号",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a7978fd8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-351",
+   "native_id": "GD351",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "配方无循环依赖检查",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "993205ac",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-352",
+   "native_id": "GD352",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "招架做成概率触发",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "55740983",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-353",
+   "native_id": "GD353",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "硬直无递减",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "552b2d75",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-354",
+   "native_id": "GD354",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "霸体当成减伤",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f5650de8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-355",
+   "native_id": "GD355",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "阵营关系对称镜像",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "1f5c6962",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-356",
+   "native_id": "GD356",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "战力用于匹配",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "81642578",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-357",
+   "native_id": "GD357",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "警戒做成布尔",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fa4a4f43",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-358",
+   "native_id": "GD358",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "单源怀疑度无上限",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "7b301ea8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-359",
+   "native_id": "GD359",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "搜查点等于最后已知位置",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "53471844",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-360",
+   "native_id": "GD360",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "尸体可见性用固定半径",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "737d3916",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-361",
+   "native_id": "GD361",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "后坐力写成镜头抖动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8b94e197",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-362",
+   "native_id": "GD362",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "换弹完成由动画结束驱动",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "80937310",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-363",
+   "native_id": "GD363",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "切枪取消换弹但弹药已加",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "05d7ceb5",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-364",
+   "native_id": "GD364",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "命中判定由客户端上报",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2cca9be3",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-365",
+   "native_id": "GD365",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "客户端决定成交价",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8ccfff2f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-366",
+   "native_id": "GD366",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "上架未托管物品",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "37ce9795",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-367",
+   "native_id": "GD367",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "购买与竞价无幂等",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b664e0e0",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-368",
+   "native_id": "GD368",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "成交无延迟到账",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "995fb5c7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-369",
+   "native_id": "GD369",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "撤销只回滚货币",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "4f140783",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-370",
+   "native_id": "GD370",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "绑定只检查布尔",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "5300490b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-371",
+   "native_id": "GD371",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "交易日志只写结果",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2e2b26dd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-372",
+   "native_id": "GD372",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "写操作 RPC 用不可靠传输",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "b9df3e7e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-373",
+   "native_id": "GD373",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "客户端算扫荡结果",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "88de990d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-374",
+   "native_id": "GD374",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "扫荡无幂等",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "afcc7476",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-375",
+   "native_id": "GD375",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "预览与发放两套算法",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a40205cc",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-376",
+   "native_id": "GD376",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "离线按真实时间跑循环",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6e128a5a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-377",
+   "native_id": "GD377",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "离线用本地时间",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "61dede15",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-378",
+   "native_id": "GD378",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "自动AI读取隐藏信息",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "72b767fc",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-379",
+   "native_id": "GD379",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "外观与装备共用一个实例",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "889be4e8",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-380",
+   "native_id": "GD380",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "客户端决定称号",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "00f163fa",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-381",
+   "native_id": "GD381",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "染色改共享材质",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ca6a9fb7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-382",
+   "native_id": "GD382",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "换网格无骨骼校验",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "c1f54d4c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-383",
+   "native_id": "GD383",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "坐骑皮肤改移速或碰撞",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "89b58e58",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-384",
+   "native_id": "GD384",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "外观加载无回退",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "248ff6f5",
     "verified_at": null
    },
    "cwe": null,
@@ -1154,6 +6904,806 @@
     "precision": "unverified",
     "recall": "unverified",
     "sig": "1124039f",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-61",
+   "native_id": "GD61",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "3D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "34450cb0",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-62",
+   "native_id": "GD62",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "3D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "9650ac6e",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-63",
+   "native_id": "GD63",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "3D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "35eb7346",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-64",
+   "native_id": "GD64",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "3D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "6ed72e95",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-65",
+   "native_id": "GD65",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "3D",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "44603827",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-71",
+   "native_id": "GD71",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "语言",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "dcad0760",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-72",
+   "native_id": "GD72",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "语言",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "495ebf8a",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-73",
+   "native_id": "GD73",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "语言",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "99aef50b",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-74",
+   "native_id": "GD74",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "语言",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "a647a904",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-75",
+   "native_id": "GD75",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "语言",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "2dcad03c",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-81",
+   "native_id": "GD81",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "安全",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0a06d9de",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-82",
+   "native_id": "GD82",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "安全",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "84d98ba0",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-83",
+   "native_id": "GD83",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "安全",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ffb31006",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-84",
+   "native_id": "GD84",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "安全",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e774fc33",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-85",
+   "native_id": "GD85",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "安全",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "328ed748",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-91",
+   "native_id": "GD91",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "热帧加载",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8267a1a7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-92",
+   "native_id": "GD92",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "热帧字符串",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "73060fff",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-93",
+   "native_id": "GD93",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "浮点比较",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f8445abd",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-94",
+   "native_id": "GD94",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "距离比较",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8a4bc1ef",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-95",
+   "native_id": "GD95",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "共享资源",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fbb3e1eb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-96",
+   "native_id": "GD96",
+   "scanner": "godot-audit.py",
+   "level": "P0",
+   "title": "物理帧挂起",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "aeeee189",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-97",
+   "native_id": "GD97",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "空函数",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "ca825ca7",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-98",
+   "native_id": "GD98",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "自引用",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "fa01b3f6",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GD-99",
+   "native_id": "GD99",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "函数过长",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "cc81a416",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-01",
+   "native_id": "GDS01",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "旧提示",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "60e74ea0",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-02",
+   "native_id": "GDS02",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "旧提示",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "e5f1817d",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-03",
+   "native_id": "GDS03",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "旧全局量",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "f3ba6536",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-04",
+   "native_id": "GDS04",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "旧光照",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "7526da33",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-05",
+   "native_id": "GDS05",
+   "scanner": "godot-audit.py",
+   "level": "P1",
+   "title": "颜色空间",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "55a168c9",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-06",
+   "native_id": "GDS06",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "粒子旧式",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "9927ef49",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-07",
+   "native_id": "GDS07",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "移动端丢弃",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "0c2beb44",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
+  },
+  {
+   "rule_id": "GDS-08",
+   "native_id": "GDS08",
+   "scanner": "godot-audit.py",
+   "level": "P2",
+   "title": "精度",
+   "family": "GD",
+   "scene": "p-godot",
+   "languages": [
+    "gd",
+    "cs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "8c426dbc",
     "verified_at": null
    },
    "cwe": null,
@@ -5912,6 +12462,35 @@
    "fix": "尺寸/次数先校验上界再分配",
    "item": "D-13",
    "item_src": "auto:0.92"
+  },
+  {
+   "rule_id": "TS-Q06",
+   "native_id": "Q06",
+   "scanner": "scan-ts.py",
+   "level": "P1",
+   "title": "容器摘除未清内容（闭包持有 → 无法 GC / 复查失效）",
+   "family": "R",
+   "scene": "s-structures",
+   "languages": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs"
+   ],
+   "fixtures": {
+    "tp": null,
+    "fp": null
+   },
+   "eval": {
+    "precision": "unverified",
+    "recall": "unverified",
+    "sig": "7e3632eb",
+    "verified_at": null
+   },
+   "cwe": null,
+   "fix": ""
   },
   {
    "rule_id": "TS-R01",

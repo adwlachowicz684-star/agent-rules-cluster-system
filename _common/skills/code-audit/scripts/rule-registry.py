@@ -114,7 +114,11 @@ def extract():
         if m:
             fam_at[i] = m.group(1)
     seen = set()
-    for m in re.finditer(r"pattern\(\s*'([A-Z]\d{2})'\s*,\s*'(P\d)'\s*,\s*'([^']+)'\s*,\s*'([^']*)'\s*\)", src):
+    # ⚠ 第四个参数可能跨行写成 `'a'\n    'b'`（Python 字符串拼接），
+    #   原正则 `'([^']*)'\s*\)` 遇到换行后的第二个引号就失配 → Q06 这类被漏。
+    #   ✅ 允许任意多个相邻字符串字面量拼接。
+    for m in re.finditer(r"pattern\(\s*'([A-Z]\d{1,3})'\s*,\s*'(P\d)'\s*,\s*'([^']+)'\s*,"
+                         r"\s*'([^']*)'(?:\s*'[^']*')*\s*\)", src):
         if m.group(1) in seen:
             continue
         seen.add(m.group(1))
@@ -317,9 +321,18 @@ def extract():
         gsrc = open(gpath, encoding='utf-8').read()
         gseen = set()
         # 规则元组形如 ("GD04", "P1", "旧式信号", "gd", r"...", "说明", "修法")
-        for m in re.finditer(r'\(\s*"(GD\d{2})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
+        # ⚠ 原来是 `GD\d{2}` —— 只认两位编号。
+        #   GD 编号已排到 GD384，三位编号的规则（GD101–GD384 共 230 条）
+        #   **从未进过注册表**，而 --check 只报"扫描器有、注册表没有"，
+        #   看起来像"没跑 --sync"，实际是提取器根本取不到。
+        #   ⛔ 这又是"只覆盖一种写法"：编号位数涨了，正则没跟着涨。
+        # ⚠ GDS01–GDS08 是着色器规则的独立命名空间，同样要登记，
+        #   否则 registry 里永远缺这 8 条（而 --check 只会说"扫描器有"）。
+        for m in re.finditer(r'\(\s*"(GD(?:S)?\d{2,4})"\s*,\s*"(P\d)"\s*,\s*"([^"]+)"\s*,',
                              gsrc):
-            gid = 'GD-%s' % m.group(1)[2:]
+            _nat = m.group(1)
+            gid = ('GDS-%s' % _nat[3:]) if _nat.startswith('GDS') \
+                else ('GD-%s' % _nat[2:])
             if gid in gseen:
                 continue
             gseen.add(gid)

@@ -31,6 +31,10 @@ import json
 import argparse
 import tempfile
 import shutil
+import subprocess
+
+# 本脚本所在目录（自检里派生子脚本路径用，不能依赖调用时的 cwd）
+HERE_G = os.path.dirname(os.path.abspath(__file__))
 from pathlib import Path
 
 # AR-04 退出码码表（与其它扫描器一致：0/1/2/3/4）
@@ -268,7 +272,13 @@ EXTRA_DOMAIN_RULES = [
     ("GD125", "P2", "摇杆自制", "gd", r"class_name\s+VirtualJoystick|TouchScreenButton",
      "自己实现虚拟摇杆 —— 4.7 起引擎内置 VirtualJoystick 节点（Fixed/Dynamic/Following 三模式 + action_* 直连）",
      "优先用内置 VirtualJoystick；仅在需完全自定义外观时才保留自制实现",
-     r"(?<!\w)VirtualJoystick\b(?!\s*\.)"),
+     # ⚠ 原来 absent 是 `(?<!\w)VirtualJoystick\b(?!\s*\.)` ——
+     #   它含的正是 pat 第一条分支要找的词 `VirtualJoystick`。
+     #   于是 `class_name VirtualJoystick`（自己造了同名类、遮蔽内置节点）
+     #   **永远不报**，只有 TouchScreenButton 那半条还活着。
+     #   ⛔ 又是「把问题的一部分当成问题不存在的证据」。
+     #   ✅ pat 的两条分支本身就是坏信号，不需要豁免词。
+     ""),
     ("GD134", "P1", "传输模式缺失", "gd", r"@rpc\s*\(",
      "文件里有 @rpc 但从未出现 unreliable —— 高频同步默认走 reliable，丢包重传会让位置越来越滞后",
      "每帧位置/输入用 unreliable_ordered（带序号）；只有关键事件用 reliable",
@@ -912,7 +922,11 @@ EXTRA_DOMAIN_RULES = [
     ("GD320", "P1", "模拟用渲染delta驱动", "gd", r"(?i)func\s+_process\s*\([^)]*\)[\s\S]{0,400}?(?:simulate|step|advance|tick_update)\s*\(\s*delta\s*\)",
      "用渲染帧 delta 驱动模拟 —— 144Hz 与 60Hz 结果不同、拖窗口改变回放长度",
      "固定步长累加器：const STEP := 1.0/60.0，while acc >= STEP: simulate(STEP)",
-     r"(?i)(?:accumulator|_acc|STEP|FIXED_STEP|固定步长|1\.0\s*/\s*60)"),
+     # ⚠ 原来 absent 里有裸 `STEP` 且带 (?i)，而 pat 的分支之一是 `step\s*\(`。
+     #   结果 `func _process(delta): step(delta)` **永远不报**
+     #   —— 恰恰是最该被抓的写法（实测 simulate(delta) 会报、step(delta) 不报）。
+     #   ✅ 只认真正的固定步长常量写法，不再用裸词。
+     r"(?i)(?:accumulator|_acc|FIXED_STEP|STEP_(?:DT|SIZE|MS|DELTA)|固定步长|1\.0\s*/\s*60)"),
     ("GD321", "P2", "HTTP请求无重试", "gd", r"(?i)(?:HTTPRequest|http_client|_http)\w*[\s\S]{0,500}?\.request\s*\(",
      "HTTPRequest 无内置重试/退避且单节点不可并发 —— 弱网下运营配置、登录、支付回调全部静默失败",
      "自己写重试层与请求队列：指数退避 + 超时 + 幂等键",
@@ -1087,7 +1101,11 @@ EXTRA_DOMAIN_RULES = [
      r"(?i)(?:match|匹配|mmr|elo|glicko|匹配分)\w*[\s\S]{0,240}?(?:power|战力|gear_?score|combat_?power|评分)\w*[\s\S]{0,120}?(?:score|rating|分|>\s*[\d.]+|<\s*[\d.]+)",
      "战力/战评分被直接用作匹配依据 —— 战力测的是配置和养成不是操作；跨职业不可比、会诱导堆无用词条、装备版本变化让旧号集体虚高",
      "匹配用独立 MMR/Elo/Glicko + 近期表现 + 角色熟练度 + 位置 + 延迟；战力只作 role_fit 或解释性展示。展示也要分维度 + 职业百分位，而不是一个大数字",
-     r"(?:mmr|elo|glicko|skill_?rating|隐藏分|role_fit|分维度|百分位|percentile|dimension)"),
+     # ⚠ 原来 absent 写了 `mmr|elo|glicko`，而 pat 的首组**正是这三个词**。
+     #   于是 `if a.mmr > b.gear_score`（最典型的坏代码）两边都命中 → **永远不报**。
+     #   ✅ absent 只保留「确实做了分维度/百分位展示」的信号；
+     #      mmr/elo/glicko/隐藏分 本身不是豁免理由（隐藏分仍是单一标量）。
+     r"(?:role_fit|分维度|百分位|percentile|dimension|多维度|按职业)"),
     # ---- 潜行AI · 枪械射击（GD357-GD364）----
     ("GD357", "P1", "警戒做成布尔", "gd",
      r"(?i)(?:alerted|警戒|发现玩家|察觉|警觉)\s*(?::=|=|:)\s*(?:true|false)",
@@ -4862,17 +4880,76 @@ def self_test() -> int:
                                           'godot-audit.py'), '--rules'],
                             capture_output=True, text=True)
         # \d{2} 匹配不到三位数编号：加 GD101+ 后这条检查会误报"全部遗漏"。
-        listed = set(re.findall(r'\bGD\d{2,3}\b', _r.stdout))
+        # ⚠ GDS01–GDS08 是着色器规则的独立命名空间，也要算进来
+        #   （`\bGD\d+\b` 匹配不到，此前这 8 条从没进过 coverage 口径）。
+        listed = set(re.findall(r'\bGDS?\d{2,4}\b', _r.stdout))
+        # ⚠ 原来只算 LINE + FRAME + DOMAIN 三张表（共 82 条），
+        #   而 EXTRA_DOMAIN_RULES 有 215 条、SHADER_RULES 有 8 条
+        #   —— 合计 223 条规则**不在这条自检的保护范围内**。
+        #   ⛔ 又是"只覆盖一部分"：新增规则往 EXTRA 里加，自检却看不见。
+        #   ✅ 改为遍历全部规则表，且断言总数与 --rules 输出一致（双向）。
         defined = set()
-        for tbl in (LINE_RULES, FRAME_RULES):
-            defined.update(x[0] for x in tbl)
-        defined.update(x[0] for x in DOMAIN_RULES)
-        # GD96/GD99 走方法体检测，不在 DOMAIN_RULES 里，需显式补
+        for tbl in (LINE_RULES, FRAME_RULES, SHADER_RULES,
+                    EXTRA_DOMAIN_RULES, DOMAIN_RULES):
+            for x in tbl:
+                if isinstance(x[0], str) and x[0].startswith('GD'):
+                    defined.add(x[0])
+        # GD96/GD99 走方法体检测，不在任何规则表里，需显式补
         defined.update(('GD96', 'GD99'))
         defined.update(('GD01', 'GD02', 'GD03', 'GD14', 'GD15'))
+        # ⚠ 反向也要查：--rules 列出来的必须都在某张表里。
+        #   否则"表里有 289 条、--rules 只列 288"这种少一条也不会报。
+        _extra_listed = sorted(listed - defined)
+        check(not _extra_listed,
+              '--rules 未列出多余规则（多: %s）' % (_extra_listed[:3] or '无'))
         missing = sorted(defined - listed)
         check(not missing,
               '--rules 列出全部 %d 条规则（漏: %s）' % (len(defined), missing or '无'))
+
+        # ⚠ 规则注册表必须覆盖本扫描器的全部规则。
+        #   ⓘ 为什么查：rule-registry.py 用 `GD\d{2}` 提取，只认两位编号，
+        #     GD101–GD384 共 230 条**从未进过 registry.json**；而 --check
+        #     的"扫描器有、注册表没有"提示**没有接进任何自检**，
+        #     于是漂移了很久没人发现（看起来只是"忘了跑 --sync"）。
+        #   ⛔ 编号位数涨了而提取正则没涨，是"只覆盖一种写法"的又一处。
+        _regp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             '..', 'rules', 'registry.json')
+        if os.path.exists(_regp):
+            try:
+                _reg = json.load(open(_regp, encoding='utf-8'))
+                _have = set()
+                for _r in _reg.get('rules', []):
+                    if _r.get('scanner') == 'godot-audit.py':
+                        _have.add(_r.get('native_id'))
+                _missing2 = sorted(defined - _have)
+                check(not _missing2,
+                      'registry.json 覆盖全部 GD 规则（漏 %d: %s）'
+                      % (len(_missing2), _missing2[:3] or '无'))
+            except Exception as _e:
+                check(False, 'registry.json 可解析（%s）' % str(_e)[:40])
+        else:
+            check(False, 'registry.json 存在')
+
+        # ⚠ 「改了 X 却没调 Y」类规则里，absent 若含了 pat 自己要找的词，
+        #   规则就**永不触发**——不报错、不崩溃，只是安静地一条都不报。
+        #   实测抓到过三处：GD125（VirtualJoystick）、GD320（裸 STEP 撞 step(）、
+        #   GD356（absent 的 mmr|elo|glicko 与 pat 首组完全重合）。
+        #   ⛔ 这类"部分失效"不会让任何既有自检变红，只能靠专项体检。
+        _crr = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'check-rule-regex.py')
+        check(os.path.isfile(_crr), 'check-rule-regex.py 存在')
+        if os.path.isfile(_crr):
+            _p = subprocess.run([sys.executable, _crr, '--json'],
+                                capture_output=True, text=True, cwd=HERE_G)
+            try:
+                _j = json.loads(_p.stdout)
+                _probs = _j.get('problems', [])
+                check(not _probs,
+                      '全部扫描器规则正则体检通过（%d 条规则 / 问题 %s）'
+                      % (_j.get('checked_rules', 0),
+                         _probs[:1] or '无'))
+            except Exception as _e:
+                check(False, 'check-rule-regex.py 输出可解析（%s）' % str(_e)[:40])
 
         print('\n自检：%d 通过 / %d 失败' % (ok, len(fail)))
         for f in fail:

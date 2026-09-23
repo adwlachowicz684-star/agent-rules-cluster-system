@@ -101,18 +101,18 @@ Python 靠 fixture、Go 靠 `go test -race`、C++ 靠 ASan/TSan、Java 靠压测
 
 ## 报告产出：默认拆成多文件
 
-整机审查产出**一个目录**：主窗口按子系统拆、插件一个一份 + `00-索引.md`，
-≥5 个文件打包 zip。模板 `assets/report-template-split.md`。
-硬约束：只写问题不写过程、每条须有位置+后果+**验证建议**、误报段必写、同类合并。
-**退出标准**（三类清单 + blocking 判定）见 `references/common-reporting.md`。
+整机审查产出**一个目录**：主窗口按子系统拆、插件一个一份 + `00-索引.md`，≥5 个文件打包 zip。
+模板 `assets/report-template-split.md`。硬约束：只写问题不写过程、每条须有位置+后果+**验证建议**、
+误报段必写、同类合并。**退出标准**（三类清单 + blocking 判定）见 `references/common-reporting.md`。
 
 ## 五个新机制（规则可管理 · 结果可交换 · 过程可续跑 · 项目可定制 · 判据可索引）
 
-规则注册表 / SARIF / 编排器 / 判据索引——**命令与「为什么需要」见 `references/mechanisms.md`**；
-项目特化约定（通用模式库抽象不出来的）走 `scripts/project-rules.py`，按路径绑定生效。最常用两条：
+规则注册表 / SARIF / 编排器 / 判据索引——命令与「为什么需要」见 `references/mechanisms.md`；
+项目特化约定走 `scripts/project-rules.py`，按路径绑定生效。最常用三条：
 
 ```bash
 python3 scripts/rule-registry.py --check          # 注册表漂移 + fixture 覆盖率
+python3 scripts/check-rule-regex.py               # 规则正则体检：absent 写错会「永不触发」
 python3 scripts/audit.py --src=<根> --resume      # 断点续跑
 ```
 
