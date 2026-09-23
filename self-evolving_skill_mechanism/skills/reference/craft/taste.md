@@ -74,7 +74,7 @@ audit 是下限（不许坏），craft 是上限（要好）。
 ```
 
 **只写命中条件的判据必然误报**——而误报会让整份文档被忽略。
-（来源：`audit/self-verification.md` 第十四条）
+（来源：`audit/self-verification-falsepos.md` 第十四条）
 
 ### 4. 数字要带来源，来源要能复核
 

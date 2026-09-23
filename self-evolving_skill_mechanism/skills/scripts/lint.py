@@ -585,7 +585,7 @@ def _outside_code_blocks(text):
     （"流程文件七节模板"这类示例）会被当成真实章节。
     实测 step-spec.md：真实 7 章，因模板被算成 15 章 → 误报拆分建议。
 
-    判据与 self-verification 第十一条同源：
+    判据与 `audit/self-verification-falsepos.md` 第十一条同源：
     **文本匹配必须区分「示例代码」与「真内容」**，否则必然误报。
     """
     out, in_fence = [], False

@@ -137,7 +137,10 @@ craft   要好      —— 做不到不算错，但不好用
 
 | 文件 | 内容 | 读的时机 |
 |---|---|---|
-| `self-verification.md` | **自检协议 17 条**（失效形态沉淀池） | 审核 / 加检查项时 |
+| `self-verification.md` | **自检协议索引**（指向下面三份） | 不确定查哪份时 |
+| `self-verification-silent.md` | **静默类**：检查在跑但没在查（9 条） | 怀疑它根本没执行 |
+| `self-verification-falsepos.md` | **误报类**：检查在查但判据不准（6 条） | 报出一堆疑似误报 |
+| `self-verification-credibility.md` | **可信度类**：信号有了但真假难辨（5 条） | 报告看起来正常 |
 | `rejection.md` | 驳回清单 6 条 | 整合过闸时 |
 | `anti-patterns.md` | 反模式与官方规范 | 审核时 |
 
