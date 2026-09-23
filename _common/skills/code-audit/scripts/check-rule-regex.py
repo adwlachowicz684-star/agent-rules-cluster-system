@@ -18,6 +18,15 @@
     C1  每条规则的正则都能编译（位置错误 / 未闭合分组 / 变长后顾）
     C2  「改了 X 却没调 Y」类规则：pat 的字面骨架不会自己命中 absent（否则永不触发）
     C3  规则 ID 在同一扫描器内不跨表冲突（同表内多写法共用 ID 是允许的）
+    C4  每条规则都至少被验证一次（tp fixture 或 扫描器内联自检断言）
+
+        ⓘ 为什么需要：规则「能跑、能报」不等于「被验证过」。
+          没有样本的规则改坏了，自检**全绿**——它压根没被测到。
+          实测 godot-audit 296 条规则 **0 个 tp fixture**，
+          全靠 self_test 里的内联样本；而内联样本也只覆盖了 275 条，
+          剩 14 条（GD08/GD12/GD26/GD32/GD33/GD34/GD51/GD147…）**两种都没有**。
+        ⓘ 判据取「或」而非「且」：fixture 与内联样本是两种等价验证手段，
+          要求两者齐备会让 275 条已验证的规则被误报成未验证。
 
 用法：
     python3 scripts/check-rule-regex.py            # 体检
@@ -139,6 +148,80 @@ def skeleton(rx):
     return ' '.join(t for t in s.split() if len(t) >= 2)
 
 
+def collect_inline_verified():
+    """各扫描器里「被内联自检断言过」的规则 ID。
+
+    ⓘ 提取口径必须按各扫描器的实际写法分别取，不能用统一正则：
+      · scan-* 系列写在 SELF_TEST_CASES / SELF_TEST_CONTEXT_CASES
+        （有的扫描器是 dict 以规则 ID 为 key，有的是 list 元组首元素）
+      · godot-audit.py 写在 self_test() 里，形态有三种：
+        for rid, label in (('GD21', '…'), …) / for rid in ('GD91', …)
+        / check('GD11' not in ids('x.gd'), …)
+      · 用统一正则会漏掉 `'(GDxx)' not in` 那一类（此前就把 GD11 误报成未覆盖）。
+    """
+    out = {}
+    # ---- scan-* 系列：AST 取 dict key / list 首元素 ----
+    for fn in SCANNERS:
+        p = os.path.join(HERE, fn)
+        if not os.path.exists(p):
+            continue
+        try:
+            tree = ast.parse(open(p, encoding='utf-8').read())
+        except SyntaxError:
+            continue
+        ids = set()
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Assign)
+                    and isinstance(node.value, (ast.List, ast.Dict))):
+                continue
+            names = [tg.id for tg in node.targets if isinstance(tg, ast.Name)]
+            if not any(n.startswith('SELF_TEST') for n in names):
+                continue
+            v = node.value
+            if isinstance(v, ast.Dict):
+                for k in v.keys:
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                        ids.add(k.value)
+            else:
+                for el in v.elts:
+                    if isinstance(el, ast.Tuple) and el.elts \
+                            and isinstance(el.elts[0], ast.Constant) \
+                            and isinstance(el.elts[0].value, str):
+                        ids.add(el.elts[0].value)
+        out.setdefault(fn, set()).update(ids)
+    # ---- godot-audit.py：self_test() 里的 rid 断言 ----
+    gp = os.path.join(HERE, 'godot-audit.py')
+    if os.path.exists(gp):
+        s = open(gp, encoding='utf-8').read()
+        i = s.find('def self_test')
+        body = s[i:] if i >= 0 else ''
+        ids = set()
+        for m in re.finditer(r"for rid, label in \((.*?)\):", body, re.S):
+            ids |= set(re.findall(r"\('(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"for rid in \(([^)]*)\):", body):
+            ids |= set(re.findall(r"'(GD(?:S)?\d{2,4})'", m.group(1)))
+        for m in re.finditer(r"'(GD(?:S)?\d{2,4})'\s*(?:not\s+)?in\s+", body):
+            ids.add(m.group(1))
+        out.setdefault('godot-audit.py', set()).update(ids)
+    return out
+
+
+def collect_fixture_tp():
+    """registry.json 里有 tp 样本的规则 native_id → 扫描器。"""
+    out = {}
+    p = os.path.join(HERE, '..', 'rules', 'registry.json')
+    if not os.path.exists(p):
+        return out
+    try:
+        reg = json.load(open(p, encoding='utf-8'))
+    except (OSError, ValueError):
+        return out
+    for r in reg.get('rules', []):
+        if (r.get('fixtures') or {}).get('tp'):
+            out.setdefault(r.get('scanner'), set()).add(r.get('native_id'))
+    return out
+
+
 def main():
     items = collect()
     # C3：规则 ID → 出现过的表名集合
@@ -184,6 +267,28 @@ def main():
         if len(tables) > 1:
             problems.append(('C3', fn, 0, '%s 同时定义在 %s（跨表同名，报出时无法区分）'
                              % (rid, '/'.join(sorted(tables)))))
+
+    # C4 验证覆盖：每条规则至少被 tp fixture 或 内联自检断言 覆盖一次
+    inline = collect_inline_verified()
+    tpfix = collect_fixture_tp()
+    unverified = []
+    for (fn, rid) in sorted(id_tables, key=lambda x: (x[0], len(x[1]), x[1])):
+        if rid in (tpfix.get(fn) or set()):
+            continue
+        if rid in (inline.get(fn) or set()):
+            continue
+        unverified.append((fn, rid))
+    # ✅ 基线为 0：14 条历史缺口已补样本（gap.gd / gap.cs / part.gdshader），
+    #   并顺带暴露出 GDS06 是一条**永不触发**的死规则（逐行扫描 + `[^]*]` 误写）。
+    #   ⛔ 不许放宽回「不增长」：放宽后新规则不配样本就不会被拦，
+    #      而"无样本的规则"恰恰是最容易悄悄失效的那一类。
+    BASELINE_UNVERIFIED = 0
+    if len(unverified) > BASELINE_UNVERIFIED:
+        problems.append(('C4', '<all>', 0,
+                         '无任何验证样本的规则 %d 条 > 基线 %d（新增：%s）'
+                         % (len(unverified), BASELINE_UNVERIFIED,
+                            ', '.join('%s:%s' % (f, r)
+                                      for f, r in unverified[:8]))))
 
     if '--json' in sys.argv:
         print(json.dumps({'checked_rules': pat_rules, 'problems': problems},

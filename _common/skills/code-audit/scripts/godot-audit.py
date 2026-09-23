@@ -237,10 +237,6 @@ SHADER_RULES = [
      r"uniform\s+sampler2D\s+\w*(?:albedo|tex|color|colour|diffuse|base)\w*\s*(?!:)\s*;",
      "名字暗示是颜色纹理但没有 source_color —— Forward+/Mobile 下会发白（这是颜色空间语义，不只是 UI 控件）",
      "颜色纹理加 `source_color`；法线/粗糙度/金属度/高度**不加**"),
-    ("GDS06", "P2", "粒子旧式", "shader",
-     r"shader_type\s+particles[^]*]*\}[^]*]*\bvertex\s*\(",
-     "3.x 粒子 shader 用 vertex() —— 4.x 改为 start() / process()",
-     "改写为 `void start()` 与 `void process()`"),
     ("GDS07", "P2", "移动端丢弃", "shader", r"(?<![A-Za-z_])discard\s*;",
      "discard 会阻止有效利用深度 prepass —— 顶点阶段仍执行，不比不渲染更便宜",
      "优先 alpha scissor；只在确实需要硬孔时用 discard"),
@@ -251,6 +247,30 @@ SHADER_RULES = [
 ]
 
 # --- 动画 / 音频 / 大世界：这几条是「有 A 却没 B」型，用 absent 表达 ---
+# ⚠ 需要**跨行上下文**的着色器规则：逐行扫描做不到，单独处理。
+#
+#   GDS06 的判定要同时看到 `shader_type particles` 与 `void vertex()`，
+#   两者**必然不在同一行**；而 SHADER_RULES 是逐行正则
+#   （`for i, l in enumerate(lines)`），跨行正则在单行上永远不成立。
+#
+#   ⛔ 原 pat 还叠了第二个错误：`[^]*]` 里的 `]` 是**字面量**不是字符类结束符
+#      —— 作者本意应是 `[^}]*`。实测即便构造带 `]` 的样本也不命中。
+#      两个错误叠加，使 GDS06 成为一条**永不触发**的规则。
+#   ⓘ 它是自检加了 part.gdshader 样本后才暴露的：此前没有任何样本覆盖它，
+#      所以它坏了也没人知道 —— 这正是「无验证规则」的代价。
+#
+#   元组：(id, level, 类别, lang, 前提(全文), 症状(逐行定位), 说明, absent占位, 修法)
+#   ⓘ 第 8 位必须是空串：check-rule-regex.py 的 C2 按结构下标取 vals[7] 当 absent，
+#     若把修法文本放到这一位，它会被当成正则去比（含 `()` 会误判）。
+SHADER_CONTEXT_RULES = [
+    ("GDS06", "P2", "粒子旧式", "shader",
+     r"shader_type\s+particles",
+     r"\bvertex\s*\(",
+     "3.x 粒子 shader 用 vertex() —— 4.x 改为 start() / process()",
+     "",
+     "改写为 `void start()` 与 `void process()`"),
+]
+
 # 放在 LINE_RULES 里做不到（那边没有 absent），只能放这里。
 EXTRA_DOMAIN_RULES = [
     ("GD111", "P1", "动画未激活", "gd", r"AnimationTree",
@@ -1677,6 +1697,20 @@ def scan_file(path: Path, rel: str) -> list[dict]:
                     continue
                 seen.add(rid)
                 add(i, rid, level, rule, msg, fix)
+
+        # 跨行类：全文判前提，再逐行定位症状所在行
+        for rid, level, rule, rlang, pre, sym, msg, _abs, fix in SHADER_CONTEXT_RULES:
+            if rlang not in ("any", lang):
+                continue
+            if not re.search(pre, text, re.M):
+                continue
+            seen = set()
+            for i, l in enumerate(lines):
+                if re.search(sym, l):
+                    if rid in seen:
+                        continue
+                    seen.add(rid)
+                    add(i, rid, level, rule, msg, fix)
 
     # ---- 2) 帧回调内规则（性能）----
     for name, s, e in methods:
@@ -4185,6 +4219,125 @@ void fragment() {
 }
 '''
 
+# ---------------------------------------------------------------- 缺口样本
+# ⓘ 为什么单独建这三组：check-rule-regex.py 的 C4 查出 14 条规则
+#   **既无 tp fixture 也无内联断言** —— 改坏了自检全绿，因为根本没被测到。
+#   这 14 条此前没有任何样本，本组样本把它们一次性纳入验证。
+# ⓘ 分组按语言：GD08/GD12/GD26/GD51 有 gd 与 cs 两套正则，
+#   GDS06 只作用于 .gdshader，其余只在 gd 下判定。
+SELF_GAP_BAD = '''extends Node2D
+
+func _process(delta):
+	var e = Enemy.new()
+	if Input.is_action_just_pressed("ui_accept"):
+		pass
+
+func setup():
+	var s = preload("res://x.tscn").instance()
+	$Area.body_entered.connect(on_body)
+	var cg = CanvasGroup.new()
+	tilemap.set_cell(0, Vector2i(1, 1))
+	var l = Light2D.new()
+	var ik = TwoBoneIK3D.new()
+	ProjectSettings.load_resource_pack("a.pck")
+	var f = FileAccess.open_encrypted("a.sav", FileAccess.WRITE, key)
+	ProjectSettings.set_setting("rendering/anti_aliasing", TAA)
+	body.linear_velocity = Vector3(0, 0, 100)
+	var b = Button.new()
+
+func on_body(b):
+	pass
+'''
+
+SELF_GAP_CLEAN = '''extends Node2D
+
+var loaded_packs := []
+
+func _unhandled_input(event):
+	if event.is_action_pressed("ui_accept"):
+		pass
+
+func setup():
+	var s = preload("res://x.tscn").instantiate()
+	$Area.contact_monitor = true
+	$Area.max_contacts_reported = 4
+	$Area.body_entered.connect(on_body)
+	tilemap.set_cell(Vector2i(1, 1), 0, Vector2i(0, 0))
+	var l = PointLight2D.new()
+	var ik = TwoBoneIK3D.new()
+	ik.pole_node = $Pole
+	loaded_packs.append("a.pck")
+	var f = FileAccess.open_encrypted("a.sav", FileAccess.WRITE, key)
+	if f == null:
+		return
+	body.continuous_cd = RigidBody3D.CCD_MODE_CAST_RAY
+	body.linear_velocity = Vector3(0, 0, 100)
+	var b = Button.new()
+	b.focus_neighbor_left = $Other
+
+func on_body(b):
+	pass
+'''
+
+SELF_GAPCS_BAD = '''using Godot;
+
+public partial class Gap : Node2D
+{
+    public override void _Process(double delta)
+    {
+        var e = new Enemy();
+        if (Input.IsActionJustPressed("ui_accept")) { }
+    }
+
+    public void Setup()
+    {
+        var s = GD.Load<PackedScene>("res://x.tscn").Instance();
+        GetNode<Area2D>("Area").BodyEntered += OnBody;
+    }
+
+    private void OnBody(Node2D b) { }
+}
+'''
+
+SELF_GAPCS_CLEAN = '''using Godot;
+
+public partial class GapOk : Node2D
+{
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (e.IsActionPressed("ui_accept")) { }
+    }
+
+    public void Setup()
+    {
+        var s = GD.Load<PackedScene>("res://x.tscn").Instantiate();
+        var a = GetNode<Area2D>("Area");
+        a.ContactMonitor = true;
+        a.MaxContactsReported = 4;
+        a.BodyEntered += OnBody;
+    }
+
+    private void OnBody(Node2D b) { }
+}
+'''
+
+SELF_GAPPART_BAD = '''shader_type particles;
+
+void vertex() {
+	VELOCITY = vec3(0.0, 1.0, 0.0);
+}
+'''
+
+SELF_GAPPART_CLEAN = '''shader_type particles;
+
+void start() {
+}
+
+void process() {
+	VELOCITY = vec3(0.0, 1.0, 0.0);
+}
+'''
+
 SELF_DEBUG_BAD = '''extends Node
 
 func _process(delta):
@@ -4447,6 +4600,9 @@ def self_test() -> int:
             'gmiscok.gd': SELF_GMISCOK_GD,
             'dbg.gd': SELF_DEBUG_BAD, 'dbgok.gd': SELF_DEBUG_CLEAN,
             'sh.gdshader': SELF_SHADER_BAD, 'shok.gdshader': SELF_SHADER_CLEAN,
+            'gap.gd': SELF_GAP_BAD, 'gapok.gd': SELF_GAP_CLEAN,
+            'gap.cs': SELF_GAPCS_BAD, 'gapok.cs': SELF_GAPCS_CLEAN,
+            'part.gdshader': SELF_GAPPART_BAD, 'partok.gdshader': SELF_GAPPART_CLEAN,
             'misc.gd': SELF_MISC_BAD, 'miscok.gd': SELF_MISC_CLEAN,
             'netops.gd': SELF_NETOPS_BAD, 'netopsok.gd': SELF_NETOPS_CLEAN,
             'ops2.gd': SELF_OPS2_BAD, 'ops2ok.gd': SELF_OPS2_CLEAN, 'ops3.gd': SELF_OPS3_BAD, 'ops3ok.gd': SELF_OPS3_CLEAN, 'ops4.gd': SELF_OPS4_BAD, 'ops4ok.gd': SELF_OPS4_CLEAN, 'ops5.gd': SELF_OPS5_BAD, 'ops5ok.gd': SELF_OPS5_CLEAN, 'ops6.gd': SELF_OPS6_BAD, 'ops6ok.gd': SELF_OPS6_CLEAN, 'ops7.gd': SELF_OPS7_BAD, 'ops7ok.gd': SELF_OPS7_CLEAN, 'ops8.gd': SELF_OPS8_BAD, 'ops8ok.gd': SELF_OPS8_CLEAN, 'ops9.gd': SELF_OPS9_BAD, 'ops9ok.gd': SELF_OPS9_CLEAN, 'ab1.gd': SELF_AB1_BAD, 'ab1ok.gd': SELF_AB1_CLEAN,
@@ -4950,6 +5106,61 @@ def self_test() -> int:
                          _probs[:1] or '无'))
             except Exception as _e:
                 check(False, 'check-rule-regex.py 输出可解析（%s）' % str(_e)[:40])
+
+        # --- 缺口样本：14 条此前无任何验证的规则 ---
+        # ⓘ 这 14 条既无 tp fixture 也无内联断言（check-rule-regex.py C4 查出），
+        #   改坏了自检**全绿**——因为根本没被测到。本组断言把它们纳入验证。
+        for rid, label in (('GD08', '旧式 .instance()'),
+                           ('GD12', '帧内 new'),
+                           ('GD26', 'body_entered 无 contact_monitor'),
+                           ('GD32', 'CanvasGroup 嵌套裁剪代价'),
+                           ('GD33', 'set_cell 层号优先旧签名'),
+                           ('GD34', 'Light2D 是 3.x 类名'),
+                           ('GD51', 'is_action_just_pressed 在非输入回调'),
+                           ('GD147', 'TwoBoneIK3D 缺 pole'),
+                           ('GD167', 'load_resource_pack 未记来源'),
+                           ('GD168', 'open_encrypted 无错误处理'),
+                           ('GD181', 'TAA 在非 Forward+ 渲染器'),
+                           ('GD184', '高速物体无 continuous_cd'),
+                           ('GD193', 'Button 缺焦点配置')):
+            check(rid in ids('gap.gd'), 'gap.gd 命中 %s（%s）' % (rid, label))
+
+        for rid in ('GD08', 'GD12', 'GD26', 'GD32', 'GD33', 'GD34', 'GD51',
+                    'GD147', 'GD167', 'GD168', 'GD181', 'GD184', 'GD193'):
+            check(rid not in ids('gapok.gd'), 'gapok.gd 不报 %s' % rid)
+
+        for rid, label in (('GD08', '旧式 .Instance()'),
+                           ('GD12', '帧内 new'),
+                           ('GD26', 'BodyEntered 无 ContactMonitor'),
+                           ('GD51', 'IsActionJustPressed 在非输入回调')):
+            check(rid in ids('gap.cs'), 'gap.cs 命中 %s（%s）' % (rid, label))
+
+        for rid in ('GD08', 'GD12', 'GD26', 'GD51'):
+            check(rid not in ids('gapok.cs'), 'gapok.cs 不报 %s' % rid)
+
+        # ⚠ GDS06 单独一组：它是**唯一需要跨行上下文**的着色器规则
+        #   （要同时看到 `shader_type particles` 与 `void vertex()`，
+        #    两者必然不在同一行），而 SHADER_RULES 是逐行扫描的。
+        check('GDS06' in ids('part.gdshader'),
+              'part.gdshader 命中 GDS06（粒子 shader 用旧式 vertex()）')
+        check('GDS06' not in ids('partok.gdshader'),
+              'partok.gdshader 不报 GDS06（已改 start()/process()）')
+
+        # ⚠ 全扫描器规则体检（C1 编译 / C2 永不触发 / C3 跨表冲突 / C4 无验证样本）
+        #   ⓘ 为什么挂这里：check-rule-regex.py 覆盖 9 个扫描器，
+        #     但**没有任何自检调用它**——跟 rule-registry --check 一样，
+        #     属于"有检查没入口"。挂到改动规则后必跑的 --self-test 上最不容易漏。
+        #   ⓘ C4 尤其关键：GDS06 就是靠它才被发现有样本缺口，
+        #     补样本后又暴露出它其实是一条永不触发的死规则。
+        _cp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'check-rule-regex.py')
+        if os.path.exists(_cp):
+            _r3 = subprocess.run([sys.executable, _cp],
+                                 capture_output=True, text=True, timeout=300)
+            check(_r3.returncode == 0,
+                  'check-rule-regex 全扫描器体检通过（退出码 %d）' % _r3.returncode)
+        else:
+            check(False, 'check-rule-regex.py 存在')
 
         # ⚠ 跨扫描器的注册表漂移必须在这里兜住。
         #   ⓘ 为什么放本扫描器的自检里：`rule-registry.py --check` **没有任何
