@@ -450,7 +450,12 @@ def check_flow_steps(cfg, root=None):
         body = _outside_code_blocks(text)
         steps, cur = [], None
         for line in body:
-            if line.startswith("### ") and "Step" in line:
+            # ⚠ 判据是「有节点 ID」，不是「标题含 Step 字样」：
+            # 实测 new-skill.md 的「### 批量四步（替换 Step 4）」被当成真 Step
+            # → 报「缺五字段」。它只是**提到** Step 4，不是 Step。
+            # 节点 ID `[FL-xx#S1]` 才是 Step 的稳定标识。
+            if line.startswith("### ") and re.search(
+                    r'\[[A-Za-z0-9-]+#S\d+\]', line):
                 if cur:
                     steps.append(cur)
                 cur = {"title": line, "text": "", "lineno": 0}
@@ -1258,6 +1263,22 @@ trigger: 测试
                  if str(i['file']).endswith('craft')],
             '区里有 .md 时不误报')
         (ez / 'craft' / 'x.md').unlink()
+
+        # ---- Step 识别判据：按节点 ID，不是标题含 Step ----
+        # 反向用例：一节**提到** "Step 4" 但不是 Step，不该被当流程步骤检查。
+        # 这正是「表面特征 vs 语义方向」（self-verification-falsepos 第十四条）：
+        # 标题里有 Step 字样 ≠ 它是 Step。**节点 ID 才是稳定标识。**
+        fl = vroot / 'reference' / 'flow'
+        fl.mkdir(parents=True, exist_ok=True)
+        (fl / 'mention.md').write_text(
+            '<!--\nflow-id: FL-11\nflow-type: procedure\n-->\n# m\n\n'
+            '> **本区性质：flow / 端到端流程。**\n\n'
+            '### 批量四步（替换 Step 4）\n\n只是说明文字，不是工序步。\n\n'
+            '## 7. 整体审核\n', encoding='utf-8')
+        chk(not [i for i in check_flow_steps(cfg, vroot)
+                 if 'mention.md' in str(i.get('file', ''))],
+            '标题提到 Step 但不是工序步 → 不误报（按节点 ID 识别）')
+        (fl / 'mention.md').unlink()
 
         # ---- flow/ 区流程规范 ----
         # ⚠ 正反两侧都要造：meta 不误报、procedure 五字段不全要报、

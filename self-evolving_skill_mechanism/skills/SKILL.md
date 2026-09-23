@@ -57,6 +57,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 - 不知道某句话该进哪个区 → `reference/common/split-two-books.md` 第二节
 - 审核 / 加检查项 → `reference/audit/self-verification.md`（索引，按失效大类分三册）
 - **走流程 / 新建流程** → `reference/flow/index.md`（FL-xx 登记表 + 新建四步）
+- **从零建一个新 skill** → `reference/flow/new-skill.md`（`FL-03`，含批量填充）
 
 > ⛔ **`flow/` 里 `meta` 与 `procedure` 必须分开标记**：
 > 元规范必然举例 Step，不区分会让示例被当真步骤检查 → 必然误报。
