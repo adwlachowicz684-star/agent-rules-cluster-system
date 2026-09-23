@@ -31,7 +31,7 @@
 | 2026-09-15 | lint 重复副本检查 | 新增 | 按 md5 查逐字节相同的文件。名字不同的重复最难被发现，且修 bug 只改一处、另一处静默过期 |
 | 2026-09-15 | lint 标注退化检查 | 新增 | 手填的 verified / 命中数会收敛成同一个值 → 字段活着但已死。条目数 ≥5 且取值只有一种即预警。上线即查出 _hot.md 命中列全 0（15 条） |
 | 2026-09-15 | lint 扫描范围自报 | 新增 | 输出「通过」时必须说明扫了几个、跳过了什么。在空集上跑出的通过没有意义；domains 无技能包时不再输出无条件的「✓ 通过」 |
-| 2026-09-15 | reference/self-verification.md | 新增 | 自检协议：检查项必须能红 / 工具自报扫描范围 / 三态不要二态 / 检测规则必须配正反双样本 / 标注字段必须可回填。由 code-audit 改造实践提炼 |
+| 2026-09-15 | reference/audit/self-verification.md | 新增 | 自检协议：检查项必须能红 / 工具自报扫描范围 / 三态不要二态 / 检测规则必须配正反双样本 / 标注字段必须可回填。由 code-audit 改造实践提炼 |
 | 2026-09-15 | writing-rules verified 段 | 修正 | 原文只写「只标注不校验」，使人以为标完就完事。补：标注本身会退化，能实测的脚本回填，填不了的至少能发现退化 |
 | 2026-09-15 | _hot.md 命中数 | 更新 | 按本次任务实际触发情况 +1（10 条）。命中列由全 0 变为有区分度 |
 | 2026-09-15 | H016 | 新增 | 改旧规则前先查溯源：没查就改是最高频误改来源  （来源：反哺） |
@@ -48,3 +48,53 @@
 | 2026-09-15 | consolidate --self-test | 新增 | 给引擎自己的三道闸（驳回清单/三件套/事实扫描）配 12 条正反样本。此前协议要求「检测类规则必须配 tp/fp」，而引擎自身过闸逻辑一条样本都没有——要求别人做的自己没做。已做变异测试：故意改坏风格偏好闸后自检由 12/12 变 11/12、退出码 1 |
 | 2026-09-15 | 体积豁免边界 | 补充 | 只有按需层(reference/skills)能豁免；常驻层(SKILL.md/rules)不能——它每次都付这段上下文，超限只能下沉 |
 | 2026-09-15 | 孤儿检查范围 | 新增 | PD001 类检查应扫全部文档而非只扫主文件。内容下沉后引用关系跟着走，只扫主文件会把下沉内容引用的资源全判孤儿，逼人搬回主文件，与下沉原则冲突 |
+
+## 2026-09-24 reference/ 两册 → 五分体系
+
+| 改动 | 说明 |
+|---|---|
+| 新建 `howto/` (10) | 怎么做：knowledge-landing / writing-rules / layers / loading / domain-routing / capture-signals / structure-evolution / versioning / env / global-rule |
+| 新建 `audit/` (3) | 不能怎么做：self-verification / rejection / anti-patterns |
+| 新建 `flow/` (2) | 端到端流程：consolidation / closed-loop |
+| 新建 `common/` (1) | 元规则：split-two-books（五分体系总纲） |
+| **新建 `craft/`** (2) | **品位与技巧**：taste.md（什么算好）/ techniques.md（怎么做到） |
+
+**为什么加 craft**：howto 教"怎么做完"，audit 教"哪里不行"，
+但**两者都没有回答"什么算好"**——只有这两册会停在"做完、没毛病"，
+不知道"好"长什么样。**audit 是下限（不许坏），craft 是上限（要好）。
+只做 audit 会得到合格的平庸。**
+
+| 改动 | 说明 |
+|---|---|
+| `split-two-books.md` | 两册 → 五分体系；边界从 3 种扩到 6 种（新增 craft↔howto、craft↔audit、flow↔howto） |
+| `writing-rules.md` | 新增「第一问：这条写进哪个区」——落笔前先定区 |
+| `consolidation.md` | 新增「归位决策第二步」——整合第 6 步要做两次（哪个大类 + 哪个区） |
+| `config.yaml` | 新增 `reference_zones` |
+| `lint.py` | 新增 `check_reference_zones`：区齐全 / 有性质标记 / **标记与目录一致** / 未知区目录。自检 23→28，变异验证通过 |
+| 术语统一 | 「本册性质」→「本区性质」；标记值改为 howto/audit/flow/common/craft |
+| 修 `check_size` | `glob` → `rglob`：改子目录后顶层扫描会让子区文档**完全不参与体积检查** |
+
+## 2026-09-24 reference/ 两册 → 五分体系
+
+| 改动 | 说明 |
+|---|---|
+| 新建 `howto/` (10) | 怎么做：knowledge-landing / writing-rules / layers / loading / domain-routing / capture-signals / structure-evolution / versioning / env / global-rule |
+| 新建 `audit/` (3) | 不能怎么做：self-verification / rejection / anti-patterns |
+| 新建 `flow/` (2) | 端到端流程：consolidation / closed-loop |
+| 新建 `common/` (1) | 元规则：split-two-books（五分体系总纲） |
+| **新建 `craft/`** (2) | **品位与技巧**：taste.md（什么算好）/ techniques.md（怎么做到） |
+
+**为什么加 craft**：howto 教"怎么做完"，audit 教"哪里不行"，
+但**两者都没有回答"什么算好"**——只有这两册会停在"做完、没毛病"，
+不知道"好"长什么样。**audit 是下限（不许坏），craft 是上限（要好）。
+只做 audit 会得到合格的平庸。**
+
+| 改动 | 说明 |
+|---|---|
+| `split-two-books.md` | 两册 → 五分体系；边界从 3 种扩到 6 种（新增 craft↔howto、craft↔audit、flow↔howto） |
+| `writing-rules.md` | 新增「第一问：这条写进哪个区」——落笔前先定区 |
+| `consolidation.md` | 新增「归位决策第二步」——整合第 6 步要做两次（哪个大类 + 哪个区） |
+| `config.yaml` | 新增 `reference_zones` |
+| `lint.py` | 新增 `check_reference_zones`：区齐全 / 有性质标记 / **标记与目录一致** / 未知区目录。自检 23→28，变异验证通过 |
+| 术语统一 | 「本册性质」→「本区性质」；标记值改为 howto/audit/flow/common/craft |
+| 修 `check_size` | `glob` → `rglob`：改子目录后顶层扫描会让子区文档**完全不参与体积检查** |

@@ -155,7 +155,7 @@ def check_landing(cfg):
                     "level": "warn", "file": str(f),
                     "issue": "孤立知识点：「%s」" % b[:38],
                     "hint": "流程段未引用 → 执行时走不到。写进某一步的判据，"
-                            "或删除。见 reference/knowledge-landing.md"})
+                            "或删除。见 reference/howto/knowledge-landing.md"})
 
         # 占位符
         for m in re.finditer(r'(TODO|TBD|待补充|待完善|待定|XXX+|\?\?\?|占位)', text, re.I):
@@ -249,8 +249,10 @@ def check_size(cfg, limits):
     for name in ("_hot.md", "_preferences.md", "_commands.md"):
         chk(ROOT / "SKILLS" / name, "SKILLS/" + name, name,
             "拆分为多个文件或归档低频条目")
-    for f in sorted((ROOT / "reference").glob("*.md")):
-        chk(f, "reference/" + f.name, "reference")
+    # rglob 而非 glob：reference/ 下已分为 howto/audit/flow/common/craft
+    # 五个子区，只扫顶层会让子区的文档**完全不参与体积检查**。
+    for f in sorted((ROOT / "reference").rglob("*.md")):
+        chk(f, str(f.relative_to(ROOT)), "reference")
 
     ad = ROOT / "assets"
     if ad.exists():
@@ -364,6 +366,67 @@ def check_mirror_pairs(cfg, root=None):
                            "file": "%s/%s" % (b.name, name),
                            "issue": "未指向同名建设册（单向）",
                            "hint": "审核时不知道「应该怎么做」在哪。"})
+    return issues
+
+
+def check_reference_zones(cfg, root=None):
+    """reference/ 五分体系完整性：区齐全 + 每个文件标了性质 + 性质与所在区一致。
+
+    为什么需要：五分体系（howto/audit/flow/common/craft）是有判据的
+    （见 reference/common/split-two-books.md），但**判据不会自动执行**——
+    写的人当时知道自己在写什么，半年后审核的人不知道该去哪个区找。
+
+    三个子检查各自防一种失效：
+      ① 区缺失          —— 有人删了 / 没建
+      ② 文件无性质标记  —— 后续无法判定它该不该在这
+      ③ 标记与目录不符  —— 放错区（判据写进了 howto，审核时读不到）
+      ④ 出现未知区目录  —— 建了第六个区却没更新总纲，总纲失真
+
+    只查「目录存在」会让 ②③④ 全部静默。
+    """
+    base = Path(root) if root else ROOT
+    ref = base / "reference"
+    zones = cfg.get("reference_zones") or ["howto", "audit", "flow", "common", "craft"]
+    if not ref.exists():
+        return []
+    issues = []
+
+    # ① 区目录是否齐全
+    for z in zones:
+        if not (ref / z).is_dir():
+            issues.append({"level": "error", "file": "reference/%s" % z,
+                           "issue": "五分体系缺区：%s" % z,
+                           "hint": "新建该目录，或更新 config.yaml 的 "
+                                   "reference_zones（总纲也要同步）"})
+
+    # ④ 未知区目录
+    for d in sorted(ref.iterdir()):
+        if d.is_dir() and d.name not in zones and not d.name.startswith('.'):
+            issues.append({"level": "warn", "file": "reference/%s" % d.name,
+                           "issue": "不在五分体系内的目录",
+                           "hint": "要么并入五区，要么更新 config.yaml 的 "
+                                   "reference_zones 与总纲（否则总纲失真）"})
+
+    # ②③ 每个 md 的性质标记
+    for md in sorted(ref.rglob("*.md")):
+        rel = str(md.relative_to(base))
+        try:
+            head = "\n".join(md.read_text(encoding="utf-8").split("\n")[:12])
+        except Exception:
+            continue
+        zone = md.parent.name
+        m = re.search(r'本(?:区|文件)性质[：:]\s*\**\s*([a-z]+)', head)
+        if not m:
+            issues.append({"level": "warn", "file": rel,
+                           "issue": "文首无「本区性质」标记",
+                           "hint": "写法：`> **本区性质：howto / 怎么做。**`"
+                                   "——没有它，后续无法判定这文件该不该在这"})
+            continue
+        if zone in zones and m.group(1) != zone:
+            issues.append({"level": "warn", "file": rel,
+                           "issue": "性质标的是 %s，但放在 %s/ 下" % (m.group(1), zone),
+                           "hint": "放错区 → 判据写进 howto 会在审核时读不到；"
+                                   "移区或改标记"})
     return issues
 
 
@@ -937,6 +1000,47 @@ trigger: 测试
         chk(not any('命中列' in i['issue'] for i in check_degeneracy(cfg, vroot)),
             '命中数有区分度时不误报')
 
+        # ---- reference/ 五分体系 ----
+        # 正反两侧：四个子检查（缺区/无标记/标记不符/未知目录）都要能报，
+        # 全对时必须不报。只造正向会让「放错区」从未被验证。
+        zr = vroot / 'reference'
+        for z in ('howto', 'audit', 'flow', 'common', 'craft'):
+            (zr / z).mkdir(parents=True, exist_ok=True)
+        (zr / 'howto' / 'a.md').write_text(
+            '# a\n\n> **本区性质：howto / 怎么做。**\n', encoding='utf-8')
+        zcfg = dict(cfg)
+        zcfg['reference_zones'] = ['howto', 'audit', 'flow', 'common', 'craft']
+        # 只断言「我造的那个文件不被报」，不断言全局 0 条——
+        # vroot 里前面用例可能留下别的目录（会被「未知区」规则报），
+        # 用全局 0 条会让本用例被无关残留带红。
+        chk(not [i for i in check_reference_zones(zcfg, vroot)
+                 if str(i['file']).endswith('howto/a.md')],
+            '五区齐全且标记一致时不报（放对了不误报）')
+        # ① 缺区
+        zcfg2 = dict(zcfg)
+        zcfg2['reference_zones'] = ['howto', 'audit', 'flow', 'common', 'craft', 'zzz']
+        chk(any('缺区' in i['issue'] for i in check_reference_zones(zcfg2, vroot)),
+            '缺区能查出（error）')
+        # ② 无标记
+        (zr / 'howto' / 'b.md').write_text('# b\n\n正文\n', encoding='utf-8')
+        chk(any('无「本区性质」标记' in i['issue']
+                for i in check_reference_zones(zcfg, vroot)),
+            '无性质标记能查出')
+        # ③ 标记与目录不符
+        (zr / 'howto' / 'b.md').write_text(
+            '# b\n\n> **本区性质：audit / 不能怎么做。**\n', encoding='utf-8')
+        chk(any('放在 howto/ 下' in i['issue']
+                for i in check_reference_zones(zcfg, vroot)),
+            '标记与目录不符能查出（放错区）')
+        (zr / 'howto' / 'b.md').unlink()
+        # ④ 未知区目录
+        (zr / 'extra').mkdir(exist_ok=True)
+        (zr / 'extra' / 'c.md').write_text('# c\n', encoding='utf-8')
+        chk(any('不在五分体系内' in i['issue']
+                for i in check_reference_zones(zcfg, vroot)),
+            '未知区目录能查出（总纲会失真）')
+        (zr / 'extra' / 'c.md').unlink()
+
         # ---- 镜像册双向可达 ----
         # 正反两侧：缺反向指针 → 必须报；补了 → 必须不报。
         # 只造正向会让「补完之后不误报」从未验证。
@@ -1054,7 +1158,7 @@ def main():
               + check_refs(cfg) + check_duplicates(cfg)
               + check_degeneracy(cfg) + check_exemptions(cfg)
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
-              + check_mirror_pairs(cfg))
+              + check_mirror_pairs(cfg) + check_reference_zones(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

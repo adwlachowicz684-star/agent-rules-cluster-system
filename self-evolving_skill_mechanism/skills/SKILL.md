@@ -24,7 +24,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 **知识点必须落地到流程。** 只写「要注意 X」而不改变任何一步动作，是纯负债——
 读了行为不变，还占上下文。判据一句话：**它改变了哪个流程的哪一步？**
 答不出来 → 改写或删除。`python3 scripts/lint.py` 会自动报出孤立知识点。
-详见 `reference/knowledge-landing.md`。
+详见 `reference/howto/knowledge-landing.md`。
 
 ## 目录地图
 
@@ -43,34 +43,25 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 | `<root>/<大类>/assets/` | **变更溯源**（为什么改） | 改了技能后记录 |
 | `config.yaml` | 大类根目录、体积上限 | 需要定位大类时 |
 | `scripts/env.py` | 环境探测与约束检查 | 技能因版本/系统分化时 |
-### 建设册 —— 写「怎么做」，用于创建 / 优化 / 生成技能
+五个区（**完整目录与判据见 `reference/common/split-two-books.md`**）：
 
-| 文件 | 内容 | 什么时候读 |
-|---|---|---|
-| `reference/split-two-books.md` | **两册分工总纲**（不确定读哪册时先看） | 新建内容 / 判断归属时 |
-| `reference/knowledge-landing.md` | **知识点落地协议**（不写正确的废话） | 写/改技能时 |
-| `reference/writing-rules.md` | 规则怎么写 | 写单条规则时 |
-| `reference/layers.md` | rules/agents/skills 三层划分 | 不确定内容放哪层时 |
-| `reference/loading.md` | 定向加载协议 | 不确定怎么加载时 |
-| `reference/domain-routing.md` | 大类路由协议 | 判定技能归属时 |
-| `reference/consolidation.md` | 整合协议（八步 + 三件套 + 三类清单） | 会话结束时 |
-| `reference/capture-signals.md` | 捕获信号与写入位置 | 会话中捕获时 |
-| `reference/structure-evolution.md` | 新建/调整结构 | **现有类目装不下时** |
-| `reference/versioning.md` | 版本分化（py/os 差异） | 相似条目该合并还是并存 |
-| `reference/env.md` | 环境分化 | 同一技能有多个版本写法时 |
-| `reference/global-rule.md` | **可粘进系统提示词的全局规则片段**（常驻 ≈150 行） | 要让「定向加载 + 捕获沉淀」成为默认行为时 |
+| 区 | 装什么 | 判据（动词） | 读的时机 |
+|---|---|---|---|
+| **`howto/`** (10) | 具体怎么做 | 「应该…」「先做…再…」 | 写 / 改 / 生成技能时 |
+| **`audit/`** (3) | 不能怎么做 | 「不要…」「会失效如果…」 | 审核 / 提优化建议时 |
+| **`flow/`** (2) | 端到端流程 | 「第一步…第二步…」 | 要走完一整件事时 |
+| **`common/`** (1) | 元规则、共用约定 | 「本文讲…」 | **不确定读哪个区时** |
+| **`craft/`** (2) | 品位与技巧 | 「好的…应该…」 | 想做得更好时 |
 
-### 审查册 —— 写「不能怎么做」，用于审核技能 / 提优化建议
+**只写两种场景需要展开**：
+- 不知道某句话该进哪个区 → `reference/common/split-two-books.md` 第二节
+- 审核 / 加检查项 → `reference/audit/self-verification.md`
 
-| 文件 | 内容 | 什么时候读 |
-|---|---|---|
-| `reference/self-verification.md` | **自检协议**（检查会不会其实没在查） | 加检查项 / 工具报「通过」时 / 加豁免后 / 命中数突降为 0 / **检查长期失败时** / 拼接生成内容后 |
-| `reference/rejection.md` | **驳回清单**（什么不该入库） | 判断某条目该不该留时 |
-| `reference/anti-patterns.md` | 反模式与官方规范 | 审核技能时对照 |
-
-> **两册为什么分开**：建设时想着「别犯错」会写得又短又空（满篇免责声明）；
+> **为什么分五个区**：建设时想着「别犯错」会写得又短又空；
 > 审查时想着「怎么做」会把问题改写成建议（丢掉位置与证据）。
-> 判据与边界见 `reference/split-two-books.md`。
+> **只有 howto+audit 会停在「做完、没毛病」，不知道「好」长什么样**——
+> audit 是下限（不许坏），craft 是上限（要好）。
+> 判据与六种边界见 `reference/common/split-two-books.md`。
 
 | `pending/draft.md` | 会话内草稿 | 出现捕获信号时追加一行 |
 
@@ -87,7 +78,7 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 **审查册也自查**：报出的问题若**找不到对应判据** → 补一条。
 **互补必须双向确认**：补一边要问另一边有没有对应项。
 判据：**两册同步增长 = 健康；审查册涨而建设册不动 = 停滞**。
-详见 `reference/closed-loop.md`。
+详见 `reference/flow/closed-loop.md`。
 
 ## 常驻行为
 
@@ -111,21 +102,18 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 6. **自检**（定期）— `python3 scripts/lint.py`（体积 / ID / 字段 / 孤立知识点 / 死链 /
    重复副本 / 标注退化）+ `consolidate.py` 查重复（不依赖草稿，可定期单独跑）；
    `--self-test` 验证检查项没失效。**加检查项必须同步加坏样例**——永远绿的检查
-   等于没有，见 `reference/self-verification.md`
+   等于没有，见 `reference/audit/self-verification.md`
 
 ## 两个"装不下"的出口
 
-**① 环境装不下**（不同环境写法不同）— `applies_to: python>=3.8, os:linux`，
-**两条都留**。加载前 `python3 scripts/env.py --check "约束"`。详见 `reference/env.md`。
-
+**① 环境装不下** — `applies_to: python>=3.8, os:linux`，**两条都留**；
+加载前 `env.py --check "约束"`。详见 `reference/howto/env.md`。
 **② 类目装不下** — `--route-check` → `--propose-new` → `--apply`，
-**AI 在提案这步停住**（结构变更影响所有后续归类，误操作代价远高于多问一次）。
-详见 `reference/structure-evolution.md`。
+**AI 在提案这步停住**。详见 `reference/howto/structure-evolution.md`。
 
 ## 改了就记一行（assets/）
 
-半年后没人记得一条规则怎么来的。**改了就记一行**，也是改旧规则前必查的溯源：
-`note.py "<ID>" <类型> "<原因>" --src 实测` · `note.py --show` 看记录。
+`note.py "<ID>" <类型> "<原因>" --src 实测` · `note.py --show`（**改旧规则前先查**）。
 类型：新增 / 补充 / 修正 / 更新 / 参考 / 合并 / 拆分 / 冷藏
 
 ## 单文件体积上限
@@ -134,23 +122,23 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 **超限但有理由** → 按需层写 `<!-- oversize-exempt: 理由 -->` 降为提示；
 **常驻层不能豁免**，超限只能下沉。
 `lint.py` 还会在 **80% 处提前预警**、章节 >12 时提示拆分——
-别等超限才拆（那时已长到要重写目录）。其余见 `reference/writing-rules.md`。
+别等超限才拆（那时已长到要重写目录）。其余见 `reference/howto/writing-rules.md`。
 
 ## `verified` 字段：只标注，不校验
 
 `verified: yes | no | partial` —— 不做任何自动校验，只为回溯时知道信几分。
 **整合报告必须分三类**（已验证 / 未验证 / 需人工确认），
-混在一张表等于声称全部已验证。详见 `reference/consolidation.md`。
+混在一张表等于声称全部已验证。详见 `reference/flow/consolidation.md`。
 
 ## 技能归属（写入哪个大类）
 
-四问见 `reference/domain-routing.md`，最强信号是**当前项目接入哪个大类**。
+四问见 `reference/howto/domain-routing.md`，最强信号是**当前项目接入哪个大类**。
 **推荐 ≠ 自动写入**：归错类比不归更糟。
 
 ## 捕获信号
 
 出现信号就往 `pending/draft.md` 追加一行；完整判定表见
-`reference/capture-signals.md`。**最易漏的一条**：
+`reference/howto/capture-signals.md`。**最易漏的一条**：
 用户重做 / 改你的输出 / 换说法重问 = 隐式负反馈。
 
 ## 第零道闸（先分诊）
@@ -172,19 +160,19 @@ description: 自进化引擎与技能集群。维护可持续增长的技能库�
 
 **0 命中要先分清是哪种**：换两三种同义词 `--find` 都召不回 →
 是 keywords 太窄，**补同义词**，不是冷藏。误判成低频就永久丢了一条技能。
-（见 `reference/consolidation.md`）
+（见 `reference/flow/consolidation.md`）
 
 ## 四道门槛 + 驳回清单 + 三件套
 
 | | 内容 |
 |---|---|
 | **四道门槛**（正面） | 可迁移 · 已抽象 · 可执行 · 已验证。任一不过 → 丢弃 |
-| **驳回清单**（负面） | 见审查册 `reference/rejection.md`（6 条，含「先 `note.py --show` 溯源」） |
+| **驳回清单**（负面） | 见审查册 `reference/audit/rejection.md`（6 条，含「先 `note.py --show` 溯源」） |
 | **三件套** | 来源 · 证据 · 后果，缺一条就补，别默默入库 |
 
 `consolidate.py` 自动扫驳回清单与三件套。
 **说不出「不这么做会怎样」的，通常不是真技能。**
-详细判据与「批量相似怎么抽样」见 `reference/consolidation.md`。
+详细判据与「批量相似怎么抽样」见 `reference/flow/consolidation.md`。
 
 ## 违反即升级
 

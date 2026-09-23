@@ -91,13 +91,13 @@ generic_words: [通用, 流程, 输出, 文件, 交付, 打包, 沟通, 搜索, 
 # 归属判定阈值：关键词命中数达到此值才自动推荐，否则询问用户
 auto_route_threshold: 2
 
-# 自检配置（见 reference/self-verification.md）
+# 自检配置（见 reference/audit/self-verification.md）
 verification:
   # 标注退化阈值：某库条目数达到此值且状态字段只有一种取值 → 预警。
   # 手填字段会收敛成同一个值，此时「标注齐全」是假象，读的人仍得逐个怀疑。
   degeneracy_min_entries: 5
 
-# 镜像册配对（见 reference/split-two-books.md 第五节）
+# 镜像册配对（见 reference/common/split-two-books.md 第五节）
 # 建设册 ↔ 审查册 1:1 同名，必须**双向**可达。不配则不检查。
 # 注：用「2 空格 key + 4 空格字段」的嵌套写法——本配置的解析器是手写的
 # 极简 YAML，不支持 flow 风格 `{...}` 与 `- ` 列表（会被当成字符串）。
@@ -107,3 +107,8 @@ mirror_pairs:
     review: ../../_common/skills/code-audit/references/godot-antipatterns
     build_kw: 怎么做
     review_kw: godot-antipatterns
+
+# reference/ 五分体系（见 reference/common/split-two-books.md）
+# lint.py 会检查：区是否齐全、每个文件是否标了性质、性质与所在区是否一致。
+# 新增区时**必须**同步改这里与总纲，否则检查会报「不在五分体系内的目录」。
+reference_zones: [howto, audit, flow, common, craft]

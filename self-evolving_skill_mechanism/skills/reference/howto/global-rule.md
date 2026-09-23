@@ -1,6 +1,6 @@
 # 全局规则片段：技能集群（可粘进 Agent 系统提示词）
 
-> **本册性质：建设册（怎么做）。**
+> **本区性质：howto / 怎么做）。**
 > 写 / 改 / 生成技能时读；审核与提优化建议时请读审查册——
 > 两册分工见 `split-two-books.md`。
 
@@ -37,7 +37,7 @@
 `rules/` 硬约束（每次必读，20-30 行）· `agents/` 角色（按需）· `skills/` 能力（命中整包）。
 判据：**rules 是「每次都要看但只有两行」，skills 是「用得上看但很长」**。
 通用技能需要领域参数时，不写死字段，改为回读 `rules/` 的定义（三层覆盖）。
-详见 `reference/layers.md`。
+详见 `reference/howto/layers.md`。
 `<root>` = config.yaml 的 root。项目只 junction 到一个大类，
 但可用绝对路径访问全局索引与其他大类——链接限制的是项目视图，不是你的视野。
 **整包加载**：领域包八段结构自洽，「已知坑」是对「流程」的补充，只读片段会踩坑。
@@ -128,7 +128,7 @@ python3 scripts/note.py --show
 | 性能很重要 | 循环内禁 `filter/map` 调全量扫描；超 1e4 条改索引 |
 
 「命令化」管动作怎么表达，「落地」管知识有没有改变行为——**两道关，都要过**。
-`python3 scripts/lint.py` 自动报孤立知识点；详见 `reference/knowledge-landing.md`。
+`python3 scripts/lint.py` 自动报孤立知识点；详见 `reference/howto/knowledge-landing.md`。
 
 ### 5.4 工具说「通过/0 命中」时先确认它真跑了
 **静默失效比崩溃更危险**：不报错，但功能没生效，看起来一切正常。

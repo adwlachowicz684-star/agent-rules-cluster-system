@@ -1,6 +1,6 @@
 # 定向加载协议
 
-> **本册性质：建设册（怎么做）。**
+> **本区性质：howto / 怎么做）。**
 > 写 / 改 / 生成技能时读；审核与提优化建议时请读审查册——
 > 两册分工见 `split-two-books.md`。
 
@@ -164,7 +164,7 @@ python3 scripts/index.py --find 打包
 **junction 限制的是项目视图，不是 AI 的视野。**
 需要跨类技能时直接用绝对路径读，不必切换链接。
 
-完整协议见 `reference/domain-routing.md`。
+完整协议见 `reference/howto/domain-routing.md`。
 
 ## 三层覆盖：通用技能如何适配领域差异
 
@@ -175,7 +175,7 @@ python3 scripts/index.py --find 打包
 3. 加载通用技能时，同时读领域 rules 拼装
 
 这样通用技能一个字不改，领域差异只需几行。
-详见 `reference/layers.md`。
+详见 `reference/howto/layers.md`。
 
 ## 项目级覆盖层 `.ai-local/`
 

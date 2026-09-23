@@ -480,7 +480,7 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
 def cmd_self_test():
     """给「过闸逻辑」本身配正反样本。
 
-    为什么需要：本技能在 reference/self-verification.md 里写明
+    为什么需要：本技能在 reference/audit/self-verification.md 里写明
     「检测类规则必须配 tp/fp 双样本，只写 tp 精度永远无法验证」。
     而引擎自己的三道闸（驳回清单 / 三件套 / 事实扫描）**一条样本都没有**——
     协议要求别人做的，自己没做。判据一旦被改坏，只能等真整合时才发现。
