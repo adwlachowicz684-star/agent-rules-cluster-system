@@ -46,7 +46,7 @@ flow-type: procedure
 
 ### Step 0　分诊　`[FL-01#S0]`
 
-【读】`howto/consolidation-rules.md#第零道闸：技能还是事实`
+【读】`howto/consolidation-gate.md#第零道闸：技能还是事实`
 
 【做】过「第零道闸」：事实（路径/文件名/项目背景）直接丢弃
 
@@ -58,7 +58,7 @@ flow-type: procedure
 
 ### Step 1　过四道门槛　`[FL-01#S1]`
 
-【读】`howto/consolidation-rules.md#四道门槛详解`
+【读】`howto/consolidation-gate.md#四道门槛详解`
 
 【做】读 `pending/draft.md`，逐条过四道门槛，不过关的直接丢弃
 
@@ -70,7 +70,7 @@ flow-type: procedure
 
 ### Step 2　查重　`[FL-01#S2]`
 
-【读】`howto/consolidation-rules.md#批量相似条目：抽样，不逐条`
+【读】`howto/consolidation-gate.md#批量相似条目：抽样，不逐条`
 
 【做】`python3 scripts/consolidate.py` 出报告，再人工过一遍
 
@@ -82,11 +82,11 @@ flow-type: procedure
 
 【判据】`consolidate.py` 报告里的同类项**每条都归了类**，没有未判定项
 
-【审】`howto/consolidation-rules.md#强度分级`
+【审】`howto/consolidation-gate.md#强度分级`
 
 ### Step 3　归属　`[FL-01#S3]`
 
-【读】`howto/consolidation-rules.md#归属判定：写进哪个大类`
+【读】`howto/consolidation-place.md#归属判定：写进哪个大类`
 
 【做】判定写进哪个大类，再决定放哪个文件
 
@@ -98,7 +98,7 @@ flow-type: procedure
 
 ### Step 4　归位　`[FL-01#S4]`
 
-【读】`howto/consolidation-rules.md#入库三件套（缺一不可）` · `#ID 规范`
+【读】`howto/consolidation-gate.md#入库三件套（缺一不可）` · `howto/consolidation-place.md#ID 规范`
 
 【做】写入该大类的 `skills/`，分配 ID
 
@@ -106,7 +106,7 @@ flow-type: procedure
 
 【判据】三件套（来源/证据/后果）齐全，缺一件即不合格
 
-【审】`howto/consolidation-rules.md#归位决策：放哪里`
+【审】`howto/consolidation-place.md#归位决策：放哪里`
 
 ### Step 5　重建索引　`[FL-01#S5]`
 
@@ -132,11 +132,11 @@ flow-type: procedure
 
 【判据】`--stats` 无「该上浮却没上浮」的建议
 
-【审】`howto/consolidation-rules.md#冷热分层的诊断：0 命中到底是哪种`
+【审】`howto/consolidation-place.md#冷热分层的诊断：0 命中到底是哪种`
 
 ### Step 7　归档草稿　`[FL-01#S7]`
 
-【读】`howto/consolidation-rules.md#长会话：分段整合，别攒到最后`
+【读】`howto/consolidation-practice.md#长会话：分段整合，别攒到最后`
 
 【做】`bash scripts/archive.sh`
 
@@ -144,11 +144,11 @@ flow-type: procedure
 
 【判据】`draft.md` 为空，且内容已进库（能在索引里找到）
 
-【审】`howto/consolidation-rules.md#静默 vs 确认`
+【审】`howto/consolidation-practice.md#静默 vs 确认`
 
 ### Step 8　报告　`[FL-01#S8]`
 
-【读】`howto/consolidation-rules.md#整合量分档`
+【读】`howto/consolidation-practice.md#整合量分档`
 
 【做】输出**三类清单**，不是一段话
 
@@ -156,7 +156,7 @@ flow-type: procedure
 
 【判据】能区分「验证过没问题」和「根本没验证」
 
-【审】`howto/consolidation-rules.md#改完必须重跑：改 A 引入 B 按最高级`
+【审】`howto/consolidation-practice.md#改完必须重跑：改 A 引入 B 按最高级`
 
 ## 3. 参考实现
 

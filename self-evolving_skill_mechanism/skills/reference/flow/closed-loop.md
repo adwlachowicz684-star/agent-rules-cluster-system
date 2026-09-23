@@ -66,7 +66,7 @@ flow-type: procedure
 
 ### Step 3　调整　`[FL-02#S3]`
 
-【读】`howto/consolidation-rules.md#改完必须重跑：改 A 引入 B 按最高级`
+【读】`howto/consolidation-practice.md#改完必须重跑：改 A 引入 B 按最高级`
 
 【做】按审查结果改技能本身
 

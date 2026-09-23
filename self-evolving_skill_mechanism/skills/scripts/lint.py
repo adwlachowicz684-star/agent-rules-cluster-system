@@ -533,13 +533,19 @@ def check_reference_zones(cfg, root=None):
         return []
     issues = []
 
-    # ① 区目录是否齐全
+    # ① 区目录是否齐全 + 是否为空（第十八条：空转也是「0 命中」）
     for z in zones:
-        if not (ref / z).is_dir():
+        d = ref / z
+        if not d.is_dir():
             issues.append({"level": "error", "file": "reference/%s" % z,
                            "issue": "五分体系缺区：%s" % z,
                            "hint": "新建该目录，或更新 config.yaml 的 "
                                    "reference_zones（总纲也要同步）"})
+        elif not list(d.glob("*.md")) and not list(d.glob("*/")):
+            issues.append({"level": "warn", "file": "reference/%s" % z,
+                           "issue": "区目录存在但没有任何 .md",
+                           "hint": "⛔ 可能是路径写错导致检查在空集上跑——"
+                                   "**返回 0 条不报错**，与「真的没有」无法区分"})
 
     # ④ 未知区目录
     for d in sorted(ref.iterdir()):
@@ -1236,6 +1242,22 @@ trigger: 测试
                 for i in check_doc_shape(cfg, {'reference': 400}, vroot)),
             '真实 15 个 ## 能查出（排除代码块不是把真章节也排掉）')
         (sp / 'tmpl.md').unlink(); (sp / 'many.md').unlink()
+
+        # ---- 空区目录（第十八条：空转） ----
+        # 正反两侧：空目录要报（否则检查在空集上跑却不报错）；
+        # 有 .md 的正常区不能误报。
+        ez = vroot / 'reference'
+        ez.mkdir(parents=True, exist_ok=True)
+        (ez / 'craft').mkdir(exist_ok=True)
+        chk(any('没有任何 .md' in i['issue']
+                for i in check_reference_zones(zcfg, vroot)),
+            '区目录为空能查出（否则检查在空集上跑却不报错）')
+        (ez / 'craft' / 'x.md').write_text(
+            '> **本区性质：craft / 品位。**\n', encoding='utf-8')
+        chk(not [i for i in check_reference_zones(zcfg, vroot)
+                 if str(i['file']).endswith('craft')],
+            '区里有 .md 时不误报')
+        (ez / 'craft' / 'x.md').unlink()
 
         # ---- flow/ 区流程规范 ----
         # ⚠ 正反两侧都要造：meta 不误报、procedure 五字段不全要报、
