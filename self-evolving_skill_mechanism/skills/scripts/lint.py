@@ -430,7 +430,28 @@ def check_reference_zones(cfg, root=None):
     return issues
 
 
-def check_doc_shape(cfg, limits=None):
+def _outside_code_blocks(text):
+    """返回不在 ``` fenced code block 内的行。
+
+    为什么需要：数 `##` 章节时，文档里嵌的 Markdown 模板
+    （"流程文件七节模板"这类示例）会被当成真实章节。
+    实测 step-spec.md：真实 7 章，因模板被算成 15 章 → 误报拆分建议。
+
+    判据与 self-verification 第十一条同源：
+    **文本匹配必须区分「示例代码」与「真内容」**，否则必然误报。
+    """
+    out, in_fence = [], False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('```'):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            out.append(line)
+    return out
+
+
+def check_doc_shape(cfg, limits=None, root=None):
     """文档形态检查：接近上限预警 + 单文件章节过多 → 建议拆分。
 
     为什么需要「接近上限」（80%）这一档：
@@ -445,9 +466,12 @@ def check_doc_shape(cfg, limits=None):
     """
     limits = limits or {}
     issues = []
-    targets = [ROOT / "SKILL.md"]
+    base = Path(root) if root else ROOT
+    # ⚠ root 参数不能省：自检要在临时目录里造样本验证「章节过多能查出」，
+    #    没有它只能测真库——那是测数据不是测判据。
+    targets = [base / "SKILL.md"]
     for sub in ("reference", "SKILLS", "assets"):
-        d = ROOT / sub
+        d = base / sub
         if d.exists():
             targets += sorted(d.rglob("*.md"))
 
@@ -459,7 +483,7 @@ def check_doc_shape(cfg, limits=None):
         except Exception:
             continue
         n = len(text.splitlines())
-        rel = str(f.relative_to(ROOT))
+        rel = str(f.relative_to(base))
 
         if rel == "SKILL.md":
             lim = int(limits.get("SKILL.md", 200))
@@ -482,7 +506,12 @@ def check_doc_shape(cfg, limits=None):
         # 「内容已下沉到 reference/」——不该按内容文档的标准要求它拆。
         if rel == "SKILL.md":
             continue
-        heads = [l for l in text.splitlines() if l.startswith("## ")]
+        # ⚠ 必须排除 fenced code block：文档里放 Markdown 模板
+        # （如「流程文件七节模板」的示例）会被当成真实章节。
+        # 实测：step-spec.md 真实 7 章，因含 8 节模板被算成 15 章 → 误报。
+        # 这与「文本匹配必须走 AST」是同一形态——不区分「示例代码」和
+        # 「真内容」的判据必然误报，而误报的检查会被关掉。
+        heads = [l for l in _outside_code_blocks(text) if l.startswith("## ")]
         if len(heads) > 12:
             issues.append({
                 "level": "info",
@@ -1041,6 +1070,31 @@ trigger: 测试
             '未知区目录能查出（总纲会失真）')
         (zr / 'extra' / 'c.md').unlink()
 
+        # ---- 章节统计必须排除代码块 ----
+        # 正反两侧：代码块里的 ## 不算（不误报）；真 ## 要算（漏报）。
+        sp = vroot / 'reference' / 'howto'
+        sp.mkdir(parents=True, exist_ok=True)
+        # ⚠ 代码块里的 ## 必须**足够多**，否则这个用例是无效的：
+        #   第一版只放 3 个（真实 2 + 块内 3 = 5，两种算法都 <12），
+        #   变异测试「不排除代码块」照样 30/0 —— 用例在自欺。
+        #   判据：要让「不排除」时**必然超阈值**，才测得出差别。
+        (sp / 'tmpl.md').write_text(
+            '# t\n\n## 一\n\n```markdown\n'
+            + ''.join('## 模板节%d\n\n说明\n\n' % i for i in range(12))
+            + '```\n\n## 二\n',
+            encoding='utf-8')
+        d_issues = check_doc_shape(cfg, {'reference': 400}, vroot)
+        tmpl = [i for i in d_issues if 'tmpl.md' in str(i.get('file', ''))]
+        chk(not tmpl, '代码块里的 ## 不算章节（模板不误报拆分）')
+        # 反向：真有 15 个 ## 要报
+        (sp / 'many.md').write_text(
+            '# m\n\n' + '\n\n'.join('## 第%d节' % i for i in range(15)),
+            encoding='utf-8')
+        chk(any('many.md' in str(i.get('file', '')) and '章节' in i['issue']
+                for i in check_doc_shape(cfg, {'reference': 400}, vroot)),
+            '真实 15 个 ## 能查出（排除代码块不是把真章节也排掉）')
+        (sp / 'tmpl.md').unlink(); (sp / 'many.md').unlink()
+
         # ---- 镜像册双向可达 ----
         # 正反两侧：缺反向指针 → 必须报；补了 → 必须不报。
         # 只造正向会让「补完之后不误报」从未验证。
@@ -1064,14 +1118,18 @@ trigger: 测试
             '双向都补齐后不误报')
 
         # ---- 文档形态：接近上限 + 章节过多 ----
-        # 正反两侧：超限前 80% 要提示、章节 >12 要提示；
-        # 小文件 + 少章节不该报。只造正向会让「正常文档被误报」从未验证。
+        # ⚠ 样本必须自己造够大：以前这里造了个 43 行的文件却断言
+        #   「接近 400 行上限」——因为当时 check_doc_shape 不支持 root 注入，
+        #   实际扫的是真库（真库里确有接近上限的文件），用例是**蹭过的**。
+        #   加了 root 参数后立刻暴露。判据：用例必须在自己造的样本上成立。
         sh = vroot / 'reference'
         sh.mkdir(parents=True, exist_ok=True)
-        (sh / 'big.md').write_text(
-            '# t\n\n' + '\n'.join('## 章节%d\n\n内容\n' % i for i in range(14)),
-            encoding='utf-8')
-        got = check_doc_shape(cfg, {'reference': 400})
+        # 330 行（400 的 82.5%，落在 [80%,100%) 区间）+ 14 个 ## 章节
+        body = '# t\n\n'
+        for i in range(14):
+            body += '## 章节%d\n\n' % i + '内容行\n' * 22
+        (sh / 'big.md').write_text(body, encoding='utf-8')
+        got = check_doc_shape(cfg, {'reference': 400}, vroot)
         chk(any('接近体积上限' in i['issue'] for i in got),
             '接近上限能查出（提前量，别等超限才报）')
         chk(any('章节' in i['issue'] for i in got),
@@ -1079,7 +1137,7 @@ trigger: 测试
         (sh / 'big.md').write_text(
             '# t\n\n## 一\n\n内容\n\n## 二\n\n内容\n', encoding='utf-8')
         chk(not any(i['file'].endswith('big.md') for i in
-                    check_doc_shape(cfg, {'reference': 400})),
+                    check_doc_shape(cfg, {'reference': 400}, vroot)),
             '章节少的小文件不误报')
 
         # ---- 标题重复 #（拼接时多带一组）----
