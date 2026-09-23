@@ -369,6 +369,148 @@ def check_mirror_pairs(cfg, root=None):
     return issues
 
 
+FLOW_FIELDS = ("【读】", "【做】", "【产出】", "【判据】", "【审】")
+
+
+def _flow_meta(text):
+    """读文件头的 flow-type / flow-id（HTML 注释形式的极简 frontmatter）。
+
+    为什么用 HTML 注释而不是 YAML frontmatter：
+    本仓库的 md 都被要求能以纯 Markdown 渲染，YAML 块在部分渲染器里
+    会显示成代码块。且手写的极简解析器只需两行。
+    """
+    head = "\n".join(text.split("\n")[:12])
+    t = re.search(r'flow-type:\s*(\w+)', head)
+    i = re.search(r'flow-id:\s*([A-Za-z0-9-]+)', head)
+    return (t.group(1) if t else None), (i.group(1) if i else None)
+
+
+def check_flow_steps(cfg, root=None):
+    """flow/ 区流程规范检查（支撑后续大批流程补充）。
+
+    为什么需要：flow/ 区要持续补充大量流程。没有自动检查时，
+    每个新流程各自发明格式，最后**无法统一检索、无法判定完成度**。
+
+    ⚠ **最关键的一条**：必须区分 meta / procedure。
+    元规范（`step-spec.md`）里必然**举例** Step（"七节模板"），
+    不区分的话，那些示例会被当成真步骤检查——
+    **举例的模板永远不完整，必然误报，而误报的检查会被关掉**。
+
+    检查项：
+      ① flow-type 缺失         —— 无法分流，会被当成 procedure 误报
+      ② procedure 缺 flow-id   —— 后续无法被索引与引用
+      ③ flow-id 重复           —— 引用指向歧义
+      ④ Step 五字段不全        —— 最核心：省【产出】下游无法对接，
+                                  省【判据】无法判定做对没有
+      ⑤ 缺「整体审核」节       —— 只有步骤级没有流程级，漏列的抓不到
+      ⑥ 节点 ID 缺失/格式错    —— 流程工具按它记进度，改了进度就断
+      ⑦ index.md 登记表双向    —— 只写文件不登记 / 只登记无文件，都失真
+    """
+    base = Path(root) if root else ROOT
+    flow = base / "reference" / "flow"
+    if not flow.exists():
+        return []
+    issues = []
+    seen_ids = {}
+
+    for md in sorted(flow.glob("*.md")):
+        rel = str(md.relative_to(base))
+        try:
+            text = md.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        ftype, fid = _flow_meta(text)
+
+        # ① flow-type 缺失
+        if not ftype:
+            issues.append({"level": "error", "file": rel,
+                           "issue": "缺 flow-type 标记（meta / procedure / template）",
+                           "hint": "在文件头加 `<!--\nflow-type: meta\n-->`；"
+                                   "缺了无法分流，会被当成 procedure 误报"})
+            continue
+        if ftype == "meta":
+            continue        # 元规范：不检查 Step（它必然举例）
+        if ftype == "template":
+            continue        # 模板：占位符本就不完整
+
+        # ②③ procedure 必须有唯一 flow-id
+        if not fid:
+            issues.append({"level": "error", "file": rel,
+                           "issue": "procedure 缺 flow-id",
+                           "hint": "加 `flow-id: FL-xx`（见 index.md 第五节）"})
+        elif fid in seen_ids:
+            issues.append({"level": "error", "file": rel,
+                           "issue": "flow-id 重复：%s（已被 %s 占用）"
+                                    % (fid, seen_ids[fid]),
+                           "hint": "查 index.md 登记表取下一个未用的 FL-xx"})
+        else:
+            seen_ids[fid] = rel
+
+        # ④ Step 五字段
+        body = _outside_code_blocks(text)
+        steps, cur = [], None
+        for line in body:
+            if line.startswith("### ") and "Step" in line:
+                if cur:
+                    steps.append(cur)
+                cur = {"title": line, "text": "", "lineno": 0}
+            elif cur is not None:
+                if line.startswith("### ") or line.startswith("## "):
+                    steps.append(cur)
+                    cur = None
+                else:
+                    cur["text"] += line + "\n"
+        if cur:
+            steps.append(cur)
+
+        for st in steps:
+            miss = [f for f in FLOW_FIELDS if f not in st["text"]]
+            if miss:
+                issues.append({
+                    "level": "error", "file": rel,
+                    "issue": "Step 缺五字段：%s —— %s"
+                             % ("、".join(miss), st["title"].strip()[:36]),
+                    "hint": "五字段是【读】【做】【产出】【判据】【审】。"
+                            "省【产出】→ 下游无法对接；省【判据】→ 无法判定做对没有"})
+            # ⑥ 节点 ID
+            if not re.search(r'\[[A-Za-z0-9-]+#S\d+\]', st["title"]):
+                issues.append({
+                    "level": "warn", "file": rel,
+                    "issue": "Step 缺节点 ID `[FL-xx#S1]` —— %s"
+                             % st["title"].strip()[:36],
+                    "hint": "节点 ID 是稳定标识，流程工具按它记进度；"
+                            "中途改了进度就断"})
+
+        # ⑤ 流程级整体审核
+        if not re.search(r'^##\s*7[.、]|整体审核', text, re.M):
+            issues.append({"level": "error", "file": rel,
+                           "issue": "缺「整体审核」节（流程级复查）",
+                           "hint": "两级审核：步骤级【审】是做的时候检查，"
+                                   "流程级是做完复查——漏列的步骤级抓不到"})
+
+    # ⑦ index.md 登记表双向
+    idx = flow / "index.md"
+    if idx.exists():
+        try:
+            itext = idx.read_text(encoding="utf-8")
+        except Exception:
+            itext = ""
+        registered = set(re.findall(r'`(FL-\d+)`', itext))
+        for fid, rel in seen_ids.items():
+            if fid not in registered:
+                issues.append({"level": "warn", "file": "reference/flow/index.md",
+                               "issue": "流程 %s（%s）未在登记表里登记"
+                                        % (fid, rel.split("/")[-1]),
+                               "hint": "⛔ 只写文件不登记 → 索引失真，"
+                                       "后来的人不知道有这个流程"})
+        for rid in registered:
+            if rid not in seen_ids:
+                issues.append({"level": "error", "file": "reference/flow/index.md",
+                               "issue": "登记了 %s，但没找到对应文件" % rid,
+                               "hint": "文件被删或 flow-id 写错"})
+    return issues
+
+
 def check_reference_zones(cfg, root=None):
     """reference/ 五分体系完整性：区齐全 + 每个文件标了性质 + 性质与所在区一致。
 
@@ -1095,6 +1237,61 @@ trigger: 测试
             '真实 15 个 ## 能查出（排除代码块不是把真章节也排掉）')
         (sp / 'tmpl.md').unlink(); (sp / 'many.md').unlink()
 
+        # ---- flow/ 区流程规范 ----
+        # ⚠ 正反两侧都要造：meta 不误报、procedure 五字段不全要报、
+        # 缺整体审核要报、index 双向。只造正向会让「省字段」从未被验证。
+        fl = vroot / 'reference' / 'flow'
+        fl.mkdir(parents=True, exist_ok=True)
+        (fl / 'index.md').write_text(
+            '<!--\nflow-type: meta\n-->\n# idx\n\n'
+            '> **本区性质：flow / 元规则。**\n\n'
+            '| ID | 流程 |\n|---|---|\n| `FL-01` | [p](good.md) |\n',
+            encoding='utf-8')
+        # meta：里面举例了不完整的 Step，**绝不能**被当成真流程报
+        (fl / 'spec.md').write_text(
+            '<!--\nflow-type: meta\n-->\n# spec\n\n'
+            '> **本区性质：flow / 元规则。**\n\n'
+            '### Step 1　示例　`[FL-xx#S1]`\n\n【做】只是举例\n',
+            encoding='utf-8')
+        chk(not [i for i in check_flow_steps(cfg, vroot)
+                 if 'spec.md' in str(i.get('file', ''))],
+            'meta 里的示例 Step 不误报（区分 meta/procedure）')
+        # procedure：五字段不全 → 报错
+        (fl / 'bad.md').write_text(
+            '<!--\nflow-id: FL-09\nflow-type: procedure\n-->\n# bad\n\n'
+            '> **本区性质：flow / 端到端流程。**\n\n'
+            '### Step 1　缺字段　`[FL-09#S1]`\n\n【做】只有做\n\n'
+            '## 7. 整体审核\n',
+            encoding='utf-8')
+        chk(any('缺五字段' in i['issue'] for i in check_flow_steps(cfg, vroot)),
+            'Step 缺五字段能查出')
+        # procedure：缺整体审核 → 报错
+        (fl / 'noaudit.md').write_text(
+            '<!--\nflow-id: FL-10\nflow-type: procedure\n-->\n# na\n\n'
+            '> **本区性质：flow / 端到端流程。**\n\n'
+            '### Step 1　x　`[FL-10#S1]`\n\n【读】a\n【做】b\n'
+            '【产出】c\n【判据】d\n【审】e\n',
+            encoding='utf-8')
+        chk(any('整体审核' in i['issue'] for i in check_flow_steps(cfg, vroot)),
+            '缺「整体审核」节能查出（步骤级抓不到漏列的）')
+        # ⑦ index 双向：FL-09 写了文件但没登记 → warn
+        chk(any('FL-09' in i['issue'] and '未' in i['issue']
+                for i in check_flow_steps(cfg, vroot)),
+            '只写文件不登记能查出')
+        # 反向：登记了 FL-77 但无此文件 → error
+        (fl / 'index.md').write_text(
+            '<!--\nflow-type: meta\n-->\n# idx\n\n'
+            '> **本区性质：flow / 元规则。**\n\n'
+            '| `FL-01` | [g](good.md) |\n| `FL-77` | [x](nope.md) |\n',
+            encoding='utf-8')
+        chk(any('FL-77' in i['issue'] for i in check_flow_steps(cfg, vroot)),
+            '登记了但文件不存在能查出')
+        # 缺 flow-type → error
+        (fl / 'notype.md').write_text('# nt\n\n正文\n', encoding='utf-8')
+        chk(any('缺 flow-type' in i['issue']
+                for i in check_flow_steps(cfg, vroot)),
+            '缺 flow-type 能查出（否则无法分流）')
+
         # ---- 镜像册双向可达 ----
         # 正反两侧：缺反向指针 → 必须报；补了 → 必须不报。
         # 只造正向会让「补完之后不误报」从未验证。
@@ -1216,7 +1413,8 @@ def main():
               + check_refs(cfg) + check_duplicates(cfg)
               + check_degeneracy(cfg) + check_exemptions(cfg)
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
-              + check_mirror_pairs(cfg) + check_reference_zones(cfg))
+              + check_mirror_pairs(cfg) + check_reference_zones(cfg)
+              + check_flow_steps(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
