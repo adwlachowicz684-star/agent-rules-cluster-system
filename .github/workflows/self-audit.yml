@@ -121,6 +121,19 @@ jobs:
             python3 "scripts/$s" --self-test
           done < /tmp/engine_scanners.txt
 
+      - name: 规则正则体检（C1 编译 / C2 永不触发 / C3 跨表冲突 / C4 无验证 / C5 硬编码未入表）
+        # ⓘ 为什么单列一步：它虽然已被 godot-audit.py --self-test 内部调用，
+        #   但挂在那里失败时只会显示「godot 自检失败」，归因不清。
+        #   单列后 C1–C5 各自的问题直接暴露，且**覆盖全部 9 个扫描器**
+        #   （挂在 godot 里那次只保证它跑过，不代表别的扫描器也被体检）。
+        #
+        # ⚠ C4 是本步骤的价值核心：规则「能跑能报」不等于「被验证过」。
+        #   没有样本的规则改坏了，任何自检都全绿——它压根没被测到。
+        #   实测抓到 14 条（GD08/GD26/GD51…），补样本后又暴露出
+        #   GDS06 是一条**永不触发**的死规则（逐行扫描 + `[^]*]` 误写）。
+        working-directory: _common/skills/code-audit
+        run: python3 scripts/check-rule-regex.py
+
       - name: skill 结构检查
         working-directory: _common/skills/code-audit
         run: python3 scripts/check-skill.py
@@ -154,6 +167,65 @@ jobs:
         with:
           sarif_file: _common/skills/code-audit/all.sarif
           category: code-audit
+
+  game-dev:
+    # ⓘ 为什么单列这个 job：game-dev 的 442 条自检（路由用例 + 三层结构 +
+    #   flow/howto/audit 映射 + 全局索引 + 语料守卫 + 凭据防回潮）
+    #   **此前从未在 CI 跑过** —— 只有人手工跑才算数。
+    #   ⛔ 这与 rule-registry --check 是同一类事故：有检查、没入口，
+    #      人忘了跑就回到漂移状态。
+    #
+    # ⓘ 为什么不用 `ls scripts/*.py | xargs` 推导：game-dev 的检查器没有
+    #   统一 CLI 约定（有的只提供 scan() 函数供 dev-route 调用），
+    #   逐个跑反而会报「无 --self-test」而吞掉真检查。
+    #   ✅ dev-route.py --self-test 是唯一把 7 个检查器全部串起来的入口，
+    #      跑它一个就等于跑全部 —— 但前提是它真的调用了它们，
+    #      所以下面加了「检查器必须被 dev-route 引用」的交叉断言。
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: _common/skills/game-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 交叉断言 —— 每个检查器都必须被 dev-route 引用
+        # ⚠ 防止「加了检查器但没人调用」：这类脚本形同虚设却不报错，
+        #   表现为自检全绿而实际少查。本仓库在 code-audit 侧已因
+        #   check-rule-regex / rule-registry --check 踩过两次同样的坑。
+        run: |
+          FILES=$(ls scripts/check-*.py scripts/scan-gaps.py scripts/verify.py 2>/dev/null)
+          # ⚠ 先自校验：清单为空说明 glob 没匹配上（目录结构变了），
+          #   此时下面的循环一次都不进，MISSING 恒为空 → 静默通过。
+          #   ⛔ 这正是本仓库反复出现的「输入为 0 却报告一切正常」。
+          test -n "$FILES" || { echo "✗ 检查器清单为空（glob 未匹配）"; exit 1; }
+          echo "待校验检查器：$(echo $FILES | wc -w) 个"
+          MISSING=""
+          for f in $FILES; do
+            [ -e "$f" ] || continue
+            n=$(basename "$f" .py)
+            if ! grep -q "$n" scripts/dev-route.py; then
+              MISSING="$MISSING $f"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "✗ 这些检查器没有被 dev-route.py 调用，等于没跑：$MISSING"
+            exit 1
+          fi
+          echo "✓ 所有检查器均被 dev-route.py 引用"
+
+      - name: 路由与结构自检（442 条）
+        run: python3 scripts/dev-route.py --self-test
+
+      - name: skill 结构检查
+        # ⛔ 不要写 `cmd || true` 或 `cmd A || cmd B` 做兜底 ——
+        #   那会把「路径写错」和「真的检查失败」都吞成通过，
+        #   正是本仓库 H011（工具报 0 不等于没问题）在 CI 里的重演。
+        #   路径错了就该红，红了自己改路径。
+        run: python3 ../code-audit/scripts/check-skill.py game-dev
 
   engine:
     runs-on: ubuntu-latest
