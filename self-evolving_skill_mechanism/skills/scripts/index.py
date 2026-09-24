@@ -24,6 +24,7 @@ import re
 import sys
 import shutil
 import argparse
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED  # 码表：0/1/2/3/4
 from pathlib import Path
 from datetime import datetime, date
 
@@ -256,10 +257,13 @@ def _write_domain_index(cfg: dict, key: str, items: list[dict]) -> None:
 def cmd_add(cfg: dict, src: str, domain: str) -> None:
     """把技能文件写入指定大类的 skills/。"""
     if domain not in cfg.get("domains", {}):
-        sys.exit(f"未注册的大类：{domain}\n已注册：{', '.join(cfg.get('domains', {}))}")
+        sys.stderr.write("未注册的大类：%s\n已注册：%s\n" % (
+            domain, ", ".join(cfg.get("domains", {}))))
+        sys.exit(USAGE)
     src = Path(src).expanduser().resolve()
     if not src.exists():
-        sys.exit(f"文件不存在：{src}")
+        sys.stderr.write("文件不存在：%s\n" % src)
+        sys.exit(USAGE)
     dest_dir = domain_dir(cfg, domain) / "skills"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / src.name
@@ -425,7 +429,11 @@ def cmd_check(cfg):
                         else ("未扫到任何包，先确认大类目录" if not items
                               else "%d 错误 / %d 预警 → 跑 index.py 重建" % (
                                   len(errs), len(issues) - len(errs)))))
-    return 1 if errs else 0
+    if not items:
+        # 扫到 0 个包：环境未初始化（domains/ 不存在）或 root 指错。
+        # ⛔ 不能返回 0——「空集上跑出来的通过」没有意义（H011）。
+        return ENV
+    return BLOCKED if errs else OK
 
 
 def cmd_self_test():
@@ -478,7 +486,10 @@ name: 重复ID
 ---
 """, encoding="utf-8")
         code = cmd_check(cfg)
-        chk(code == 1, "重复 ID 被判为错误（退出码 1）")
+        # ⚠ 期望值已从 1 改为 4：ID 重复是**内容有问题**（改内容即可），
+        # 不是工具自身出错。用 1 会让人去修工具，而该修的是那条重复 ID。
+        # 这正是码表要区分 1 与 4 的理由（见 exitcode.py）。
+        chk(code == 4, "重复 ID 被判为「被拦下」（退出码 4，不是 1）")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -510,7 +521,8 @@ def main():
         sys.exit(cmd_check(cfg))
     if args.add:
         if not args.domain:
-            sys.exit("--add 必须配合 --domain <大类KEY>")
+            sys.stderr.write("--add 必须配合 --domain <大类KEY>\n")
+            sys.exit(USAGE)
         cmd_add(cfg, args.add, args.domain)
         items = scan(cfg)
         write_index(cfg, items)

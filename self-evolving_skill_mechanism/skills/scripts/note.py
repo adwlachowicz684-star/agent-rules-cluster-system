@@ -16,6 +16,7 @@
 
 import sys
 import argparse
+from exitcode import OK, USAGE, ENV, die  # 码表：0/2/3
 from pathlib import Path
 from datetime import date
 
@@ -38,7 +39,7 @@ HEADER = """# 变更溯源（{title}）
 def target_file(cfg, domain=None):
     if domain:
         if domain not in cfg.get("domains", {}):
-            sys.exit("未注册的大类：%s" % domain)
+            die(USAGE, "未注册的大类：%s" % domain)
         f = domain_dir(cfg, domain) / "assets" / "changelog.md"
         title = cfg["domains"][domain].get("name", domain)
     else:
@@ -110,10 +111,10 @@ def main():
 
     if not (args.obj and args.kind and args.reason):
         ap.print_help()
-        sys.exit("\n示例：python3 scripts/note.py C047 版本分化 'macOS sed 需空参数'")
+        die(USAGE, "\n示例：python3 scripts/note.py C047 版本分化 'macOS sed 需空参数'")
 
     if args.kind not in TYPES:
-        sys.exit("未知类型：%s\n可用：%s" % (args.kind, "/".join(TYPES)))
+        die(USAGE, "未知类型：%s\n可用：%s" % (args.kind, "/".join(TYPES)))
 
     append(f, args.obj, args.kind, args.reason, args.src)
 

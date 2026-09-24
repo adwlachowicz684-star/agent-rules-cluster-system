@@ -17,6 +17,7 @@
 import re
 import sys
 import argparse
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED  # 码表：0/1/2/3/4
 from pathlib import Path
 from itertools import combinations
 
@@ -538,7 +539,8 @@ def cmd_self_test():
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
         print('结论：过闸逻辑工作正常')
-    return 1 if fail else 0
+    # 自检失败 = 工具自身的过闸逻辑有问题 → ERR(1)，不是内容问题。
+    return ERR if fail else OK
 
 
 
@@ -554,7 +556,8 @@ def main():
     root = Path(args.root)
     skills_dir, draft_path = root / "SKILLS", root / "pending" / "draft.md"
     if not skills_dir.is_dir():
-        sys.exit(f"找不到技能库目录：{skills_dir}")
+        sys.stderr.write("找不到技能库目录：%s\n" % skills_dir)
+        sys.exit(ENV)
     report(skills_dir, draft_path, root)
 
 

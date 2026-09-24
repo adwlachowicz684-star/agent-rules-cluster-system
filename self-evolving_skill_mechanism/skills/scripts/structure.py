@@ -26,6 +26,7 @@ import sys
 import json
 import shutil
 import argparse
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die  # 码表：0/1/2/3/4
 from pathlib import Path
 from datetime import datetime
 
@@ -280,7 +281,7 @@ def load_proposal() -> list[dict]:
     导致 new-domain 之类的动作无法执行。
     """
     if not PROPOSAL.exists():
-        sys.exit("没有待执行的提案，先运行 --check 或手工构造")
+        die(ENV, "没有待执行的提案，先运行 --check 或手工构造")
     text = PROPOSAL.read_text(encoding="utf-8")
     items = []
     cur = None
@@ -432,7 +433,7 @@ def _register_domain(cfg_path: Path, key: str, name: str,
         if re.match(r"^  [a-z_]+:", ln):
             idx = i
     if idx is None:
-        sys.exit("config.yaml 里找不到 domains 段")
+        die(USAGE, "config.yaml 里找不到 domains 段")
     # 找到该条目块的结束（下一个顶格键或文件尾）
     end = idx + 1
     while end < len(lines) and not re.match(r"^[a-zA-Z#]", lines[end]):
@@ -494,13 +495,13 @@ def undo(auto_yes: bool = False) -> None:
     所以能精确还原：文件复制回去，备份里没有的（新建的）则删除。
     """
     if not BACKUP.exists() or not any(BACKUP.iterdir()):
-        sys.exit("没有可回滚的备份")
+        die(ENV, "没有可回滚的备份")
     stamps = sorted(p.name for p in BACKUP.iterdir())
     stamp = stamps[-1]
     src = BACKUP / stamp
     map_file = src / "_map.json"
     if not map_file.exists():
-        sys.exit(f"备份 {stamp} 缺少 _map.json，无法定位原路径，请手动恢复")
+        die(ERR, f"备份 {stamp} 缺少 _map.json，无法定位原路径，请手动恢复")
 
     mapping = json.loads(map_file.read_text(encoding="utf-8"))
     print(f"回滚到备份：{stamp}\n")

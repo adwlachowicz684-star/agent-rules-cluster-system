@@ -16,6 +16,7 @@
 
 import re
 import sys
+import os
 import json
 import subprocess
 import argparse
@@ -189,6 +190,30 @@ def n_lines(p):
         return len(p.read_text(encoding="utf-8").splitlines())
     except Exception:
         return 0
+
+
+
+def _mk_repo_copy(dst):
+    """造一份**必定有 error** 的引擎副本，用于验证整条链路的退出码。
+
+    为什么需要：退出码是 `main()` 最后一步的结果，
+    只测 `check_*` 函数测不到「main 有没有真的 exit」。
+    而在真库上跑又依赖真库当前是否干净——真库干净时用例恒绿、从未验证。
+
+    缺陷怎么造：删掉 `reference/` → `check_reference_zones` 报「区缺失」
+    （error 级）。⚠ 不能用「新建空目录」——那只在 domains 已初始化时才报。
+    """
+    import shutil
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+    for sub in ("scripts", "assets", "SKILLS", "pending"):
+        src = ROOT / sub
+        if src.exists():
+            shutil.copytree(src, dst / sub)
+    shutil.copy2(ROOT / "SKILL.md", dst / "SKILL.md")
+    shutil.copy2(ROOT / "config.yaml", dst / "config.yaml")
+    # 不复制 reference/ → 区缺失（error）
 
 
 def check_root(cfg):
@@ -1373,24 +1398,35 @@ trigger: 测试
         except ImportError as _e:
             chk(False, 'exitcode 模块可导入（%s）' % _e)
         # 关键：机器可读模式**同样**要带退出码
-        rj = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'lint.py'),
-                             '--json'], capture_output=True, text=True)
+        # ⚠ 早先这个用例跑在**真库**上，而真库当前是否有 error 是随机的：
+        #   真库干净 → jerr 空 → 两条 gate 用例被 chk(True) 顶替，
+        #   **用例恒绿而从未验证**；真库脏 → 又依赖具体脏在哪。
+        #   这正是「用例必须在自己造的样本上成立」（falsepos 第十二条
+        #   与 silent 第十八条的交叉）：蹭真库数据过的用例，真库一变就失效，
+        #   且失效时不报错——它只是「不查了」。
+        #   → 造一份**必定有 error** 的副本，在副本上跑整条链路。
+        # ⚠ gate 副本**不能放在 vroot 下**：
+        #   check_exemptions 等检查用 rglob 扫 base 全部 .py，
+        #   gate/scripts 里的真实 lint.py 含 `exempt` 字样 →
+        #   会把「豁免无人读」用例的 vroot 污染成「有人读」→ 用例失效。
+        #   这正是「用例要在自己造的样本上成立，且不受别的用例残留影响」。
+        gate_root = vroot.parent / ('gate_%d' % os.getpid())
+        _mk_repo_copy(gate_root)
+        gp = str(gate_root / 'scripts' / 'lint.py')
+        rj = subprocess.run([sys.executable, gp, '--json'],
+                            capture_output=True, text=True)
         try:
             jd = json.loads(rj.stdout or '[]')
         except ValueError:
             jd = []
         jerr = [i for i in jd if i.get('level') == 'error']
-        if jerr:
-            chk(rj.returncode != 0,
-                '--json 模式有 error 时退出码非 0（否则 gate 形同虚设）')
-        else:
-            chk(True, '--json 模式无 error（跳过 gate 用例）')
-        # 普通模式：有 error → BLOCKED(4)，不是 ERR(1)
-        rn = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'lint.py'),
-                             ], capture_output=True, text=True)
-        if jerr:
-            chk(rn.returncode == 4,
-                '普通模式有 error → 退出码 4（BLOCKED，不是 1）')
+        chk(bool(jerr),
+            'gate 副本里确实有 error（否则用例没在验证，是蹭真库状态过的）')
+        chk(rj.returncode != 0,
+            '--json 模式有 error 时退出码非 0（否则 gate 形同虚设）')
+        rn = subprocess.run([sys.executable, gp], capture_output=True, text=True)
+        chk(rn.returncode == 4,
+            '普通模式有 error → 退出码 4（BLOCKED，不是 1）')
 
         # ---- flow/ 区流程规范 ----
         # ⚠ 正反两侧都要造：meta 不误报、procedure 五字段不全要报、
