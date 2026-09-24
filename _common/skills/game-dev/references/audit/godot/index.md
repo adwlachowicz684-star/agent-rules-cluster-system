@@ -91,6 +91,7 @@
 | `relic-build` | `audit/godot/relic-build.md` |
 | `vegetation` | `audit/godot/vegetation.md` |
 | `vip-subscription` | `audit/godot/vip-subscription.md` |
+| `vehicle` | `audit/godot/vehicle.md` |
 
 ## 常见漏写速查
 
