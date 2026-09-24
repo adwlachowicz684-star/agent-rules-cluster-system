@@ -84,15 +84,10 @@ verified: yes
 - **走流程 / 新建流程** → `reference/flow/index.md`（FL-xx 登记表 + 新建四步）
 - **从零建一个新 skill** → `reference/flow/new-skill.md`（`FL-03`，含批量填充）
 
-> ⛔ **`flow/` 里 `meta` 与 `procedure` 必须分开标记**：
-> 元规范必然举例 Step，不区分会让示例被当真步骤检查 → 必然误报。
-> 详见 `reference/common/split-two-books.md` 3.7。
+> ⛔ `flow/` 里 `meta` 与 `procedure` 必须分开标记（否则举例被当真步骤 → 误报）。详见总纲 3.7。
 
-> **为什么分五个区**：建设时想着「别犯错」会写得又短又空；
-> 审查时想着「怎么做」会把问题改写成建议（丢掉位置与证据）。
-> **只有 howto+audit 会停在「做完、没毛病」，不知道「好」长什么样**——
-> audit 是下限（不许坏），craft 是上限（要好）。
-> 判据与六种边界见 `reference/common/split-two-books.md`。
+> **为什么分五区**（判据与边界见总纲）：howto 管做完、audit 管不坏、
+> **craft 管要好**——缺了 craft 只会停在「做完、没毛病」。
 
 | `pending/draft.md` | 会话内草稿 | 出现捕获信号时追加一行 |
 
@@ -153,9 +148,11 @@ verified: yes
 最要紧两条：**`rules/*.md` 50 行** · **`skills/*.md` 500 行**。
 **超限但有理由** → 按需层写 `<!-- oversize-exempt: 理由 -->` 降为提示；
 **常驻层不能豁免**，超限只能下沉。
-`lint.py` 还会在 **80% 处提前预警**、章节 >12 时提示拆分——
-**那是加载成本上限，不是充实度判据**——判「这个模块够不够」看 `reference/craft/substance.md`（不看数量看质量）——
-别等超限才拆（那时已长到要重写目录）。其余见 `reference/howto/writing-rules.md`。
+`lint.py` 还会在 **80% 处提前预警**、章节 >12 时提示拆分——别等超限才拆
+（那时已长到要重写目录）。
+⚠ **那是加载成本上限，不是充实度判据**：判「模块够不够」看
+`reference/craft/substance.md`（不看数量看质量）。
+其余见 `reference/howto/writing-rules.md`。
 
 ## 归位与分层（四条速判）
 

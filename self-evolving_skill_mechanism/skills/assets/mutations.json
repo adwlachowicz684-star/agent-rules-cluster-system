@@ -58,5 +58,15 @@
     "expect": "KILLED",
     "why": "实测：断言用 any 时，去掉 o1 那句后 o3 仍在 → any 为真 → 变异没变红，用例形同虚设。改为 all() + 先断言 vol_hints 非空。判据：**断言必须能因「任一条被改坏」而变红**，且必须先断言「样本确实触发了」——否则空列表让 all() 恒真",
     "source": "2026-09-24 加充实度判据时发现"
+  },
+  {
+    "id": "EV-M07",
+    "target": "scripts/lint.py",
+    "desc": "[交叉审计] check_check_coverage 全部跳过 → 检查项失效无人知",
+    "old": "        if fn == \"check_check_coverage\":\n            continue          # 别把自己算进去（自指，见 falsepos 第六条）",
+    "new": "        if True:\n            continue          # 变异：全部跳过",
+    "expect": "KILLED",
+    "why": "反哺 code-audit `--cross`。实测首次跑就抓出 check_root **在自检里从未被调用**——它失效了自检也全绿。已补正反两侧用例",
+    "source": "2026-09-24 反哺 rule-registry --cross 时发现"
   }
 ]

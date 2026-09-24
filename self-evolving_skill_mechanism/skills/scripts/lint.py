@@ -17,6 +17,7 @@
 import re
 import sys
 import os
+import ast
 import json
 import subprocess
 import argparse
@@ -26,6 +27,14 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from domain import load_config, domain_dir, domain_root, CONFIG  # noqa: E402
 from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die, help_text  # 码表：0/1/2/3/4
+
+# 间接覆盖登记：某些检查项无法在自检里直接调用（要靠 subprocess 跑真实脚本），
+# 在这里显式登记理由。⛔ 不登记就报 warn——
+# 「找不到就说没有」正是第十八条批判的失败模式。
+INDIRECT_COVERAGE = {
+    "check_exitcode_adoption": "靠 subprocess 跑真实脚本实测退出码，"
+                               "不是调用本函数（mutate EV-M01 同族）",
+}
 
 DEFAULTS = {
     "SKILL.md": 200,
@@ -990,6 +999,60 @@ def _script_supports(py_path, flag, base):
         return False
 
 
+
+def check_check_coverage(cfg, root=None):
+    """每个检查项在自检里至少被**直接调用**过一次吗（交叉审计）。
+
+    反哺自 code-audit 的 `rule-registry.py --cross`：
+    `--test` 只查「tp 被自己命中 / fp 不被自己命中」，两个方向都有盲区——
+      A. fp（正确写法示例）被**别的**规则命中 → 示例自带真缺陷，会被照抄
+      B. tp 没命中自己却命中了别的 → **「通过」是蹭来的**
+
+    引擎侧的同构问题：**某个 check_* 在自检里一次都没被调用**。
+    它的检查逻辑可能完全失效，而自检照样全绿——
+    因为根本没有一条用例会因它而变红。
+
+    ⛔ 这不是「用例数量」检查（那是第二十三条批判的注水指标）：
+    它判的是**有没有**覆盖（0 vs ≥1），不是有多少条。
+    一条用例能守住就行，十条注水的不如一条真的。
+
+    为什么用 AST 而不是运行时统计：运行时只能看到「本次跑没跑」，
+    看不到「自检里有没有为它写用例」——这次跑了不等于下次还测。
+    """
+    base = Path(root) if root else ROOT
+    target = base / "scripts" / "lint.py"
+    if not target.is_file():
+        return []
+    try:
+        src = target.read_text(encoding="utf-8")
+        tree = ast.parse(src)
+    except Exception:
+        return []
+    funcs = [n.name for n in tree.body
+             if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")]
+    st = [n for n in tree.body
+          if isinstance(n, ast.FunctionDef) and "self_test" in n.name]
+    if not funcs or not st:
+        return []
+    body = ast.get_source_segment(src, st[0]) or ""
+    issues = []
+    for fn in funcs:
+        if fn == "check_check_coverage":
+            continue          # 别把自己算进去（自指，见 falsepos 第六条）
+        if (fn + "(") in body:
+            continue
+        reason = INDIRECT_COVERAGE.get(fn)
+        issues.append({
+            "level": "info" if reason else "warn",
+            "file": "scripts/lint.py",
+            "issue": "检查项 `%s` 在自检里从未被调用" % fn
+                     + ("（已登记间接覆盖：%s）" % reason if reason else ""),
+            "hint": "它失效了自检也不会变红——**没有任何用例会因它而变红**。"
+                    "补正反两侧用例（正向：不该报的不报；反向：该报的能报）；"
+                    "若确实只能间接验证，登记进 INDIRECT_COVERAGE 并写明理由"})
+    return issues
+
+
 def check_doc_commands(cfg, root=None):
     """文档里写的 `python3 scripts/X.py --flag`，脚本真的支持吗。"""
     base = Path(root) if root else ROOT
@@ -1697,6 +1760,40 @@ trigger: 测试
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
 
+        # ---- check_check_coverage 自身：正反两侧 ----
+        # ⛔ 光有这个检查项不够，它自己也得被验证：
+        #   造一个「有 check_x 但自检里没调用它」的样本 lint.py。
+        #   没有这个用例，check_check_coverage 失效了也没人知道
+        #   ——正是它自己要抓的那个失效形态。
+        cc = vroot / 'cc'
+        (cc / 'scripts').mkdir(parents=True, exist_ok=True)
+        (cc / 'scripts' / 'lint.py').write_text(
+            'def check_alpha():\n    return []\n\n'
+            'def check_beta():\n    return []\n\n'
+            'def cmd_self_test():\n    check_alpha()\n    return 0\n',
+            encoding='utf-8')
+        got_cc = check_check_coverage({}, cc)
+        hit = [i for i in got_cc if 'check_beta' in str(i.get('issue', ''))]
+        chk(bool(hit) and hit[0]['level'] == 'warn',
+            '自检里没被调用的检查项能报 warn（否则该检查项失效无人知）')
+        chk(not [i for i in got_cc
+                 if 'check_alpha' in str(i.get('issue', ''))],
+            '自检里调用过的检查项不报（正向不误报）')
+
+        # ---- check_root：正反两侧（EV-M07 / 交叉审计抓出的盲区） ----
+        # ⛔ 这个检查项此前**在自检里一次都没被调用**——
+        #   它失效了自检也不会变红（`check_check_coverage` 抓出来的）。
+        #   而它恰恰是「domains 没初始化」这个最高频失效的守门人。
+        # 正向：目录存在 → 不报
+        dr = vroot / 'domains'
+        dr.mkdir(parents=True, exist_ok=True)
+        chk(check_root({'root': str(dr)}) == [],
+            '大类根目录存在时 check_root 不报')
+        # 反向：目录不存在 → 报 error
+        got_root = check_root({'root': str(vroot / 'no-such-domains')})
+        chk(bool(got_root) and got_root[0]['level'] == 'error',
+            '大类根目录不存在时 check_root 报 error（否则 domains/ 检查静默跳过）')
+
         # ---- 体积提示必须声明「不是充实度判据」 ----
         # ⛔ 体积检查最容易被误读成"充实度指标"：
         #   「还没到上限」被当成「写够了」，「超了上限」被当成「写得好」。
@@ -2048,7 +2145,8 @@ def main():
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
               + check_mirror_pairs(cfg) + check_reference_zones(cfg)
               + check_flow_steps(cfg) + check_exitcode_adoption(cfg)
-              + check_sibling_limits(cfg) + check_doc_commands(cfg))
+              + check_sibling_limits(cfg) + check_doc_commands(cfg)
+              + check_check_coverage(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
