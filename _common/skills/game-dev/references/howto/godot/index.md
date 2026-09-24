@@ -57,6 +57,9 @@
 | **数据驱动/配表** | `datatable.md` | 数值写代码=程序员成瓶颈 · duplicate() 默认浅拷贝共享子资源 · 外键存 ID 不存引用 · 导入期要校验 · load_threaded 才是异步 |
 | **VFX/游戏感** | `vfx-feel.md` | GPU 粒子不是默认答案（Web/兼容渲染器选 CPU）· 震动要 trauma+噪声不是随机偏移 · time_scale=0 时定时器也停需 ignore_time_scale |
 | **经济/长线系统** | `economy.md` | 货币不能只一个 int · 保底计数必须持久化且绑定卡池 · 洗点要同一事务 · 三种叠加结果不同 · 时间源用 UTC · **装备四层分离（模板/实例/词条快照/绑定）· 失败回退让期望次数从 31 涨到 2557 · 词条存 roll 不存最终值 · 分解按当前状态折算** |
+| **遗物/局内构筑** | `relic-build.md` | 遗物/词条/局外解锁按失效时机分 · 先 seed 后 state · RNG 无雪崩效应 · `rand_weighted` 空数组返回 -1 |
+| **植被/大规模散布** | `vegetation.md` | MultiMesh 共享一个 AABB · 分块 + `custom_aabb.grow()` · MSAA 对 alpha scissor 无效需配 alpha AA · 砍伐要交换不能缩放 |
+| **VIP/订阅/累充** | `vip-subscription.md` | 系统时钟用户可改 ⛔ 禁用精确计时 · 跨端统一 UTC · 缺键默认 1970 静默 · 等级是派生值 · 续期 `max(end,now)+d` · 回调去重 |
 | **宝石/符文** | `gem-rune.md` | 宝石是 Resource 不是 Node · 插槽类型来自配表 · 镶嵌是事务（先删后插=资产消失）· 拆卸损耗必须明示 · 合成防套利环 · 套装按槽位去重 |
 | **输入重绑定** | `input-remap.md` | 4.x 用 action_get_events 非 get_action_list · 键位以 physical_keycode 为主键 · 振动不会自己停需显式 stop |
 | **无障碍/字幕** | `accessibility.md` | 无障碍≠难度选项 · 颜色即信息时滤镜无效要形状冗余 · 字幕要含非语音线索 · 闪烁每秒≤3 次且面积≤1/4 |

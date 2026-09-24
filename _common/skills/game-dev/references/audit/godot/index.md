@@ -88,6 +88,9 @@
 | `vfx-feel` | `audit/godot/vfx-feel.md` |
 | `xr-deep` | `audit/godot/xr-deep.md` |
 | `xr` | `audit/godot/xr.md` |
+| `relic-build` | `audit/godot/relic-build.md` |
+| `vegetation` | `audit/godot/vegetation.md` |
+| `vip-subscription` | `audit/godot/vip-subscription.md` |
 
 ## 常见漏写速查
 
