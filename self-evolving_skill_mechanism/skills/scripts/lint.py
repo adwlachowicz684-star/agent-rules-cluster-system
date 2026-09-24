@@ -213,7 +213,13 @@ def check_root(cfg):
 # 但体积检查会预警超限——两者直接冲突。没有豁免机制时，
 # 为了消掉预警去砍内容，等于为了指标牺牲质量。
 # 强制写理由，是为了防止豁免被滥用成「不想拆就标一下」。
-EXEMPT_RX = re.compile(r'<!--\s*oversize-exempt\s*:\s*(.+?)\s*-->')
+# ⚠ `(.+?)` 默认**不匹配换行** —— 豁免理由写成多行时匹配失败 →
+#   **声明了豁免但没生效，检查照报**，而人以为已经豁免了。
+#   实测：changelog-archive.md 的理由跨 3 行，`oversize_exempt()`
+#   返回 None，于是 366 行仍被判超限。这是「假生效」——
+#   比没声明更糟：没声明至少知道要拆。
+EXEMPT_RX = re.compile(r'<!--\s*oversize-exempt\s*:\s*(.+?)\s*-->',
+                       re.S)   # re.S：理由可以跨行写
 
 
 def oversize_exempt(p):
@@ -695,7 +701,13 @@ def check_doc_shape(cfg, limits=None, root=None):
         else:
             lim = int(limits.get("assets", 300))
 
-        if lim > 0 and n < lim and n >= int(lim * 0.8):
+        # ⚠ 豁免也必须覆盖「接近上限」这一档，不只是超限那一档：
+        # 声明了 oversize-exempt 的归档型文件（如 changelog-archive.md）
+        # **只会增长**，80% 这一档永远消不掉 → 提示变成永久噪音，
+        # 而永久噪音里的提示等于没有提示。
+        # 这正是第十五条：「约束要么生效，要么正式改掉」，
+        # 没有「声明了但仍每次报」这个中间态。
+        if lim > 0 and n < lim and n >= int(lim * 0.8) and not oversize_exempt(f):
             issues.append({
                 "level": "info",
                 "file": rel,
@@ -1327,6 +1339,27 @@ trigger: 测试
                  if 'mention.md' in str(i.get('file', ''))],
             '标题提到 Step 但不是工序步 → 不误报（按节点 ID 识别）')
         (fl / 'mention.md').unlink()
+
+        # ---- 豁免声明必须真生效（多行理由） ----
+        # 实测：正则 `(.+?)` 默认不匹配换行 → 豁免理由写成多行时
+        # oversize_exempt() 返回 None → **声明了但仍按超限报**。
+        # 「假生效」比没声明更糟：没声明至少知道要拆。
+        ex = vroot / 'reference' / 'big.md'
+        ex.parent.mkdir(parents=True, exist_ok=True)
+        ex.write_text(
+            '# t\n\n<!-- oversize-exempt: 理由第一行，\n     第二行 -->\n\n'
+            + ('内容\n' * 500), encoding='utf-8')
+        chk(oversize_exempt(ex) is not None,
+            '豁免理由跨行也能识别（否则「声明了但没生效」）')
+        got_ex = check_size({'size_limits': {'reference': 400}}, ) \
+            if False else []
+        ex.unlink()
+        # 反向：没声明豁免的不能用别人的豁免
+        (vroot / 'reference').mkdir(parents=True, exist_ok=True)
+        nx = vroot / 'reference' / 'noex.md'
+        nx.write_text('# t\n\n' + ('内容\n' * 500), encoding='utf-8')
+        chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
+        nx.unlink()
 
         # ---- 退出码码表 ----
         # 为什么需要：实测 lint.py --json **有 error 也返回 0**

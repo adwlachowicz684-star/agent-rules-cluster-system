@@ -13,12 +13,27 @@ if [ ! -s "$DRAFT" ]; then
   exit 0
 fi
 
-# 提取有效草稿行（跳过标题、注释、空行、表格）
-BODY=$(grep -vE '^\s*(#|<!--|-->|\||>|$)' "$DRAFT" || true)
+# 提取有效草稿行（跳过标题、注释、空行）
+# ⚠ 早先的正则把 `|` 开头的行也过滤了（想跳过表格分隔线），
+#   但**表格形式写的捕获会被整条静默丢弃**——
+#   实测：草稿里 1 条表格 + 1 条列表，只归档了列表那条，退出码 0、无警告。
+#   而归档后 draft.md 会被重置 → **内容永久丢失**。
+#   这是典型的「静默少做」：不报错、不为空，只是少了一半。
+RAW_COUNT=$(grep -cvE '^\s*(#|<!--|-->|$)' "$DRAFT" || true)
+BODY=$(grep -vE '^\s*(#|<!--|-->|$)' "$DRAFT" || true)
 
 if [ -z "$BODY" ]; then
   echo "草稿无有效内容，无需归档"
   exit 0
+fi
+
+# 表格形式现在保留；只跳过纯分隔线（| --- | --- |）
+BODY=$(printf '%s\n' "$BODY" | grep -vE '^\s*\|[\s:|-]+\|\s*$' || true)
+
+KEPT=$(printf '%s\n' "$BODY" | grep -cvE '^\s*$' || true)
+if [ "$KEPT" -lt "$RAW_COUNT" ]; then
+  echo "[warn] 草稿 $RAW_COUNT 行 → 归档 $KEPT 行（少了 $((RAW_COUNT - KEPT)) 行）" >&2
+  echo "[warn] 若是表格分隔线属正常；若是你写的捕获被丢，请看脚本里的过滤规则" >&2
 fi
 
 if [ -f "$TARGET" ]; then

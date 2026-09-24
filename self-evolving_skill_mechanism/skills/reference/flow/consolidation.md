@@ -203,6 +203,9 @@ bash scripts/archive.sh                 # 归档草稿
 
 ## 6. 下一步
 
+→ 整合完成后走 [`archive.md`](archive.md)（`FL-05`）归档本轮草稿。
+⛔ **先整合后归档**——归档会重置 `draft.md`，没整合就归档 = 本轮捕获永久丢失。
+
 → 整合完成后走 [`closed-loop.md`](closed-loop.md)（`FL-02` 闭环）：
 审查 → 调整 → **回看建设册** → 两册互补。
 
