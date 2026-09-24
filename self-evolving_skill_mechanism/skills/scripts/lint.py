@@ -355,16 +355,58 @@ def check_size(cfg, limits):
 
 
 def _frontmatter(text):
-    """解析 YAML frontmatter → dict。没有则返回 {}。"""
+    """解析 YAML frontmatter → dict。没有则返回 {}。
+
+    ⚠ 早先只认 `k: v` 单行，**不支持块列表**：
+
+        keywords:
+          - 经验沉淀
+          - 技能库
+
+    结果：`keywords:` 这行 v 为空 → `fm["keywords"] = ""` →
+    检查报「缺 keywords」，而**文件里明明写了 15 条**。
+
+    ⛔ 这是「假生效」的镜像形态（silent 第二十一条）：
+    这次不是声明没生效，而是**写的东西读不出来**——
+    工具说没写，人看着明明写了，双方都觉得自己对。
+    而按标准 YAML 写块列表是最自然的写法，不该要求人去迁就解析器。
+
+    现在支持块列表（`- item`）；字段值是列表时按列表存，
+    仍是单行 `k: v` 的字段保持字符串，不影响 `len()` 类判断。
+    """
     m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
     if not m:
         return {}
     fm = {}
+    cur = None
     for line in m.group(1).splitlines():
-        if ":" in line and not line.strip().startswith("#"):
+        st = line.strip()
+        if not st or st.startswith("#"):
+            continue
+        # 块列表项：归到上一个值为空的 key 下
+        if st.startswith("- ") and cur:
+            if not isinstance(fm.get(cur), list):
+                fm[cur] = []
+            fm[cur].append(st[2:].strip())
+            continue
+        if ":" in line:
             k, v = line.split(":", 1)
-            fm[k.strip()] = v.strip()
+            k, v = k.strip(), v.strip()
+            if v == "":
+                cur = k
+                fm[k] = []            # 可能是列表头；没有列表项则为空 → 视为缺失
+            else:
+                cur = None
+                fm[k] = v
     return fm
+
+
+def _fm_str(fm, key):
+    """取字段的字符串形式（列表则拼接）。"""
+    v = fm.get(key)
+    if isinstance(v, list):
+        return " ".join(v)
+    return v or ""
 
 
 def check_mirror_pairs(cfg, root=None):
@@ -885,19 +927,134 @@ def check_sibling_limits(cfg, root=None):
     return issues
 
 
-def check_frontmatter(cfg):
+# 负面触发（「何时不用」）的字段名，任一存在即算写了
+NEG_FIELDS = ('not_trigger', 'not_use', 'negative_trigger', 'not_for')
+# 官方 spec 的长度上限（反哺自 Agent Skills 规范）
+NAME_MAX = 64
+DESC_MAX = 1024
+
+
+
+# ---- 文档承诺的命令（反哺自 code-audit 的 doc-promise.py） ----
+#
+# 为什么需要：`check_refs` 只查**路径**存不存在（scripts/x.py 有这个文件），
+# 但**文件存在 ≠ 它支持文档里写的那个 flag**。
+#   文档写 `python3 scripts/note.py --show`，脚本存在、但没实现 --show
+#   → 照着敲会「未知参数」，而文档自己不会报错。
+# 这正是 code-audit 侧 doc-scan.py 的第一类候选「命令不存在」。
+#
+# ⚠ 必须处理**转发壳**：
+#   引擎侧 `cocos_audit.py` 是 29 行的转发壳，真正实现在
+#   `_common/skills/code-audit/scripts/cocos-audit.py`。
+#   文档里的 `--rule` / `--rules` / `--level` 在壳里**没有**，
+#   ⛔ 只查壳会把 4 条真实可用的命令全报成「不支持」——
+#   **误报的检查会被关掉**（falsepos 第十四条）。
+CMD_RX = re.compile(r'python3\s+scripts/([A-Za-z0-9_]+\.py)([^\n`|]*)')
+FLAG_RX = re.compile(r'--[a-z][a-z0-9-]*')
+# 转发壳：_CANON = os.path.normpath(os.path.join(_HERE, '..', ..., 'x.py'))
+CANON_RX = re.compile(
+    r'_CANON\s*=\s*os\.path\.normpath\(os\.path\.join\((.*?)\)\)', re.S)
+
+
+def _script_supports(py_path, flag, base):
+    """脚本是否支持某个 flag；转发壳则追到 canonical 实现再查。"""
+    try:
+        src = py_path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    if flag in src:
+        return True
+    m = CANON_RX.search(src)
+    if not m:
+        return False
+    # ⚠ `..` **不能过滤掉**：它才是「从脚本目录往上几级」的信息。
+    #   第一版把 pardir 剔了，拼出 `_common/skills/...` 直接挂在
+    #   skill 根下 → 文件不存在 → 4 条真实可用的命令被误报成不支持。
+    #   （误报的检查会被关掉：falsepos 第十四条）
+    # `_HERE` 是**裸变量**（不在引号里），findall 只拿到引号里的片段，
+    # 所以 segs 全是相对脚本目录的路径片段 —— **一个都不能砍**。
+    # 第一版写了 segs[1:]，把第一个 `..` 当成了 _HERE → 少退一级
+    # → 拼到仓库根之上一级 → 文件不存在 → 4 条真实命令被误报。
+    segs = re.findall(r"'([^']+)'", m.group(1))
+    rel = os.path.normpath(os.path.join(*segs)) if segs else ''
+    cand = py_path.parent / rel if rel else py_path
+    try:
+        return flag in cand.read_text(encoding="utf-8")
+    except Exception:
+        return False
+
+
+def check_doc_commands(cfg, root=None):
+    """文档里写的 `python3 scripts/X.py --flag`，脚本真的支持吗。"""
+    base = Path(root) if root else ROOT
+    issues = []
+    targets = [base / "SKILL.md"]
+    for sub in ("reference", "SKILLS", "assets"):
+        d = base / sub
+        if d.exists():
+            targets += sorted(d.rglob("*.md"))
+    for f in targets:
+        if not f.exists():
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        rel = str(f.relative_to(base)) if str(f).startswith(str(base)) else str(f)
+        for m in CMD_RX.finditer(txt):
+            script, rest = m.group(1), m.group(2)
+            py = base / "scripts" / script
+            if not py.is_file():
+                continue          # 脚本不存在由 check_refs 报，这里不重复
+            for fm in FLAG_RX.finditer(rest):
+                flag = fm.group(0)
+                if _script_supports(py, flag, base):
+                    continue
+                issues.append({
+                    "level": "error", "file": rel,
+                    "issue": "文档写了 `%s %s`，但脚本里没有这个 flag"
+                             % (script, flag),
+                    "hint": "照着敲会「未知参数」。补实现，或改文档。"
+                            "转发壳已自动追到 canonical 实现"})
+    return issues
+
+
+def check_frontmatter(cfg, root=None):
+    """frontmatter 必填字段 + **负面触发** + 长度上限。
+
+    ⚠ 加了 `root` 参数：原版只扫 `domains/*/skills`，
+    而 domains 未初始化时 targets **恒为空** → 这个检查**从未验证过任何东西**，
+    却照样输出 0 条。这正是 silent 第七/十八条：
+    「返回 0 条」与「真的没问题」无法区分。
+    可注入后就能在临时副本上造样本，把判据真正测到。
+
+    为什么必须查**负面触发**（反哺自 Agent Skills 官方规范）：
+    description / trigger 只写「何时用」→ 边界模糊的请求会**误命中**；
+    写了「何时不用」，才能把不相关的请求挡在门外。
+    ⓘ 召回侧的对称要求：正面触发决定「找得到」，
+    负面触发决定「不误伤」——**只有一半的召回是坏的召回**。
+    """
+    base = Path(root) if root else ROOT
     issues, seen = [], {}
     targets = []
     for key in cfg.get("domains", {}):
         sd = domain_dir(cfg, key) / "skills"
         if sd.exists():
             targets += [f for f in sd.rglob("*.md") if not f.name.startswith("_")]
+    # 引擎自身的 SKILL.md 也查：它同样是会被检索、会被误命中的入口
+    sk = base / "SKILL.md"
+    if sk.is_file():
+        targets.append(sk)
 
     for f in targets:
+        try:
+            rel = str(f.relative_to(base))
+        except ValueError:
+            rel = str(f)
         text = f.read_text(encoding="utf-8")
         m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
         if not m:
-            issues.append({"level": "error", "file": str(f),
+            issues.append({"level": "error", "file": rel,
                            "issue": "缺少 frontmatter",
                            "hint": "至少 id / name / keywords / trigger"})
             continue
@@ -905,22 +1062,45 @@ def check_frontmatter(cfg):
 
         miss = [k for k in REQUIRED_FM if not fm.get(k)]
         if miss:
-            issues.append({"level": "warn", "file": str(f),
+            issues.append({"level": "warn", "file": rel,
                            "issue": "缺字段 " + str(miss),
                            "hint": "keywords 决定召回，trigger 决定何时加载"})
 
         sid = fm.get("id", "?")
         if sid in seen:
-            issues.append({"level": "error", "file": str(f),
+            issues.append({"level": "error", "file": rel,
                            "issue": "ID 与 " + seen[sid] + " 重复",
                            "hint": "ID 必须全局唯一"})
         else:
-            seen[sid] = str(f)
+            seen[sid] = rel
 
         if not fm.get("verified"):
             issues.append({"level": "info", "file": str(f),
                            "issue": "未标注 verified",
                            "hint": "执行验证过就标 verified: yes，仅作回溯参考"})
+
+        # ---- 负面触发（「何时不用」）----
+        if not any(fm.get(k) for k in NEG_FIELDS):
+            issues.append({
+                "level": "warn", "file": rel,
+                "issue": "缺负面触发（只说了「何时用」，没说「何时不用」）",
+                "hint": "加 `not_trigger:` 写清不适用场景——"
+                        "正面触发决定找得到，负面触发决定**不误伤**；"
+                        "只有一半的召回是坏的召回"})
+
+        # ---- 长度上限（官方 spec）----
+        nm = fm.get("name", "") or ""
+        if len(nm) > NAME_MAX:
+            issues.append({"level": "warn", "file": rel,
+                           "issue": "name %d 字符，超过 %d" % (len(nm), NAME_MAX),
+                           "hint": "小写字母/数字/单连字符，超了会被规范校验拒收"})
+        ds = fm.get("description", "") or ""
+        if len(ds) > DESC_MAX:
+            issues.append({"level": "warn", "file": rel,
+                           "issue": "description %d 字符，超过 %d"
+                                    % (len(ds), DESC_MAX),
+                           "hint": "description 是**每次会话都要付**的成本，"
+                                   "不是正文；超了要精简，不是加长"})
     return issues
 
 def check_refs(cfg, root=None):
@@ -1511,6 +1691,51 @@ trigger: 测试
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
 
+        # ---- 豁免必须覆盖「接近上限」档（EV-M04） ----
+        # ⛔ 这条是**变异 EV-M04 抓出来的真盲区**：
+        #   豁免原先只作用于超限那一档，「接近上限」照报 →
+        #   归档型文件（只会增长）的提示永远消不掉
+        #   → 永久噪音里的提示等于没有提示（第十五条）。
+        #   手写用例漏了它，是 mutate.py 跑出来才发现的。
+        ex2 = vroot / 'reference' / 'arch.md'
+        ex2.write_text(
+            '# t\n\n<!-- oversize-exempt: 归档型，只会增长 -->\n\n'
+            + ('内容\n' * 330), encoding='utf-8')
+        got_ex2 = check_doc_shape({'size_limits': {'reference': 400}},
+                                  {'reference': 400}, vroot)
+        chk(not any('arch.md' in str(i.get('file', '')) for i in got_ex2),
+            '已声明豁免的文件不报「接近上限」（否则提示变永久噪音）')
+        ex2.unlink()
+
+        # ---- 文档承诺的命令 ----
+        # ⛔ 正反**两侧**都要造。只造反向（不支持的要报）会让
+        #   「转发壳被误报」从未验证——而那正是会让人关掉检查的那一侧。
+        dc = vroot / 'SKILLS'
+        dc.mkdir(parents=True, exist_ok=True)
+        (vroot / 'scripts').mkdir(parents=True, exist_ok=True)
+        # 反向：文档写了脚本里没有的 flag
+        (vroot / 'scripts' / 'x.py').write_text('pass\n', encoding='utf-8')
+        (dc / 'c.md').write_text(
+            '# t\n\npython3 scripts/x.py --nosuchflag\n', encoding='utf-8')
+        got_dc = check_doc_commands({}, vroot)
+        chk(any('nosuchflag' in i['issue'] for i in got_dc),
+            '文档写了脚本不支持的 flag 能查出')
+        # 正向：转发壳的 flag 在 canonical 里 → 不误报
+        (vroot / 'scripts' / 'shell.py').write_text(
+            "import os, sys\n"
+            "_HERE = os.path.dirname(os.path.abspath(__file__))\n"
+            # ⚠ 退**一级**才对：shell.py 在 vroot/scripts/ 下，
+            #   _canon.py 在 vroot/ 下。写 '..','..' 会退到 vroot 之外
+            #   → 文件不存在 → 正向用例反而失败（用例自己没造对）。
+            "_CANON = os.path.normpath(os.path.join(\n"
+            "    _HERE, '..', '_canon.py'))\n", encoding='utf-8')
+        (vroot / '_canon.py').write_text('# real\n--realflag\n', encoding='utf-8')
+        (dc / 'c.md').write_text(
+            '# t\n\npython3 scripts/shell.py --realflag\n', encoding='utf-8')
+        got_sh = check_doc_commands({}, vroot)
+        chk(not any('realflag' in i['issue'] for i in got_sh),
+            '转发壳的 flag 在 canonical 里时不误报（否则会误报一片）')
+
         # ---- 双阈值：token（占上下文的是 token，不是行数） ----
         # ⛔ 用例必须自造**大宽表格**：token 多但行数少。
         #   只造"很多行"的样本测不出 token 维度的差别——
@@ -1541,6 +1766,35 @@ trigger: 测试
         chk(check_sibling_limits({'size_limits': {'SKILL.md': 200}},
                                  root=Path(tmp) / 'no-siblings') == [],
             '找不到兄弟 skill 时跳过（不误报）——保留独立分发能力')
+
+        # ---- frontmatter：负面触发 / 块列表 / 长度 ----
+        # ⚠ 早先 check_frontmatter 只扫 domains/*/skills，
+        #    domains 未初始化时 targets 恒空 → **检查从未验证过任何东西**。
+        #   加了 root 注入才测得成——这就是「可注入」的价值。
+        fr = vroot / 'SKILL.md'
+        good_fm = ('---\nname: x\nid: X1\nkeywords:\n  - 甲\n  - 乙\n'
+                   'trigger: 何时用\nnot_trigger: 何时不用\nverified: yes\n'
+                   'description: 简短\n---\n\n# x\n')
+        fr.write_text(good_fm, encoding='utf-8')
+        got_fm = check_frontmatter({'domains': {}}, vroot)
+        chk(not any('负面触发' in i['issue'] for i in got_fm),
+            '写了 not_trigger 时不报（正面+负面才是完整召回）')
+        chk(not any('缺字段' in i['issue'] and 'keywords' in i['issue']
+                    for i in got_fm),
+            '块列表 keywords 能解析（否则「写了却说没写」）')
+
+        bad_fm = good_fm.replace('not_trigger: 何时不用\n', '')
+        fr.write_text(bad_fm, encoding='utf-8')
+        got_fm2 = check_frontmatter({'domains': {}}, vroot)
+        chk(any('负面触发' in i['issue'] for i in got_fm2),
+            '缺负面触发必须报（只说何时用 → 边界请求会误命中）')
+
+        # 长度上限
+        fr.write_text(good_fm.replace('name: x', 'name: ' + 'n' * 70),
+                      encoding='utf-8')
+        chk(any('name' in i['issue'] and '超过' in i['issue']
+                for i in check_frontmatter({'domains': {}}, vroot)),
+            'name 超 64 字符能查出（规范硬限）')
 
         # ---- 退出码码表 ----
         # 为什么需要：实测 lint.py --json **有 error 也返回 0**
@@ -1762,7 +2016,7 @@ def main():
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
               + check_mirror_pairs(cfg) + check_reference_zones(cfg)
               + check_flow_steps(cfg) + check_exitcode_adoption(cfg)
-              + check_sibling_limits(cfg))
+              + check_sibling_limits(cfg) + check_doc_commands(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

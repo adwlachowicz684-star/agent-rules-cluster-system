@@ -78,3 +78,21 @@
 | 2026-09-24 | lint.py 双阈值 | 新增 | token 上限（反哺 code-audit SK006/SK009）：**占上下文的是 token 不是行数**，只卡行数会放过"行数合规但读进来很贵"的文件 |
 | 2026-09-24 | check_sibling_limits | 新增 | 跨 skill 阈值一致性（反哺 SY001）：**找到就比对，找不到就跳过**，保留独立分发能力 |
 | 2026-09-24 | 同上 | 修正 | 第一版对着**散文**比阈值 → 两侧 SKILL.md 都没写数字，**一条都找不到，检查恒绿从未验证**。改为比对 `check-skill.py` 里的**可执行常量** |
+| 2026-09-24 | check_frontmatter | 修正 | 原只扫 `domains/*/skills`，domains 未初始化时 targets **恒空** → 检查从未验证过任何东西。加 root 注入 + 查引擎自身 SKILL.md |
+| 2026-09-24 | 负面触发 | 新增 | 反哺官方规范：trigger 只说「何时用」→ 边界请求会**误命中**。加 `not_trigger` 必填检查（正面决定找得到，负面决定不误伤） |
+| 2026-09-24 | _frontmatter | 修正 | 不支持块列表 → 写了 15 条 keywords 却报「缺 keywords」。**人以为写了，工具说没写**（第二十一条的镜像形态）。已支持 `- item` |
+| 2026-09-24 | writing-rules.md | 新增 | 自由度匹配（反哺官方规范）：按脆弱度决定指令具体程度。⛔ 该低给高→不可复现；该高给低→遇边界卡死 |
+| 2026-09-24 | howto/ratchet.md | 新增 | 棘轮机制：只进不退。自进化最大风险不是长不大，是**长了但变差且静默**。回滚≠删除 |
+| 2026-09-24 | SKILL.md frontmatter | 补充 | 引擎自身补齐 id/keywords/trigger/not_trigger/verified——此前缺 3 个必填字段，要求别人的自己没做到 |
+| 2026-09-24 | check_frontmatter | 修正 | 原只扫 `domains/*/skills`，domains 未初始化时 targets **恒空** → 检查从未验证过任何东西。加 root 注入 + 查引擎自身 SKILL.md |
+| 2026-09-24 | 负面触发 | 新增 | 反哺官方规范：trigger 只说「何时用」→ 边界请求会**误命中**。加 `not_trigger` 必填检查（正面决定找得到，负面决定不误伤） |
+| 2026-09-24 | _frontmatter | 修正 | 不支持块列表 → 写了 15 条 keywords 却报「缺 keywords」。**人以为写了，工具说没写**（第二十一条的镜像形态）。已支持 `- item` |
+| 2026-09-24 | writing-rules.md | 新增 | 自由度匹配（反哺官方规范）：按脆弱度决定指令具体程度。⛔ 该低给高→不可复现；该高给低→遇边界卡死 |
+| 2026-09-24 | howto/ratchet.md | 新增 | 棘轮机制：只进不退。自进化最大风险不是长不大，是**长了但变差且静默**。回滚≠删除 |
+| 2026-09-24 | SKILL.md frontmatter | 补充 | 引擎自身补齐 id/keywords/trigger/not_trigger/verified——此前缺 3 个必填字段，要求别人的自己没做到 |
+| 2026-09-24 | check_doc_commands | 新增 | 文档承诺的命令检查（反哺 doc-promise）：**文件存在 ≠ 它支持文档里写的 flag** |
+| 2026-09-24 | 同上 | 修正 | 转发壳必须追到 canonical：引擎侧 `cocos_audit.py` 是 29 行壳，4 条真实 flag 在壳里没有 → 只查壳会全误报 |
+| 2026-09-24 | scripts/mutate.py | 新增 | 变异测试（反哺 code-audit mutate.py）：把**真实修过的缺陷**注入回去验证 |
+| 2026-09-24 | assets/mutations.json | 新增 | 沉淀 5 条历史缺陷变异。初跑 **4 KILLED / 1 SURVIVED**——那条正是手写用例漏掉的盲区 |
+| 2026-09-24 | EV-M04 | 已补 | 盲区「豁免只覆盖超限档不覆盖接近上限档」→ 补用例后变 KILLED |
+| 2026-09-24 | self-verification | 新增 | 第二十二条：自检全绿 ≠ 覆盖历史缺陷。手写用例只证明「我写的样例能被查出」 |

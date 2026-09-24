@@ -1,0 +1,52 @@
+[
+  {
+    "id": "EV-M01",
+    "target": "scripts/lint.py",
+    "desc": "[gate] --json 分支改回「直接 return」→ 有 error 也返回 0，CI 永远绿灯",
+    "old": "        errs_j = [i for i in issues if i.get(\"level\") == \"error\"]\n        sys.exit(BLOCKED if errs_j else OK)",
+    "new": "        return",
+    "expect": "KILLED",
+    "why": "实测：CI 用 --json 解析 = 永远绿灯，gate 形同虚设。由自检用例「--json 模式有 error 时退出码非 0」守护",
+    "source": "2026-09-24 反哺 code-audit AR-04 时发现"
+  },
+  {
+    "id": "EV-M02",
+    "target": "scripts/lint.py",
+    "desc": "[假生效] 去掉 re.S → 豁免理由跨行时匹配失败，声明了但仍按超限报",
+    "old": "                       re.S)   # re.S：理由可以跨行写",
+    "new": "                       )   # 变异：去掉 re.S",
+    "expect": "KILLED",
+    "why": "第二十一条「假生效」。实测 changelog-archive.md 理由跨 3 行，366 行仍被判超限，而人以为已豁免",
+    "source": "2026-09-24 补 FL-05 时发现"
+  },
+  {
+    "id": "EV-M03",
+    "target": "scripts/lint.py",
+    "desc": "[误报] 转发壳路径砍掉第一个片段 → canonical 找不到 → 4 条真实命令被误报",
+    "old": "    rel = os.path.normpath(os.path.join(*segs)) if segs else ''",
+    "new": "    rel = os.path.normpath(os.path.join(*segs[1:])) if segs else ''",
+    "expect": "KILLED",
+    "why": "_HERE 是裸变量不在引号里，findall 拿到的全是路径片段，一个都不能砍。误报的检查会被关掉",
+    "source": "2026-09-24 反哺 doc-promise 时发现"
+  },
+  {
+    "id": "EV-M04",
+    "target": "scripts/lint.py",
+    "desc": "[永久噪音] 豁免只覆盖超限档，不覆盖「接近上限」档 → 归档型文件提示永远消不掉",
+    "old": "        if lim > 0 and n < lim and n >= int(lim * 0.8) and not oversize_exempt(f):",
+    "new": "        if lim > 0 and n < lim and n >= int(lim * 0.8):",
+    "expect": "KILLED",
+    "why": "⛔ 曾是真盲区：手写用例漏了「已声明豁免的文件不报接近上限」，由本变异跑出来才发现。已补用例 → 现为 KILLED。保留本条以证明「手写用例 ≠ 覆盖历史缺陷」",
+    "source": "2026-09-24 拆 consolidation-rules 时发现"
+  },
+  {
+    "id": "EV-M05",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围] token 阈值关掉 → 行数合规但 token 超限的文件查不出",
+    "old": "        tlim = int(cfg.get(\"token_limits\", {}).get(\n            key, TOKEN_LIMITS.get(key, TOKEN_DEFAULT)))",
+    "new": "        tlim = 0   # 变异：关掉 token 阈值",
+    "expect": "KILLED",
+    "why": "双阈值不是装饰。关掉后「150 行宽表格比 400 行散文贵」这类文件完全查不出",
+    "source": "2026-09-24 反哺 code-audit SK006/SK009 时新增"
+  }
+]
