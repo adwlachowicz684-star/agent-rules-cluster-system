@@ -185,13 +185,134 @@ vehicle.friction_slip = lerpf(DRY_GRIP, WET_GRIP, wetness)
 
 ⚠ **`local_coords` 与重力方向混用**会让旋转发射器产生反直觉结果。
 
-## 8. 待核对项（运行时验证）
+## 8. 时间源：昼夜时钟不能用系统时钟
+
+⚠ 昼夜循环是**时间计算**，与月卡到期同属一类，
+⛔ 因此同样受 `Time` 类的官方禁令约束：
+`_from_system` 系列用**用户可手动设置**的系统时钟，
+官方原话要求精确计时**必须**用 `get_ticks_usec` / `get_ticks_msec`
+（它们保证单调）。
+
+⛔ 用系统时钟驱动昼夜 → 玩家改系统时间即可跳到任意时刻。
+
+```gdscript
+# ⛔ 错：系统时钟，可篡改
+var hour := Time.get_datetime_dict_from_system()["hour"]
+
+# ✅ 对：游戏内累积时间，ticks 保证单调
+var _game_seconds := 0.0
+
+func _process(delta: float) -> void:
+    if not _paused:
+        _game_seconds += delta * TIME_SCALE
+    set_time_of_day(fmod(_game_seconds / SECONDS_PER_GAME_DAY, 24.0))
+```
+
+⚠ **缩放与暂停是两件事**：
+- `TIME_SCALE` 只改推进速度
+- ⛔ 暂停时若不冻结 → **菜单里天黑了**
+
+⚠ **存档只存"游戏内绝对时间"**（累计秒数），
+⛔ 不存"当前太阳角度"——角度是派生值，
+存它会在改了 `TIME_SCALE` 后与真实进度脱节。
+
+⚠ `get_unix_time_from_system()` 返回 **float**，
+而其他 `get_unix_time_from_*` 返回 **int** —— 混用会在边界差 0.9 秒。
+
+## 9. 天气状态机：过渡是一次事务，不是直接插值
+
+⚠ 天气有三份状态：**当前 / 目标 / 过渡进度**。
+⛔ 只有"当前"一份 → 无法表达"正在从雨转晴"。
+
+```gdscript
+var current: StringName = &"clear"
+var target: StringName = &"clear"
+var blend: float = 0.0          # 0..1
+```
+
+⛔ 用一堆独立 `bool`（`is_raining` / `is_snowing`）叠加 →
+**雨和雪同时为真**，而表现层只画一种，状态与画面不一致。
+
+⚠ **过渡必须可中断**：
+⛔ 过渡中途被打断而旧过渡没取消 →
+雨下到一半切晴，**雨粒子没停**。
+
+```gdscript
+func request_weather(next: StringName) -> void:
+    if next == target:
+        return
+    _cancel_transition()          # ⛔ 少了这行就会残留
+    target = next
+    blend = 0.0
+    _tween = create_tween()
+    _tween.tween_property(self, "blend", 1.0, TRANSITION_SEC)
+```
+
+⛔ `Tween` 句柄不保存 → 场景切换时**泄漏**，
+且在已释放节点上继续跑 → 报错或静默失效。
+
+⚠ **雨要跟随相机** —— 不能只在场景一处下，
+否则走两步就走出雨区。
+
+⚠ **闪电不是"调亮光源"** —— 瞬时强光会**炸曝光**，
+要用 `Environment` 的曝光/色调映射配合，且加随机间隔。
+
+⚠ **`fixed_fps = 2` 不是时间缩放** ——
+只降低碰撞/状态更新频率，**不会**放慢粒子寿命。
+
+⚠ **雨雪碰撞节点（`GPUParticlesCollisionHeightField3D`）只影响 `GPUParticles3D`** ——
+⛔ 拿它给 `CPUParticles3D` 或水面用**完全无效且不报错**。
+
+## 10. 天气与玩法联动：状态要进存档
+
+⚠ 湿滑是**玩法状态**，不只是材质：
+
+```gdscript
+vehicle.friction_slip = lerpf(DRY_GRIP, WET_GRIP, wetness)
+```
+
+⛔ 只改材质 `roughness/metallic` → **看起来湿了但抓地力没变**，
+玩家会直接反馈"雨天开车没区别"。
+
+⚠ 同理要驱动的还有：刹车距离、AI 感知视距、NPC 行为（躲雨）。
+
+⛔ **联动状态不进存档** → 读档后**在下雨但地面是干的**，
+且所有依赖湿滑的玩法参数仍是干的。
+
+⛔ **只在进入区域时应用一次** → 天气中途变了**不更新**。
+✅ 做法是订阅天气状态变化，而不是轮询一次性应用。
+
+## 11. 局部天气与区域
+
+⚠ 全局天气是一份，⛔ 但**室内/洞穴必须屏蔽**，
+否则表现为**屋顶漏雨**。
+
+⚠ 区域之间要**仲裁**：
+⛔ 两个区域重叠时各写各的 → 天气**来回抖**。
+✅ 按优先级取一个生效，且切换要插值，
+⛔ 不插值则玩家走过边界时天气**硬切**。
+
+## 12. 多人同步：时间必须只有一个权威
+
+⛔ 每个客户端各自推进时钟 → 几帧之后**完全不同步**，
+表现为"我这还在白天，他那边已经天黑"。
+
+✅ 服务器（或主机）持有唯一 `_game_seconds`，
+客户端只接收**绝对时间**并本地插值显示。
+
+⛔ 用"每秒发一次同步包"补 → 时钟**跳变**，
+表现为天色突然闪一下。
+
+⚠ 天气切换也要走同一条权威链，
+⛔ 客户端本地随机天气 = 各人看到不同的雨。
+
+## 13. 待核对项（运行时验证）
 
 ⚠ 待核对：第三方水面插件在 4.7.2 的兼容性与授权 · 验证：按目标版本实测后再决定引入
 
 ⚠ 待核对：Godot Hydrodynamics（C++ 模块）的编译可行性 · 验证：按 4.7.2 源码编译测试
 
-## 5. 相关文档
+## 14. 相关文档
 
 - 渲染管线与 GI → `render-pipeline.md` / `lighting.md`
 - 着色器 → `shaders.md`
