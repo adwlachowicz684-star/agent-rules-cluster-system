@@ -257,6 +257,43 @@ def oversize_exempt(p):
     return m.group(1).strip() if m else None
 
 
+
+# ---- token 阈值（双阈值：行数 + token） ----
+#
+# 反哺自 code-audit 的 check-skill.py（SK006/SK009 双阈值）。
+# 为什么只有行数不够：**占上下文的是 token，不是行数**。
+#   一份 150 行的宽表格可能比 400 行散文贵得多；
+#   反过来，400 行短句可能很便宜。
+#   只按行数卡，会放过"行数合规但读进来很贵"的文件，
+#   也会逼着人拆掉"行数多但很便宜"的文件——两种都错。
+#
+# 估算而非精确计数：不装分词器也能用，误差可接受
+# （判据是「量级对不对」，不是「差几个 token」）。
+TOKEN_LIMITS = {
+    "SKILL.md": 8192,
+    "reference": 8192,
+    "skills": 8192,
+    "assets": 8192,
+}
+TOKEN_DEFAULT = 8192
+
+
+def token_estimate(text):
+    """粗估 token 数：中文按字、英文按词、其余按字符折算。
+
+    与 code-audit 侧一致：中文一字约一 token，英文按空格分词，
+    ⚠ 不追求精确——判据是量级，差 10% 不影响"该不该拆"的判断。
+    """
+    import re as _re
+    n = 0
+    for seg in _re.findall(r'[\u4e00-\u9fff]+|[A-Za-z0-9_./:-]+|\S', text):
+        if _re.match(r'^[\u4e00-\u9fff]+$', seg):
+            n += len(seg)          # 中文按字
+        else:
+            n += 1
+    return n
+
+
 def check_size(cfg, limits):
     issues = []
 
@@ -717,13 +754,18 @@ def check_doc_shape(cfg, limits=None, root=None):
         n = len(text.splitlines())
         rel = str(f.relative_to(base))
 
+        # key 同时也用于取 token 阈值（双阈值要按同一把尺子）
         if rel == "SKILL.md":
+            key = "SKILL.md"
             lim = int(limits.get("SKILL.md", 200))
         elif rel.startswith("SKILLS/"):
+            key = f.name
             lim = int(limits.get(f.name, 200))
         elif rel.startswith("reference/"):
+            key = "reference"
             lim = int(limits.get("reference", 400))
         else:
+            key = "assets"
             lim = int(limits.get("assets", 300))
 
         # ⚠ 豁免也必须覆盖「接近上限」这一档，不只是超限那一档：
@@ -739,6 +781,26 @@ def check_doc_shape(cfg, limits=None, root=None):
                 "lines": n, "limit": lim,
                 "issue": "接近体积上限（%d/%d，%d%%）" % (n, lim, n * 100 // lim),
                 "hint": "现在规划拆分，别等超限——超限后拆要重写目录与交叉引用"})
+
+        # ---- 双阈值：token（占上下文的是 token，不是行数） ----
+        # 行数合规但 token 超了 → 照样会撑爆上下文。
+        # ⛔ 不能只卡行数：150 行的宽表格可能比 400 行散文贵得多。
+        tlim = int(cfg.get("token_limits", {}).get(
+            key, TOKEN_LIMITS.get(key, TOKEN_DEFAULT)))
+        if tlim > 0 and not oversize_exempt(f):
+            try:
+                tk = token_estimate(text)
+            except Exception:
+                tk = 0
+            if tk > tlim:
+                issues.append({
+                    "level": "warn",
+                    "file": rel,
+                    "lines": n, "tokens": tk, "limit": tlim,
+                    "issue": "约 %d tokens，超过 %d（行数 %d 未超限）"
+                             % (tk, tlim, n),
+                    "hint": "占上下文的是 token 不是行数——"
+                            "宽表格/密集代码会「行数合规但读进来很贵」"})
 
         # SKILL.md 是入口导航，天生多主题；它的章节多恰恰说明
         # 「内容已下沉到 reference/」——不该按内容文档的标准要求它拆。
@@ -757,6 +819,69 @@ def check_doc_shape(cfg, limits=None, root=None):
                 "issue": "单文件 %d 个 ## 章节（>12）" % len(heads),
                 "hint": "一个文件塞了多个主题 → 按主题拆开，"
                         "每份可独立定向加载"})
+    return issues
+
+
+
+# ---- 跨 skill 阈值一致性（反哺自 code-audit 的 SY001） ----
+#
+# 为什么需要：同一个集群里多个 skill 各写一套体积阈值，
+# 数字一旦漂移，会出现「这个文件在 A 库超限、在 B 库说通过」——
+# 而两边自检**都绿**，没人知道该信哪个。
+#
+# ⛔ 为什么不直接读对方 config：
+#    skill 是**独立可分发的单元**。把本 skill 单独拷到别的项目，
+#    兄弟 skill 路径就不存在了 → 运行时依赖会让自检崩，
+#    或更糟：静默降级成默认值。
+#    硬编码是慢性病，运行时依赖是急性病，所以选前者。
+#
+# ✅ 但「漂移没人知道」这半个风险必须堵掉：
+#    **找到就比对，找不到就跳过**（不报）。
+#    这样口头约定变成可验证的，同时保留独立分发能力。
+#    ——这正是 code-audit 侧 SY001 注释里写得最清楚的一段。
+#
+# ⚠ 比对**可执行阈值**（对方检查脚本里的常量），不比对散文里的数字：
+#    散文里写「200 行」可能只是举例，脚本里的常量才是真的会生效的那个。
+#    实测：两侧 SKILL.md 正文里根本没写上限，数字只在
+#    `check-skill.py` 的 `MAX_SKILL_SOFT` 和 `common-maintenance.md` 里。
+#    **对着散文比会一条都找不到，于是检查恒绿、从未验证**
+#    （正是刚修过的「gate 用例蹭真库状态」的同一形态）。
+SIBLING_THRESHOLDS = [
+    # (相对仓库根的路径, 正则, 说明)
+    ("_common/skills/code-audit/scripts/check-skill.py",
+     r"MAX_SKILL_SOFT\s*=\s*(\d+)", "code-audit 的 SKILL.md 软上限"),
+]
+
+
+def check_sibling_limits(cfg, root=None):
+    """兄弟 skill 的**可执行**阈值与本库是否一致。
+
+    只比对双方都拿得到的常量；任一侧缺失就跳过（不误报）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    mine = int(cfg.get("size_limits", {}).get("SKILL.md", 200))
+    repo = base.parent.parent
+    for rel, rx, label in SIBLING_THRESHOLDS:
+        cand = repo / rel
+        if not cand.is_file():
+            continue                      # 找不到就跳过：独立分发时的常态
+        try:
+            txt = cand.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        m = re.search(rx, txt)
+        if not m:
+            continue
+        theirs = int(m.group(1))
+        if theirs != mine:
+            issues.append({
+                "level": "warn",
+                "file": rel,
+                "issue": "%s %d 与本库 config.yaml 的 %d 不一致"
+                         % (label, theirs, mine),
+                "hint": "两边自检都会绿，但同一个文件在两边结论不同——"
+                        "改一处就要改另一处。找不到对方时本项跳过（不误报）"})
     return issues
 
 
@@ -1386,6 +1511,37 @@ trigger: 测试
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
 
+        # ---- 双阈值：token（占上下文的是 token，不是行数） ----
+        # ⛔ 用例必须自造**大宽表格**：token 多但行数少。
+        #   只造"很多行"的样本测不出 token 维度的差别——
+        #   它会被行数阈值先拦下，token 分支永远走不到。
+        # ⚠ 用 check_doc_shape（它支持 root 注入）；check_size 用的是
+        #   全局 ROOT，只能测真库——那是测数据不是测判据。
+        cfg_tk = {'size_limits': {'reference': 400},
+                  'token_limits': {'reference': 500}}
+        tk_ok = vroot / 'reference' / 'small.md'
+        tk_ok.write_text('# t\n\n' + ('短行\n' * 50), encoding='utf-8')
+        chk(not [i for i in check_doc_shape(cfg_tk, {'reference': 400}, vroot)
+                 if 'small.md' in str(i.get('file', ''))],
+            '行数与 token 都合规时不误报')
+        # 反面：token 超限但**行数合规**（32 行 / 2402 token）
+        tk_bad = vroot / 'reference' / 'dense.md'
+        tk_bad.write_text('# t\n\n' + ('字段' * 40 + '\n') * 30,
+                          encoding='utf-8')
+        got_tk = check_doc_shape(cfg_tk, {'reference': 400}, vroot)
+        chk(any('dense.md' in str(i.get('file', ''))
+                and 'tokens' in i.get('issue', '') for i in got_tk),
+            '行数合规但 token 超限能查出（双阈值不是只看行数）')
+        tk_ok.unlink(missing_ok=True)
+        tk_bad.unlink(missing_ok=True)
+
+        # ---- 跨 skill 阈值一致性：找不到就跳过（不误报） ----
+        # 反向用例：独立分发时兄弟 skill 不存在 → 必须 0 条，
+        # 否则会冒出一条无法解释的告警。
+        chk(check_sibling_limits({'size_limits': {'SKILL.md': 200}},
+                                 root=Path(tmp) / 'no-siblings') == [],
+            '找不到兄弟 skill 时跳过（不误报）——保留独立分发能力')
+
         # ---- 退出码码表 ----
         # 为什么需要：实测 lint.py --json **有 error 也返回 0**
         # → CI 用它解析 = 永远绿灯，gate 形同虚设。
@@ -1605,7 +1761,8 @@ def main():
               + check_degeneracy(cfg) + check_exemptions(cfg)
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
               + check_mirror_pairs(cfg) + check_reference_zones(cfg)
-              + check_flow_steps(cfg) + check_exitcode_adoption(cfg))
+              + check_flow_steps(cfg) + check_exitcode_adoption(cfg)
+              + check_sibling_limits(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

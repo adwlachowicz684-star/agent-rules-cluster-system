@@ -34,6 +34,16 @@ size_limits:
   _preferences.md: 40
   _commands.md: 120
 
+# token 上限（双阈值：行数 + token）
+# 反哺自 code-audit 的 SK006/SK009。⛔ 只卡行数不够：
+# **占上下文的是 token，不是行数**——150 行的宽表格可能比 400 行散文贵得多。
+# 不配则取 lint.py 里的 TOKEN_LIMITS 默认值。
+token_limits:
+  SKILL.md: 8192
+  reference: 8192
+  skills: 8192
+  assets: 8192
+
 # 大类注册表
 # keywords 用于自动归属推荐，写全同义词与典型术语
 # core：领域核心词，命中 1 个即确认归属（无需二次确认）
