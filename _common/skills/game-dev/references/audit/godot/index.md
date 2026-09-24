@@ -92,6 +92,7 @@
 | `vegetation` | `audit/godot/vegetation.md` |
 | `vip-subscription` | `audit/godot/vip-subscription.md` |
 | `vehicle` | `audit/godot/vehicle.md` |
+| `achievement` | `audit/godot/achievement.md` |
 
 ## 常见漏写速查
 

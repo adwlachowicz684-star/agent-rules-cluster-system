@@ -107,6 +107,9 @@ extends Resource
 ⚠ **平台成就**（Steam/Epic）：Godot 核心**没有内置**，
 需要插件（GodotSteam 等），维护状态与版本兼容要现查（见 `plugins.md`）。
 
+ⓘ 本节是**摘要**。完整做法（进度模型、解锁事务、幂等、隐藏成就、平台对接、backfill）
+见 `achievement.md`，流程见 `flow/godot/achievement/`。
+
 ## 5. 排行榜
 
 - **本地排行榜**：存存档里，简单
