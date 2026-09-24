@@ -303,7 +303,15 @@ def token_estimate(text):
     return n
 
 
-def check_size(cfg, limits):
+def check_size(cfg, limits, root=None):
+    """root 参数只给自检用例用（自造样本），生产调用走默认 ROOT。
+
+    ⚠ 为什么必须支持注入：不注入就只能测真库，
+    而真库里恰好有一个超限文件时就「蹭过了」——
+    用例没有验证任何东西（第二十四条实证：把断言换成
+    `chk(True)`，自检总数完全不变 61/0 → 61/0）。
+    """
+    base = Path(root) if root else ROOT
     issues = []
 
     def chk(path, label, key, hint=""):
@@ -324,21 +332,21 @@ def check_size(cfg, limits):
         issues.append({"level": "warn", "file": label, "lines": n,
                        "limit": lim, "hint": hint or HINTS.get(key, "拆分")})
 
-    chk(ROOT / "SKILL.md", "SKILL.md", "SKILL.md", "细节下沉到 reference/")
+    chk(base / "SKILL.md", "SKILL.md", "SKILL.md", "细节下沉到 reference/")
     for name in ("_hot.md", "_preferences.md", "_commands.md"):
-        chk(ROOT / "SKILLS" / name, "SKILLS/" + name, name,
+        chk(base / "SKILLS" / name, "SKILLS/" + name, name,
             "拆分为多个文件或归档低频条目")
     # rglob 而非 glob：reference/ 下已分为 howto/audit/flow/common/craft
     # 五个子区，只扫顶层会让子区的文档**完全不参与体积检查**。
-    for f in sorted((ROOT / "reference").rglob("*.md")):
-        chk(f, str(f.relative_to(ROOT)), "reference")
+    for f in sorted((base / "reference").rglob("*.md")):
+        chk(f, str(f.relative_to(base)), "reference")
 
-    ad = ROOT / "assets"
+    ad = base / "assets"
     if ad.exists():
         for f in sorted(ad.glob("*.md")):
             chk(f, "assets/" + f.name, "assets")
 
-    for key in cfg.get("domains", {}):
+    for key in (cfg.get("domains", {}) if root is None else {}):
         d = domain_dir(cfg, key)
         for sub in ("rules", "agents", "skills", "assets"):
             sd = d / sub
@@ -1759,6 +1767,21 @@ trigger: 测试
         nx.write_text('# t\n\n' + ('内容\n' * 500), encoding='utf-8')
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
+
+        # ---- 分层目录必须参与体积检查（EV-M08） ----
+        # ⛔ 历史缺陷：reference/ 分成五区后，`check_size` 用 glob
+        #    只扫顶层 → **子区的文档完全不参与体积检查**。
+        #    实测：把 rglob 改回 glob，自检**照样 61/0 全绿**——
+        #    这个修过的缺陷**没有任何用例守着**。
+        #    （同一形态在 code-audit 侧踩过三次：断链 / 扫描器 / 体积）
+        sub = vroot / 'reference' / 'howto'
+        sub.mkdir(parents=True, exist_ok=True)
+        deep = sub / 'big.md'
+        deep.write_text('# t\n\n' + ('内容\n' * 420), encoding='utf-8')
+        got_deep = check_size({'size_limits': {}}, {'reference': 400}, vroot)
+        chk(any('big.md' in str(i.get('file', '')) for i in got_deep),
+            '子区目录里的超限文件能查出（rglob 不是 glob）')
+        deep.unlink()
 
         # ---- check_check_coverage 自身：正反两侧 ----
         # ⛔ 光有这个检查项不够，它自己也得被验证：

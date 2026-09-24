@@ -68,5 +68,25 @@
     "expect": "KILLED",
     "why": "反哺 code-audit `--cross`。实测首次跑就抓出 check_root **在自检里从未被调用**——它失效了自检也全绿。已补正反两侧用例",
     "source": "2026-09-24 反哺 rule-registry --cross 时发现"
+  },
+  {
+    "id": "EV-M08",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围] reference 体积检查 rglob → glob：子区文档完全不参与体积检查",
+    "old": "    for f in sorted((base / \"reference\").rglob(\"*.md\")):",
+    "new": "    for f in sorted((base / \"reference\").glob(\"*.md\")):",
+    "expect": "KILLED",
+    "why": "⛔ 实测：改回 glob 后自检**照样 61/0 全绿**——这个修过的缺陷没有任何用例守着。同一形态在 code-audit 侧踩过三次（断链/扫描器/体积）。已补用例；为让用例能自造样本，给 check_size 加了 root 注入",
+    "source": "2026-09-24 交叉审计时回放历史缺陷发现"
+  },
+  {
+    "id": "EV-M09",
+    "target": "scripts/lint.py",
+    "desc": "[误报] Step 识别改回「标题含 Step 字样」：说明性章节被当真步骤",
+    "old": "            if line.startswith(\"### \") and re.search(\n                    r'\\[[A-Za-z0-9-]+#S\\d+\\]', line):",
+    "new": "            if line.startswith(\"### \") and (\n                    re.search(r'\\[[A-Za-z0-9-]+#S\\d+\\]', line)\n                    or 'Step' in line):",
+    "expect": "KILLED",
+    "why": "实测 new-skill.md 的「### 批量四步（替换 Step 4）」只是**提到** Step，却被当成真 Step 报「缺五字段」。判据：节点 ID 才是稳定标识，不是标题字样",
+    "source": "2026-09-24 补 FL-03 时发现并修复"
   }
 ]
