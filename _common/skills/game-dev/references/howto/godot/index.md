@@ -44,7 +44,7 @@
 | **渲染管线** | `render-pipeline.md` | 三渲染器能力矩阵 · Web 只能 Compatibility · 性能曲线反直觉 · 后处理开销排序 |
 | **光照** | `lighting.md` | 三种 GI 选型 · 烘焙六步与失败码 · bias 权衡 · 体积雾仅 Forward+ |
 | **美术资产** | `art-assets.md` | Filter/Repeat/Mipmap · 像素糊的五个原因 · 压缩按用途分层 · 中文子集化 |
-| **相机/过场** | `camera-cutscene.md` | 相机分层 · 帧率无关 lerp · trauma 平方衰减 · 过场三要素同状态机 |
+| **相机/过场** | `camera-cutscene.md` | 相机分层 · 帧率无关 lerp · trauma 平方衰减 · 过场三要素同状态机 · **视角切换要继承朝向**（否则切完朝天/朝地）· ⛔ 第一人称本体分层+near 更小 · **多相机用优先级栈**（过场>死亡>载具>正常），⛔ push/pop 必须配对否则永久卡住 |
 | **引导/成就** | `onboarding-meta.md` | 引导超时兜底 · 九宫格挖洞 · 成就定义与状态分离 · Mod 是任意代码 |
 | **平台导出/发布** | `platform-export.md` | 六平台速查表 · Web 仅 Compatibility · 多线程需 COOP+COEP · NDK 必须 r28b · keystore 丢了包名报废 |
 | **GDExtension 实战** | `gdextension-deep.md` | pin 到 4.7 同步 commit · entry_symbol 严格匹配 · 只在 SCENE 层注册 · RefCounted 必须 Ref<T> |
