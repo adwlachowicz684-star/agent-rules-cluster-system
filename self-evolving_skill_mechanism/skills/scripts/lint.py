@@ -822,7 +822,9 @@ def check_doc_shape(cfg, limits=None, root=None):
                 "file": rel,
                 "lines": n, "limit": lim,
                 "issue": "接近体积上限（%d/%d，%d%%）" % (n, lim, n * 100 // lim),
-                "hint": "现在规划拆分，别等超限——超限后拆要重写目录与交叉引用"})
+                "hint": "现在规划拆分，别等超限——超限后拆要重写目录与交叉引用。"
+                        "⚠ 这是**加载成本**上限，不是充实度判据："
+                        "没到上限 ≠ 写够了（见 craft/substance.md）"})
 
         # ---- 双阈值：token（占上下文的是 token，不是行数） ----
         # 行数合规但 token 超了 → 照样会撑爆上下文。
@@ -842,7 +844,9 @@ def check_doc_shape(cfg, limits=None, root=None):
                     "issue": "约 %d tokens，超过 %d（行数 %d 未超限）"
                              % (tk, tlim, n),
                     "hint": "占上下文的是 token 不是行数——"
-                            "宽表格/密集代码会「行数合规但读进来很贵」"})
+                            "宽表格/密集代码会「行数合规但读进来很贵」。"
+                            "⚠ 同样是成本上限，不是充实度判据"
+                            "（见 craft/substance.md）"})
 
         # SKILL.md 是入口导航，天生多主题；它的章节多恰恰说明
         # 「内容已下沉到 reference/」——不该按内容文档的标准要求它拆。
@@ -860,7 +864,9 @@ def check_doc_shape(cfg, limits=None, root=None):
                 "file": rel,
                 "issue": "单文件 %d 个 ## 章节（>12）" % len(heads),
                 "hint": "一个文件塞了多个主题 → 按主题拆开，"
-                        "每份可独立定向加载"})
+                        "每份可独立定向加载。"
+                        "⚠ 章节数不是充实度：12 个空章节比 3 个写透的差得多"
+                        "（见 craft/substance.md）"})
     return issues
 
 
@@ -1690,6 +1696,32 @@ trigger: 测试
         nx.write_text('# t\n\n' + ('内容\n' * 500), encoding='utf-8')
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
+
+        # ---- 体积提示必须声明「不是充实度判据」 ----
+        # ⛔ 体积检查最容易被误读成"充实度指标"：
+        #   「还没到上限」被当成「写够了」，「超了上限」被当成「写得好」。
+        #   前者会让空模块一直空着，后者会奖励注水。
+        #   → 三处 hint 都必须带这句，且指向 craft/substance.md。
+        #   这条能被自动验证（hint 文案在，指向在），
+        #   而"内容到底充不充实"**无法自动验证**——
+        #   这正是 substance.md 的核心论点：充实度是数不出来的那部分。
+        hs = []
+        (vroot / 'reference').mkdir(parents=True, exist_ok=True)
+        big = vroot / 'reference' / 'b.md'
+        big.write_text('# t\n\n' + ('## 章节\n\n内容\n' * 14)
+                       + ('内容\n' * 330), encoding='utf-8')
+        for i in check_doc_shape({'size_limits': {'reference': 400}},
+                                 {'reference': 400}, vroot):
+            hs.append(i.get('hint', ''))
+        big.unlink(missing_ok=True)
+        # ⚠ 用 all 不用 any：只查「任一条有」时，改掉其中一条
+        #   用例照样绿 —— 变异验证（去掉 o1 那句）实测**没变红**，
+        #   用例形同虚设。这正是「用例必须能因改动而变红」的硬要求。
+        vol_hints = [h for h in hs if h]
+        chk(bool(vol_hints), '体积样本确实触发了提示（否则用例没在验证）')
+        chk(all('不是充实度' in h and 'substance.md' in h
+                for h in vol_hints),
+            '每条体积提示都要声明「不是充实度判据」并指向 craft/substance.md')
 
         # ---- 豁免必须覆盖「接近上限」档（EV-M04） ----
         # ⛔ 这条是**变异 EV-M04 抓出来的真盲区**：

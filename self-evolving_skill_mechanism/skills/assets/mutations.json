@@ -48,5 +48,15 @@
     "expect": "KILLED",
     "why": "双阈值不是装饰。关掉后「150 行宽表格比 400 行散文贵」这类文件完全查不出",
     "source": "2026-09-24 反哺 code-audit SK006/SK009 时新增"
+  },
+  {
+    "id": "EV-M06",
+    "target": "scripts/lint.py",
+    "desc": "[用例形同虚设] 体积 hint 的断言退化 → 改掉任一提示用例照样绿",
+    "old": "        vol_hints = [h for h in hs if h]",
+    "new": "        vol_hints = []   # 变异：样本没触发任何提示",
+    "expect": "KILLED",
+    "why": "实测：断言用 any 时，去掉 o1 那句后 o3 仍在 → any 为真 → 变异没变红，用例形同虚设。改为 all() + 先断言 vol_hints 非空。判据：**断言必须能因「任一条被改坏」而变红**，且必须先断言「样本确实触发了」——否则空列表让 all() 恒真",
+    "source": "2026-09-24 加充实度判据时发现"
   }
 ]
