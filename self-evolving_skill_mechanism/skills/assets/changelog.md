@@ -59,3 +59,9 @@
 | 2026-09-24 | self-verification | 拆分 | 522 行 25 章节 → silent/falsepos/credibility 三册，**保留全局编号**（一~二十） |
 | 2026-09-24 | consolidation-rules | 拆分 | 251 行 19 章节 → gate/place/practice 三分 |
 | 2026-09-24 | lint.py | 修正 | Step 判据改为**按节点 ID**识别，不按标题含 Step 字样（「批量四步（替换 Step 4）」曾被误判为 Step） |
+| 2026-09-24 | flow/audit-skill.md | 新增 | `FL-04` 审核一个 skill（七节 + 三张表）。此前有「从零建」无「怎么审」，结构缺一半 |
+| 2026-09-24 | scripts/exitcode.py | 新增 | 退出码码表（反哺 code-audit AR-04）：0 成功 / 2 参数错 / 3 环境不满足 / 4 被拦下 |
+| 2026-09-24 | lint.py --json | 修正 | **有 error 也返回 0** → CI 用 --json 解析 = 永远绿灯，gate 形同虚设。已带退出码 |
+| 2026-09-24 | lint.py 退出码 | 修正 | error 从 1（工具错）改 4（BLOCKED）：让人改内容，不是去修工具 |
+| 2026-09-24 | domain.py / env.py | 补充 | 接入码表：`sys.exit("字符串")` 恒为 1 → die(ENV/USAGE)。env 不满足从 1 改 3 |
+| 2026-09-24 | lint.py | 新增 | `check_exitcode_adoption` 接入率检查 + 3 条自检用例（守护 --json gate，变异验证 41/1） |

@@ -17,12 +17,14 @@
 import re
 import sys
 import json
+import subprocess
 import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from domain import load_config, domain_dir, domain_root, CONFIG  # noqa: E402
+from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die, help_text  # 码表：0/1/2/3/4
 
 DEFAULTS = {
     "SKILL.md": 200,
@@ -513,6 +515,52 @@ def check_flow_steps(cfg, root=None):
                 issues.append({"level": "error", "file": "reference/flow/index.md",
                                "issue": "登记了 %s，但没找到对应文件" % rid,
                                "hint": "文件被删或 flow-id 写错"})
+    return issues
+
+
+def check_exitcode_adoption(cfg, root=None):
+    """退出码码表接入率（反哺自 code-audit 的 check-list-drift 第 6 项）。
+
+    为什么需要：新建设施最容易死在「造好了但没人接」——
+    `exitcode.py` 造出来后，若只有 lint.py 接了，其余脚本仍是
+    「成功 / 失败」二态，自动化无法分流
+    （见 self-verification-silent.md 第七条）。
+
+    ⚠ **两种不同的合法接入方式，都要认**：
+      ① 用 argparse —— 未知参数自动退出 2，与码表的 USAGE 一致
+      ② 导入 exitcode —— 能进一步区分 ENV / BLOCKED
+
+    ⛔ 只认 ② 会把用 argparse 的脚本全部误报成「没接」——
+       **误报的检查会被关掉**（falsepos 第十四条）。
+
+    但仍要区分「有 USAGE 保护」与「有完整分类」：
+    argparse 只给了 2，ENV(3) / BLOCKED(4) 仍要靠导入 exitcode。
+    """
+    base = Path(root) if root else ROOT
+    sd = base / "scripts"
+    if not sd.is_dir():
+        return []
+    issues = []
+    for py in sorted(sd.glob("*.py")):
+        if py.name in ("exitcode.py", "_flagguard.py", "cocos_audit.py"):
+            continue        # 码表自身 / 守卫自身 / 转发壳
+        try:
+            src = py.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        rel = str(py.relative_to(base))
+        has_ap = "argparse" in src
+        has_ec = ("from exitcode import" in src) or ("import exitcode" in src)
+        if not has_ap and not has_ec:
+            issues.append({"level": "error", "file": rel,
+                           "issue": "退出码不可分类：既无 argparse 也未导入 exitcode",
+                           "hint": "所有失败路径返回同一个码 → 自动化无法分流"
+                                   "（AR-04）。加 `from exitcode import ...`"})
+        elif has_ap and not has_ec:
+            # 有 USAGE 保护，但缺 ENV/BLOCKED 区分 —— 提示，不阻断
+            issues.append({"level": "info", "file": rel,
+                           "issue": "仅靠 argparse（有 USAGE=2），未区分 ENV/BLOCKED",
+                           "hint": "能区分「环境没配」与「内容有违规」时接 exitcode"})
     return issues
 
 
@@ -1280,6 +1328,37 @@ trigger: 测试
             '标题提到 Step 但不是工序步 → 不误报（按节点 ID 识别）')
         (fl / 'mention.md').unlink()
 
+        # ---- 退出码码表 ----
+        # 为什么需要：实测 lint.py --json **有 error 也返回 0**
+        # → CI 用它解析 = 永远绿灯，gate 形同虚设。
+        # ⛔ 这个 bug 会静默复发：改 main() 时顺手把 sys.exit 删掉就又回到 0。
+        try:
+            import exitcode
+            chk(exitcode.OK == 0 and exitcode.USAGE == 2
+                and exitcode.ENV == 3 and exitcode.BLOCKED == 4,
+                '退出码码表常量正确（0/2/3/4）')
+        except ImportError as _e:
+            chk(False, 'exitcode 模块可导入（%s）' % _e)
+        # 关键：机器可读模式**同样**要带退出码
+        rj = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'lint.py'),
+                             '--json'], capture_output=True, text=True)
+        try:
+            jd = json.loads(rj.stdout or '[]')
+        except ValueError:
+            jd = []
+        jerr = [i for i in jd if i.get('level') == 'error']
+        if jerr:
+            chk(rj.returncode != 0,
+                '--json 模式有 error 时退出码非 0（否则 gate 形同虚设）')
+        else:
+            chk(True, '--json 模式无 error（跳过 gate 用例）')
+        # 普通模式：有 error → BLOCKED(4)，不是 ERR(1)
+        rn = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'lint.py'),
+                             ], capture_output=True, text=True)
+        if jerr:
+            chk(rn.returncode == 4,
+                '普通模式有 error → 退出码 4（BLOCKED，不是 1）')
+
         # ---- flow/ 区流程规范 ----
         # ⚠ 正反两侧都要造：meta 不误报、procedure 五字段不全要报、
         # 缺整体审核要报、index 双向。只造正向会让「省字段」从未被验证。
@@ -1457,11 +1536,15 @@ def main():
               + check_degeneracy(cfg) + check_exemptions(cfg)
               + check_markdown_headings(cfg) + check_doc_shape(cfg, limits)
               + check_mirror_pairs(cfg) + check_reference_zones(cfg)
-              + check_flow_steps(cfg))
+              + check_flow_steps(cfg) + check_exitcode_adoption(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
-        return
+        # ⚠ 实测：原先这里直接 return → **有 error 也返回 0** →
+        # CI 用 --json 解析 = 永远绿灯，gate 形同虚设。
+        # 机器可读模式**同样**要带退出码，否则解析方只能再去 grep 文本。
+        errs_j = [i for i in issues if i.get("level") == "error"]
+        sys.exit(BLOCKED if errs_j else OK)
 
     errs = [i for i in issues if i["level"] == "error"]
     warns = [i for i in issues if i["level"] == "warn"]
@@ -1524,7 +1607,9 @@ def main():
             print("  … 另有 %d 项" % (len(infos) - 10))
     print("\n合计：%d 错误 · %d 预警 · %d 提示" % (len(errs), len(warns), len(infos)))
     if errs:
-        sys.exit(1)
+        # 4 = 被防护拦下：内容有问题，**改动没丢**，照提示改即可。
+        # 用 1（工具自身出错）会让人去修工具，而这里该修的是内容。
+        sys.exit(BLOCKED)
 
 
 if __name__ == "__main__":

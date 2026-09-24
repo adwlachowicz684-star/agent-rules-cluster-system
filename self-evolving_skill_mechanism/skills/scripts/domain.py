@@ -28,6 +28,7 @@ import sys
 import argparse
 import subprocess
 from pathlib import Path
+from exitcode import OK, USAGE, ENV, ERR, die  # 码表：0/1/2/3/4
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "config.yaml"
@@ -79,7 +80,7 @@ def load_config(path: Path = CONFIG) -> dict:
     与其给出错误归属，不如直接报错。
     """
     if not path.exists():
-        sys.exit(f"找不到配置文件：{path}")
+        die(ENV, f"找不到配置文件：{path}")
     cfg, section, cur = {}, None, None
     cfg["__path__"] = str(path)   # 供写回时定位，避免硬编码引擎自带配置
     for lineno, indent, s in _logical_lines(path.read_text(encoding="utf-8")):
@@ -99,8 +100,7 @@ def load_config(path: Path = CONFIG) -> dict:
             cfg[section][k.strip()] = _scalar(v.strip())
         elif indent == 4 and ":" in s:
             if cur is None:
-                sys.exit(
-                    f"配置错误：{path}:{lineno} 「{s}」缩进为 4 但前面没有大类 key。\n"
+                die(USAGE,                    f"配置错误：{path}:{lineno} 「{s}」缩进为 4 但前面没有大类 key。\n"
                     f"  多半是删除某个大类时只删了 `  key:` 行、漏删了下面的内容。\n"
                     f"  请补齐 key 行，或删掉这段孤儿字段。"
                 )
@@ -109,8 +109,7 @@ def load_config(path: Path = CONFIG) -> dict:
             # 同一大类内字段名重复 → 多半是孤儿块混进来了
             # （删 key 时漏删内容，属性被静默并入上一个人类的后果）
             if k in cfg[section][cur]:
-                sys.exit(
-                    f"配置错误：{path}:{lineno} 大类「{cur}」中字段 `{k}` 重复定义。\n"
+                die(USAGE,                    f"配置错误：{path}:{lineno} 大类「{cur}」中字段 `{k}` 重复定义。\n"
                     f"  常见原因：删除某个人类时只删了 `  key:` 行，下面的内容成了孤儿块，\n"
                     f"  被静默并入上一个人类（表现为某个人类被改名为别的名字）。\n"
                     f"  请检查 `{section}` 段，补齐缺失的 key 行或删掉孤儿字段。"
@@ -132,8 +131,7 @@ def _check_keyword_types(cfg: dict, path: Path) -> None:
         for field in ("keywords", "core"):
             v = meta.get(field)
             if v is not None and not isinstance(v, list):
-                sys.exit(
-                    f"配置错误：{path} 大类「{key}」的 {field} 被解析成 "
+                die(USAGE,                    f"配置错误：{path} 大类「{key}」的 {field} 被解析成 "
                     f"{type(v).__name__}，应为列表。\n"
                     f"  常见原因：跨行流式列表的括号没成对，未被合并成一行。\n"
                     f"  逐字符匹配会让路由结果失真，请检查该字段的括号或改写成单行。"
@@ -411,7 +409,7 @@ LOCAL_TEMPLATE = """# 项目本地规则（优先级最高）
 
 def cmd_link(cfg: dict, key: str, project: str) -> None:
     if key not in cfg.get("domains", {}):
-        sys.exit(f"未注册的大类：{key}\n已注册：{', '.join(cfg.get('domains', {}))}")
+        die(USAGE, f"未注册的大类：{key}\n已注册：{', '.join(cfg.get('domains', {}))}")
     target = domain_dir(cfg, key)
     target.mkdir(parents=True, exist_ok=True)
     proj = Path(project).expanduser().resolve()
@@ -433,7 +431,7 @@ def cmd_link(cfg: dict, key: str, project: str) -> None:
 
 def cmd_where(cfg: dict, key: str, sub: str = "skills") -> None:
     if key not in cfg.get("domains", {}):
-        sys.exit(f"未注册的大类：{key}")
+        die(USAGE, f"未注册的大类：{key}")
     print(domain_dir(cfg, key) / sub)
 
 

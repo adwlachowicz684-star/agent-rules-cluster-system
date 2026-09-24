@@ -23,6 +23,7 @@ import sys
 import json
 import shutil
 import argparse
+from exitcode import OK, ENV  # 码表：0/3
 import subprocess
 
 # 常用工具：探测到就可在技能里放心使用
@@ -187,7 +188,10 @@ def main():
     if args.check:
         ok = matches(args.check, env)
         print(f"{'✓ 适用' if ok else '✗ 不适用'}：{args.check}  （当前 {env['python']} / {env['platform']}）")
-        sys.exit(0 if ok else 1)
+        # 环境不满足 → ENV(3)，不是 ERR(1)：这不是工具的 bug，
+        # 照提示装依赖/切环境即可。自动化据此能分流「去配环境」
+        # 与「工具坏了」——原来两者都是 1。
+        sys.exit(OK if ok else ENV)
     if args.json:
         print(json.dumps(env, ensure_ascii=False, indent=2))
         return
