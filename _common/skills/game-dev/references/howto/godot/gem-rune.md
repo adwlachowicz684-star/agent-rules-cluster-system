@@ -83,7 +83,7 @@ class_name SocketSlot extends Resource
 ⛔ **绝不能"先删宝石再插新的"**——中间态失败则宝石**凭空消失**。
 覆盖镶嵌必须是**一次原子替换**：算出新数组 → 校验 → 整体写回。
 
-ⓘ 与 `inventory.md` 的移动事务是同一套：试算 → 提交，零脏数据。
+ⓘ 与 `flow/godot/inventory/04-移动与原子性.md` 的移动事务是同一套：试算 → 提交，零脏数据。
 
 ## 4. 拆卸与损耗
 
@@ -186,7 +186,7 @@ class_name SocketSlot extends Resource
 
 - 装备四层与数值管线 → `economy.md`
 - 词条/构筑 → `build-affix.md`
-- 背包移动事务 → `inventory.md`（试算→提交）
+- 背包移动事务 → `flow/godot/inventory/04-移动与原子性.md`（试算→提交）
 - 转职时的装备兼容 → `class-awaken.md`
 - 存档迁移 → `save-migration.md`
 - 服务端权威 → `netsync-advanced.md`、`multiplayer.md`

@@ -190,12 +190,12 @@ VehicleBody3D            # 根
 
 ## 10. 相关文档
 
-- 物理与摩擦 → `physics-materials.md`
+- 物理与摩擦 → `physics.md`
 - 角色移动状态机（上下车交接）→ `movement-advanced.md`
 - 输入与改键 → `input-remap.md`
 - 相机跟随 → `camera-cutscene.md`
-- 网络同步 → `netsync.md`
-- 存档 → `save.md`
+- 网络同步 → `netsync-advanced.md`
+- 存档 → `save-migration.md`
 - 关卡与生成点 → `level-design.md`
 
 ## 11. 审核清单

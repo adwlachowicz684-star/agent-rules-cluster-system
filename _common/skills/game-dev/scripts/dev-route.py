@@ -1943,6 +1943,26 @@ def cmd_self_test():
         except Exception as _e:
             chk(False, '【审】映射相关性扫描可执行（%s）' % str(_e)[:60])
 
+        # ⚠ md 正文的文件引用（接缝表/正文里的 `xxx.md`）此前**完全没被校验**：
+        #   断链检查只认【读】反引号锚点，这类普通文本引用是盲区。
+        #   ⛔ 实测：铺 vehicle/gem 两域时凭印象写文件名，写出 20 处断链
+        #      （physics-materials / netsync / save / inventory 全是想当然的拼法），
+        #      而自检全程报「0 断链」—— 因为它压根没检查这一类。
+        try:
+            import importlib.util as _ilu3
+            _sp3 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 'check-md-refs.py')
+            _spec3 = _ilu3.spec_from_file_location('cmdr', _sp3)
+            _cmdr = _ilu3.module_from_spec(_spec3)
+            _spec3.loader.exec_module(_cmdr)
+            _tot3, _bad3 = _cmdr.scan()
+            chk(_tot3 > 0, 'md 引用扫描能取到样本（当前 %d 处引用）' % _tot3)
+            chk(not _bad3,
+                'md 正文引用无断链（%d 处：%s）'
+                % (sum(len(v) for v in _bad3.values()), list(_bad3)[:3]))
+        except Exception as _e3:
+            chk(False, 'md 引用扫描可执行（%s）' % str(_e3)[:60])
+
     print()
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
