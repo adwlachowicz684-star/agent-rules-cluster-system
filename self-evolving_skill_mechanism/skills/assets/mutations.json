@@ -178,5 +178,15 @@
     "expect": "KILLED",
     "why": "⛔ 六问第 1 问「扫描范围包含入口文件吗」的自动化。缺陷**就是在 SKILL.md 里发现的**，而它不在任何「批量扫描的目录」里——最常被读的文件最容易漏在范围外。上线即抓到真漏：`check_block_refs` 只扫 reference/，而 SKILL.md 引用 `#EC-xx` 完全合理",
     "source": "2026-09-25 六问第 1 问自动化时新增"
+  },
+  {
+    "id": "EV-M19",
+    "target": "scripts/lint.py",
+    "desc": "[格式缺陷] 重复章节标题检测失效 → 两个编号相同的章节不报",
+    "old": "            if st in seen:",
+    "new": "            if False:  # 变异：重复标题不查",
+    "expect": "KILLED",
+    "why": "⛔ 实测：往「## 六、自检」后**插入**新自检项时原文块没删，文件里出现**两个完全相同的 `## 六、自检`**。Markdown 照常渲染成两个编号相同的章节——**读的人以为自己看重复了，或漏掉第二个块**。现有检查抓不到：check_markdown_headings 只查重复 `#` 字符，两个各自合法的相同标题它不管；行数/体积/死链全正常。上线即抓到 6 条真重复（changelog-archive 重复追加）",
+    "source": "2026-09-25 techniques.md 自己踩的坑"
   }
 ]

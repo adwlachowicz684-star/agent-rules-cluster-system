@@ -1619,6 +1619,61 @@ def check_scan_scope(cfg, root=None):
     return issues
 
 
+def check_duplicate_headings(cfg, root=None):
+    """同一文件内**重复的章节标题**。
+
+    ⛔ 实测（techniques.md）：往「## 六、自检（30 秒）」后面
+    **插入**新的自检项时，原文块没删，结果文件里出现
+    **两个完全相同的 `## 六、自检（30 秒）`**。
+
+    Markdown 会正常渲染——它只是显示成两个编号相同的章节。
+    **读的人会以为自己看重复了**，或者干脆漏掉第二个块里的条目。
+
+    为什么现有检查抓不到：
+    - `check_markdown_headings` 只查**重复 `#` 字符**（`## ## x`）
+      和**缩进标题**——两个各自合法的相同标题它不管
+    - 行数、体积、死链全部正常
+    - **唯一可见的时刻是人读文档时**
+
+    ⛔ 与「孤立表格行」是同一族：**格式缺陷 100% 静默**（第十七条）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    targets = [p for p in sorted(base.rglob("*.md")) if ".git" not in str(p)]
+    for f in targets:
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        outs, in_fence = [], False
+        for ln in lines:
+            if ln.strip().startswith("```"):
+                in_fence = not in_fence
+                outs.append(False)
+                continue
+            outs.append(not in_fence)
+        seen, dup = {}, []
+        for i, ln in enumerate(lines):
+            if not (i < len(outs) and outs[i]):
+                continue
+            st = ln.strip()
+            if not st.startswith("#"):
+                continue
+            if st in seen:
+                dup.append((st, i + 1, seen[st]))
+            else:
+                seen[st] = i + 1
+        rel = str(f.relative_to(base))
+        for txt, ln2, ln1 in dup:
+            issues.append({
+                "level": "warn", "file": "%s:%d" % (rel, ln2),
+                "issue": "重复章节标题（与第 %d 行相同）：%s" % (ln1, txt[:40]),
+                "hint": "⛔ Markdown 会正常渲染成两个编号相同的章节——"
+                        "读的人以为自己看重复了，或漏掉第二个块。"
+                        "多半是插入内容时没删原文块（第十七条：格式缺陷 100% 静默）"})
+    return issues
+
+
 def check_antipattern_tables(cfg, root=None):
     """反模式清单的表头必须是两种形态之一，且列齐全。
 
@@ -2575,6 +2630,40 @@ trigger: 测试
                  if 'check_zzz' in str(i.get('issue', ''))],
             '只扫 .py 的检查不报（入口 .md 对它没意义 → 噪音）')
         (sg / 'lint.py').unlink(missing_ok=True)
+
+        # ---- 重复章节标题（EV-M19） ----
+        # ⛔ 实测：往「## 六、自检」后插入新项时原文块没删 →
+        #    两个完全相同的 `## 六、自检`。Markdown 照常渲染，
+        #    只有人读时才看得见（第十七条：格式缺陷 100% 静默）。
+        dh = vroot / 'reference' / 'craft'
+        dh.mkdir(parents=True, exist_ok=True)
+        dfile = dh / 'd.md'
+        # 正向：标题各不相同 → 不报
+        dfile.write_text('# d\n\n## 一\n\nx\n\n## 二\n\ny\n',
+                         encoding='utf-8')
+        chk(not [i for i in check_duplicate_headings(cfg, vroot)
+                 if 'd.md' in str(i.get('file', ''))],
+            '标题各不相同不报')
+        # 反向：相同标题 → 报
+        dfile.write_text('# d\n\n## 一\n\nx\n\n## 一\n\ny\n',
+                         encoding='utf-8')
+        chk(any('d.md' in str(i.get('file', ''))
+                and '重复章节标题' in str(i.get('issue', ''))
+                for i in check_duplicate_headings(cfg, vroot)),
+            '重复章节标题能查出')
+        # 反侧：代码块内的重复标题 → 不误报（示例是正常的）
+        dfile.write_text('# d\n\n```\n## 一\n## 一\n```\n',
+                         encoding='utf-8')
+        chk(not [i for i in check_duplicate_headings(cfg, vroot)
+                 if 'd.md' in str(i.get('file', ''))],
+            '代码块内的重复标题不误报')
+        # 反侧二：不同层级标题同名 → 不报（## 与 ### 是两个东西）
+        dfile.write_text('# d\n\n## 一\n\nx\n\n### 一\n\ny\n',
+                         encoding='utf-8')
+        chk(not [i for i in check_duplicate_headings(cfg, vroot)
+                 if 'd.md' in str(i.get('file', ''))],
+            '不同层级的同名标题不报（## 与 ### 是两回事）')
+        dfile.unlink(missing_ok=True)
 
         # ---- 反模式表形态（EV-M11） ----
         # 反哺自 game-dev 109 份反模式册：只有两种合法表头。
