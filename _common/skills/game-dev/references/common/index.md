@@ -18,7 +18,7 @@
 | GC-03 | 数据与逻辑分离 | `howto/godot/datatable.md` `howto/godot/economy.md` `howto/godot/character.md`  `howto/godot/class-awaken.md` `howto/godot/gem-rune.md` `howto/godot/relic-build.md` `howto/godot/vip-subscription.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md`|
 | GC-04 | 事件解耦 vs 直接引用 | `howto/godot/combat.md` `howto/godot/ui.md` `howto/godot/survival.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/modding.md`|
 | GC-05 | 缓存必须有失效路径 | `howto/godot/datatable.md` `howto/godot/ui.md` `howto/godot/save-migration.md` `howto/godot/economy.md`  `howto/godot/class-awaken.md` `howto/godot/gem-rune.md` `howto/godot/relic-build.md` `howto/godot/vip-subscription.md` `howto/godot/modding.md`|
-| GC-06 | 性能：先定位再优化 | `howto/godot/performance.md` `howto/godot/ui.md` `howto/godot/ai-behavior.md` `howto/godot/vegetation.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md`|
+| GC-06 | 性能：先定位再优化 | `howto/godot/performance.md` `howto/godot/ui.md` `howto/godot/ai-behavior.md` `howto/godot/vegetation.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md` `flow/godot/perf/03-优化顺序.md`|
 | GC-07 | 手感优先于正确性 | `howto/godot/character.md` `howto/godot/combat.md` `howto/godot/vfx-feel.md` `howto/godot/vehicle.md` `howto/godot/physics.md`|
 | GC-08 | 常见架构模式速查 | `howto/godot/systems.md` `howto/godot/datatable.md` |
 
