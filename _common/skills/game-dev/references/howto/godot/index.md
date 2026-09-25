@@ -67,7 +67,7 @@
 | **关卡设计** | `level-design.md` | 白盒直接上美术更贵 · CSG 官方定位是原型非资产 · tscn 是文本≠可安全合并 · 关卡不硬编码逻辑 · 跳关入口决定迭代速度 |
 | **云存档/跨端** | `cloud-save.md` | 核心是冲突不是传输 · 不能用文件修改时间判冲突 · Godot 无内置云存档要平台 SDK · iOS Caches 不备份 · HTML5 用 IndexedDB |
 | **调试工具/GM** | `devtools.md` | 自定义参数要放 `--` 后用 get_cmdline_user_args · Performance 部分监控 release 恒为 0 · 作弊要视觉标识+审计日志 · 无内置 DebugDraw3D |
-| **玩家 Mod** | `modding.md` | Mod≠编辑器插件 · 后来加载的覆盖先加载的 · replace_files=false 是不覆盖非沙箱 · Mod 脚本无法沙箱隔离 · 手动解压要防 zip-slip |
+| **玩家 Mod** | `modding.md` | Mod≠编辑器插件 · ⛔加载必须在 autoload 的 _init()（_ready 时 preload 已发生）· ⛔CWD 不保证是 exe 目录 · PCK vs ZIP（文件移除/加密仅 PCK）· 后来加载的覆盖先加载的 · replace_files=false 是不覆盖非沙箱 · 依赖要拓扑排序 · 声明来源≠解析结果 · Mod 脚本无法沙箱隔离 · 解压防 zip-slip |
 | **存档迁移** | `save-migration.md` | 格式版本≠游戏版本≠构建号 · VERSION 要第一天写 · 迁移前必须备份 · 后要重算 HMAC · 降级 get_value 静默返回默认值 |
 | **热更新/DLC** | `hotupdate.md` | 资源热更≠代码热更差一个量级 · 已缓存资源不会自动换血 · iOS 审核 2.5.2 禁止动态代码 · 配置热更也要版本校验 · DLC 未购买要占位 |
 | **平台服务** | `platform-services.md` | Godot 无内置成就/排行榜/内购 · 要统一异步接口+离线桩 · 发布包不要带 steam_appid.txt · 无 Steam 客户端要降级不崩 · token 秘密留服务端 |

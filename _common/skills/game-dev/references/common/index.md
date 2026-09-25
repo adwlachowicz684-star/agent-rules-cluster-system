@@ -14,10 +14,10 @@
 | ID | 主题 | 引用它的域 |
 |---|---|---|
 | GC-01 | 状态机优于 if 嵌套 | `howto/godot/character.md` `howto/godot/combat.md` `howto/godot/ai-behavior.md` `howto/godot/survival.md` `howto/godot/ui.md`  `howto/godot/class-awaken.md`|
-| GC-02 | 频繁生成/销毁要池化 | `howto/godot/projectile.md` `howto/godot/ui.md` `howto/godot/combat.md` `howto/godot/vegetation.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md`|
+| GC-02 | 频繁生成/销毁要池化 | `howto/godot/projectile.md` `howto/godot/ui.md` `howto/godot/combat.md` `howto/godot/vegetation.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md` `howto/godot/modding.md`|
 | GC-03 | 数据与逻辑分离 | `howto/godot/datatable.md` `howto/godot/economy.md` `howto/godot/character.md`  `howto/godot/class-awaken.md` `howto/godot/gem-rune.md` `howto/godot/relic-build.md` `howto/godot/vip-subscription.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md`|
-| GC-04 | 事件解耦 vs 直接引用 | `howto/godot/combat.md` `howto/godot/ui.md` `howto/godot/survival.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md`|
-| GC-05 | 缓存必须有失效路径 | `howto/godot/datatable.md` `howto/godot/ui.md` `howto/godot/save-migration.md` `howto/godot/economy.md`  `howto/godot/class-awaken.md` `howto/godot/gem-rune.md` `howto/godot/relic-build.md` `howto/godot/vip-subscription.md`|
+| GC-04 | 事件解耦 vs 直接引用 | `howto/godot/combat.md` `howto/godot/ui.md` `howto/godot/survival.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/modding.md`|
+| GC-05 | 缓存必须有失效路径 | `howto/godot/datatable.md` `howto/godot/ui.md` `howto/godot/save-migration.md` `howto/godot/economy.md`  `howto/godot/class-awaken.md` `howto/godot/gem-rune.md` `howto/godot/relic-build.md` `howto/godot/vip-subscription.md` `howto/godot/modding.md`|
 | GC-06 | 性能：先定位再优化 | `howto/godot/performance.md` `howto/godot/ui.md` `howto/godot/ai-behavior.md` `howto/godot/vegetation.md` `howto/godot/vehicle.md` `howto/godot/destruction-cloth.md` `howto/godot/physics.md`|
 | GC-07 | 手感优先于正确性 | `howto/godot/character.md` `howto/godot/combat.md` `howto/godot/vfx-feel.md` `howto/godot/vehicle.md` `howto/godot/physics.md`|
 | GC-08 | 常见架构模式速查 | `howto/godot/systems.md` `howto/godot/datatable.md` |
@@ -27,10 +27,10 @@
 | ID | 主题 | 引用它的域 |
 |---|---|---|
 | GA-01 | 参数类型不符 | `audit/godot/datatable.md` `audit/godot/netsync-advanced.md` `audit/godot/save-migration.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vegetation.md` `audit/godot/vehicle.md`|
-| GA-02 | 资源没配对 | `audit/godot/character.md` `audit/godot/survival.md` `audit/godot/projectile.md` `audit/godot/ui.md` `audit/godot/input-remap.md` `audit/godot/gem-rune.md`|
+| GA-02 | 资源没配对 | `audit/godot/character.md` `audit/godot/survival.md` `audit/godot/projectile.md` `audit/godot/ui.md` `audit/godot/input-remap.md` `audit/godot/gem-rune.md` `audit/godot/modding.md`|
 | GA-03 | 硬编码易变值 | `audit/godot/datatable.md` `audit/godot/economy.md` `audit/godot/performance.md`  `audit/godot/class-awaken.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vegetation.md` `audit/godot/vip-subscription.md` `audit/godot/vehicle.md`|
 | GA-04 | 每帧做本该事件驱动的事 | `audit/godot/ui.md` `audit/godot/character.md` `audit/godot/ai-behavior.md` `audit/godot/accessibility.md` `audit/godot/vegetation.md`|
-| GA-05 | 缓存无失效路径 | `audit/godot/datatable.md` `audit/godot/ui.md` `audit/godot/save-migration.md`  `audit/godot/class-awaken.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vip-subscription.md`|
+| GA-05 | 缓存无失效路径 | `audit/godot/datatable.md` `audit/godot/ui.md` `audit/godot/save-migration.md`  `audit/godot/class-awaken.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vip-subscription.md` `audit/godot/modding.md`|
 | GA-06 | 状态机只写 enter 不写 exit | `audit/godot/character.md` `audit/godot/ai-behavior.md` `audit/godot/survival.md` `audit/godot/vegetation.md` `audit/godot/vehicle.md`|
 | GA-07 | 错误处理吞掉异常 | `audit/godot/save-migration.md` `audit/godot/netsync-advanced.md` `audit/godot/io-network.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vip-subscription.md`|
 

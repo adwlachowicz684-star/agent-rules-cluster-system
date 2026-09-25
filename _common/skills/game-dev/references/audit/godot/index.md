@@ -49,7 +49,7 @@
 | `level-design` | `audit/godot/level-design.md` |
 | `lighting` | `audit/godot/lighting.md` |
 | `mobile` | `audit/godot/mobile.md` |
-| `modding` | `audit/godot/modding.md` |
+| `modding` | `audit/godot/modding.md` | 39 条：加载时机 / CWD / PCK-ZIP 能力差 / 依赖顺序 / 循环依赖 / 声明来源 / zip-slip / 沙箱边界 / 存档记 id+版本 |
 | `monetization` | `audit/godot/monetization.md` |
 | `movement-advanced` | `audit/godot/movement-advanced.md` |
 | `multiplayer` | `audit/godot/multiplayer.md` |

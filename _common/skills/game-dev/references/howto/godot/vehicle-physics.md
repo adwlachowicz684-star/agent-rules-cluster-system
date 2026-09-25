@@ -1,5 +1,8 @@
 # 载具物理与物理进阶（Godot 4.7.2）
 
+> **本篇分工：载具/物理「物理」层** —— 街机求解器、SoftBody3D、关节、摩擦合成、穿模与卡帧。
+> ⚠ **载具系统（节点结构 / 车轮 / 悬挂 / 乘员 / 上下车事务）不在这里** → `vehicle.md`。两篇按「物理 vs 系统」分工，互指不重复。
+
 "VehicleBody3D 载具""软体""布料""绳索""物理材质" 此前基本空白。
 
 ## 0. VehicleBody3D 是街机求解器，不是高保真
@@ -191,6 +194,7 @@ PhysicsServer3D.joint_set_solver_priority(j, 1)
 
 ## 6. 相关文档
 
+- **载具系统（节点结构 / 车轮 / 悬挂 / 乘员 / 上下车事务）** → `vehicle.md`
 - 基础物理 → `physics.md`
 - 3D 场景与碰撞 → `3d.md`
 - 骨骼动画与布娃娃 → `animation-skeletal.md`
