@@ -12,7 +12,7 @@
 | **存档 / 设置 / 场景切换 / 事件总线 / 对象池** | `systems.md` | `ResourceSaver` · `user://` · `change_scene_to_file` · Autoload signal |
 | **动画 / 状态机 / Tween** | `animation.md` | `AnimationPlayer` · `AnimationTree` 状态机 · `Tween` 链式 · `kill()` |
 | **输入绑定 / 音效 / BGM** | `input-audio.md` | Input Map 动作 · 四回调顺序 · `AudioServer` 总线 · 音效池 |
-| **碰撞 / 射线 / 触发区 / 施力 / 移动平台** | `physics.md` | 碰撞层位掩码 · `intersect_ray` 参数对象 · `Area2D` · `AnimatableBody` |
+| **碰撞 / 射线 / 触发区 / 施力 / 移动平台 / 引擎刻度** | `physics.md` | 碰撞层位掩码 · `intersect_ray` 参数对象 · `Area2D` · `AnimatableBody` · ⛔ 缩放禁令 · 4.6 起默认 Jolt + 三处语义差异 · 物理插值与 `reset_physics_interpolation` · 摩擦取最低 · 卡帧步数上限 · 官方故障排查清单 |
 | **3D 场景 / 相机 / 材质 / 光照 / 粒子** | `3d.md` | 坐标系 · 第三人称相机 · 共享材质陷阱 · `Environment` |
 | **敌人 AI / 寻路 / 状态机** | `ai-navigation.md` | NavigationAgent2D 模板 · 巡逻追击攻击 FSM · AStarGrid2D · 视线检测 |
 | **TileMap 关卡 / 地形 / 程序生成** | `tilemap.md` | 4.3+ vs 4.2 两套 API · 坐标转换 · 地形拼接 · FastNoiseLite |
