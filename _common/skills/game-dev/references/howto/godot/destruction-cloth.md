@@ -52,6 +52,22 @@ func shatter(center: Vector3, impulse: Vector3) -> void:
 
 ⚠ **远处碎片可降级成 `GPUParticles3D` 或公告板**。
 
+ⓘ 三条全局块在本篇的落点（详见 `common/howto/principles.md`）：
+
+| 块 | 在本篇的落点 |
+|---|---|
+| `GC-03` 数据与逻辑分离 | 冲量权重、活动上限写进资产/配置，不硬编码在 `shatter()` 里 |
+| `GC-04` 事件解耦 | 伤害只发事件，由可破坏物件自己订阅并决定碎裂 |
+| `GC-06` 性能：先定位再优化 | 峰值在切分/凸包/刚体创建，不在长尾物理——先 profile 再动手 |
+
+
+## 13. 相关全局块
+
+【读】 `common/howto/principles.md#GC-02`　频繁生成/销毁的东西要池化（碎片池与寿命回收）
+【读】 `common/howto/principles.md#GC-03`　数据与逻辑分离（冲量权重与预算可配，不硬编码）
+【读】 `common/howto/principles.md#GC-04`　事件解耦 vs 直接引用（伤害只发事件，碎裂自己订阅）
+【读】 `common/howto/principles.md#GC-06`　性能：先定位再优化（碎裂峰值在切分/凸包，不在长尾物理）
+
 ## 3. 布料：优先动画，SoftBody3D 只用于必要变形
 
 ⚠ **`SoftBody3D` 继承自 `MeshInstance3D`，可见网格本身就是模拟网格** ——
@@ -208,5 +224,110 @@ have to increase `Physics > Common > Physics Ticks per Second`, which comes at a
 
 ⚠ **社区破坏/破碎插件要校验是否针对 4.7 的 API 和 Jolt 重新编译** ——
 不能直接假设兼容。
+
+## 8. 物理插值：碎片瞬移必须 reset，软体完全不受插值影响
+
+⚠ 官方关于物理插值的三条，每一条都直接砸在破坏/布料上：
+
+| 官方事实 | 对本域的含义 |
+|---|---|
+| *"physics interpolation currently does not affect soft bodies"* | 软体想更平滑**只能**加 `Physics Ticks per Second` |
+| 传送/初始放置后要调 `reset_physics_interpolation()` | ⛔ 碎片从池里取出即瞬移，不 reset 会 **streaking（拖一条长影）** |
+| 移动物理对象的 `Tween`/`AnimationPlayer` 必须走物理 tick 时序 | 碎片淡出用普通 `Tween` 会抖 |
+
+⛔ **碎片池化与物理插值是一对硬冲突**：池化必然"从旧位置瞬移到新位置"，
+这正是官方明确要求 reset 的场景——不是可选优化。
+
+```gdscript
+func _spawn(t: Transform3D) -> void:
+    global_transform = t
+    reset_physics_interpolation()   # ⛔ 少了这行 → 碎片拖影
+```
+
+ⓘ 相机在物理插值下同样要特殊处理：`top_level = true`、
+在 `_process()` 里更新、读 `get_global_transform_interpolated()`。
+⚠ 屏震（`camera` 域）若抖的是"物理跟随的相机"，插值会把抖动**平滑掉**。
+
+## 9. 小而快的碎片会穿墙：continuous_cd 与 tick 率
+
+⚠ 官方对 `ConcavePolygonShape3D` 的第三条警告说它**空心**、
+*"extra prone to being tunneled through by (small) fast physics bodies"*。
+
+ⓘ 数值直觉：3D 物理默认 60 Hz，60 m/s 的物体**每 tick 走 1 米**——
+沿运动方向的墙厚小于每 tick 位移就有穿透风险。
+
+✅ 三条对策（按成本从低到高）：
+
+| 对策 | 代价 |
+|---|---|
+| `continuous_cd = true`（扫掠检测） | 每刚体一点开销 |
+| 提高 `physics/3d/physics_ticks_per_second` | CPU 近似翻倍 |
+| 换 Jolt（对多数体型默认走扫掠式 CCD） | 要重调既有参数 |
+
+⛔ 别指望 `contact_monitor` 能"救"穿透——它是**事后**上报接触，
+穿透已经发生了。另注意它还有个默认值陷阱：
+`max_contacts_reported` 默认 0，**一条接触都不报**。
+
+## 10. 布娃娃：别用默认的 PinJoint
+
+ⓘ 生成路径：`Skeleton3D` → Skeleton 菜单 → **Create Physical Skeleton**。
+驱动用 `physical_bones_start_simulation()`，与动画靠 `Influence` 混合。
+
+| 部位 | 关节 | 理由 |
+|---|---|---|
+| 肩 / 髋 / 颈 | `ConeJoint` | 有锥角限制，不会反折 |
+| 肘 / 膝 | `HingeJoint` | 单轴 |
+| ⛔ 全身用默认 | `PinJoint` | 经验：**容易 crumple（皱缩塌成一团）** |
+
+⛔ 布娃娃骨骼要放在**与角色胶囊不同的碰撞层**——
+否则骨骼会把角色自己顶起来，表现为"尸体原地抽搐"。
+
+## 11. 软体：父碰撞忽略、钉固点依附、4.7 质量默认值变更
+
+⛔ **`Parent Collision Ignore` 是官方教程的"最后一步"**：
+
+> *"The last step is to avoid clipping by adding the CharacterBody3D Player
+> (the scene's root node) to the Parent Collision Ignore property of the
+> SoftBody3D."*
+
+不做这一步 → **披风与角色穿模/抖动**，而其余参数全是对的。
+ⓘ 症状极易误判成"软体参数没调好"，于是去反复调 stiffness，越调越糟。
+
+ⓘ 钉固点可以**依附到节点**（`set_point_pinned` 的 `attachment_path`，
+编辑器里是 Attachments → Spatial Attachment Path）。
+✅ 披风钉在 `BoneAttachment3D`（选 Neck 骨）上即可跟随骨骼；
+⛔ **不要把 `SoftBody3D` 直接挪到 `BoneAttachment3D` 下面**。
+
+⚠ **4.7 破坏性变更（迁移指南）**：
+
+| 项 | 4.6 及以前 | 4.7（Jolt） |
+|---|---|---|
+| `SoftBody3D` mass 默认 0 | 每点 1 kg → **总质量极高** | 默认 1 kg（整体） |
+| `linear_stiffness` | 旧算法 | 应用方式变了 → **升级后必须重调 `linear_stiffness` 与 `damping_coefficient`** |
+
+⛔ 从 4.6 升到 4.7 后"软体手感全变了"不是玄学，就是这两条。
+
+⚠ 顺带一条 4.7：`WorldBoundaryShape3D.plane.d` 在 Jolt 下**符号约定反转**，
+迁移时等号要翻。
+
+ⓘ 4.5+ 新增 `apply_central_impulse()` / `apply_central_force()`：
+把力/冲量**分布到所有模拟点**。做爆炸击退比逐点 `apply_impulse` 省事得多。
+
+## 12. 风力只作用于软体（跨域澄清）
+
+⚠ 官方在 `Area3D.wind_force_magnitude` 与 `wind_source_path` 两处**各写了一遍**：
+
+> *"Wind force only applies to SoftBody3D nodes. Other physics bodies are
+> currently not affected by wind."*
+
+⛔ 所以 `weather` 域的风**吹不动碎片、吹不动刚体**，只吹得动 `SoftBody3D`。
+想让碎片被风吹必须自己施力——而碎片若已休眠，`apply_force` **唤不醒**（见第 4 节），
+要先用 `apply_impulse` 或显式置 `sleeping = false`。
+
+⚠ 风向是 `wind_source_path` 指向节点**本地 Z 轴的反方向**，原点即该节点原点。
+⛔ 搞反表现为"旗帜往反方向飘"，且看起来像风力大小设错了。
+
+ⓘ 还有一条官方实现清单里的：碰撞形状与刚体**不要带 scale**，
+要改大小就用形状自身的尺寸参数。缩放节点会让物理表现不可预期。
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/destruction-cloth.md`
