@@ -252,8 +252,18 @@ def check_root(cfg):
 #   实测：changelog-archive.md 的理由跨 3 行，`oversize_exempt()`
 #   返回 None，于是 366 行仍被判超限。这是「假生效」——
 #   比没声明更糟：没声明至少知道要拆。
-EXEMPT_RX = re.compile(r'<!--\s*oversize-exempt\s*:\s*(.+?)\s*-->',
-                       re.S)   # re.S：理由可以跨行写
+# ⛔ 不能要求 `oversize-exempt` 紧跟在 `<!--` 后面：
+#    实测 acceptance.md 的注释块是
+#        <!--\nflow-type: meta\noversize-exempt: …\n-->
+#    —— `\s*` 匹配不到 `flow-type: meta` 这段文字 →
+#    **豁免声明了但不生效**（第二十一条：假生效）。
+#    这是我**第二次**踩这个坑（第一次是 re.S 不吃换行）。
+#
+#    判据：注释块里**含有** oversize-exempt 就算声明了；
+#    ⛔ 但不能跨出注释块（否则会认到下一个块里的字样）。
+EXEMPT_RX = re.compile(
+    r'<!--(?:(?!-->).)*oversize-exempt\s*:\s*(.+?)\s*-->',
+    re.S)   # re.S：理由可以跨行写
 
 
 def oversize_exempt(p):
@@ -1717,6 +1727,18 @@ def check_antipattern_tables(cfg, root=None):
         # 只查"清单类"文档：正文里出现「反模式」或「只写『不能怎么做』」
         if "不能怎么做" not in text and "反模式" not in text:
             continue
+        # ⛔ meta / 索引型文档不是清单：
+        #    `antipattern-form.md` **举例**了清单表（讲"清单怎么写"），
+        #    `self-verification.md` 是三册的索引。
+        #    对它们套形态检查是误报——
+        #    而 **误报的检查会被关掉**（falsepos 第十四条）。
+        #    判据：讲「怎么写 / 去哪看」的不是「清单本身」。
+        if re.search(r"^<!--[^>]*flow-type:\s*meta", text):
+            continue
+        # 索引型：标题就是「…（索引）」或正文明说"本文件是索引"
+        if re.search(r"^#\s+.*[（(]索引[)）]", text, re.M) \
+                or re.search(r"本文件是\*\*索引\*\*", text):
+            continue
         rel = str(f.relative_to(base))
         lines = text.split("\n")
         tables = 0
@@ -1736,9 +1758,18 @@ def check_antipattern_tables(cfg, root=None):
             #    判据：先认出它是哪一类，再查这一类的必需列。
             is_miscon = "本能以为" in j
             is_omit = "漏写" in j
-            if not (is_miscon or is_omit):
+            is_pitfall = ("坑" in j and "本能以为" not in j
+                          and "漏写" not in j)
+            if not (is_miscon or is_omit or is_pitfall):
                 continue
             tables += 1
+            if is_pitfall and "后果" not in j:
+                issues.append({
+                    "level": "warn", "file": rel,
+                    "issue": "坑类表缺「后果」列",
+                    "hint": "⛔ 坑类的价值就在后果——"
+                            "「用这个查会得到假结论」必须写清**假在哪**"
+                            "（例：MEMORY_STATIC 恒为 0 → 得到「没问题」）"})
             if is_omit and "审查规则" not in j:
                 issues.append({
                     "level": "warn", "file": rel,
@@ -1753,11 +1784,18 @@ def check_antipattern_tables(cfg, root=None):
                     "hint": "「实际」要写**可观测表现**，尤其要显式写出"
                             "「静默」——不报错的失败最难自查"})
         if tables == 0:
+            # ⛔ 条目型判据册（self-verification-*）不是清单表形态——
+            #    它们是**编号章节**，每章一条判据，没有 `#` 起始的表格。
+            #    报出来就是噪音，而噪音会让人关掉整个检查。
+            numbered = len(re.findall(r"^##\s*[\d一二三四五六七八九十]+[、.．]",
+                                      text, re.M))
+            if numbered >= 3:
+                continue
             issues.append({
                 "level": "info", "file": rel,
-                "issue": "自称反模式清单，但没有两种标准表头之一的表格",
-                "hint": "两种形态：误解类「本能以为/实际」、"
-                        "遗漏类「漏写/后果/审查规则」。"
+                "issue": "清单表不是三种标准形态之一",
+                "hint": "三种形态：误解类「本能以为/实际」、"
+                        "遗漏类「漏写/后果/审查规则」、坑类「坑/后果」。"
                         "⛔ 自造形态别人用不上"})
     return issues
 
@@ -2665,6 +2703,59 @@ trigger: 测试
             '不同层级的同名标题不报（## 与 ### 是两回事）')
         dfile.unlink(missing_ok=True)
 
+        # ---- 坑类表第三种形态（EV-M20） ----
+        # ⛔ 初版只统计出两种就下「只有两种」的结论，
+        #    没验证「还有没有第三种」——正是第十八条批判的模式。
+        #    而坑类恰恰是最危险那类（工具本身失效）。
+        ap = vroot / 'reference' / 'audit'
+        ap.mkdir(parents=True, exist_ok=True)
+        af = ap / 'a.md'
+        head = ('# a\n\n> 本文件**只写「不能怎么做」**\n\n'
+                '## 常见坑\n\n')
+        # 正向：坑类（坑 / 后果）→ 不报「不是三种之一」
+        af.write_text(head + '| # | 坑 | 后果 |\n|---|---|---|\n'
+                      '| 1 | 崩溃时看 stdout | print 未刷新 |\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_antipattern_tables(cfg, vroot)
+                 if 'a.md' in str(i.get('file', ''))],
+            '坑类表（坑/后果）被识别为合法形态')
+        # 反向：坑类缺「后果」→ 报
+        af.write_text(head + '| # | 坑 |\n|---|---|\n| 1 | 看 stdout |\n',
+                      encoding='utf-8')
+        chk(any('a.md' in str(i.get('file', ''))
+                and '缺「后果」' in str(i.get('issue', ''))
+                for i in check_antipattern_tables(cfg, vroot)),
+            '坑类缺「后果」列能查出（价值就在后果）')
+        # 反侧：自造形态仍然报（确认没有一刀切放行）
+        af.write_text(head + '| # | 我的分类 | 备注 |\n|---|---|---|\n'
+                      '| 1 | x | y |\n', encoding='utf-8')
+        chk(True, '自造形态检查见 EV-M11（此处不重复）')
+        af.unlink(missing_ok=True)
+
+        # ---- 豁免注释块内含其他字段（EV-M21） ----
+        # ⛔ 第二次踩：acceptance.md 写的是
+        #    <!--\nflow-type: meta\noversize-exempt: …\n-->
+        #    而旧正则要求 exempt 紧跟 `<!--` → **声明了但不生效**。
+        #    只造「紧跟型能认出」会让「块内有其他字段」从未验证。
+        ex = vroot / 'reference' / 'flow'
+        ex.mkdir(parents=True, exist_ok=True)
+        ef = ex / 'e.md'
+        ef.write_text('# e\n\n<!--\nflow-type: meta\n'
+                      'oversize-exempt: 理由\n-->\n\n正文\n',
+                      encoding='utf-8')
+        chk(oversize_exempt(ef) is not None,
+            '注释块内含其他字段（flow-type）时豁免仍生效'
+            '——⛔ 第二次踩：声明了但不生效')
+        # 反侧：没有声明 → None（不能一律认）
+        ef.write_text('# e\n\n正文\n', encoding='utf-8')
+        chk(oversize_exempt(ef) is None, '未声明豁免时返回 None')
+        # 反侧二：不能跨出注释块认领下一个块里的字样
+        ef.write_text('# e\n\n<!-- 普通注释 -->\n\n正文\n\n'
+                      '<!-- oversize-exempt: 这是另一个块的 -->\n',
+                      encoding='utf-8')
+        chk(oversize_exempt(ef) is not None, '后续注释块里的声明仍能认出')
+        ef.unlink(missing_ok=True)
+
         # ---- 反模式表形态（EV-M11） ----
         # 反哺自 game-dev 109 份反模式册：只有两种合法表头。
         # 只造正向（合法表）会让「缺列」从未验证。
@@ -2707,7 +2798,7 @@ trigger: 测试
             '> 本文件**只写「不能怎么做」**\n\n'
             '| # | 自造列 | 另一列 |\n|---|---|---|\n| 1 | a | b |\n',
             encoding='utf-8')
-        chk(any('没有两种标准表头' in str(i.get('issue', ''))
+        chk(any('清单表不是三种标准形态之一' in str(i.get('issue', ''))
                 for i in check_antipattern_tables(cfg, vroot)),
             '自造表头能查出（别人用不上）')
         for nm in ('ok.md', 'nomachine.md', 'noreal.md', 'empty.md'):

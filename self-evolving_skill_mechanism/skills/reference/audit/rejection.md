@@ -1,3 +1,6 @@
+<!--
+flow-type: meta
+-->
 <!-- oversize-exempt: 审查册条目，按需逐条对照 -->
 # 驳回清单：什么不该入库
 

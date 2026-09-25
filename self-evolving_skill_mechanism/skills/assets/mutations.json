@@ -13,8 +13,8 @@
     "id": "EV-M02",
     "target": "scripts/lint.py",
     "desc": "[假生效] 去掉 re.S → 豁免理由跨行时匹配失败，声明了但仍按超限报",
-    "old": "                       re.S)   # re.S：理由可以跨行写",
-    "new": "                       )   # 变异：去掉 re.S",
+    "old": "    re.S)   # re.S：理由可以跨行写",
+    "new": "    )   # 变异：去掉 re.S，跨行理由匹配不到",
     "expect": "KILLED",
     "why": "第二十一条「假生效」。实测 changelog-archive.md 理由跨 3 行，366 行仍被判超限，而人以为已豁免",
     "source": "2026-09-24 补 FL-05 时发现"
@@ -188,5 +188,25 @@
     "expect": "KILLED",
     "why": "⛔ 实测：往「## 六、自检」后**插入**新自检项时原文块没删，文件里出现**两个完全相同的 `## 六、自检`**。Markdown 照常渲染成两个编号相同的章节——**读的人以为自己看重复了，或漏掉第二个块**。现有检查抓不到：check_markdown_headings 只查重复 `#` 字符，两个各自合法的相同标题它不管；行数/体积/死链全正常。上线即抓到 6 条真重复（changelog-archive 重复追加）",
     "source": "2026-09-25 techniques.md 自己踩的坑"
+  },
+  {
+    "id": "EV-M20",
+    "target": "scripts/lint.py",
+    "desc": "[漏判] 坑类表（坑/后果）不被识别 → 第三种反模式形态被判「自造形态」",
+    "old": "            is_pitfall = (\"坑\" in j and \"本能以为\" not in j\n                          and \"漏写\" not in j)",
+    "new": "            is_pitfall = False  # 变异：坑类不识别",
+    "expect": "KILLED",
+    "why": "⛔ 初版只统计出两种表头就下「只有两种」的结论，**没有验证「还有没有第三种」**——正是第十八条批判的「报『没有』前没证明『查了』」。而坑类恰恰是最危险的：**测量工具本身失效**，你会得到「没问题」的结论并基于它做决策。",
+    "source": "2026-09-25 复查 audit/ 115 份时发现的第三种"
+  },
+  {
+    "id": "EV-M21",
+    "target": "scripts/lint.py",
+    "desc": "[假生效] 豁免正则要求紧跟 `<!--` → 注释块内含 flow-type 时声明不生效",
+    "old": "    r'<!--(?:(?!-->).)*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
+    "new": "    r'<!--\\s*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
+    "expect": "KILLED",
+    "why": "⛔ **第二次踩同一个坑**（第一次是 re.S 不吃换行）。acceptance.md 的注释块是 `<!--\\nflow-type: meta\\noversize-exempt: …\\n-->`，而旧正则要求 exempt 紧跟 `<!--`，`\\s*` 匹配不到 `flow-type: meta` 这段文字 → **豁免声明了但不生效**（第二十一条：假生效）。假生效比没声明更糟：人以为处理过了。",
+    "source": "2026-09-25 acceptance.md 413 行超限仍报时发现"
   }
 ]
