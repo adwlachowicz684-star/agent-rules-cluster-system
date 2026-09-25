@@ -47,6 +47,22 @@ func can_merge(other: ItemStack) -> bool:
 模板 Resource 可安全共享；**实例状态必须另建对象并深拷贝**。
 `resource_local_to_scene` 只是场景级局部状态，⛔ **不能替代服务端持久状态**。
 
+### ⛔ 官方例外：数组与字典里的子资源永不复制
+
+⚠ 官方对 `duplicate(subresources)` 的口径：`subresources = true` 是深拷贝，
+**但 `Array` 与 `Dictionary` 属性里的子资源永远不会被复制**
+（官方原话："Subresources inside Array and Dictionary properties are never duplicated"）。
+
+⛔ 本域的数据结构大量依赖数组 —— `yield_table`、`inputs`、`outputs`、`byproducts`。
+于是"模板 `duplicate(true)` 之后改副本的第一个元素"会**改到模板本身**，
+表现为"所有同模板的采集点 / 配方产出一起变了"，⛔ 排查时极难想到是复制语义。
+
+✅ 数组元素必须**逐个显式复制**。另有三点官方细节：
+
+- 内部 Resource **只有 local 的才会被复制**（可用 `duplicate_deep()` 的 `DeepDuplicateMode` 控制）
+- 可用 `PROPERTY_USAGE_ALWAYS_DUPLICATE` / `PROPERTY_USAGE_NEVER_DUPLICATE` 逐属性控制
+- ⛔ 自定义 Resource 若 `Object._init()` 定义了**必填参数**，`duplicate()` 会失败
+
 ## 1. 采集点 = 模板 + 世界实例，不是一个场景脚本
 
 ⚠ **矿点不能继承节点后保存 HP、刷新时间、占有者；节点只是世界实例 ID 的视图。**
@@ -77,7 +93,7 @@ var owner_peer: int = 0
 → `available_at` 用绝对锚点（与 `time-progression.md` 同一套口径），
 服务端从 `node.available_at <= now` 推出可见性。
 
-**两种刷新语义要分开：**
+### 两种刷新语义要分开
 
 | 场景 | 策略 |
 |---|---|
@@ -204,6 +220,23 @@ final        = (base + flat_total) * (1 + percent_total) + post_flat
 ⚠ **只同步批准后的状态，不同步物理查询结果** ——
 物理结果不可回放，会让两端不一致。
 
+### ⛔ RPC 的三条官方约束（家园同步必踩）
+
+⚠ `@rpc` 默认等价于 `("authority", "call_remote", "reliable", 0)`，
+即**只有 authority 能远程调用**。改为 `any_peer` 后，以下三条必须自己兜住：
+
+| 约束 | 官方口径 | 踩法 |
+|---|---|---|
+| ⛔ `any_peer` 必须校验发送者 | 用 `multiplayer.get_remote_sender_id()` 确认"是不是它声称的那个人" | 不校验 → 任意客户端以他人身份触发加工与放置 |
+| ⛔ 两端 NodePath 必须相同 | 远程调用要求发送方与接收方节点有相同 NodePath（相同名字）；`add_child()` 要 `force_readable_name = true` | 动态家具名字带随机后缀 → **RPC 静默不调用**，且不报错 |
+| ⛔ 参数不做匹配检查 | 签名 checksum 只校验 `@rpc` 声明、函数名、返回类型与 NodePath；**函数参数不校验**（`func f():` 与 `func f(a, b):` 会通过匹配） | 客户端可发任意数量 / 取值（做 99999 个、负数量、不存在的 `recipe_id`） |
+
+⛔ **排查陷阱**：所有 RPC **一次性**做 checksum 校验，不匹配时
+**报错信息可能与当前正在开发的 RPC 无关** —— 不要只盯着最近改的那个。
+
+⚠ 另：RPC 在节点**进入场景树之前**调用会**静默失败**
+（`_init()` 或 `add_child()` 未完成时），应从 `_ready()` 或之后触发。
+
 ## 7. 经济平衡：从净产出速率反推
 
 ⚠ **纯产出会导致通货膨胀。** 要从"净产出速率"反推采集速率与回收比例。
@@ -217,6 +250,30 @@ final        = (base + flat_total) * (1 + percent_total) + post_flat
 ⚠ 采集点、家具、配方、制作队列**都以数据为主**，渲染节点由数据按需生成。
 
 ⚠ **Godot 官方建议**：竞争性、持久化游戏把客户端输入视为**不可信**，
+在修改状态前校验 RPC 参数。
+
+## 9. 服务端权威清单
+
+必须服务端：采集判定与产出 · 刷新与 `available_at` · 材料扣减与产出 ·
+合成失败与损耗 · 占格与放置 · 家园权限 · `home.version` 递增
+
+客户端只做：输入、预测、表现
+
+## 10. 待核对项（运行时验证）
+
+⚠ 待核对：失败率、损耗率、熟练度收益曲线、回收比例的具体取值 · 验证：本轮给的是**设计区间**，须经济回测核实
+
+⚠ 待核对：绑定材料跨加工的规则（是否允许付费/NPC 解绑） · 验证：须单列配置，本轮默认"继承最严格绑定"
+
+⚠ 待核对：数值窗口与通货膨胀的临界点 · 验证：须按真实产出/消耗速率回测
+
+## 11. 相关文档
+
+- 时间推进内核（离线结算、队列、重置）→ `time-progression.md`
+- 货币与装备养成 → `economy.md`
+- 放置/模拟经营品类 → `genres-idle-sim.md`
+- 多人同步与 authority → `multiplayer.md`
+客户端输入视为**不可信**，
 在修改状态前校验 RPC 参数。
 
 ## 9. 服务端权威清单
