@@ -24,7 +24,7 @@
 | C012 | 找大文件 | `du -ah . \| sort -rh \| head -20` | - | 排查产物体积 | 0 |
 | C013 | 按内容找文件 | `rg --files-with-matches '关键词' .` | - | 只出文件名 | 0 |
 | C014 | 起本地服务预览 | `python3 -m http.server 8000` | - | 预览 HTML 产物 | 0 |
-| C015 | 格式化 JSON | `python3 -m json.tool < in.json > out.json` | - | 或 `cat x.json | python3 -m json.tool` | 0 |
+| C015 | 格式化 JSON | `python3 -m json.tool < in.json > out.json` | - | 或 `cat x.json \| python3 -m json.tool` | 0 |
 | C016 | 统计文件行数 | `wc -l SKILLS/*.md reference/*.md` | - | 监控 skill 膨胀 | 0 |
 | C017 | 清空 pyc 缓存 | `find . -name __pycache__ -type d -exec rm -rf {} +` | - | 打包前清理 | 0 |
 | C018 | 批量改文件名后缀 | `for f in *.md; do mv "$f" "${f%.md}.markdown"; done` | - | 模板，按需改 | 0 |
@@ -72,7 +72,7 @@
 | C060 | Cocos 脚本审核（全量） | `python3 scripts/cocos_audit.py <路径>` | - | 有 P0 则退出码 1 | 0 |
 | C061 | 只看阻塞级（CI 卡口） | `python3 scripts/cocos_audit.py <路径> --level P0` | - | 退出码 1 = 阻断 | 0 |
 | C062 | 审核结果 JSON | `python3 scripts/cocos_audit.py <路径> --json` | - | 供 CI/脚本消费 | 0 |
-| C063 | 找所有 update 方法 | `rg -n "^\s+(public\s+|private\s+)?update\s*\(" DIR -A 15` | rg | 逐个看内部操作 | 0 |
+| C063 | 找所有 update 方法 | `rg -n "^\s+(public\s+\|private\s+)?update\s*\(" DIR -A 15` | rg | 逐个看内部操作 | 0 |
 | C064 | 找资源加载与释放 | `rg -n "resources\.load\|assetManager\.load\|releaseAsset\|decRef" DIR` | rg | 成对核对 | 0 |
 | C065 | 找高频对象创建 | `rg -n "instantiate\(\|new [A-Z]" DIR` | rg | 该用对象池 | 0 |
 | C066 | 按类扫描（内存/性能/迁移/物理） | `python3 scripts/cocos_audit.py <路径> --rule memory` | - | 见 --rules | 0 |

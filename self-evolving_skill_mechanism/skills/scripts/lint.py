@@ -1983,6 +1983,107 @@ def check_scope_selfreport(cfg, root=None):
     return issues
 
 
+def check_table_columns(cfg, root=None):
+    """表格列数错位（第十七条量化：格式缺陷 100% 静默）。
+
+    ### ⚠ 实测（写它的动机）
+
+    真库探查 **10 处错位，全部是真问题**：
+
+    ```
+    `cat x.json | python3 -m json.tool`   ← 行内代码里裸 | → 渲染断列
+    `\|\| true`                            ← 同上
+    `ls | wc -l`                          ← 同上
+    EC-03 那行少一列                       ← 改表头后没同步
+    两行表头连续（旧表头残留）              ← 手改残留
+    ```
+
+    ⛔ 共同点：**Markdown 照常渲染、不报错、lint 全绿**，
+    只有人眼看渲染结果才发现——而**表格恰恰是查表型文档的主体**。
+
+    ### ⛔ 判据基准用**分隔线**，不用众数
+
+    ```
+    众数 = 数据行里最多的列数
+    ```
+
+    ⚠ 我修第一处时就踩了：该表数据行多为 3 列，表头也是 3 列，
+    我却按"补齐到众数"加了两个占位格 → **把对的改成了错的**。
+
+    ⇒ 基准取 `|---|---|` 那行的列数（它就是作者声明的列数），
+      取不到才退回表头，最后才是众数。
+
+    ### ⛔ 必须先吃掉 `\|` 转义
+
+    第一版裸 `split('|')` → **37 处里 27 处是误报**（95%），
+    全是命令里的 `\|`（grep 的 or、`ls | wc -l` 之类）。
+    处理转义后降到 **10 处，且全真**。
+
+    ⓘ 这正是第二十九条讲的：**先跑真库数误报率**。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    for f in sorted(base.rglob("*.md")):
+        if "__pycache__" in str(f):
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        lines, fence = [], False
+        for ln in text.split("\n"):
+            if ln.lstrip().startswith("```"):
+                fence = not fence
+                lines.append("")
+                continue
+            lines.append(ln if not fence else "")
+        block, start = [], 0
+
+        def _ncols(st):
+            # ⛔ 关键：先吃掉转义 \|，否则 grep 命令里的 \| 全被当分隔符
+            return len(st.replace("\\|", "\x00").split("|"))
+
+        def _sep_ncols(block):
+            for _, ln in block:
+                core = ln.replace("|", "").replace(" ", "")
+                if core and set(core) <= set("-:"):
+                    return _ncols(ln)
+            return None
+
+        def flush(block, start):
+            if len(block) < 2:
+                return
+            ref = _sep_ncols(block) or _ncols(block[0][1])
+            counts = {}
+            for _, ln in block:
+                counts[_ncols(ln)] = counts.get(_ncols(ln), 0) + 1
+            if len(counts) > 1:
+                ref = _sep_ncols(block) or _ncols(block[0][1]) \
+                      or max(counts, key=lambda k: counts[k])
+            for i, ln in block:
+                n = _ncols(ln)
+                if n != ref:
+                    issues.append({
+                        "level": "warn",
+                        "file": str(f),
+                        "issue": "表格列数错位：第 %d 行 %d 列，应为 %d 列"
+                                 % (i + 1, n, ref),
+                        "hint": "⛔ 第十七条：格式缺陷 100% 静默——"
+                                "Markdown 照常渲染、不报错、lint 全绿，"
+                                "但表格会断列。行内代码里的 `|` 要写成 `\\|`"})
+        for i, ln in enumerate(lines):
+            st = ln.strip()
+            if st.startswith("|") and st.endswith("|"):
+                if not block:
+                    start = i
+                block.append((i, st))
+            else:
+                flush(block, start)
+                block = []
+        flush(block, start)
+    return issues
+
+
 def check_duplicate_headings(cfg, root=None):
     """同一文件内**重复的章节标题**。
 
@@ -3370,6 +3471,38 @@ trigger: 测试
             '「完成计数」是警告不算通过信号，不误报')
         _spf.unlink(missing_ok=True)
 
+        # ---- 表格列数错位（EV-M27，第十七条量化） ----
+        _tm = vroot / 'reference' / 'common'
+        _tm.mkdir(parents=True, exist_ok=True)
+        _tf = _tm / 'tb.md'
+        # 正向：列数一致 → 不报
+        _tf.write_text('| a | b |\n|---|---|\n| 1 | 2 |\n', encoding='utf-8')
+        chk(not check_table_columns(cfg, vroot),
+            '表格列数一致 → 不报')
+        # 反向：某行少一列 → 报（⛔ 渲染断列但不报错）
+        _tf.write_text('| a | b | c |\n|---|---|---|\n| 1 | 2 |\n',
+                       encoding='utf-8')
+        chk(any('列数错位' in str(i.get('issue', ''))
+                for i in check_table_columns(cfg, vroot)),
+            '表格列数错位能查出——⛔ 第十七条：格式缺陷 100% 静默')
+        # 反侧一（精度）：**行内代码里的 `\|` 不算分隔符** → 不误报
+        #   ⛔ 第一版裸 split 导致 37 处里 27 处误报（95%），全是 grep 命令
+        _tf.write_text('| a | b |\n|---|---|\n| `rg "x\\|y"` | 2 |\n',
+                       encoding='utf-8')
+        chk(not check_table_columns(cfg, vroot),
+            '行内代码里的 \\| 不算分隔符，不误报——⛔ 第一版 27/37 全是这类误报')
+        # 反侧二：代码块内的表格不算 → 不误报
+        _tf.write_text('# t\n\n```\n| a | b |\n|---|---|\n| 1 |\n```\n',
+                       encoding='utf-8')
+        chk(not check_table_columns(cfg, vroot),
+            '代码块内的表格不算，不误报')
+        # 反侧三：分隔线列数为准（⛔ 众数会判错）
+        _tf.write_text('| a | b | c |\n|---|---|---|\n| 1 | 2 | 3 |\n| 1 | 2 | 3 |\n',
+                       encoding='utf-8')
+        chk(not check_table_columns(cfg, vroot),
+            '以分隔线为基准：全表一致 → 不报')
+        _tf.unlink(missing_ok=True)
+
         # ---- 目录标题里的易变计数（EV-M23） ----
         # ⛔ 只造「正常标题不报」会让「写了计数」从未验证。
         vc = vroot / 'reference' / 'common'
@@ -3569,7 +3702,8 @@ def main():
               + check_stale_exemptions(cfg)
               + check_volatile_counts(cfg)
               + check_selftest_duality(cfg)
-              + check_scope_selfreport(cfg))
+              + check_scope_selfreport(cfg)
+              + check_table_columns(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

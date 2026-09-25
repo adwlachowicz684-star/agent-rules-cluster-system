@@ -258,5 +258,15 @@
     "expect": "KILLED",
     "why": "实测：mutations.json 置空 → mutate.py 输出「KILLED 0 · SURVIVED 0」，看起来没问题，实际是配置空了。structure.py --check 输出「✓ 结构健康」而 domains 压根没初始化（扫了 0 个大类）。⛔ 失败模式是返回 0 条而不是报错。",
     "source": "2026-09-25 第二条量化"
+  },
+  {
+    "id": "EV-M27",
+    "target": "scripts/lint.py",
+    "desc": "[表格列数] 不处理 \\| 转义 → 命令里的 | 全被当分隔符，27/37 误报",
+    "old": "            return len(st.replace(\"\\\\|\", \"\\x00\").split(\"|\"))",
+    "new": "            return len(st.split(\"|\"))  # 变异：不处理转义 —— 27/37 误报",
+    "expect": "KILLED",
+    "why": "真库探查第一版 37 处里 **27 处是误报**（95%），全是 grep 命令里的 `\\|`。处理转义后 10 处**全真**。这是第二十九条「先跑真库数误报率」的直接产物。",
+    "source": "2026-09-25 第十七条量化"
   }
 ]
