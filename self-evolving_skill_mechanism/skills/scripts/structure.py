@@ -256,8 +256,15 @@ def write_proposal(items: list[dict], reason: str = "") -> None:
     print(f"共 {len(items)} 项变更，请确认后执行 --apply")
 
 
-def build_from_issues(issues: list[dict]) -> None:
-    """把检测到的问题转成提案项。"""
+def build_from_issues(issues: list[dict], scanned: int = -1) -> None:
+    """把检测到的问题转成提案项。
+
+    ⚠ `scanned` 是**扫描范围**（check() 实际扫了几个大类）。
+    为什么必须带：第二条——**在空集上跑出来的通过没有意义**。
+    大类目录不存在 / 路径基准写错 / 后缀不匹配，都会让 check() 在空集上
+    跑完还输出「✓ 结构健康」——⛔ 这种失效从输出上完全看不出来。
+    ⛔ 失败模式是"返回 0 条"而不是"报错"，任何能跑通的检查都查不出来。
+    """
     items = []
     for it in issues:
         items.append({
@@ -266,6 +273,12 @@ def build_from_issues(issues: list[dict]) -> None:
             "desc": it["detail"],
             "suggest": it["suggest"],
         })
+    # ⚠ 扫描范围**无条件**先说清楚（H011 / 第二条）：
+    # 恰恰是"✓ 通过"时最需要知道"到底扫了几个"。
+    if scanned >= 0:
+        print("扫描范围：%d 个大类" % scanned)
+        if scanned == 0:
+            print("  ⛔ 0 个 = 空集上跑的通过没有意义 —— 检查 domains 是否初始化")
     if items:
         write_proposal(items, "自动健康检测（--check）发现以下结构问题")
     else:
@@ -596,7 +609,10 @@ def main():
         core = [x.strip() for x in (args.core or "").split(",") if x.strip()]
         propose_new_domain(args.propose_new, args.key, kws, args.desc, core)
     elif args.check:
-        build_from_issues(check(cfg))
+        # ⛔ 必须传扫描范围：check() 只在 skills 里循环，
+        #    domains 未初始化时 skills 为空 → 输出「✓ 结构健康」而根本没扫。
+        _sk = scan_skills(cfg)
+        build_from_issues(check(cfg), len(_sk))
     elif args.self_test:
         sys.exit(1 if route_self_test(cfg) else 0)
     elif args.route_check:

@@ -248,5 +248,15 @@
     "expect": "KILLED",
     "why": "只认直接调用会把 5 个其实正反都有的检查项误判为「只被间接引用」。误报的检查会被关掉（falsepos 第十四条）——必须提高精度。提高后 9 条真缺口 → 4 条。",
     "source": "2026-09-25 自审"
+  },
+  {
+    "id": "EV-M26",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围自报] 第二条量化：输出通过信号但无扫描范围 → 不报",
+    "old": "            if has_pass and not has_scope:",
+    "new": "            if has_pass and not has_scope:\n                if True: continue  # 变异：自报检查永不报",
+    "expect": "KILLED",
+    "why": "实测：mutations.json 置空 → mutate.py 输出「KILLED 0 · SURVIVED 0」，看起来没问题，实际是配置空了。structure.py --check 输出「✓ 结构健康」而 domains 压根没初始化（扫了 0 个大类）。⛔ 失败模式是返回 0 条而不是报错。",
+    "source": "2026-09-25 第二条量化"
   }
 ]

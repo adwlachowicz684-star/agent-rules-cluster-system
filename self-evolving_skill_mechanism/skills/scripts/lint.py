@@ -1864,6 +1864,125 @@ def check_selftest_duality(cfg, root=None, src_path=None):
     return issues
 
 
+def check_scope_selfreport(cfg, root=None):
+    """第二条量化：输出「通过」时必须同时输出扫描范围。
+
+    **在空集上跑出来的通过没有意义。**
+    目录不存在、后缀不匹配、路径基准写错——都会让检查在空集上跑完
+    还显示通过，而这种失效**从输出上完全看不出来**。
+
+    ⚠ **实测（写这个检查的动机）**：
+
+    ```
+    mutations.json 置空 → mutate.py 输出
+    「合计：KILLED 0 · SURVIVED 0 · NOT_APPLIED 0」
+    ```
+
+    看起来是"没问题"，实际是**配置空了 / 路径指错了**。
+    ⛔ 失败模式是"返回 0 条"而不是"报错"——
+    **任何能跑通的检查都查不出来**。
+
+    ### 判据（只查「通过信号」所在的**函数**）
+
+    ```
+    通过信号：✓ / 通过 / 健康 / 正常 / 无需变更 / 完成
+    范围信号：数字占位符(%d/{}/…) + 项|个|条|文件|域|条规则
+              或显式「扫描范围 / 扫到 / 共」
+    ```
+
+    ⛔ 只查「整个文件有没有范围信号」会漏——
+    那是"别处有"，不是"这次输出了"。
+    ⛔ 只查「有没有通过信号」会误报一堆。
+
+    ### ⛔ 为什么是 info 不是 warn
+
+    这是**启发式**（靠关键词），机械套用必然误报。
+    ⛔ **误报的检查会被关掉**（falsepos 第十四条）——
+    宁可提示，不可当硬约束。
+    """
+    base = Path(root) if root else ROOT
+    sdir = base / "scripts"
+    if not sdir.exists():
+        return []
+    # ⛔ 第一版把「完成」算通过信号 → `print("⚠ 没有任何条目完成计数")`
+    #    被误报（那是**警告**，不是通过）。**误报的检查会被关掉**。
+    PASS_RX = re.compile(r'[✓✔]|通过|健康|无需变更|已归档')
+    # ⛔ 第一版只认 `%d` 和 `{}:`，把 f-string 的 `{ok} 项` 判为无范围
+    #    → index.py 的 find 被误报（它实测输出「（0 项）」）。
+    #    ⛔ **误报的检查会被关掉**，必须认 f-string / .format() 两种写法。
+    SCOPE_RX = re.compile(
+        r'%[ds]|扫描范围|扫到|共\s*\d'
+        r'|\{[^}]*\}\s*(?:项|个|条|文件|域|条规则)'
+        r'|\d+\s*(?:项|个|条|文件|域|条规则)')
+    issues = []
+    for f in sorted(sdir.glob("*.py")):
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for fnode in ast.walk(tree):
+            if not isinstance(fnode, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # ⛔ 排除自检断言辅助 `chk(cond, msg)`——它打印的是用例结果，
+            #    不是工具对外的输出。3 个脚本各有一个，全是误报。
+            if fnode.name in ("chk", "chk_", "assert_"):
+                continue
+            has_pass = has_scope = False
+            pline = None
+            try:
+                srclines = f.read_text(encoding="utf-8").split("\n")
+            except Exception:
+                srclines = []
+            for n in ast.walk(fnode):
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                        and n.func.id == "print" and n.args:
+                    # ⛔ f-string 是 JoinedStr，不是 Constant——
+                    #    第一版只取 Constant → f"{ok} 项" 提取成 " 项"，
+                    #    **范围信号丢失**（误报，而误报的检查会被关掉）。
+                    #    ⇒ 把 FormattedValue 还原成 `{}` 占位再匹配。
+                    txt = ""
+                    for a in n.args:
+                        for x in ast.walk(a):
+                            if isinstance(x, ast.Constant) \
+                                    and isinstance(x.value, str):
+                                txt += x.value
+                            elif isinstance(x, ast.FormattedValue):
+                                # ⛔ 不要再单独处理 Name——ast.walk 会同时
+                                #    遍历到 FormattedValue 和它内部的 Name，
+                                #    两处都加 → "{}{}"，范围匹配失效
+                                txt += "{}"
+                    # ⛔ 区分「整体结论」与「逐条标记」：
+                    #   `✓ 已建大类 {name}`  → 逐条，**不是**第二条要管的
+                    #   `✓ 结构健康，无需变更` → 整体结论，**才是**
+                    #   判据：✓ 后面紧跟变量（{ / %） = 逐条；
+                    #        后面是固定文案 = 整体。
+                    #   ⛔ 不区分会误报 7 条（domain/env/structure 的逐条输出），
+                    #      **误报的检查会被关掉**。
+                    # ⛔ 判据（第二版，实测收敛）：
+                    #   **含插值的 print = 逐条结果**，不是"整体通过"。
+                    #   `✓ 已写入：{dest}` / `✓ config.yaml 已注册 {key}` ——
+                    #   这类打印每条都带具体对象，不存在"空集通过"的问题。
+                    #   ⛔ 只查"✓ 后紧跟 {" 不够（"✓ 本地覆盖层：{x}" 漏网）
+                    #      → 实测漏了 4 条。**误报的检查会被关掉**。
+                    #   ⇒ 改成：参数里**有没有 FormattedValue / BinOp(%)**。
+                    _interp = any(isinstance(x, (ast.FormattedValue, ast.BinOp))
+                                  for x in ast.walk(a)) if n.args else False
+                    if PASS_RX.search(txt) and not has_pass and not _interp:
+                        has_pass, pline = True, n.lineno
+                    if SCOPE_RX.search(txt):
+                        has_scope = True
+            if has_pass and not has_scope:
+                issues.append({
+                    "level": "info",
+                    "file": "scripts/%s" % f.name,
+                    "issue": "`%s` 输出通过信号但同函数内无扫描范围（第 %d 行）"
+                             % (fnode.name, pline),
+                    "hint": "⚠ 第二条：**在空集上跑出来的通过没有意义**。"
+                            "输出「通过」时附上扫了几个、跳过了什么。"
+                            "⛔ 「0 条」的失败模式不报错，任何能跑通的检查都查不出来"})
+    return issues
+
+
 def check_duplicate_headings(cfg, root=None):
     """同一文件内**重复的章节标题**。
 
@@ -3210,6 +3329,47 @@ trigger: 测试
             '标注退化：取值全同能查出——⛔ 字段活着但已经死了')
         _dgf.unlink(missing_ok=True)
 
+        # ---- 扫描范围自报（EV-M26，第二条量化） ----
+        # ⛔ 自指：用 src 造假的 scripts/ 目录（root 注入）
+        _sp = vroot / 'scripts'
+        _sp.mkdir(parents=True, exist_ok=True)
+        _spf = _sp / 't.py'
+        # 正向：同时有通过信号 + 范围信号 → 不报
+        _spf.write_text(
+            'def run():\n'
+            '    print("扫描范围：%d 个大类" % 3)\n'
+            '    print("✓ 通过")\n', encoding='utf-8')
+        chk(not check_scope_selfreport(cfg, vroot),
+            '同时有通过信号与扫描范围 → 不报')
+        # 反向一：只有通过信号无范围 → 报（⛔ 空集上的通过没有意义）
+        _spf.write_text('def run():\n    print("✓ 结构健康，无需变更")\n',
+                        encoding='utf-8')
+        chk(any('无扫描范围' in str(i.get('issue', ''))
+                for i in check_scope_selfreport(cfg, vroot)),
+            '只有通过信号无范围能查出——⛔ 在空集上跑出来的通过没有意义')
+        # 反侧一（精度）：f-string `{ok} 项` **算**范围 → 不误报
+        _spf.write_text(
+            'def run():\n'
+            '    print(f"已为 {ok} 项计数 +1")\n'
+            '    print("✓ 通过")\n', encoding='utf-8')
+        chk(not check_scope_selfreport(cfg, vroot),
+            'f-string `{ok} 项` 算范围，不误报——⛔ 误报的检查会被关掉')
+        # 反侧二（精度）：自检辅助函数 `chk` 不算工具输出 → 不误报
+        _spf.write_text(
+            'def chk(cond, msg):\n'
+            '    print(("  \u2713 " if cond else "  \u2717 ") + msg)\n',
+            encoding='utf-8')
+        chk(not check_scope_selfreport(cfg, vroot),
+            '自检辅助 chk 不算工具输出，不误报')
+        # 反侧三（精度）：「完成」不该算通过信号（"完成计数"是警告）
+        _spf.write_text(
+            'def run():\n'
+            '    print("⚠ 没有任何条目完成计数 —— 检查 frontmatter")\n',
+            encoding='utf-8')
+        chk(not check_scope_selfreport(cfg, vroot),
+            '「完成计数」是警告不算通过信号，不误报')
+        _spf.unlink(missing_ok=True)
+
         # ---- 目录标题里的易变计数（EV-M23） ----
         # ⛔ 只造「正常标题不报」会让「写了计数」从未验证。
         vc = vroot / 'reference' / 'common'
@@ -3408,7 +3568,8 @@ def main():
               + check_check_coverage(cfg)
               + check_stale_exemptions(cfg)
               + check_volatile_counts(cfg)
-              + check_selftest_duality(cfg))
+              + check_selftest_duality(cfg)
+              + check_scope_selfreport(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

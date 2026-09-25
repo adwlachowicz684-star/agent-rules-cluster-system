@@ -141,6 +141,15 @@ def main():
             line += '\n      %s' % r.get('desc', '')
         print(line)
 
+    # ⚠ **扫描范围无条件先说清楚**（第二条：在空集上跑出来的通过没有意义）。
+    #    实测：mutations.json 为空时输出「KILLED 0 · SURVIVED 0」，
+    #    看起来是"没问题"，实际是**配置空了 / 路径指错了**。
+    #    ⛔ 失败模式是"返回 0 条"而不是"报错"，任何能跑通的检查都查不出来。
+    print()
+    print('扫描范围：变异定义 %d 条（来源 %s）'
+          % (len(muts), args.mutations))
+    if not muts:
+        print('  ⛔ 0 条 = 空集上跑的通过没有意义 —— 检查路径或配置')
     print()
     print('合计：KILLED %d（已守住）· SURVIVED %d · NOT_APPLIED %d'
           % (nk, ns, nn))
