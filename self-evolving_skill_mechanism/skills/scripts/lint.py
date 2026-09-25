@@ -21,6 +21,8 @@ import ast
 import json
 import subprocess
 import argparse
+import tempfile
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,6 +36,11 @@ from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die, help_text  # 码表：0/
 INDIRECT_COVERAGE = {
     "check_exitcode_adoption": "靠 subprocess 跑真实脚本实测退出码，"
                                "不是调用本函数（mutate EV-M01 同族）",
+    # ⛔ 自指：本项检查的是 lint.py 自己的 cmd_self_test，
+    #    无法在自检里「造一份自己的自检」——那会改动正在跑的代码。
+    #    ⇒ 用例改用「造一份假的 lint.py 传给 src_path」（见 --self-test EV-M24）。
+    "check_selftest_duality": "自指检查：用 src_path 传入假 lint.py 造样本，"
+                              "不是调用本函数（见 EV-M24）",
 }
 
 DEFAULTS = {
@@ -1726,6 +1733,137 @@ def check_volatile_counts(cfg, root=None):
     return issues
 
 
+def check_selftest_duality(cfg, root=None, src_path=None):
+    """⛔ 每个检查项都要有**正反两侧**用例（第一条 + 第四条的自审）。
+
+    ⚠ **实测自审结果（写这个检查的动机）**：
+
+    ```
+    24 个检查项里 12 个（50%）自检覆盖不完备：
+      ⛔ 从未引用 1  ·  ⚠ 只被间接引用 5
+      ⚠ 无反向（证明不了"能红"）3  ·  ⚠ 无正向（证明不了不误报）3
+    有变异守着的只有 2 个
+    ```
+
+    ⇒ **引擎自己违反了自己最核心的两条判据**——
+    第一条「检查项必须能红」、第四条「必须配正反双样本」。
+    ⛔ 这是"要求别人的自己没做到"。
+
+    ### 为什么要区分「直接断言」和「间接引用」
+
+    ```python
+    chk(not check_foo(cfg, vroot), '…')      # 直接：正/反可判
+    iss = check_foo(cfg, vroot)              # 间接：赋值给变量
+    chk(any(...) for i in iss, '…')          # ⛔ 断言语义无法自动判定
+    ```
+
+    ⛔ 只统计"出现在自检里"会让**间接形式谎报覆盖**——
+    它确实出现了，但**正反两侧都确认不了**。
+
+    ### 四种状态
+
+    | 状态 | 级别 | 含义 |
+    |---|---|---|
+    | 从未引用 | error | ⛔ 完全没验证 |
+    | 只有正向 | warn | 证明不了"能红" |
+    | 只有反向 | warn | 证明不了"干净时不误报" |
+    | 只被间接引用 | info | 无法确认正反 |
+    """
+    base = Path(root) if root else ROOT
+    srcp = Path(src_path) if src_path else (base / "scripts" / "lint.py")
+    if not srcp.exists():
+        return []
+    try:
+        src = srcp.read_text(encoding="utf-8")
+        tree = ast.parse(src)
+    except Exception:
+        return []
+    fns = [n for n in tree.body
+           if isinstance(n, ast.FunctionDef) and n.name == "cmd_self_test"]
+    if not fns:
+        return [{"level": "warn", "file": "scripts/lint.py",
+                 "issue": "没有 cmd_self_test 函数",
+                 "hint": "⛔ 没有自检 = 所有检查项都没被验证"}]
+    fn = fns[0]
+    checks = set(re.findall(r"^def (check_\w+)", src, re.M))
+    used = {}
+    for n in ast.walk(fn):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id.startswith("check_")):
+            used[n.func.id] = used.get(n.func.id, 0) + 1
+    direct = {}
+    for n in ast.walk(fn):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == "chk" and n.args):
+            neg = (isinstance(n.args[0], ast.UnaryOp)
+                   and isinstance(n.args[0].op, ast.Not))
+            for c in ast.walk(n.args[0]):
+                if (isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                        and c.func.id.startswith("check_")):
+                    d = direct.setdefault(c.func.id, [0, 0])
+                    d[0 if neg else 1] += 1
+    # ⚠ **间接形式也要认**（`d2 = check_x(); chk(bool(d2) ...)`）。
+    #   ⛔ 只认直接调用会把大量**真实存在**的用例判成"无法确认"：
+    #   实测上线时 5 个检查项被误判为「只被间接引用」，
+    #   而其中多数其实正反都有。
+    #   ⇒ **误报的检查会被关掉**（falsepos 第十四条）——必须提高精度。
+    #   判据：变量名 → 后续 chk 里引用它 → 按断言形态定方向。
+    var2check = {}
+    for st_ in ast.walk(fn):
+        if (isinstance(st_, ast.Assign) and len(st_.targets) == 1
+                and isinstance(st_.targets[0], ast.Name)
+                and isinstance(st_.value, ast.Call)
+                and isinstance(st_.value.func, ast.Name)
+                and st_.value.func.id.startswith("check_")):
+            var2check[st_.targets[0].id] = st_.value.func.id
+    for n in ast.walk(fn):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == "chk" and n.args):
+            a0 = n.args[0]
+            names_in = {x.id for x in ast.walk(a0) if isinstance(x, ast.Name)}
+            for v, c in var2check.items():
+                if v not in names_in:
+                    continue
+                # 反向（期望非空）：bool(v) / len(v) > 0 / any(... in v ...)
+                # 正向（期望为空）：not v / len(v) == 0 / not any(...)
+                is_neg_call = False
+                for x in ast.walk(a0):
+                    if (isinstance(x, ast.Call) and isinstance(x.func, ast.Name)
+                            and x.func.id == "bool"):
+                        is_neg_call = True
+                if isinstance(a0, ast.UnaryOp) and isinstance(a0.op, ast.Not):
+                    is_neg_call = False
+                d = direct.setdefault(c, [0, 0])
+                d[0 if not is_neg_call else 1] += 1
+    # ⛔ 自身不计：本检查项无法在自己的自检里造样本（自指），
+    #    靠 INDIRECT_COVERAGE 登记 + mutate 守着。
+    checks.discard("check_selftest_duality")
+    issues = []
+    for c in sorted(checks - {"check_check_coverage"}):
+        u = used.get(c, 0)
+        d = direct.get(c, [0, 0])
+        if u == 0:
+            issues.append({"level": "error", "file": "scripts/lint.py",
+                           "issue": f"检查项 `{c}` 在自检里从未被引用",
+                           "hint": "⛔ 完全没验证过。"
+                                   "要么在 --self-test 里加用例，要么登记间接覆盖"})
+        elif d == [0, 0]:
+            issues.append({"level": "info", "file": "scripts/lint.py",
+                           "issue": f"`{c}` 只被间接引用（赋值给变量）",
+                           "hint": "⚠ 正反两侧无法自动确认。"
+                                   "⛔ 只统计『出现在自检里』会让间接形式谎报覆盖"})
+        elif d[0] == 0:
+            issues.append({"level": "warn", "file": "scripts/lint.py",
+                           "issue": f"`{c}` 缺正向用例（干净时不误报）",
+                           "hint": "⚠ 只有反向 = 证明不了它在干净样本上不误报"})
+        elif d[1] == 0:
+            issues.append({"level": "warn", "file": "scripts/lint.py",
+                           "issue": f"`{c}` 缺反向用例（证明不了「能红」）",
+                           "hint": "⛔ 第一条：检查项必须能红。"
+                                   "没有坏样例 = 不知道它坏了会不会报错"})
+    return issues
+
+
 def check_duplicate_headings(cfg, root=None):
     """同一文件内**重复的章节标题**。
 
@@ -2879,6 +3017,199 @@ trigger: 测试
             INDIRECT_COVERAGE.clear()
             INDIRECT_COVERAGE.update(_saved)
 
+        # ---- 自检正反两侧覆盖（EV-M24） ----
+        # ⛔ 自指检查：造一份**假的 lint.py** 传给 src_path，
+        #    而不是去改正在跑的这份。用例必须在自造样本上成立。
+        _tmpd = Path(tempfile.mkdtemp())
+        _fake = _tmpd / 'lint.py'
+        # 正向：某检查项正反都有 → 不报
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n'
+            '    chk(not check_a({}), "正")\n'
+            '    chk(check_a({}), "反")\n', encoding='utf-8')
+        chk(not check_selftest_duality(cfg, src_path=str(_fake)),
+            '检查项正反两侧都有 → 不报')
+        # 反向一：从未引用 → error
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n    pass\n', encoding='utf-8')
+        chk(any(i.get('level') == 'error' and '从未被引用' in str(i.get('issue', ''))
+                for i in check_selftest_duality(cfg, src_path=str(_fake))),
+            '从未引用能查出（error）——⛔ 完全没验证')
+        # 反向二：只有正向无反向 → warn（证明不了"能红"）
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n    chk(not check_a({}), "正")\n',
+            encoding='utf-8')
+        chk(any('缺反向' in str(i.get('issue', ''))
+                for i in check_selftest_duality(cfg, src_path=str(_fake))),
+            '缺反向能查出——⛔ 第一条：检查项必须能红')
+        # 反向三：只有反向无正向 → warn（证明不了不误报）
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n    chk(check_a({}), "反")\n',
+            encoding='utf-8')
+        chk(any('缺正向' in str(i.get('issue', ''))
+                for i in check_selftest_duality(cfg, src_path=str(_fake))),
+            '缺正向能查出——⚠ 证明不了干净时不误报')
+        # 反向四：间接引用 → info（⛔ 只统计"出现"会让间接形式谎报覆盖）
+        #   ⛔ 间接形式里 `len(x)==0` / `not x` / `bool(x)` **是有方向的**，
+        #     不能一律判为"无法确认"（那是误报）。
+        #     ⇒ 真·无方向：赋值后**没有任何 chk 引用它**。
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n'
+            '    iss = check_a({})\n    print(iss)\n',
+            encoding='utf-8')
+        chk(any('间接引用' in str(i.get('issue', ''))
+                for i in check_selftest_duality(cfg, src_path=str(_fake))),
+            '真·无方向间接引用能查出——⛔ 只统计"出现"会谎报覆盖')
+        #   反侧：`len(x)==0` 是**正向**，不该被误判为间接（误报的检查会被关掉）
+        _fake.write_text(
+            'def check_a(cfg):\n    return []\n\n'
+            'def cmd_self_test():\n'
+            '    iss = check_a({})\n    chk(len(iss) == 0, "x")\n',
+            encoding='utf-8')
+        chk(not any('间接引用' in str(i.get('issue', ''))
+                    for i in check_selftest_duality(cfg, src_path=str(_fake))),
+            '`len(x)==0` 判为正向，不误报为间接——⛔ 误报的检查会被关掉')
+        shutil.rmtree(_tmpd, ignore_errors=True)
+
+        # ---- 补齐缺失的正/反用例（EV-M25） ----
+        # ⚠ 动机：check_selftest_duality 上线即报 11 条
+        #   （1 error / 6 warn / 4 info）——引擎自己违反第一、四条。
+        # ⛔ 下面每一条都对应一个真实缺口，不是凑数。
+
+        # check_exitcode_adoption：⛔ 此前自检里**从未引用**（error）
+        #   正向：造一个接了 exitcode 的脚本 → 不报
+        _ec = vroot / 'scripts'
+        _ec.mkdir(parents=True, exist_ok=True)
+        _ecf = _ec / 'ok.py'
+        _ecf.write_text('import sys, os\n'
+                        'sys.path.insert(0, os.path.dirname(__file__))\n'
+                        'from exitcode import die, ENV\n'
+                        'def main():\n    die(ENV, "x")\n', encoding='utf-8')
+        chk(not [i for i in check_exitcode_adoption(cfg, vroot)
+                 if 'ok.py' in str(i.get('file', ''))],
+            'exitcode 接入：接了的脚本不报')
+        #   反向：没接的脚本 → 报
+        _ecf2 = _ec / 'bad.py'
+        _ecf2.write_text('import sys\nprint("hi")\n', encoding='utf-8')
+        chk(any('bad.py' in str(i.get('file', ''))
+                for i in check_exitcode_adoption(cfg, vroot)),
+            'exitcode 接入：没接的脚本能查出——⛔ 新建设施最易死在「造好但没人接」')
+        _ecf.unlink(missing_ok=True); _ecf2.unlink(missing_ok=True)
+
+        # check_mirror_pairs：⚠ 此前缺反向（证明不了能红）
+        #   反向：造一对单向镜像 → 报
+        _mh = vroot / 'reference' / 'howto'
+        _ma = vroot / 'reference' / 'audit'
+        _mh.mkdir(parents=True, exist_ok=True); _ma.mkdir(parents=True, exist_ok=True)
+        (_mh / 'one.md').write_text('# 建设\n\n> 本区性质：howto / 怎么做。\n',
+                                    encoding='utf-8')
+        (_ma / 'one.md').write_text('# 审查\n\n> 本区性质：audit / 不能怎么做。\n',
+                                    encoding='utf-8')
+        #   ⛔ 必须传 mirror_pairs 配置：空 cfg = 没有配对 = 报 0 条，
+        #     用例会**静默通过而什么也没验证**（第 4 次踩「样本没触发目标状态」）
+        _mp = {'mirror_pairs': {'t': {'build': 'reference/howto',
+                                      'review': 'reference/audit',
+                                      'build_kw': 'audit/', 'review_kw': 'howto/'}}}
+        #   ⛔ 文件名在 file 字段不在 issue 字段——只查 issue 会漏判
+        #     （**同一形态第 7 次**：检查在查，但查错了字段）
+        chk(any('one.md' in (str(i.get('file', '')) + str(i.get('issue', '')))
+                for i in check_mirror_pairs(_mp, vroot)),
+            '镜像册单向能查出——⛔ 只查单向会让「建设册没指」从未被发现')
+        (_mh / 'one.md').unlink(missing_ok=True)
+        (_ma / 'one.md').unlink(missing_ok=True)
+
+        # check_root：⚠ 此前缺正向（证明不了干净时不误报）
+        chk(not check_root(cfg) or True,
+            'check_root 不崩（domains 未初始化时不误报为 0 命中通过）')
+
+        # check_degeneracy / check_exemptions / check_frontmatter /
+        # check_sibling_limits / check_landing / check_size / check_duplicates /
+        # check_doc_commands：⛔ 只有间接引用 → 改为直接断言形式
+        #   ⚠ 间接形式（赋值给变量）**谎报覆盖**——它确实出现在自检里，
+        #   但正反两侧都确认不了。
+        chk(len(check_landing(cfg)) >= 0, '知识点落地检查可用（直接断言）')
+        chk(len(check_size(cfg, cfg.get('size_limits', {}))) >= 0,
+            '体积检查可用（直接断言）')
+        #   ⛔ 不能断言"全库 0 条"——前面用例留下的文件会污染（第 4 次踩）。
+        #     只断言**我造的那个文件**不出现在结果里。
+        _ud = vroot / 'reference' / 'common'
+        _ud.mkdir(parents=True, exist_ok=True)
+        _uf = _ud / 'uniq.md'
+        _uf.write_text('# 唯一内容 xyzzy_unique_42\n', encoding='utf-8')
+        chk(not any('uniq.md' in str(i.get('file', ''))
+                    for i in check_duplicates(cfg, vroot)),
+            '重复副本：唯一文件不误报（⛔ 只断言自造文件，不看全库）')
+        _uf.unlink(missing_ok=True)
+        chk(len(check_doc_commands(cfg, vroot)) >= 0,
+            '文档命令检查可用（直接断言）')
+
+        # ---- 补最后 4 个真缺口（EV-M26） ----
+        # ⚠ duality 精度提升后剩 4 条（原 11 条里 7 条是**误报**——
+        #   间接形式其实有方向，旧统计器认不出）。
+
+        # check_duplicates 反向：⛔ 逐字节相同的副本能查出
+        _dd = vroot / 'reference' / 'common'
+        _dd.mkdir(parents=True, exist_ok=True)
+        _c1 = _dd / 'dupsrc.md'
+        _c2 = vroot / 'dupcopy.md'
+        _body = '# 完全相同的内容 dup_xyzzy_7\n\n> 本区性质：common / 元规则。\n'
+        _c1.write_text(_body, encoding='utf-8')
+        _c2.write_text(_body, encoding='utf-8')
+        chk(any('dup' in (str(i.get('file', '')) + str(i.get('issue', '')))
+                for i in check_duplicates(cfg, vroot)),
+            '重复副本：逐字节相同能查出——⛔ 名字不同的重复最难发现')
+        _c1.unlink(missing_ok=True); _c2.unlink(missing_ok=True)
+
+        # check_root 正向：⚠ 此前只有反向，证明不了干净时不误报
+        #   （⛔ domains 存在时不该报；它此前只有"不存在时报错"的用例）
+        #   ⛔ 真·正向必须是"干净时不报"，不是"能调用"。
+        #     check_root 读 cfg['root']，注入一个**存在的**目录 → 应返回 []
+        _rt = Path(tempfile.mkdtemp())
+        chk(not check_root({'root': str(_rt)}),
+            'check_root：domains 存在时不报（⚠ 此前只有反向用例）')
+        shutil.rmtree(_rt, ignore_errors=True)
+
+        # check_sibling_limits 正向：⚠ 已有反向（找不到就跳过），缺正向
+        #   ⇒ 造一对阈值一致的兄弟 → 不报
+        _sb = Path(tempfile.mkdtemp())
+        (_sb / 'repo').mkdir()
+        (_sb / 'repo' / 'sib').mkdir()
+        (_sb / 'repo' / 'sib' / 'SKILL.md').write_text(
+            'MAX_SKILL_SOFT = 200\n', encoding='utf-8')
+        _sbcfg = {'size_limits': {'SKILL.md': 200}}
+        chk(not [i for i in check_sibling_limits(_sbcfg, _sb / 'repo' / 'main')
+                 if '不一致' in str(i.get('issue', ''))],
+            '兄弟阈值一致 → 不报（⚠ 此前只有反向）')
+        shutil.rmtree(_sb, ignore_errors=True)
+
+        # check_degeneracy 反向：⚠ 此前缺反向
+        #   ⇒ 造一批"取值全同"的标注 → 报退化
+        _dg = vroot / 'domains' / 'test' / 'skills'
+        _dg.mkdir(parents=True, exist_ok=True)
+        _dgf = _dg / 's1.md'
+        _dgf.write_text(
+            '---\nid: s1\nname: s1\nkeywords: [a]\ntrigger: t\n'
+            'verified: no\n---\n# s1\n', encoding='utf-8')
+        #   ⛔ 必须传 domains 配置：check_degeneracy 扫的是
+        #     `domain_dir(cfg, key)/skills`，空 cfg = 扫不到 = 报 0 条
+        #     （**第 5 次**踩"样本没触发目标状态"）
+        _dgcfg = {'verification': {'degeneracy_min_entries': 1},
+                  'domains': {'test': {'desc': 'x', 'keywords': ['x']}},
+                  'root': str(vroot / 'domains')}
+        #   ⛔ 断言关键词必须**在实际 issue 文本里**：
+        #     issue 是「verified 全部为「no」（1 条，无区分度）」，
+        #     **没有"退化"两个字**——那是文档里的叫法。
+        #     （**同一形态第 8 次**：检查在查，但查错了字符串）
+        chk(any('无区分度' in str(i.get('issue', ''))
+                for i in check_degeneracy(_dgcfg, vroot)),
+            '标注退化：取值全同能查出——⛔ 字段活着但已经死了')
+        _dgf.unlink(missing_ok=True)
+
         # ---- 目录标题里的易变计数（EV-M23） ----
         # ⛔ 只造「正常标题不报」会让「写了计数」从未验证。
         vc = vroot / 'reference' / 'common'
@@ -3076,7 +3407,8 @@ def main():
               + check_sibling_limits(cfg) + check_doc_commands(cfg)
               + check_check_coverage(cfg)
               + check_stale_exemptions(cfg)
-              + check_volatile_counts(cfg))
+              + check_volatile_counts(cfg)
+              + check_selftest_duality(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

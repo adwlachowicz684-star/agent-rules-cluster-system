@@ -228,5 +228,25 @@
     "expect": "KILLED",
     "why": "split-two-books.md 的区文件数**第 4 次**过期（howto 10→16→17，audit 3→6→7）。⚠ 每次都是「加了文件没回来改计数」，而读的人把数字当现状。⇒ **计数是快照，判据是稳定的**。⛔ 初版查所有标题+表格行报了 37 条（绝大多数误报）——带来源的实测统计是合法的。**误报的检查会被关掉**，所以宁可窄不可宽。",
     "source": "2026-09-25 整合时发现第 4 次过期"
+  },
+  {
+    "id": "EV-M24",
+    "target": "scripts/lint.py",
+    "desc": "[正反覆盖] 自检 duality 判定恒完备 → 缺正/缺反/间接都不报",
+    "old": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])",
+    "new": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])\n        d = [1, 1]  # 变异：正反判定恒为完备 → 不报",
+    "expect": "KILLED",
+    "why": "**自审发现**：24 个检查项里 12 个（50%）自检覆盖不完备，引擎自己违反了第一条「检查项必须能红」与第四条「必须配正反双样本」。补齐后 11 条 → 0 条。",
+    "source": "2026-09-25 自审（用户要求：审查 skill 自己有没有遵守）"
+  },
+  {
+    "id": "EV-M25",
+    "target": "scripts/lint.py",
+    "desc": "[正反覆盖] 精度：间接形式(len(x)==0/bool(x))其实有方向，旧统计器认不出→误报",
+    "old": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    # ⚠ **间接形式也要认**",
+    "new": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    return []\n    # ⚠ **间接形式也要认**",
+    "expect": "KILLED",
+    "why": "只认直接调用会把 5 个其实正反都有的检查项误判为「只被间接引用」。误报的检查会被关掉（falsepos 第十四条）——必须提高精度。提高后 9 条真缺口 → 4 条。",
+    "source": "2026-09-25 自审"
   }
 ]
