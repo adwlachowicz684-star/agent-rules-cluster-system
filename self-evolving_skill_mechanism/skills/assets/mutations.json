@@ -88,5 +88,95 @@
     "expect": "KILLED",
     "why": "实测 new-skill.md 的「### 批量四步（替换 Step 4）」只是**提到** Step，却被当成真 Step 报「缺五字段」。判据：节点 ID 才是稳定标识，不是标题字样",
     "source": "2026-09-24 补 FL-03 时发现并修复"
+  },
+  {
+    "id": "EV-M10",
+    "target": "scripts/lint.py",
+    "desc": "[死链检查] scripts/reference 开头的路径存在性判断改恒真 → 死链不报",
+    "old": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = (base / rel).exists()",
+    "new": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = True",
+    "expect": "KILLED",
+    "why": "⛔ 教训：初版把 target 写成**文档文件** sequence.md，而 mutate 的测试套件是 `lint.py --self-test`，它**只读自造样本、不读真库文档** → 改文档自检当然不变，报了 SURVIVED。这是**变异定义写错了**，不是真盲区。判据：**变异目标必须是测试套件真的会读到的东西**。另注：手验确认 LK002 在真库上确实能抓到死链",
+    "source": "2026-09-25 反哺 game-dev flow 层时自己踩的（引用了对方的工具名）"
+  },
+  {
+    "id": "EV-M11",
+    "target": "scripts/lint.py",
+    "desc": "[假生效] 反模式表按完整匹配识别类型 → 缺列就认不出类型，检查被跳过",
+    "old": "            is_miscon = \"本能以为\" in j\n            is_omit = \"漏写\" in j",
+    "new": "            is_miscon = all(k in j for k in MISCON)\n            is_omit = all(k in j for k in OMIT)",
+    "expect": "KILLED",
+    "why": "⛔ 这正是第二十一条「假生效」的精确实例：用完整匹配识别类型时，**缺了列就识别不出类型 → 检查自己被跳过**。而缺列恰恰是要报的问题——**检查因被测对象缺了东西而静默罢工**。判据：先按主键认出它是哪一类，再查这一类的必需列",
+    "source": "2026-09-25 写 check_antipattern_tables 时自己踩的"
+  },
+  {
+    "id": "EV-M12",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围] 死链检查跳过区名开头的相对路径 → 4 条真死链长期未发现",
+    "old": "                ok = (base / \"reference\" / rel).exists() or (base / rel).exists()",
+    "new": "                ok = True   # 变异：区名开头一律跳过",
+    "expect": "KILLED",
+    "why": "实测 4 条真死链（`flow/README.md`、`common/howto/principles.md`）**长期未被发现**，因为老正则只认 `scripts/` 或 `reference/` 开头，而「【读】common/howto/principles.md」这种区名开头的写法不在范围内。**检查在跑，但没在查**（silent 第一条、第七条）。基准：区名开头的路径解析到 `reference/<区>/`",
+    "source": "2026-09-25 挖 game-dev common/ 时对照引擎侧发现的"
+  },
+  {
+    "id": "EV-M13",
+    "target": "scripts/lint.py",
+    "desc": "[全局块] 锚点存在性判断恒真 → 引用不存在的 EC-xx 不报",
+    "old": "            if m.group(1).lower() not in defined:",
+    "new": "            if False:  # 变异：锚点存在性不查",
+    "expect": "KILLED",
+    "why": "⛔ 全局块的意义是消除重复。锚点写错会让读的人得到「这个块不存在」→ **回去自己写一遍**——**重复又回来了，且没人发现**。与 check_refs 的分工：那个查文件在不在，这个查锚点在不在；只查前者会让「文件在、锚点错」完全漏掉",
+    "source": "2026-09-25 建 EC 全局块时配套新增"
+  },
+  {
+    "id": "EV-M14",
+    "target": "scripts/lint.py",
+    "desc": "[全局块] EC 块定义提取正则失效 → 所有锚点都判为不存在（或都不报）",
+    "old": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        defined.add(m.group(1).lower())",
+    "new": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        pass  # 变异：不收集已定义块",
+    "expect": "KILLED",
+    "why": "⛔ defined 集合为空时，所有引用都被判为「不存在」——**检查变成全量误报**。而误报的检查会被关掉（第十三条）。反向：若 defined 恒全，则所有引用都放过——**检查形同虚设**。两个方向都必须有用例守着（EC-02）",
+    "source": "2026-09-25 建 EC 全局块时配套新增（正反两侧）"
+  },
+  {
+    "id": "EV-M15",
+    "target": "scripts/lint.py",
+    "desc": "[格式缺陷] 孤立表格行检测失效 → 表格断裂不报",
+    "old": "            if prev_tbl or nxt_sep:\n                continue",
+    "new": "            continue  # 变异：一律跳过，永远不报",
+    "expect": "KILLED",
+    "why": "⛔ 实测 SKILL.md 目录地图里 `| pending/draft.md | … |` 夹在两个段落之间——Markdown **不把它渲染成表格**，读者看到的是一行带竖线的文字。这类缺陷**不影响任何检查通过**（行数/章节/死链都正常），只有人眼渲染时才看得见，而**入口文件恰恰是最常被读的**",
+    "source": "2026-09-25 修 SKILL.md 目录地图时发现的真缺陷"
+  },
+  {
+    "id": "EV-M16",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围] 孤立表格行检查缩回只扫 reference/ → 入口文件永远不被检查",
+    "old": "    targets = [p for p in sorted(base.rglob(\"*.md\"))\n               if \".git\" not in str(p)]",
+    "new": "    targets = [p for p in sorted((base / \"reference\").rglob(\"*.md\"))]",
+    "expect": "KILLED",
+    "why": "⛔ **缺陷就是在 SKILL.md 里发现的**，而 SKILL.md 不在 reference/ 下。只扫子目录会让「最常被读的那个文件」永远不被检查——而它恰恰是最该被检查的（silent 第七条：扫描范围必须自报）。这是目录分层后只扫直接子文件的**第 5 次**出现",
+    "source": "2026-09-25 扩展扫描范围时配套新增"
+  },
+  {
+    "id": "EV-M17",
+    "target": "scripts/lint.py",
+    "desc": "[误报] 条目型文档（编号条目册）被判「章节过多」→ 逼人拆掉本该在一起的册子",
+    "old": "            if numbered >= len(heads) * 0.7:\n                continue",
+    "new": "            if False:  # 变异：条目型豁免失效\n                continue",
+    "expect": "KILLED",
+    "why": "⛔ `self-verification-*.md` 是**编号条目册**：每章一条独立判据，用法是「查表：我这情况属于哪条」，**章节数等于条目数**。拆开反而要来回翻，且会切断跨文件锚点（20+ 条是全局编号，跨册引用）。不区分的话会逼着人拆掉**本来就该在一起**的册子（第十四条：判据看语义方向，不看表面特征）",
+    "source": "2026-09-25 credibility 册 14 章节被误报时发现的"
+  },
+  {
+    "id": "EV-M18",
+    "target": "scripts/lint.py",
+    "desc": "[扫描范围] check_scan_scope 不遍历 check_* 函数 → 只扫子目录的检查查不出",
+    "old": "    for fn in [n for n in ast.walk(tree)\n               if isinstance(n, ast.FunctionDef)\n               and n.name.startswith(\"check_\")]:",
+    "new": "    for fn in []:  # 变异：不遍历任何函数",
+    "expect": "KILLED",
+    "why": "⛔ 六问第 1 问「扫描范围包含入口文件吗」的自动化。缺陷**就是在 SKILL.md 里发现的**，而它不在任何「批量扫描的目录」里——最常被读的文件最容易漏在范围外。上线即抓到真漏：`check_block_refs` 只扫 reference/，而 SKILL.md 引用 `#EC-xx` 完全合理",
+    "source": "2026-09-25 六问第 1 问自动化时新增"
   }
 ]

@@ -182,6 +182,8 @@ verified: partial # 部分步骤验证过
 完整机制（三态返回值、正反双样本、扫描范围自报）见
 `reference/audit/self-verification.md`。
 
+ⓘ **正反双样本的统一判据**见 [EC-02](../common/blocks.md#ec-02-正反双样本缺反侧等于没验证)——缺反侧的用例是恒绿但无效的用例。
+
 ### 变更溯源：改动要留痕
 
 改了技能就在 `assets/changelog.md` 记一行，别靠记忆：

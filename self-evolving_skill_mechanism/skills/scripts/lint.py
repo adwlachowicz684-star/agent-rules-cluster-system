@@ -875,6 +875,21 @@ def check_doc_shape(cfg, limits=None, root=None):
         # 这与「文本匹配必须走 AST」是同一形态——不区分「示例代码」和
         # 「真内容」的判据必然误报，而误报的检查会被关掉。
         heads = [l for l in _outside_code_blocks(text) if l.startswith("## ")]
+        # ⛔ 条目型文档不适用「章节过多」：
+        #    self-verification-*.md 这类**编号条目册**，
+        #    每章是一条独立判据，用法是「查表：我这情况属于哪条」。
+        #    它的章节数**等于条目数**——拆开反而要来回翻，
+        #    且会切断跨文件锚点（那 20+ 条是全局编号，跨册引用）。
+        #
+        #    判据：≥70% 的章节标题是「数字、」或「数字.」开头 → 条目型。
+        #    ⛔ 不区分的话会逼着人拆掉一个**本来就该在一起**的册子
+        #    （第十四条：判据看语义方向，不看表面特征）。
+        if heads:
+            numbered = sum(
+                1 for h in heads
+                if re.match(r"^##\s*[\d一二三四五六七八九十]+[、.．]", h))
+            if numbered >= len(heads) * 0.7:
+                continue
         if len(heads) > 12:
             issues.append({
                 "level": "info",
@@ -1201,8 +1216,20 @@ def check_refs(cfg, root=None):
         if d.exists():
             targets += sorted(d.rglob("*.md"))
 
+    # ⛔ 区名开头的相对路径也必须查：
+    #    实测 4 条死链长期未被发现（`flow/README.md`、
+    #    `common/howto/principles.md`），因为老正则只认
+    #    `scripts/` 或 `reference/` 开头的路径。
+    #    而 `reference/flow/skeleton.md` 里写 `【读】common/howto/principles.md`
+    #    这种**区名开头**的写法完全不在检查范围内——
+    #    **检查在跑，但没在查**（silent 第一条、第七条）。
+    #
+    #    基准：区名开头的路径解析到 `reference/<区>/`，
+    #    因为五区目录都在 reference/ 下。
+    ZONES = ("howto", "audit", "flow", "common", "craft")
     RX = re.compile(r'(?<![A-Za-z0-9_/.-])'
-                    r'((?:scripts|reference)/[A-Za-z0-9_./-]+\.(?:py|sh|md))')
+                    r'((?:scripts|reference|%s)/[A-Za-z0-9_./-]+\.(?:py|sh|md))'
+                    % "|".join(ZONES))
     for f in targets:
         try:
             text = f.read_text(encoding="utf-8")
@@ -1210,7 +1237,12 @@ def check_refs(cfg, root=None):
             continue
         for m in RX.finditer(text):
             rel = m.group(1)
-            if (base / rel).exists():
+            if rel.startswith(("scripts", "reference")):
+                ok = (base / rel).exists()
+            else:
+                # 区名开头 → 基准是 reference/
+                ok = (base / "reference" / rel).exists() or (base / rel).exists()
+            if ok:
                 continue
             ln = text[:m.start()].count('\n') + 1
             issues.append({
@@ -1387,6 +1419,293 @@ def check_exemptions(cfg, root=None):
                 "hint": "豁免写了却没人读 → 命中数不会下降，而人以为已处理。"
                         "例：%s" % ", ".join(marks[:3])})
     return issues
+
+def check_block_refs(cfg, root=None):
+    """全局块引用（`#EC-xx`）必须指向 `common/blocks.md` 里真实存在的锚点。
+
+    为什么需要：全局块的意义是**消除重复**——各文件引用同一个锚点，
+    而不是各写一遍。⛔ 锚点写错（或块被删了）时，
+    引用变成断链，而**读的人会得到"这个块不存在"**，
+    于是回去自己写一遍 —— **重复又回来了，且没人发现**。
+
+    与 `check_refs`（文件路径死链）的分工：
+    那个查**文件在不在**，这个查**文件里的锚点在不在**。
+    ⛔ 只查前者会让「文件在、锚点错」这一类完全漏掉。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    blocks = base / "reference" / "common" / "blocks.md"
+    if not blocks.is_file():
+        return issues
+    btext = blocks.read_text(encoding="utf-8")
+    # 块头形如 `## EC-01 xxx`，锚点形如 `#ec-01-xxx`
+    defined = set()
+    for m in re.finditer(r"^##\s+(EC-\d+)", btext, re.M):
+        defined.add(m.group(1).lower())
+
+    # ⛔ 不能只扫 reference/：SKILL.md 是入口，
+    #    它引用 `#EC-xx` 完全合理（比如在「最高优先级区」里），
+    #    只扫子目录会让入口里的错误锚点永远查不到。
+    #    由 check_scan_scope（六问第 1 问）报出后修。
+    targets = [base / "SKILL.md"]
+    targets += sorted((base / "reference").rglob("*.md"))
+    for f in targets:
+        if not f.is_file() or f == blocks:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        rel = str(f.relative_to(base))
+        for m in re.finditer(r"#(EC-\d+)", text, re.I):
+            if m.group(1).lower() not in defined:
+                issues.append({
+                    "level": "error", "file": rel,
+                    "issue": "引用了不存在的全局块 `%s`" % m.group(1),
+                    "hint": "块定义在 `common/blocks.md`（`## %s …`）。"
+                            "⛔ 锚点写错会让读的人回去自己写一遍——"
+                            "**重复又回来了，且没人发现**" % m.group(1)})
+    return issues
+
+
+def check_orphan_table_row(cfg, root=None):
+    """孤立的表格行：以 `|` 开头但前后都不构成表格。
+
+    实测（SKILL.md 目录地图）：`| pending/draft.md | … |` 这一行
+    **夹在两个段落之间**——上一行是引用块、下一行是空行。
+
+    ⛔ **Markdown 不会把它渲染成表格**：
+    表格要求表头行紧接着分隔线。孤立的那行会原样显示管道符，
+    读者看到的是一行带竖线的文字，而不是表格的一部分。
+
+    为什么必须查：这类缺陷**不影响任何检查通过**
+    （行数、章节、死链都正常），只有人眼渲染时才看得见，
+    而入口文件恰恰是最常被读的那个。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    SEP = re.compile(r"^\|[\s:|-]+\|\s*$")
+    # ⛔ 不能只扫 reference/：
+    #    这个缺陷**就是在 SKILL.md 里发现的**，而 SKILL.md 不在 reference/ 下。
+    #    只扫子目录会让「最常被读的那个文件」永远不被检查——
+    #    而它恰恰是最该被检查的（silent 第七条：扫描范围必须自报）。
+    targets = [p for p in sorted(base.rglob("*.md"))
+               if ".git" not in str(p)]
+    for f in targets:
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        # 跳过代码块内的行（示例里的表格是正常的）
+        outs, in_fence = [], False
+        for ln0 in lines:
+            if ln0.strip().startswith("```"):
+                in_fence = not in_fence
+                outs.append(False)
+                continue
+            outs.append(not in_fence)
+        rel = str(f.relative_to(base))
+        for i, ln in enumerate(lines):
+            st = ln.strip()
+            if not st.startswith("|") or not st.endswith("|"):
+                continue
+            if not (i < len(outs) and outs[i]):
+                continue
+            if SEP.match(st):
+                continue
+            prev = lines[i - 1].strip() if i > 0 else ""
+            nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            prev_tbl = prev.startswith("|")
+            nxt_sep = bool(SEP.match(nxt))
+            # 表格内：上一行是表格行，或下一行是分隔线
+            if prev_tbl or nxt_sep:
+                continue
+            issues.append({
+                "level": "warn", "file": "%s:%d" % (rel, i + 1),
+                "issue": "孤立表格行（前后都不构成表格）",
+                "hint": "⛔ Markdown 不会渲染它——表格要求表头紧接着分隔线。"
+                        "这一行会原样显示管道符。移动进上面的表格，"
+                        "或改成普通段落"})
+    return issues
+
+
+# ⛔ 扫描范围豁免登记：这些检查**天然不含入口文件**，写明理由。
+#    与所有豁免一样：⛔ 不写理由 = 规则失效的开始（第十五条）。
+#    判据：SKILL.md 是不是这类检查的**合法对象**？不是才登记。
+SCAN_SCOPE_EXEMPT = {
+    "check_flow_steps": "只查 `flow/` 区的流程文件——SKILL.md 不是流程文件",
+    "check_reference_zones": "只查 `reference/` 下的五区——区域定义在那个目录下",
+    "check_antipattern_tables": "只查审查册的反模式表——那些表只在 `audit/` 下",
+    "check_landing": "只查技能包（skills/）——SKILL.md 是入口不是技能包",
+    "check_degeneracy": "只查 `SKILLS/` 常驻层",
+    "check_mirror_pairs": "只比对 howto↔audit **镜像对**的文件名——"
+                          "SKILL.md 不是任何一册的成员",
+}
+
+
+def check_scan_scope(cfg, root=None):
+    """扫 .md 的检查是否包含**入口文件**（SKILL.md）。
+
+    ⛔ 来源：本项目**连续 5 次**栽在「扫描范围不对」上，
+    而其中最新一次最典型——
+
+        缺陷在 SKILL.md 里，检查却只扫 reference/。
+
+    **最常被读的文件，恰恰是最容易漏在扫描范围外的**：
+    它是单点，不在任何"批量扫描的目录"里。
+
+    判据（写检查时的第 1 问）：
+    **扫描范围包含入口文件吗？**
+
+    为什么用 AST 不用文本匹配：
+    `base.rglob` 与 `(base / "reference").rglob` 只差一个子目录，
+    但语义完全不同。看 receiver 才能分辨（第十一条：文本匹配走 AST）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    src = base / "scripts" / "lint.py"
+    if not src.is_file():
+        return issues
+    try:
+        tree = ast.parse(src.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return issues
+
+    def _unparse(node):
+        try:
+            return ast.unparse(node)
+        except Exception:
+            return ""
+
+    for fn in [n for n in ast.walk(tree)
+               if isinstance(n, ast.FunctionDef)
+               and n.name.startswith("check_")]:
+        # ① 只关心扫 .md 的检查——扫 .py 的（退出码接入率等）
+        #    入口文件对它没有意义，报出来就是噪音。
+        pats = []
+        for n in ast.walk(fn):
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                    and n.func.attr in ("rglob", "glob"):
+                recv = _unparse(n.func.value) or ""
+                arg = _unparse(n.args[0]) if n.args else ""
+                pats.append((recv, arg))
+        if not pats or not any(".md" in a for _, a in pats):
+            continue
+
+        # ② 全库扫描（receiver 是 base / ROOT）→ 含入口，OK
+        if any(r.strip() in ("base", "ROOT") for r, _ in pats):
+            continue
+        # ③ 显式补了入口文件 → OK
+        #    ⚠ 不能用 `'"SKILL.md"' in blob`：
+        #    `ast.unparse` 会把所有字符串规范化成**单引号**，
+        #    源码里的双引号版本匹配不上 → 明明加了入口却被判漏。
+        #    （这正是「文本匹配必须走 AST」的反面：
+        #     走了 AST 之后就不能再按源码字面形态匹配。）
+        blob = _unparse(fn)
+        if "SKILL.md" in blob:
+            continue
+        # ④ 已登记豁免 → 跳过（但理由必须非空）
+        why = SCAN_SCOPE_EXEMPT.get(fn.name)
+        if why:
+            continue
+        issues.append({
+            "level": "info", "file": "scripts/lint.py",
+            "issue": "检查 `%s` 扫 .md 但不含入口文件（SKILL.md）" % fn.name,
+            "hint": "⛔ 缺陷**就是在 SKILL.md 里发现的**，而它不在任何"
+                    "「批量扫描的目录」里。确认入口是否该在范围内："
+                    "该 → 显式加上入口文件；"
+                    "不该 → 登记进 `SCAN_SCOPE_EXEMPT` 并写明理由"
+                    "（⛔ 不写理由 = 规则失效的开始）"})
+    return issues
+
+
+def check_antipattern_tables(cfg, root=None):
+    """反模式清单的表头必须是两种形态之一，且列齐全。
+
+    反哺自 game-dev 的 109 份反模式册（见
+    `reference/audit/antipattern-form.md`）。实测只有两种表头：
+
+        误解类  「本能以为 / 实际」          79 份
+        遗漏类  「漏写 / 后果 / 审查规则」   22 份
+
+    为什么必须查：这两种是**性质不同**的缺陷——
+    误解类是「做了但理解错」，遗漏类是「根本没做」。
+    ⛔ 混在一张表里两头不讨好：误解类要"读一条对照一次"，
+    遗漏类要"搜一遍查漏"，混起来只能做其中一件。
+
+    三个子检查各防一种失效：
+      ① 表头不是两种之一    —— 自造的形态，别人用不上
+      ② 遗漏类缺「审查规则」—— ⛔ 不写这列会让人以为全表都可机扫
+      ③ 误解类缺「实际」    —— 只写"会出错"等于没写（无法自查）
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+
+    # 两种合法表头（中英文列名都认，宽松匹配避免误报）
+    MISCON = ("本能以为", "实际")            # 误解类
+    OMIT = ("漏写", "后果", "审查规则")      # 遗漏类
+
+    def cells(header_line):
+        return [c.strip() for c in header_line.strip().strip("|").split("|")]
+
+    def joined(cs):
+        return "".join(cs)
+
+    ad = base / "reference" / "audit"
+    if not ad.exists():
+        return issues
+    for f in sorted(ad.rglob("*.md")):
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # 只查"清单类"文档：正文里出现「反模式」或「只写『不能怎么做』」
+        if "不能怎么做" not in text and "反模式" not in text:
+            continue
+        rel = str(f.relative_to(base))
+        lines = text.split("\n")
+        tables = 0
+        for i, ln in enumerate(lines):
+            st = ln.strip()
+            if not st.startswith("|"):
+                continue
+            # 表头行的下一行必须是分隔线
+            nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            if not re.match(r"^\|[\s:|-]+\|$", nxt):
+                continue
+            cs = cells(st)
+            j = joined(cs)
+            # ⚠ 按**主键**识别类型，不用完整匹配：
+            #    缺列正是要报的问题——用 all() 判定的话
+            #    缺了列就识别不出类型，检查自己被跳过（假生效）。
+            #    判据：先认出它是哪一类，再查这一类的必需列。
+            is_miscon = "本能以为" in j
+            is_omit = "漏写" in j
+            if not (is_miscon or is_omit):
+                continue
+            tables += 1
+            if is_omit and "审查规则" not in j:
+                issues.append({
+                    "level": "warn", "file": rel,
+                    "issue": "遗漏类表缺「审查规则」列",
+                    "hint": "⛔ 不写这列会让人以为全表都可机扫。"
+                            "能机扫的写规则号，不能的写「人工」——"
+                            "写「人工」是诚实标注，不是敷衍"})
+            if is_miscon and "实际" not in j:
+                issues.append({
+                    "level": "warn", "file": rel,
+                    "issue": "误解类表缺「实际」列",
+                    "hint": "「实际」要写**可观测表现**，尤其要显式写出"
+                            "「静默」——不报错的失败最难自查"})
+        if tables == 0:
+            issues.append({
+                "level": "info", "file": rel,
+                "issue": "自称反模式清单，但没有两种标准表头之一的表格",
+                "hint": "两种形态：误解类「本能以为/实际」、"
+                        "遗漏类「漏写/后果/审查规则」。"
+                        "⛔ 自造形态别人用不上"})
+    return issues
+
 
 def check_degeneracy(cfg, root=None):
     """标注字段退化：全库同一个值 = 这个字段已经不携带信息。
@@ -1768,6 +2087,27 @@ trigger: 测试
         chk(oversize_exempt(nx) is None, '没声明豁免的不误判为已豁免')
         nx.unlink()
 
+        # ---- 死链检查（EV-M10：检查有效 ≠ 有用例守着） ----
+        # ⛔ 实测：LK002 在真库上**确实能抓到**死链（手动造一条验证过），
+        #    但自检里**没有用例** → mutate 跑出来是 SURVIVED。
+        #    这正是第二十四条的实证：**检查有效 ≠ 有用例守着**。
+        # 反向：引用不存在的脚本 → 报 error
+        (vroot / 'reference').mkdir(parents=True, exist_ok=True)
+        dc2 = vroot / 'reference' / 'dead.md'
+        dc2.write_text('# t\n\n见 `scripts/nosuch.py`\n', encoding='utf-8')
+        got_dead = check_refs({}, vroot)
+        chk(any('nosuch.py' in str(i.get('issue', ''))
+                and i.get('level') == 'error' for i in got_dead),
+            '引用不存在的脚本能报 error（死链）')
+        # 正向：引用存在的脚本 → 不报
+        (vroot / 'scripts').mkdir(parents=True, exist_ok=True)
+        (vroot / 'scripts' / 'real.py').write_text('pass\n', encoding='utf-8')
+        dc2.write_text('# t\n\n见 `scripts/real.py`\n', encoding='utf-8')
+        chk(not [i for i in check_refs({}, vroot)
+                 if 'real.py' in str(i.get('issue', ''))],
+            '引用存在的脚本不报（正向不误报）')
+        dc2.unlink(missing_ok=True)
+
         # ---- 分层目录必须参与体积检查（EV-M08） ----
         # ⛔ 历史缺陷：reference/ 分成五区后，`check_size` 用 glob
         #    只扫顶层 → **子区的文档完全不参与体积检查**。
@@ -2044,6 +2384,245 @@ trigger: 测试
         chk(any('缺 flow-type' in i['issue']
                 for i in check_flow_steps(cfg, vroot)),
             '缺 flow-type 能查出（否则无法分流）')
+
+        # ---- 区名开头的相对路径也必须是死链（EV-M12） ----
+        # ⛔ 实测 4 条长期未被发现：老正则只认 scripts/ 或 reference/ 开头，
+        #    而「【读】common/howto/principles.md」这种**区名开头**的
+        #    写法完全不在检查范围内 —— **检查在跑，但没在查**。
+        (vroot / 'reference').mkdir(parents=True, exist_ok=True)
+        zd = vroot / 'reference' / 'flow'
+        zd.mkdir(parents=True, exist_ok=True)
+        zf = zd / 'zone.md'
+        # 反向：区名开头 + 文件不存在 → 报
+        zf.write_text('# t\n\n见 `common/nosuch-block.md`\n', encoding='utf-8')
+        chk(any('nosuch-block' in str(i.get('issue', ''))
+                for i in check_refs({}, vroot)),
+            '区名开头的相对路径死链能查出（老正则漏掉这一类）')
+        # 正向：区名开头 + 文件存在 → 不报
+        (vroot / 'reference' / 'common').mkdir(parents=True, exist_ok=True)
+        (vroot / 'reference' / 'common' / 'real-block.md').write_text(
+            '# b\n', encoding='utf-8')
+        zf.write_text('# t\n\n见 `common/real-block.md`\n', encoding='utf-8')
+        chk(not [i for i in check_refs({}, vroot)
+                 if 'real-block' in str(i.get('issue', ''))],
+            '区名开头但文件存在 → 不误报')
+        zf.unlink(missing_ok=True)
+
+        # ---- 全局块锚点（EV-M13） ----
+        # 只造正向（锚点存在不报）会让「锚点写错」从未验证。
+        cb = vroot / 'reference' / 'common'
+        cb.mkdir(parents=True, exist_ok=True)
+        (cb / 'blocks.md').write_text(
+            '# b\n\n## EC-01 甲\n\n## EC-02 乙\n', encoding='utf-8')
+        zf2 = vroot / 'reference' / 'howto' / 'u.md'
+        zf2.parent.mkdir(parents=True, exist_ok=True)
+        # 正向：存在的锚点 → 不报
+        zf2.write_text('# u\n\n见 #EC-01\n', encoding='utf-8')
+        chk(not check_block_refs(cfg, vroot), '存在的全局块锚点不报')
+        # 反向：不存在的锚点 → error
+        zf2.write_text('# u\n\n见 #EC-99\n', encoding='utf-8')
+        chk(any('EC-99' in str(i.get('issue', ''))
+                for i in check_block_refs(cfg, vroot)),
+            '不存在的全局块锚点能查出（否则重复又回来了）')
+        # ⛔ 反侧二：块定义提取失效 → defined 为空 → 全部误报。
+        #    只造"不存在的锚点"会让这一侧从未验证——
+        #    **误报的检查会被关掉**（EC-02 / 第十三条）。
+        (cb / 'blocks.md').write_text(
+            '# b\n\n## 说明\n\n无编号块\n', encoding='utf-8')
+        zf2.write_text('# u\n\n见 #EC-01\n', encoding='utf-8')
+        chk(any('EC-01' in str(i.get('issue', ''))
+                for i in check_block_refs(cfg, vroot)),
+            '块定义提取失效（defined 为空）时能查出——否则全量误报')
+        (cb / 'blocks.md').write_text(
+            '# b\n\n## EC-01 甲\n\n## EC-02 乙\n', encoding='utf-8')
+        zf2.unlink(missing_ok=True)
+
+        # ---- 孤立表格行（EV-M15） ----
+        # ⛔ 实测 SKILL.md 目录地图里 `| pending/draft.md | … |`
+        #    夹在两个段落之间，Markdown 不渲染成表格。
+        #    只造正向会让「抓不到」从未验证。
+        ot = vroot / 'reference' / 'common'
+        ot.mkdir(parents=True, exist_ok=True)
+        of = ot / 't.md'
+        # ⛔ 断言必须**只针对自己造的样本**：
+        #    check_orphan_table_row 扫 reference/ 下全部 .md，
+        #    前面用例留下的文件可能自带孤立表格行 →
+        #    **全局「0 条」断言会被无关残留带红**
+        #    （与 EV-M04 同族：断言要在自造样本上成立）。
+        def _only_t(res):
+            return [i for i in res if i.get('file', '').endswith('t.md')]
+
+        # 正向①：表格内正常行（上一行是表格行）→ 不报
+        of.write_text('# t\n\n| a | b |\n|---|---|\n| 1 | 2 |\n',
+                      encoding='utf-8')
+        chk(not _only_t(check_orphan_table_row(cfg, vroot)),
+            '表格内正常行不报')
+        # 正向②：表头行（下一行是分隔线）→ 不报
+        of.write_text('# t\n\n| a | b |\n|---|---|\n', encoding='utf-8')
+        chk(not _only_t(check_orphan_table_row(cfg, vroot)), '表头行不报')
+        # 正向③：代码块里的表格行 → 不报（示例是正常的）
+        of.write_text('# t\n\n```\n| x | y |\n```\n', encoding='utf-8')
+        chk(not _only_t(check_orphan_table_row(cfg, vroot)),
+            '代码块内的表格行不误报')
+        # 反向：孤立表格行（前后都是非表格）→ 报
+        of.write_text('# t\n\n正文段落\n\n| 孤立 | 行 |\n\n另一段\n',
+                      encoding='utf-8')
+        chk(any('孤立表格行' in str(i.get('issue', ''))
+                for i in check_orphan_table_row(cfg, vroot)),
+            '孤立表格行能查出（Markdown 不渲染它）')
+        of.unlink(missing_ok=True)
+
+        # ---- 扫描范围必须覆盖入口文件（EV-M16） ----
+        # ⛔ 缺陷是在 SKILL.md 里发现的，而第一版只扫 reference/。
+        #    只造「子目录里能查出」会让「入口文件不扫」从未验证。
+        sk2 = vroot / 'SKILL.md'
+        sk2.write_text('# s\n\n正文\n\n| 孤立 | 行 |\n\n另一段\n',
+                       encoding='utf-8')
+        chk(any('SKILL.md' in str(i.get('file', ''))
+                for i in check_orphan_table_row(cfg, vroot)),
+            '入口文件（SKILL.md）的孤立表格行也能查出'
+            '——⛔ 缺陷就是在那儿发现的')
+        sk2.unlink(missing_ok=True)
+
+        # ---- 条目型文档不算「章节过多」（EV-M17） ----
+        # ⛔ 只造「普通文档多章节能查出」会让「条目册被误报」从未验证。
+        ed = vroot / 'reference' / 'howto'
+        ed.mkdir(parents=True, exist_ok=True)
+        # 反向：条目型（编号章节 ≥70%）→ 不报，尽管章节数 >12
+        ent = []
+        for k in range(14):
+            ent.append('## %d、条目%d\n\n内容\n' % (k + 1, k + 1))
+        (ed / 'entrybook.md').write_text('# e\n\n' + '\n'.join(ent),
+                                         encoding='utf-8')
+        chk(not [i for i in check_doc_shape(cfg, {}, vroot)
+                 if 'entrybook.md' in str(i.get('file', ''))
+                 and '章节' in str(i.get('issue', ''))],
+            '条目型文档（编号章节）不算章节过多——拆了反而要来回翻')
+        # 正向：非条目型多章节 → 仍然报（确认豁免没有一刀切）
+        pro = []
+        for k in range(14):
+            pro.append('## 主题%d\n\n内容\n' % (k + 1))
+        (ed / 'prose.md').write_text('# p\n\n' + '\n'.join(pro),
+                                     encoding='utf-8')
+        chk(any('prose.md' in str(i.get('file', ''))
+                and '章节' in str(i.get('issue', ''))
+                for i in check_doc_shape(cfg, {}, vroot)),
+            '非条目型多章节仍然报（豁免没有一刀切）')
+        for nm in ('entrybook.md', 'prose.md'):
+            (ed / nm).unlink(missing_ok=True)
+
+        # ---- 扫描范围含入口文件（EV-M18） ----
+        # ⛔ 只造「全库扫描不报」会让「只扫子目录能查出」从未验证。
+        sg = vroot / 'scripts'
+        sg.mkdir(parents=True, exist_ok=True)
+        # vroot 下没有 scripts/lint.py → check_scan_scope 直接返回 0
+        chk(not check_scan_scope(cfg, vroot),
+            '没有 scripts/lint.py 时不报（缺文件不误报）')
+        # 造一个只扫子目录的检查函数 → 应报
+        (sg / 'lint.py').write_text(
+            'import ast\nfrom pathlib import Path\n'
+            'ROOT = Path(".")\n\n\n'
+            'def check_zzz(cfg, root=None):\n'
+            '    base = Path(root) if root else ROOT\n'
+            '    issues = []\n'
+            '    for f in sorted((base / "reference").rglob("*.md")):\n'
+            '        pass\n'
+            '    return issues\n', encoding='utf-8')
+        chk(any('check_zzz' in str(i.get('issue', ''))
+                for i in check_scan_scope(cfg, vroot)),
+            '只扫子目录、不含入口的检查能查出')
+        # 反向：全库扫描（receiver 是 base）→ 不报
+        (sg / 'lint.py').write_text(
+            'import ast\nfrom pathlib import Path\n'
+            'ROOT = Path(".")\n\n\n'
+            'def check_zzz(cfg, root=None):\n'
+            '    base = Path(root) if root else ROOT\n'
+            '    issues = []\n'
+            '    for f in sorted(base.rglob("*.md")):\n'
+            '        pass\n'
+            '    return issues\n', encoding='utf-8')
+        chk(not [i for i in check_scan_scope(cfg, vroot)
+                 if 'check_zzz' in str(i.get('issue', ''))],
+            '全库扫描（receiver 是 base）不报')
+        # 反向二：显式补了入口 → 不报
+        #   ⚠ ast.unparse 会把引号规范化成单引号，
+        #      只认 '"SKILL.md"' 会漏判（本轮刚踩）。
+        (sg / 'lint.py').write_text(
+            'import ast\nfrom pathlib import Path\n'
+            'ROOT = Path(".")\n\n\n'
+            'def check_zzz(cfg, root=None):\n'
+            '    base = Path(root) if root else ROOT\n'
+            '    issues = []\n'
+            '    targets = [base / "SKILL.md"]\n'
+            '    targets += sorted((base / "reference").rglob("*.md"))\n'
+            '    for f in targets:\n'
+            '        pass\n'
+            '    return issues\n', encoding='utf-8')
+        chk(not [i for i in check_scan_scope(cfg, vroot)
+                 if 'check_zzz' in str(i.get('issue', ''))],
+            '显式补了入口文件不报（unparse 引号规范化不能漏判）')
+        # 反向三：只扫 .py 的检查不报（入口对它没意义 → 噪音）
+        (sg / 'lint.py').write_text(
+            'import ast\nfrom pathlib import Path\n'
+            'ROOT = Path(".")\n\n\n'
+            'def check_zzz(cfg, root=None):\n'
+            '    base = Path(root) if root else ROOT\n'
+            '    issues = []\n'
+            '    for f in sorted((base / "scripts").glob("*.py")):\n'
+            '        pass\n'
+            '    return issues\n', encoding='utf-8')
+        chk(not [i for i in check_scan_scope(cfg, vroot)
+                 if 'check_zzz' in str(i.get('issue', ''))],
+            '只扫 .py 的检查不报（入口 .md 对它没意义 → 噪音）')
+        (sg / 'lint.py').unlink(missing_ok=True)
+
+        # ---- 反模式表形态（EV-M11） ----
+        # 反哺自 game-dev 109 份反模式册：只有两种合法表头。
+        # 只造正向（合法表）会让「缺列」从未验证。
+        aud = vroot / 'reference' / 'audit'
+        aud.mkdir(parents=True, exist_ok=True)
+        # 正向：两种标准表头都合法 → 不报
+        (aud / 'ok.md').write_text(
+            '# ui — 反模式清单（审核用）\n\n'
+            '> 本文件**只写「不能怎么做」**\n\n'
+            '## 常见坑\n\n'
+            '| # | 本能以为 | 实际 |\n|---|---|---|\n'
+            '| 1 | a | b |\n\n'
+            '## 常见漏写\n\n'
+            '| # | 漏写 | 后果 | 审查规则 |\n|---|---|---|---|\n'
+            '| 1 | c | d | 人工 |\n', encoding='utf-8')
+        got_ok = check_antipattern_tables(cfg, vroot)
+        chk(not [i for i in got_ok if 'ok.md' in str(i.get('file', ''))],
+            '两种标准表头都不报（合法形态）')
+        # 反向①：遗漏类缺「审查规则」 → warn
+        (aud / 'nomachine.md').write_text(
+            '# x — 反模式清单（审核用）\n\n'
+            '> 本文件**只写「不能怎么做」**\n\n'
+            '| # | 漏写 | 后果 |\n|---|---|---|\n| 1 | a | b |\n',
+            encoding='utf-8')
+        chk(any('审查规则' in str(i.get('issue', ''))
+                for i in check_antipattern_tables(cfg, vroot)),
+            '遗漏类缺「审查规则」列能查出（否则以为全表可机扫）')
+        # 反向②：误解类缺「实际」 → warn
+        (aud / 'noreal.md').write_text(
+            '# y — 反模式清单（审核用）\n\n'
+            '> 本文件**只写「不能怎么做」**\n\n'
+            '| # | 本能以为 | 后果 |\n|---|---|---|\n| 1 | a | b |\n',
+            encoding='utf-8')
+        chk(any('实际' in str(i.get('issue', ''))
+                for i in check_antipattern_tables(cfg, vroot)),
+            '误解类缺「实际」列能查出（只写"会出错"= 无法自查）')
+        # 反向③：自称反模式清单却无标准表 → info
+        (aud / 'empty.md').write_text(
+            '# z — 反模式清单（审核用）\n\n'
+            '> 本文件**只写「不能怎么做」**\n\n'
+            '| # | 自造列 | 另一列 |\n|---|---|---|\n| 1 | a | b |\n',
+            encoding='utf-8')
+        chk(any('没有两种标准表头' in str(i.get('issue', ''))
+                for i in check_antipattern_tables(cfg, vroot)),
+            '自造表头能查出（别人用不上）')
+        for nm in ('ok.md', 'nomachine.md', 'noreal.md', 'empty.md'):
+            (aud / nm).unlink(missing_ok=True)
 
         # ---- 镜像册双向可达 ----
         # 正反两侧：缺反向指针 → 必须报；补了 → 必须不报。
