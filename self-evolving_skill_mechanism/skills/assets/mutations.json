@@ -208,5 +208,25 @@
     "expect": "KILLED",
     "why": "⛔ **第二次踩同一个坑**（第一次是 re.S 不吃换行）。acceptance.md 的注释块是 `<!--\\nflow-type: meta\\noversize-exempt: …\\n-->`，而旧正则要求 exempt 紧跟 `<!--`，`\\s*` 匹配不到 `flow-type: meta` 这段文字 → **豁免声明了但不生效**（第二十一条：假生效）。假生效比没声明更糟：人以为处理过了。",
     "source": "2026-09-25 acceptance.md 413 行超限仍报时发现"
+  },
+  {
+    "id": "EV-M22",
+    "target": "scripts/lint.py",
+    "desc": "[过期豁免] 登记了不存在的函数（改名后没删）→ 不报 → 豁免变遮羞布",
+    "old": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if fn not in live:",
+    "new": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if False:  # 变异：过期豁免不查",
+    "expect": "KILLED",
+    "why": "反哺自 game-dev 的 check-map-relevance.py：「⛔ **豁免变成掩盖真问题的遮羞布**」。改名后旧名字仍在登记表里，而没有任何检查在查它存不存在——这是第二十一条（假生效）的**登记版**。",
+    "source": "2026-09-25 二挖 game-dev/scripts/"
+  },
+  {
+    "id": "EV-M23",
+    "target": "scripts/lint.py",
+    "desc": "[易变计数] 目录标题写「N 个文件」→ 不报，计数悄悄过期",
+    "old": "    RX = re.compile(r'^#{2,4}\\s*.*?[（(]\\s*(\\d+)\\s*(?:个|份)\\s*(?:文件|文档)\\s*[)）]')",
+    "new": "    RX = re.compile(r'^#\\s*zzzz_never_match')  # 变异：计数检查失效",
+    "expect": "KILLED",
+    "why": "split-two-books.md 的区文件数**第 4 次**过期（howto 10→16→17，audit 3→6→7）。⚠ 每次都是「加了文件没回来改计数」，而读的人把数字当现状。⇒ **计数是快照，判据是稳定的**。⛔ 初版查所有标题+表格行报了 37 条（绝大多数误报）——带来源的实测统计是合法的。**误报的检查会被关掉**，所以宁可窄不可宽。",
+    "source": "2026-09-25 整合时发现第 4 次过期"
   }
 ]

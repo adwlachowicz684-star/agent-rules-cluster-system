@@ -113,6 +113,34 @@ python3 verify.py --verify=V012 --result=failed --note="4.7.2 实测没有该节
 
 ---
 
+### ⛔ 条目化不能只停在文档里 —— 要有可追踪的机制
+
+game-dev 用一个脚本把「待核对」从**注解**变成**条目**（`verify.py`）：
+
+```
+待核对项：共 168 条
+  未验证 168 · 已验证 0 · 已推翻 0 · 跳过 0
+```
+
+每条有 **ID / 状态 / 归属文档 / 验证方法**，且支持运行时录入：
+
+```
+python3 verify.py --verify=V012 --result=ok
+python3 verify.py --verify=V012 --result=failed --note="4.7.2 实测没有该节点"
+python3 verify.py --verify=V012 --result=skipped --note="无 Quest 设备"
+```
+
+⇒ **关键不在"记下来"，在"能回填"**：
+`--result=failed` + `--note` 让"验证过了、结论是错的"变成
+**一条有据可查的记录**，而不是把原条目删掉。
+
+ⓘ 与 [`../../howto/consolidation-gate.md`](../../howto/consolidation-gate.md)
+的三类清单同源：已验证 / 未验证 / 需人工确认——
+**状态是数据，不是措辞**。
+
+⚠ 引擎侧目前**只有文档里的要求，没有这个机制**——
+本册自己的条目也没法回填状态。这是已知欠账。
+
 ### ⛔ 条目化还不够 —— 每条必须写「**怎么验证**」
 
 实测（game-dev 的 118 份做法文档里，**42 份**有「待核对项」节）：

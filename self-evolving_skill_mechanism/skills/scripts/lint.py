@@ -1629,6 +1629,103 @@ def check_scan_scope(cfg, root=None):
     return issues
 
 
+def check_stale_exemptions(cfg, root=None):
+    """⛔ 过期豁免：登记了但目标已不存在 → 豁免变成遮羞布。
+
+    反哺自 game-dev 的 `check-map-relevance.py`：
+
+    > ⚠ 每条豁免必须写理由；自检会校验豁免项**仍然存在**，
+    > 映射改了而豁免没删 → 报「过期豁免」。
+    > ⛔ **豁免变成掩盖真问题的遮羞布**。
+
+    两个检查各防一种失效：
+
+      ① 过期：登记了 `check_xxx` 但函数已改名为 `check_yyy`
+              → 那条检查从此**无人守着**，而登记还在，
+              看起来"已处理"
+      ② 空理由：登记了但没写为什么只能间接验证
+              → ⛔ 不写理由的例外 = 规则失效的开始
+
+    ⛔ 为什么不能只查「登记项名字对不对」：
+    改名后旧名字仍在表里，而**没有任何检查在查它存不存在**——
+    这正是第二十一条（假生效）的**登记版**。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    # 当前实际存在的检查函数名
+    src = (Path(__file__)).read_text(encoding="utf-8")
+    live = set(re.findall(r"^def (check_\w+)", src, re.M))
+    for fn, reason in sorted(INDIRECT_COVERAGE.items()):
+        if fn not in live:
+            issues.append({
+                "level": "warn", "file": "scripts/lint.py",
+                "issue": f"过期豁免：`{fn}` 已不存在（可能改名）",
+                "hint": f"INDIRECT_COVERAGE 里登记的 `{fn}` 在当前文件里没有对应函数。"
+                        f"⛔ 映射改了而豁免没删 → **豁免变成掩盖真问题的遮羞布**。"
+                        f"要么改登记名，要么删掉这条"})
+        if not reason or len(reason.strip()) < 10:
+            issues.append({
+                "level": "warn", "file": "scripts/lint.py",
+                "issue": f"豁免 `{fn}` 没写理由（或太短）",
+                "hint": "⛔ 不写理由的例外 = 规则失效的开始。"
+                        "要写明「为什么只能间接验证」"})
+    return issues
+
+
+def check_volatile_counts(cfg, root=None):
+    """⛔ 目录/索引型文档里不要写「N 个文件」这类会变的计数。
+
+    实测：split-two-books.md 里的区文件数**第 4 次**过期：
+
+        howto  10 → 16 → 17
+        audit   3 →  6 →  7
+
+    ⚠ 每次都是「加了文件但没回来改这里的计数」，
+    而**读的人会把这个数字当成现状**——
+    这正是 EC-03（数字会过期）的自证。
+
+    ⇒ 判据：**计数是快照，判据是稳定的**。
+    ⛔ 不要写「howto 有 17 个文件」；✅ 写「怎么算」或干脆不写。
+
+    ⚠ 豁免：变更溯源 / 统计报告里写计数是**合法**的——
+    那本来就是"某时某刻的快照"，且带了日期。
+    ⛔ 不豁免会让"记录历史"被当成"声明现状"误报，
+    而 **误报的检查会被关掉**（falsepos 第十四条）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    # ⛔ 只查**目录标题**里的计数：`### howto/ 怎么做（16 个文件）`
+    #    —— 这正是连修 4 次的那个位置。
+    #    初版查了所有标题与表格行 → 报 37 条，其中绝大多数是误报：
+    #    「109 份反模式册」是**实测统计**（有来源、可复现），
+    #    blocks.md 的待去重表标注了「由 grep 生成」。
+    #    ⛔ **误报的检查会被关掉**（falsepos 第十四条）——
+    #    所以宁可窄，不可宽。
+    #    ⇒ 判据：光秃秃一个数字 = 声明现状（会过期）；
+    #    带来源的统计 = 合法（可复现）。
+    RX = re.compile(r'^#{2,4}\s*.*?[（(]\s*(\d+)\s*(?:个|份)\s*(?:文件|文档)\s*[)）]')
+    for f in sorted((base / "reference").rglob("*.md")):
+        rel = str(f.relative_to(base))
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # 只查目录/索引型：正文里有「本区性质」或文件名含 index/split
+        if "索引" not in text[:400] and "本区性质" not in text[:600] \
+                and "index" not in f.name and "split" not in f.name:
+            continue
+        for i, ln in enumerate(_outside_code_blocks(text), 1):
+            m = RX.search(ln.strip())
+            if not m:
+                continue
+            issues.append({
+                "level": "info", "file": rel,
+                "issue": f"目录标题里写了会变的计数「{m.group(1)} 个文件」",
+                "hint": "⛔ 计数是快照会过期（split-two-books.md 已第 4 次修同一个数字）。"
+                        "✅ 写**怎么算**（ls reference/<区>/*.md | wc -l）或干脆不写"})
+    return issues
+
+
 def check_duplicate_headings(cfg, root=None):
     """同一文件内**重复的章节标题**。
 
@@ -2756,6 +2853,55 @@ trigger: 测试
         chk(oversize_exempt(ef) is not None, '后续注释块里的声明仍能认出')
         ef.unlink(missing_ok=True)
 
+        # ---- 过期豁免（EV-M22） ----
+        # ⛔ 只造「正常登记不报」会让「改名后没删」从未验证。
+        global INDIRECT_COVERAGE
+        _saved = dict(INDIRECT_COVERAGE)
+        try:
+            # 正向：登记项存在且理由充分 → 不报
+            INDIRECT_COVERAGE.clear()
+            INDIRECT_COVERAGE['check_size'] = '这是一条充分长的理由，说明为何只能间接验证'
+            chk(not check_stale_exemptions(cfg, vroot),
+                '豁免登记项存在且理由充分 → 不报')
+            # 反向一：登记了不存在的函数（改名后没删）→ 报
+            INDIRECT_COVERAGE.clear()
+            INDIRECT_COVERAGE['check_zzz_nonexistent'] = '这是一条充分长的理由，说明原因'
+            chk(any('过期豁免' in str(i.get('issue', ''))
+                    for i in check_stale_exemptions(cfg, vroot)),
+                '过期豁免（改名后没删）能查出——⛔ 豁免会变成遮羞布')
+            # 反向二：理由太短 → 报
+            INDIRECT_COVERAGE.clear()
+            INDIRECT_COVERAGE['check_size'] = '短'
+            chk(any('没写理由' in str(i.get('issue', ''))
+                    for i in check_stale_exemptions(cfg, vroot)),
+                '豁免没写理由能查出——⛔ 不写理由的例外 = 规则失效的开始')
+        finally:
+            INDIRECT_COVERAGE.clear()
+            INDIRECT_COVERAGE.update(_saved)
+
+        # ---- 目录标题里的易变计数（EV-M23） ----
+        # ⛔ 只造「正常标题不报」会让「写了计数」从未验证。
+        vc = vroot / 'reference' / 'common'
+        vc.mkdir(parents=True, exist_ok=True)
+        vf = vc / 'v.md'
+        # ⛔ 样本必须满足"目录/索引型"前置条件（正文含「本区性质」），
+        #    否则检查自己就跳过了 —— **用例没在验证**。
+        vf.write_text('# v\n\n> 本区性质：common / 元规则。\n\n'
+                      '### howto/ 怎么做\n\n### audit/ 不能怎么做\n',
+                      encoding='utf-8')
+        chk(not check_volatile_counts(cfg, vroot),
+            '目录标题不带计数 → 不报')
+        vf.write_text('# v\n\n> 本区性质：common / 元规则。\n\n### howto/ 怎么做（16 个文件）\n',
+                      encoding='utf-8')
+        chk(any('会变的计数' in str(i.get('issue', ''))
+                for i in check_volatile_counts(cfg, vroot)),
+            '目录标题带计数能查出——⛔ 计数是快照会过期')
+        vf.write_text('# v\n\n> 本区性质：common / 元规则。\n\n实测：109 份反模式册\n\n### howto/ 怎么做\n',
+                      encoding='utf-8')
+        chk(not check_volatile_counts(cfg, vroot),
+            '正文里的实测统计不误报（带来源 = 可复现）')
+        vf.unlink(missing_ok=True)
+
         # ---- 反模式表形态（EV-M11） ----
         # 反哺自 game-dev 109 份反模式册：只有两种合法表头。
         # 只造正向（合法表）会让「缺列」从未验证。
@@ -2928,7 +3074,9 @@ def main():
               + check_mirror_pairs(cfg) + check_reference_zones(cfg)
               + check_flow_steps(cfg) + check_exitcode_adoption(cfg)
               + check_sibling_limits(cfg) + check_doc_commands(cfg)
-              + check_check_coverage(cfg))
+              + check_check_coverage(cfg)
+              + check_stale_exemptions(cfg)
+              + check_volatile_counts(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
