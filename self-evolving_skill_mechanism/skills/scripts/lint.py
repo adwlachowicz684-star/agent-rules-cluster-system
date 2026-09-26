@@ -2277,6 +2277,75 @@ def _anchor_match(anc, title):
     return len(anc) >= 4 and anc in title
 
 
+def check_heading_numbering(cfg, root=None):
+    """同一层级内**重复的中文序号**（编号撞车）。
+
+    ⛔ 实测：真库 7 处。后果是引用 `#十` 会指向两处之一，
+    而锚点检查**查不出来**——两个标题的文本都真实存在，
+    只是序号一样。读的人按序号找，会找到错的那一节。
+
+    为什么现有检查抓不到：`check_markdown_headings` 只查
+    **重复 `#` 字符**和**完全相同的标题**——
+    两个编号相同、内容不同的标题它不管。
+
+    ⛔ 与「重复章节标题」是同一族：格式缺陷 100% 静默（第十七条）。
+
+    豁免：追加型归档（`changelog-archive`）**天然**每段各有编号——
+    那是设计如此，不是撞车。⛔ 不豁免会让基线永远清不掉 ⇒ 检查被关掉。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    CN = '一二三四五六七八九'
+
+    def cn_num(sv):
+        if '十' not in sv:
+            return CN.index(sv) + 1
+        i = sv.index('十')
+        tens = 1 if i == 0 else CN.index(sv[i-1]) + 1
+        ones = CN.index(sv[i+1]) + 1 if len(sv) > i + 1 else 0
+        return tens * 10 + ones
+
+    EXEMPT = ('changelog-archive',)
+    for f in sorted(base.rglob("*.md")):
+        if ".git" in str(f):
+            continue
+        if f.name.startswith(EXEMPT):
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        inf, fence = [], False
+        for ln in lines:
+            if ln.strip().startswith("```"):
+                fence = not fence
+                inf.append(False)
+                continue
+            inf.append(not fence)
+        rel = str(f.relative_to(base))
+        for lvl in (2, 3):
+            seen = {}
+            for i, ln in enumerate(lines):
+                if not (i < len(inf) and inf[i]):
+                    continue
+                m = re.match(r"^#{%d}\s*([一二三四五六七八九十]+)[、.．]\s*(.+)$"
+                             % lvl, ln.strip())
+                if not m:
+                    continue
+                n = cn_num(m.group(1))
+                if n in seen:
+                    issues.append({
+                        "level": "warn", "file": "%s:%d" % (rel, i + 1),
+                        "issue": "序号撞车：`%s、` 与第 %d 行重复"
+                                 % (m.group(1), seen[n]),
+                        "hint": "⛔ 引用 `#%s` 会指向两处之一，而锚点检查查不出来"
+                                "（两个标题的文本都真实存在）。"
+                                "插入新节时记得重排后面所有序号" % m.group(1)})
+                else:
+                    seen[n] = i + 1
+    return issues
+
+
 def check_craft_refs(cfg, root=None):
     """craft 层接入：断链 + 孤儿（本层形同虚设的检查）。
 
@@ -3488,6 +3557,58 @@ trigger: 测试
         chk(any('锚点不存在' in str(i.get('issue', ''))
                 for i in check_craft_refs(cfg, vroot)),
             '短锚点（<4 字）不会子串乱匹配（⛔ 否则断链检查失效）')
+
+        # ---- 序号撞车：同级重复中文序号 ----
+        # ⛔ 实测真库 7 处。后果：引用 `#十` 指向两处之一，
+        #    而锚点检查查不出来（两个标题文本都真实存在）。
+        nz = vroot / 'reference' / 'howto'
+        nz.mkdir(parents=True, exist_ok=True)
+        nf = nz / 'n.md'
+        # 正向：编号连续 → 不报
+        nf.write_text('# n\n\n## 一、甲\n\nx\n\n## 二、乙\n\ny\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_heading_numbering(cfg, vroot)
+                 if 'n.md' in str(i.get('file', ''))],
+            '序号连续不报')
+        # 反向：两个「三」→ 报
+        nf.write_text('# n\n\n## 一、甲\n\nx\n\n## 二、乙\n\ny\n\n'
+                      '## 三、丙\n\nz\n\n## 三、丁\n\nw\n',
+                      encoding='utf-8')
+        chk(any('序号撞车' in str(i.get('issue', ''))
+                for i in check_heading_numbering(cfg, vroot)),
+            '序号撞车能查出（两个「三」）')
+        # ⛔ 反侧一：十一/二十/二十九 不能被算错（实测三个坑都"看起来能跑"）
+        # ⛔ 样本必须**同时**含「十」与「二十」：
+        #    只放 十/十一 时，十位忘 +1 也不撞（10 vs 11）⇒ 用例恒绿。
+        #    ⛔ 这是「断言没针对被改的地方」的又一次：
+        #    要让变异**必然**改变结果，样本得造对。
+        nf.write_text('# n\n\n## 九、甲\n\nx\n\n## 十、乙\n\ny\n\n'
+                      '## 十一、丙\n\nz\n\n## 二十九、丁\n\nw\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_heading_numbering(cfg, vroot)
+                 if 'n.md' in str(i.get('file', ''))],
+            '十一/二十/二十九 不被误判撞车'
+            '（⛔ 十位忘 +1 会让 二十=十=10，撞车检查全是假阳性）')
+        nf.write_text('# n\n\n## 十、甲\n\nx\n\n## 二十、乙\n\ny\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_heading_numbering(cfg, vroot)
+                 if 'n.md' in str(i.get('file', ''))],
+            '十 与 二十 不撞车（⛔ 十位忘 +1 时两者都是 10 ⇒ 必然误报）')
+        # ⛔ 反侧二：代码块内的重复序号 → 不误报（示例是正常的）
+        nf.write_text('# n\n\n```\n## 一、甲\n## 一、乙\n```\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_heading_numbering(cfg, vroot)
+                 if 'n.md' in str(i.get('file', ''))],
+            '代码块内的重复序号不误报')
+        # ⛔ 反侧三：归档型文件天然每段各有编号 → 豁免
+        #    （不豁免 = 基线永远清不掉 = 检查被关掉）
+        af = vroot / 'assets' / 'changelog-archive.md'
+        af.parent.mkdir(parents=True, exist_ok=True)
+        af.write_text('# a\n\n### 一、x\n\n### 二、y\n\n'
+                      '### 一、z\n\n### 二、w\n', encoding='utf-8')
+        chk(not [i for i in check_heading_numbering(cfg, vroot)
+                 if 'changelog-archive' in str(i.get('file', ''))],
+            '追加型归档的重复编号被豁免（⛔ 那是设计如此）')
         # 反侧：元条目（自检/变更溯源）不算孤儿 —— ⛔ 必须断言**条数**：
         #   只查 issue 文本里有没有"自检"字样是假断言，
         #   而样本里元条目在 ## 级（entries 只收 ### 级）⇒ 变异后照样绿
@@ -4122,7 +4243,8 @@ def main():
               + check_scope_selfreport(cfg)
               + check_table_columns(cfg)
               + check_domains_in_repo(cfg, ROOT)
-              + check_craft_refs(cfg))
+              + check_craft_refs(cfg)
+              + check_heading_numbering(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

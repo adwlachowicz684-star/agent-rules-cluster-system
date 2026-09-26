@@ -384,5 +384,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M36",
+  "target": "scripts/lint.py",
+  "desc": "[序号撞车] 中文序号转数十位忘 +1 → 二十=十=10，撞车检查全是假阳性",
+  "old": "        tens = 1 if i == 0 else CN.index(sv[i-1]) + 1",
+  "new": "        tens = 1 if i == 0 else CN.index(sv[i-1])  # 变异：十位忘 +1",
+  "expect": "KILLED",
+  "why": "⛔ 实测写检查器时连踩三坑：①十一→10（个位忘+1）②二十→10（十位忘+1）③二十九→18。三个都「看起来能跑」，只在撞车时才暴露——而撞车正是它要抓的。假阳性的检查会被关掉（第十四条）。",
+  "source": "2026-09-26 序号撞车检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M37",
+  "target": "scripts/lint.py",
+  "desc": "[序号撞车] 不豁免追加型归档 → 基线永远清不掉",
+  "old": "        if f.name.startswith(EXEMPT):\n            continue",
+  "new": "        pass  # 变异：归档型不豁免",
+  "expect": "KILLED",
+  "why": "⛔ changelog-archive 天然每段各有编号（设计如此）。不豁免 = 7 处真撞车里 4 处是假的 = 基线永远清不掉 = 检查被关掉。",
+  "source": "2026-09-26 序号撞车检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
