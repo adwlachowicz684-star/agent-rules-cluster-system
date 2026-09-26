@@ -1220,6 +1220,12 @@ def check_frontmatter(cfg, root=None):
                                    "不是正文；超了要精简，不是加长"})
     return issues
 
+# 跨 skill 引用的根：本仓库三个 skill 同在 _common/skills/ 下
+COMMON_SKILLS = ROOT.parent.parent / "_common" / "skills"
+CROSS_SKILLS = ("game-dev", "code-audit")
+CROSS_OK = []          # 本次实际验到的跨 skill 引用（用于自证"真的在查"）
+
+
 def check_refs(cfg, root=None):
     """文档引用的 scripts/ 与 reference/ 路径必须真实存在。
 
@@ -1252,9 +1258,16 @@ def check_refs(cfg, root=None):
     #    基准：区名开头的路径解析到 `reference/<区>/`，
     #    因为五区目录都在 reference/ 下。
     ZONES = ("howto", "audit", "flow", "common", "craft")
+    # ⛔ 第三处扩展：跨 skill 前缀 + 中文路径
+    #    ① `game-dev/...` / `code-audit/...` 不在老前缀里 ⇒ 跨 skill 引用
+    #       压根没进匹配（实测 CROSS_OK 恒为 0 = 从来没验过）。
+    #    ② 字符类不含中文 ⇒ `00-域流程总览.md` 这类**真路径**匹配不到
+    #       （game-dev 的域流程文件名全是中文）⇒ 漏报。
+    #    ⛔ 两个都是"检查在跑但没在查"，且都不报错。
     RX = re.compile(r'(?<![A-Za-z0-9_/.-])'
-                    r'((?:scripts|reference|%s)/[A-Za-z0-9_./-]+\.(?:py|sh|md))'
-                    % "|".join(ZONES))
+                    r'((?:scripts|reference|%s|%s)/'
+                    r'[A-Za-z0-9_./\u4e00-\u9fa5-]+\.(?:py|sh|md))'
+                    % ("|".join(ZONES), "|".join(CROSS_SKILLS)))
     for f in targets:
         try:
             text = f.read_text(encoding="utf-8")
@@ -1267,6 +1280,17 @@ def check_refs(cfg, root=None):
             else:
                 # 区名开头 → 基准是 reference/
                 ok = (base / "reference" / rel).exists() or (base / rel).exists()
+            # ⛔ 跨 skill 引用：`<skill名>/...` → 去 _common/skills/<skill名>/ 下查
+            #    实测：写「反哺自 game-dev `scripts/check-craft.py`」被判死链——
+            #    因为引擎侧没有这个文件。⛔ 排除掉 = 跨 skill 引用永远不验证，
+            #    而它恰恰是最容易过期的（对方是活跃区，改名不会通知本侧）。
+            #    ⇒ 正确做法是**验到对方仓库**，不是排除。
+            if not ok:
+                top = rel.split("/")[0]
+                if top in CROSS_SKILLS:
+                    ok = (COMMON_SKILLS / rel).exists()
+                    if ok:
+                        CROSS_OK.append(rel)
             if ok:
                 continue
             ln = text[:m.start()].count('\n') + 1
@@ -2397,6 +2421,78 @@ def check_flow_seams(cfg, root=None):
                     "且失败模式都是「返回 0 条」——不报错。"
                     "加一节「接缝」列出上游产出 / 我这边的期望 / **是否一致**；"
                     "确无上下游就写 `> 接缝：无（<理由>）`。见 `flow/seams.md`"})
+    return issues
+
+
+def check_feed_source_path(cfg, root=None):
+    """「反哺」标注必须写明**具体来源路径**，⛔ 不能只写「反哺自某 skill」。
+
+    ⛔ 实证（2026-09-26）：25 条反哺标注，**22 条没写具体路径（88%）**。
+
+    后果不是"标注不够详细"这种风格问题，而是**查找能力的缺失**：
+    源头改名 / 拆分 / 改判据之后，⛔ **没有任何办法反查**
+    这边哪些内容跟着过期了。跨 skill 是单向快照，不是引用——
+    ⇒ 对方改了不会通知，而这边看起来完好。
+
+    判据：`反哺` 所在行必须含可定位的来源
+        ✅ `xxx.md` 反引号路径 / `flow/godot/xxx` / `howto/godot/xxx`
+        ⛔ 只写「反哺自 game-dev」= 答不出具体位置
+
+    级别 info（欠账可见但不阻断）：
+        ⛔ 存量 22 条一时补不完，报 warn 会让 lint 长期带基线，
+        而带基线的检查会被关掉（第十四条）。
+        ⇒ 先可见，边补边降；新写的一律要带路径。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    # ⛔ 第二版判据：只匹配「标注句式」，不是任何含"反哺"的行。
+    #    第一版报 87 条 → 收窄到 46 → 再收窄到 22（误报从 86% 降到 ~5%）。
+    #    ⛔ 「43 条反哺标注」「反哺标注未写…」这类是**在谈论**反哺，
+    #       不是在做标注——按第二十九条，误报超 30% 就该改判据。
+    RX_FEED = re.compile(
+        r"反哺\s*(?:自\s*)?(?:game-dev|code-audit)|反哺自\s+\S")
+    RX_PATH = re.compile(
+        r"`[^`]*\.md|flow/godot/[\w-]+|howto/godot/[\w-]+"
+        r"|audit/godot/[\w-]+|craft/godot/[\w-]+|godot/[\w-]+/")
+    for f in sorted(base.rglob("*.md")):
+        if ".git" in str(f):
+            continue
+        try:
+            rel = str(f.relative_to(base))
+        except Exception:
+            continue
+        # ⛔ 排除 assets/：变更溯源是**历史记录**，
+        #    改写会让"当初为什么这么写"失真（且它天然是快照）。
+        if rel.startswith("assets" + os.sep):
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        # ⛔ 第一版报 87 条，其中 40 条在 assets/、7 条是本文档的示例
+        #    ⇒ 按第二十九条（误报超 30% 要收窄判据）改两处：
+        #    ① 跳过代码块：示例不是真标注
+        #    ② 排除 assets/：变更溯源是历史记录，⛔ 改写会让
+        #       "当初为什么这么写"失真（且它天然是快照）
+        fence = False
+        for i, ln in enumerate(lines, 1):
+            st = ln.strip()
+            if st.startswith("```"):
+                fence = not fence
+                continue
+            if fence:
+                continue
+            if not RX_FEED.search(ln):
+                continue
+            if RX_PATH.search(ln):
+                continue
+            issues.append({
+                "level": "info", "file": "%s:%d" % (rel, i),
+                "issue": "反哺标注未写具体来源路径",
+                "hint": "⛔ 只写「反哺自 game-dev」= 源头改了无法反查"
+                        "（实测 25 条仅 3 条带路径）。"
+                        "写成 `game-dev/references/flow/godot/<域>/<文件>.md`。"
+                        "见 `common/cross-skill-seams.md`"})
     return issues
 
 
@@ -3710,6 +3806,78 @@ trigger: 测试
         # 级别：warn 不是 error（⛔ 欠账可见但不阻断）
         chk(all(i.get('level') == 'warn' for i in check_flow_seams(cfg, vroot)),
             '未声明接缝是 warn（⛔ 报 error 会让 lint 立刻红 → 检查被关掉）')
+
+        # ---- 反哺标注必须写具体来源路径 ----
+        zp = vroot / 'reference' / 'howto'
+        zp.mkdir(parents=True, exist_ok=True)
+        zf = zp / 'z.md'
+        # 正向：带具体路径 → 不报
+        zf.write_text('# z\n\n反哺自 `game-dev/references/flow/godot/mod/00.md` 的判断。\n',
+                      encoding='utf-8')
+        chk(not check_feed_source_path(cfg, vroot),
+            '反哺标注带具体路径不报')
+        # 反向：只写「反哺自 game-dev」→ 报
+        zf.write_text('# z\n\n反哺自 game-dev 的判断。\n', encoding='utf-8')
+        chk(any('未写具体来源路径' in str(i.get('issue', ''))
+                for i in check_feed_source_path(cfg, vroot)),
+            '只写「反哺自 game-dev」能查出（⛔ 源头改了无法反查）')
+        # ⛔ 反侧一：「在谈论」反哺不算标注（第一版误报 86% 的主因）
+        zf.write_text('# z\n\n实测：43 条反哺标注，只有 1 条写了路径。\n'
+                      '新写的反哺，标注了具体文件路径吗？\n', encoding='utf-8')
+        chk(not check_feed_source_path(cfg, vroot),
+            '「在谈论」反哺不算标注（⛔ 第一版误报 86% 就出在这）')
+        # ⛔ 反侧二：代码块内的示例不报
+        zf.write_text('# z\n\n```\n反哺自 game-dev\n```\n', encoding='utf-8')
+        chk(not check_feed_source_path(cfg, vroot),
+            '代码块内的反哺示例不报（⛔ 示例不是真标注）')
+        # ⛔ 反侧三：assets/ 变更溯源是历史记录 → 不报
+        af = vroot / 'assets' / 'changelog-archive.md'
+        af.parent.mkdir(parents=True, exist_ok=True)
+        af.write_text('# a\n\n反哺自 game-dev 的旧条目\n', encoding='utf-8')
+        chk(not [i for i in check_feed_source_path(cfg, vroot)
+                 if 'assets' in str(i.get('file', ''))],
+            'assets/ 变更溯源不报（⛔ 历史记录改写会失真）')
+        # 级别：info 不是 warn（⛔ 存量 22 条报 warn = 长期带基线 → 检查被关掉）
+        chk(all(i.get('level') == 'info' for i in check_feed_source_path(cfg, vroot)),
+            '反哺无路径是 info（⛔ 报 warn 会让 lint 长期带基线 → 检查被关掉）')
+
+        # ---- 跨 skill 引用要验到对方仓库（⛔ 排除 = 永远不验证）----
+        cf = vroot / 'reference' / 'howto'
+        cf.mkdir(parents=True, exist_ok=True)
+        xf = cf / 'y.md'
+        # 反向：引擎侧不存在的文件 → 报（⛔ 不是静默跳过）
+        xf.write_text('# y\n\n见 `scripts/no_such.py`\n', encoding='utf-8')
+        chk(any('引用了不存在' in str(i.get('issue', ''))
+                and 'y.md' in str(i.get('file', ''))
+                for i in check_refs(cfg, vroot)),
+            '引擎侧不存在的路径能查出'
+            '（⛔ 断言要限定 y.md：check_refs 扫全 vroot，'
+            '不限定会被前面用例留下的文件带绿 = 断言污染第 3 次）')
+        # ⛔ 反侧：跨 skill 前缀若被当成"本侧路径"会全误报
+        #    （实测：写 game-dev/scripts/check-craft.py 被判死链，
+        #     而它真的存在——只是在对方仓库）
+        #    ⇒ 这里验证 CROSS_SKILLS 分流生效：本侧裸名不存在、
+        #      但加前缀后存在于 _common/skills/ 时不报
+        COMMON = ROOT.parent.parent / '_common' / 'skills'
+        if COMMON.is_dir():
+            CROSS_OK.clear()
+            probe = sorted(COMMON.glob('*/SKILL.md'))
+            if probe:
+                rel = '%s/SKILL.md' % probe[0].relative_to(COMMON).parts[0]
+                xf.write_text('# y\n\n见 `%s`\n' % rel, encoding='utf-8')
+                chk(not [i for i in check_refs(cfg, vroot)
+                         if 'y.md' in str(i.get('file', ''))],
+                    '跨 skill 引用验到对方仓库（⛔ 排除 = 永不验证）')
+                chk(rel in CROSS_OK,
+                    '跨 skill 引用确实进了 CROSS_OK（⛔ 自证"真的在查"，'
+                    '实测扩展前 CROSS_OK 恒为 0）')
+        # ⛔ 反侧二：中文路径能匹配（game-dev 域流程文件名全是中文）
+        xf.write_text('# y\n\n见 `game-dev/references/flow/godot/'
+                      '不存在域/00-不存在.md`\n', encoding='utf-8')
+        chk(any('不存在' in str(i.get('issue', ''))
+                and 'y.md' in str(i.get('file', ''))
+                for i in check_refs(cfg, vroot)),
+            '中文路径能被匹配（⛔ 字符类不含中文 ⇒ 真路径漏报）')
         # 反侧：元条目（自检/变更溯源）不算孤儿 —— ⛔ 必须断言**条数**：
         #   只查 issue 文本里有没有"自检"字样是假断言，
         #   而样本里元条目在 ## 级（entries 只收 ### 级）⇒ 变异后照样绿
@@ -4345,6 +4513,7 @@ def main():
               + check_table_columns(cfg)
               + check_domains_in_repo(cfg, ROOT)
               + check_craft_refs(cfg)
+              + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))
 

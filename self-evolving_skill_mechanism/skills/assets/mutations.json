@@ -444,5 +444,65 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M40",
+  "target": "scripts/lint.py",
+  "desc": "[反哺来源] 判据放宽为「行含反哺二字」→ 误报率 86%",
+  "old": "            if not RX_FEED.search(ln):\n                continue",
+  "new": "            if \"反哺\" not in ln:  # 变异：放宽为含字即查\n                continue",
+  "expect": "KILLED",
+  "why": "⛔ 实测第一版报 87 条，其中 40 条在 assets/、多数是「在谈论反哺」不是「在做标注」。误报 86% ⇒ 按第二十九条检查会被关掉。判据必须是**标注句式**。",
+  "source": "2026-09-26 反哺来源检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M41",
+  "target": "scripts/lint.py",
+  "desc": "[反哺来源] 查 assets/ → 历史记录被要求改写",
+  "old": "        if rel.startswith(\"assets\" + os.sep):\n            continue",
+  "new": "        pass  # 变异：也查变更溯源",
+  "expect": "KILLED",
+  "why": "⛔ 变更溯源是历史记录，改写会让「当初为什么这么写」失真，且它天然是快照。40/87 条误报来自这里。",
+  "source": "2026-09-26 反哺来源检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M42",
+  "target": "scripts/lint.py",
+  "desc": "[跨skill] 不加 game-dev/code-audit 前缀 → 跨 skill 引用永不验证",
+  "old": "                    % (\"|\".join(ZONES), \"|\".join(CROSS_SKILLS)))",
+  "new": "                    % (\"|\".join(ZONES), \"|\".join(ZONES)))  # 变异：无跨skill前缀",
+  "expect": "KILLED",
+  "why": "⛔ 实测 CROSS_OK 恒为 0 = 从来没验过一条跨 skill 引用。写「反哺自 game-dev `scripts/check-craft.py`」被判死链（它真存在，只是在对方仓库）。⛔ 排除掉 = 跨 skill 引用永远不验证，而它最容易过期（对方是活跃区，改名不通知）。",
+  "source": "2026-09-26 跨skill接缝",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M43",
+  "target": "scripts/lint.py",
+  "desc": "[跨skill] 路径字符类不含中文 → game-dev 域流程文件全漏报",
+  "old": "r'[A-Za-z0-9_./\\u4e00-\\u9fa5-]+\\.(?:py|sh|md))'",
+  "new": "r'[A-Za-z0-9_./-]+\\.(?:py|sh|md))'  # 变异：不含中文",
+  "expect": "KILLED",
+  "why": "⛔ game-dev 的域流程文件名全是中文（`00-域流程总览.md`）。字符类不含中文 ⇒ 真路径匹配不到 ⇒ 漏报，且不报错。⛔ 这是「检查在跑但没在查」的又一变体。",
+  "source": "2026-09-26 跨skill接缝",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
