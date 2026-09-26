@@ -618,6 +618,70 @@ def cmd_self_test():
 
 
 
+def cmd_self_test() -> int:
+    """正反样本：证明主链路两个断点真的被守住了。"""
+    import tempfile
+    ok = True
+
+    def chk(cond, label):
+        nonlocal ok
+        print(('  ✓ ' if cond else '  ✗ ') + label)
+        if not cond:
+            ok = False
+
+    print('=' * 62)
+    print('consolidate 自检（主链路断点守门）')
+    print('=' * 62)
+
+    # ---- 断点 1：`<!-- [A] 场景 → 正确做法 -->` 必须能被解析 ----
+    with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False,
+                                     encoding='utf-8') as f:
+        f.write('# 待整合草稿\n\n<!-- [信号类型 A-F] 场景 → 正确做法 -->\n'
+                '<!-- [A] 某场景 → 正确做法 -->\n')
+        dp = Path(f.name)
+    got = parse_drafts(dp)
+    chk(any('某场景' in g for g in got),
+        '捕获注释 `<!-- [A] ... -->` 能被解析 —— ⛔ 不解析则按模板写的捕获 100% 读不到')
+    chk(not any('信号类型' in g for g in got),
+        '模板占位行 `<!-- [信号类型 A-F] -->` 不算内容，不误报')
+    dp.unlink(missing_ok=True)
+
+    # ---- 断点 2：reference/ 必须参与严格档查重 ----
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        ref = root / 'reference' / 'audit'
+        ref.mkdir(parents=True, exist_ok=True)
+        (ref / 'x.md').write_text(
+            '# 某标题\n同一脚本内连续两次 write 覆盖，第二次把第一次冲掉了，'
+            '这是改了但没落盘的典型形态\n', encoding='utf-8')
+        # ⛔ 必须测 **report() 的实际判定**，不能直接调 similarity：
+        #    第一版用例直接算 similarity，绕过了 report 里那段循环
+        #    ⇒ 把循环变异掉，用例照样绿（SURVIVED）。
+        #    ⚠ 与 silent 第一条同族：断言要针对**被改的那个地方**。
+        (root / 'SKILLS').mkdir(parents=True, exist_ok=True)
+        (root / 'pending').mkdir(parents=True, exist_ok=True)
+        (root / 'pending' / 'draft.md').write_text(
+            '# 待整合草稿\n\n<!-- [信号类型 A-F] 场景 → 正确做法 -->\n'
+            '<!-- [A] 同一脚本内连续两次 write 覆盖，第二次把第一次冲掉了，'
+            '这是改了但没落盘的典型形态 -->\n', encoding='utf-8')
+        import io as _io
+        import contextlib as _cl
+        _buf = _io.StringIO()
+        with _cl.redirect_stdout(_buf):
+            report(root / 'SKILLS', root / 'pending' / 'draft.md', root)
+        _out = _buf.getvalue()
+        chk('撞车' in _out and 'reference/' in _out,
+            'report() 把已入库知识判为「撞车」而非「可新增」—— '
+            '⛔ 只扫 SKILLS/ 会让同一个东西进库两遍')
+        chk('撞车' in _out,
+            '⚠ 断言针对 report() 的实际输出，⛔ 不是直接调 similarity'
+            '（第一版绕过了被变异的循环 → SURVIVED）')
+
+    print()
+    print('自检：%s' % ('全部通过' if ok else '有失败'))
+    return OK if ok else ERR
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent),

@@ -268,5 +268,66 @@
     "expect": "KILLED",
     "why": "真库探查第一版 37 处里 **27 处是误报**（95%），全是 grep 命令里的 `\\|`。处理转义后 10 处**全真**。这是第二十九条「先跑真库数误报率」的直接产物。",
     "source": "2026-09-25 第十七条量化"
+  },
+  {
+    "id": "EV-M28",
+    "target": "scripts/consolidate.py",
+    "desc": "[主链路断点1] parse_drafts 把捕获注释 `<!-- [A] ... -->` 当注释丢弃 → 按模板写的捕获 100% 读不到",
+    "old": "            _m = re.match(r\"^<!--\\s*\\[([A-G][0-9]?)\\](.*?)-->\\s*$\", s)\n            if _m:\n                out.append(_m.group(2).strip().lstrip(\"-*0123456789. \"))\n                continue",
+    "new": "            _m = None  # 变异：不解析捕获注释",
+    "expect": "KILLED",
+    "why": "主链路第一次真跑发现：draft 模板规定的捕获格式就是 `<!-- [A] 场景 → 正确做法 -->`，而 archive.sh 与 consolidate.py **两个消费端都当注释丢弃** ⇒ 自建成以来从未有一条捕获进过库。⛔ 守卫从构造上不可能发现：RAW_COUNT 与 BODY 用同一个过滤器 ⇒ 恒等 ⇒ 告警永不响。",
+    "source": "2026-09-26 主链路真跑",
+    "test_cmd": [
+      "python",
+      "{root}/scripts/consolidate.py",
+      "--self-test"
+    ]
+  },
+  {
+    "id": "EV-M29",
+    "target": "scripts/consolidate.py",
+    "desc": "[主链路断点2] 查重不纳入 reference/ → 已入库知识被报成「可新增」，同一个东西进库两遍",
+    "old": "        for re_ in ref_corpus:\n            sc = similarity(dbgs[idx], re_[\"_bg\"])\n            if sc > best_score:\n                best, best_score, best_where = re_, sc, re_[\"_where\"]",
+    "new": "        pass  # 变异：查重不比对 reference/",
+    "expect": "KILLED",
+    "why": "实测：已写在 silent.md#第 4 次 的知识点被报成「可新增」。⛔ 只喂严格档（DUP 0.30）不喂宽松档（REL 0.05）——8000+ 行语料在宽松阈值下会让任何草稿都「疑似相关」，信号被噪声淹没。",
+    "source": "2026-09-26 主链路真跑",
+    "test_cmd": [
+      "python",
+      "{root}/scripts/consolidate.py",
+      "--self-test"
+    ]
+  },
+  {
+    "id": "EV-M30",
+    "target": "scripts/domain.py",
+    "desc": "[主链路断点3] domain_dir 只认 name（开发）不回退 key（dev） → 索引永远 0 项",
+    "old": "    if not named.exists():\n        by_key = root / key\n        if by_key.exists():\n            return by_key",
+    "new": "    pass  # 变异：不回退 key",
+    "expect": "KILLED",
+    "why": "目录实际建在 key（dev）而 name 是中文（开发）⇒ scan() 扫不存在的路径 ⇒ 索引永远 0 项，`--find` 输出「未命中：库里还没有这个技能」——⛔ 不报错，看起来就是「还没捕获」（第十八条）。",
+    "source": "2026-09-26 主链路真跑",
+    "test_cmd": [
+      "python",
+      "{root}/scripts/domain.py",
+      "--self-test"
+    ]
+  },
+  {
+    "id": "EV-M31",
+    "target": "scripts/archive.sh",
+    "desc": "[主链路断点4] 归档前不校验是否已整合 → 没整合就归档，捕获永久丢失",
+    "old": "LAST=$(cut -d' ' -f1 \"$STAMP\")",
+    "new": "LAST=\"$CUR\"  # 变异：跳过整合校验",
+    "expect": "KILLED",
+    "why": "FL-05 清单第 1 项「⛔ 归档前必须先整合」此前没有任何强制机制——清单写了，但没人拦。实测我自己跳过了一次（先归档后整合），archive.sh 正常退出 0，捕获永久丢失。⇒ **清单不会自己执行**。",
+    "source": "2026-09-26 主链路真跑",
+    "test_cmd": [
+      "bash",
+      "-c",
+      "set -e; cd \"$1\"; D=$(mktemp -d); cp -r scripts/pending \"$D/\" 2>/dev/null||mkdir -p \"$D/pending\"; printf \"<!-- [A] x -->\\n\" > \"$D/pending/draft.md\"; printf \"ffffffffffffffff x\\n\" > \"$D/pending/.last_consolidated\"; cd \"$D\" && bash \"$OLDPWD/scripts/archive.sh\" >/dev/null 2>&1 && exit 1 || test \"$?\" = \"3\"",
+      "--root"
+    ]
   }
 ]

@@ -48,10 +48,41 @@ DEFAULT_MUTATIONS = os.path.join(ROOT, 'assets', 'mutations.json')
 TEST_CMD = [sys.executable, os.path.join(ROOT, 'scripts', 'lint.py'), '--self-test']
 
 
-def run_tests():
+def run_tests(cmd=None):
     """跑测试套件，返回 (是否通过, 输出)。"""
-    r = subprocess.run(TEST_CMD, capture_output=True, text=True, cwd=ROOT)
+    r = subprocess.run(cmd or TEST_CMD, capture_output=True, text=True, cwd=ROOT)
     return (r.returncode == 0), (r.stdout or '') + (r.stderr or '')
+
+
+# ⛔ 哪些文件被默认测试套件（lint.py --self-test）实际覆盖到
+#    —— 判定依据是「lint.py 会不会 import / 执行它」，不是「它在不在 scripts/ 下」
+COVERED_BY_DEFAULT = {'scripts/lint.py'}
+
+
+def covered_by(mut: dict) -> bool:
+    """这条变异的 target 有没有测试套件守着。
+
+    ### ⛔ 实测（主链路真跑后的回放）
+
+    四个断点沉淀成 EV-M28~M31 后**全部 SURVIVED**。
+    第一反应是"用例不够"，逐条查才发现：
+
+    ```
+    mutate.py 的 TEST_CMD = lint.py --self-test
+    EV-M28~M31 的 target = consolidate.py / domain.py / archive.sh
+    ```
+
+    ⇒ ⛔ **测试套件压根不执行那几个文件** —— 改坏了也不会有任何用例变红。
+    SURVIVED 看起来是"用例不够"，实际是"**测试没跑到**"。
+
+    ⓘ 与 NOT_APPLIED 的区别：
+    - NOT_APPLIED = 变异没应用上（old 片段对不上）
+    - **本状态 = 变异应用上了，但测试不覆盖**（伪装成 SURVIVED）
+    """
+    t = (mut.get('target') or '').replace('\\', '/')
+    if mut.get('test_cmd'):
+        return True
+    return t in COVERED_BY_DEFAULT
 
 
 def apply_mutation(path, old, new):
@@ -63,6 +94,41 @@ def apply_mutation(path, old, new):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(src.replace(old, new, 1))
     return True
+
+
+def check_residue(muts):
+    """⛔ 回放前先扫：有没有上次回放残留的变异还留在磁盘上。
+
+    ### ⚠ 实测（连续 3 次）
+
+    回放中途异常退出 → finally 没跑到 / 分支提前 continue
+    → 磁盘上留一个**被改坏的文件** → 下次跑别的命令才暴露，
+    且报错信息与变异完全无关。三次分别污染了 consolidate.py（2 次）、
+    domain.py、archive.sh。
+
+    ⇒ 变异是"临时改坏再还原"，任何中断都会留下半截状态。
+    """
+    hits = []
+    for m in muts:
+        tgt = os.path.join(ROOT, m.get("target", ""))
+        if not os.path.isfile(tgt):
+            continue
+        try:
+            with open(tgt, encoding="utf-8") as _f:
+                src = _f.read()
+        except Exception:
+            continue
+        nv = (m.get("new") or "").strip()
+        # ⛔ 短片段（如 EV-M01 的 `        return`）在真库里必然存在，
+        #    直接做字符串包含会**误报并阻塞整轮回放**（实测误报 1/31）。
+        #    ⇒ 只查**带变异标记**或**足够长**的 new。
+        if not nv:
+            continue
+        if "变异" not in nv and len(nv) < 20:
+            continue
+        if nv in src:
+            hits.append((m["id"], m.get("target")))
+    return hits
 
 
 def main():
@@ -83,6 +149,11 @@ def main():
         if not muts:
             die(USAGE, '没有 id 为 %s 的变异' % args.id)
 
+    res = check_residue(muts)
+    if res:
+        die(ERR, '⛔ 磁盘上有残留变异，先还原再跑：\n'
+                 + '\n'.join('  %s  %s' % (i, t) for i, t in res))
+
     results = []
     for m in muts:
         tgt = os.path.join(ROOT, m.get('target', ''))
@@ -90,6 +161,12 @@ def main():
             results.append({'id': m['id'], 'result': 'NOT_APPLIED',
                             'reason': '目标文件不存在：%s' % m.get('target')})
             continue
+        if not covered_by(m):
+            results.append({'id': m['id'], 'result': 'NOT_COVERED',
+                            'reason': '测试套件不覆盖 %s（默认只跑 lint.py --self-test）'
+                                      % m.get('target')})
+            continue
+
         with open(tgt, encoding='utf-8') as f:
             original = f.read()
 
@@ -99,8 +176,13 @@ def main():
                                       '代码改过了，变异定义需要更新'})
             continue
 
+        _cmd = None
+        if m.get('test_cmd'):
+            _cmd = [c.replace('{root}', ROOT) for c in m['test_cmd']]
+            if _cmd and _cmd[0].startswith('python'):
+                _cmd[0] = sys.executable
         try:
-            passed, out = run_tests()
+            passed, out = run_tests(_cmd)
         finally:
             # ⛔ 无论测试跑没跑完都必须还原——否则留一个被改坏的文件在磁盘上
             with open(tgt, 'w', encoding='utf-8') as f:
@@ -121,7 +203,7 @@ def main():
     print('=' * 60)
     print('变异测试（历史缺陷回放）')
     print('=' * 60)
-    nk = ns = nn = 0
+    nk = ns = nn = nc = 0
     for r in results:
         if r['result'] == 'KILLED':
             nk += 1
@@ -129,14 +211,18 @@ def main():
         elif r['result'] == 'SURVIVED':
             ns += 1
             mark = '✗' if r.get('expect') == 'KILLED' else '!'
+        elif r['result'] == 'NOT_COVERED':
+            nc += 1
+            mark = '∅'
         else:
             nn += 1
             mark = '?'
         line = '  %s %-8s %s' % (mark, r['id'], r['result'])
-        if r['result'] == 'NOT_APPLIED':
+        if r['result'] in ('NOT_APPLIED', 'NOT_COVERED'):
             line += ' —— %s' % r.get('reason', '')
+            line += '\n      %s' % r.get('desc', '')
         else:
-            if not r.get('match'):
+            if not r.get('match') and 'expect' in r:
                 line += '（期望 %s）' % r['expect']
             line += '\n      %s' % r.get('desc', '')
         print(line)
@@ -151,8 +237,12 @@ def main():
     if not muts:
         print('  ⛔ 0 条 = 空集上跑的通过没有意义 —— 检查路径或配置')
     print()
-    print('合计：KILLED %d（已守住）· SURVIVED %d · NOT_APPLIED %d'
-          % (nk, ns, nn))
+    print('合计：KILLED %d（已守住）· SURVIVED %d · NOT_APPLIED %d · NOT_COVERED %d'
+          % (nk, ns, nn, nc))
+    if nc:
+        print()
+        print('  ⛔ NOT_COVERED = 测试套件**不执行**该 target —— 伪装成 SURVIVED。')
+        print('     判据：报 SURVIVED 前先确认测试真的会跑到那个文件。')
     if ns:
         print()
         print('  SURVIVED = 测试没抓到 = **盲区**。')

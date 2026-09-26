@@ -463,6 +463,39 @@ def cmd_list(cfg: dict) -> None:
         print(f"  {key:<12} {d.name:<8} skills {n:>3} 个{mark}  {meta.get('desc', '')}")
 
 
+def cmd_self_test() -> int:
+    """正反样本：证明断点 3（name/key 回退）真的被守住。"""
+    import tempfile
+    ok = True
+
+    def chk(cond, label):
+        nonlocal ok
+        print(('  ✓ ' if cond else '  ✗ ') + label)
+        if not cond:
+            ok = False
+
+    print('=' * 62)
+    print('domain 自检（主链路断点守门）')
+    print('=' * 62)
+    cfg = {'domains': {'dev': {'name': '开发'}, '_k': {'name': '_k'}}}
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        cfg['root'] = str(Path(root).resolve())
+        # 反向一：目录建在 key（dev）而非 name（开发）→ 必须回退
+        (root / 'dev').mkdir()
+        _R = Path(root).resolve()
+        chk(domain_dir(cfg, 'dev').resolve() == _R / 'dev',
+            'name 目录不存在而 key 目录存在 → 回退 key —— '
+            '⛔ 不回退则索引永远 0 项（实测：--find 输出「未命中」而不报错）')
+        # 正向：name 目录存在 → 优先 name
+        (root / '开发').mkdir()
+        chk(domain_dir(cfg, 'dev').resolve() == _R / '开发',
+            'name 目录存在 → 优先 name（不误伤正常情况）')
+    print()
+    print('自检：%s' % ('全部通过' if ok else '有失败'))
+    return OK if ok else ERR
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--init", action="store_true", help="初始化大类根目录")
@@ -473,7 +506,11 @@ def main():
     ap.add_argument("--add-common", action="store_true", help="各大类内建通用链接")
     ap.add_argument("--where", metavar="大类KEY", help="输出该大类 skills 真实路径")
     ap.add_argument("--config", default=str(CONFIG), help="指定配置文件")
+    ap.add_argument("--self-test", action="store_true",
+                    help="用正反样本验证 name/key 回退真的生效")
     args = ap.parse_args()
+    if args.self_test:
+        sys.exit(cmd_self_test())
 
     cfg = load_config(Path(args.config))
 
