@@ -83,7 +83,53 @@ Class DB 里没有 `StoreKit`、`GooglePlayBilling`、`AdMob` 这类类。
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/monetization.md`
 
 
-## 7. 待核对项（运行时验证）
+## 7. 支付通道的 Godot 侧：HTTPRequest 与导出权限
+
+Godot 没有 IAP，支付必须走自己的 HTTP 通道，`HTTPRequest` 是最常用的节点。
+⛔ 它有三条官方限制，全部会表现为"没反应"而不报错：
+
+| 官方事实 | 后果 |
+|---|---|
+| ⛔ Android 导出必须启用 `INTERNET` 权限 | 官方原话：否则 **任何** 网络通信都会被 Android 阻断 |
+| ⛔ 单个 `HTTPRequest` 不要并发请求 | 官方示例注释明写 "Don't make simultaneous requests using a single HTTPRequest node" |
+| ⛔ `timeout` 默认 `0.0` | 含义是**不超时**，请求可能永远挂着 |
+
+ⓘ 另两条默认值：`accept_gzip` 默认 `true`（自动解压 gzip 响应）；`max_redirects` 默认 8。
+
+## 8. 订单号、幂等键与设备标识
+
+**订单号**：由服务端下发，或用 `Crypto.generate_random_bytes()` 生成随机分量。
+⛔ 不要拿 `Time.get_unix_time_from_system()` 拼 —— 官方明确该系统时钟**用户可手动设置**，且并发下会碰撞。
+
+**幂等键**：在订单表上建**唯一索引**。
+⛔ 只在应用层判"有没有处理过" —— 并发下两个请求会同时通过检查。
+
+**设备标识**：`OS.get_unique_id()` 在 Godot 4 **仍然存在**（ⓘ 不要误以为已被移除），
+但官方注明两条：
+- 重装 / 升级系统 / 更换硬件后**可能变化**，⛔ 不该用来加密持久化数据（此前加密的数据将永久无法解密）
+- ⛔ **可被外部程序伪造**，不得用于任何安全目的
+
+**签名与票据比对**：用 `Crypto.constant_time_compare()`。
+⛔ 用 `==` 比较签名存在时序侧信道，官方为此专门提供了这个方法（"without leaking timing information in order to prevent timing attacks"）。
+
+## 9. 退款、风控与审计日志
+
+- **审计日志只追加**：发放 / 回滚 / 退款 / 回收四类动作同链，⛔ 不允许 UPDATE / DELETE
+- **退款要回收已发物品**：⛔ 只把货币扣成负数，已发道具仍在玩家手里，可被白嫖或转卖
+- **风控阈值可热配**：⛔ 硬编码则出事时改一个数字要发版，而攻击窗口在小时级
+- ⛔ **不开自有的"撤销订单"接口**：退款走平台侧流程，自有接口一旦存在就是新的攻击面，且会让平台账单与游戏数据对不上
+- **对账**：平台订单数 vs 服务端发货数 vs 审计日志条数，每日跑一次并告警
+
+## 10. 流程：按什么顺序做
+
+> 「怎么做」见本篇上文各节；「按什么顺序做」见流程域：
+> `flow/godot/monetization/00-域流程总览.md`
+
+⛔ **01 支付通道与订单地基必须在一切之前**：
+没有服务端权威与幂等订单，补单会重复发货、保底能被刷、广告奖励能被伪造。
+
+## 11. 待核对项（运行时验证）
+
 
 ⚠ 待核对："Godot 官方无 IAP API" 的最终确认 · 验证：在 4.7.2 源码 `grep -r InAppStore` 复核一次
 
@@ -91,7 +137,7 @@ Class DB 里没有 `StoreKit`、`GooglePlayBilling`、`AdMob` 这类类。
 
 ⚠ 待核对：各地法规的具体适用 · 验证：发行地区请当地律师出具书面意见
 
-## 8. 相关文档
+## 12. 相关文档
 
 - 经济与长线系统 → `economy.md`
 - 服务器权威与防作弊 → `security.md`
