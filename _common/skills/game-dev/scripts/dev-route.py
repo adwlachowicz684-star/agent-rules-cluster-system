@@ -1973,7 +1973,7 @@ def cmd_self_test():
             _spec4 = _ilu4.spec_from_file_location('ccraft', _sp4)
             _cc = _ilu4.module_from_spec(_spec4)
             _spec4.loader.exec_module(_cc)
-            _t4, _b4, _s4, _o4, _st4 = _cc.scan()
+            _t4, _b4, _s4, _o4, _st4, _m4 = _cc.scan()
             chk(_t4 > 0, '【品】映射扫描能取到样本（当前 %d 个引用）' % _t4)
             chk(not _b4, '【品】映射无断链（%d: %s）' % (len(_b4), _b4[:3]))
             chk(not _s4,
@@ -1984,10 +1984,20 @@ def cmd_self_test():
                 % (len(_st4), ['%s %s %s' % x for x in _st4[:3]]))
             # ⓘ 孤儿用「不增长」基线：craft 新建、引用随铺域逐步增加，
             #   强制为 0 会阻塞每轮推送；但⛔ 不许变多（变多 = 写了没人用）。
-            _CRAFT_ORPHAN_BASE = 30
+            # ⚠ 口径：只统计内容条目。元条目（自检/待核对/怎么用）是使用说明，
+            #   本来就不该被 Step 引用，混入基线会淹没真漏挂项。
+            # ⛔ 孤儿已归零，基线收紧为 0：意思是「写了就必须被用」。
+            #   ⚠ 保留 7 会让孤儿涨到 7 都不报红（变异实测：0→1 时 rc 仍为 0），
+            #      检查形同虚设。新增 craft 条目时必须同时挂【品】或在 index.md 声明。
+            _CRAFT_ORPHAN_BASE = 0
             chk(len(_o4) <= _CRAFT_ORPHAN_BASE,
-                'craft 孤儿条目不增长（当前 %d / 基线 %d）'
-                % (len(_o4), _CRAFT_ORPHAN_BASE))
+                'craft 孤儿内容条目不增长（当前 %d / 基线 %d: %s）'
+                % (len(_o4), _CRAFT_ORPHAN_BASE, _o4[:3]))
+            # ⛔ 元条目必须取到：为空说明扫描路径失效，孤儿数会假性归零
+            #   （与 verify.py「检查没跑起来却显示通过」同一类失败）。
+            chk(len(_m4) > 0,
+                'craft 元条目扫描能取到样本（当前 %d 个，为 0 说明路径失效）'
+                % len(_m4))
         except Exception as _e4:
             chk(False, '【品】映射检查可执行（%s）' % str(_e4)[:60])
 

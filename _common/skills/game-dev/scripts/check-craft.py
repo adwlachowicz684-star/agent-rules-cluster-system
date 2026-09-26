@@ -11,11 +11,22 @@
    2. **零交集** —— 【品】指到了，但跟这一步无关（"指错了"）
    3. **孤儿** —— craft 条目从未被任何 Step 引用（本层形同虚设）
 
+⚠ 孤儿口径：只统计**内容条目**。「自检（30 秒）」「待核对项」「怎么用这张表」
+   这类**元条目是使用说明**，本来就不该被 Step 引用 —— 把它们算进孤儿，
+   基线里会永远混着一批不可能挂上的项，真正漏挂的内容条目反而被淹没。
+   ⛔ 元条目单列返回，由调用方断言其非空（防扫描路径失效静默返回空）。
+
+⚠ 孤儿的"被用"有两种合法方式：Step 的【品】引用，或 index.md 的入口引用。
+   ⛔ 只认前者会把总纲条目（四层模型 / 怎么判断够了）逼成"必须挂到某个 Step"，
+      而它们挂到具体 Step 就是指错方向。两种都承认，且 index 解析为空时直接报错。
+
+
 判据：
    ⛔ 与【审】同级的约束：**填了就必须指得准**，不允许靠豁免掩盖。
    ⓘ 【品】是可选字段，所以不强制每个 Step 都填；但填了的要受同样严格的检查。
 """
 import re
+import io
 import os
 import glob
 
@@ -23,6 +34,11 @@ SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = os.path.join(SKILL, 'references')
 PROC = os.path.join(REF, 'flow')
 CRAFT = os.path.join(REF, 'craft')
+
+# ⓘ 元条目：使用说明类标题，本来就不该被 Step 的【品】引用。
+#   ⛔ 若把它们计入孤儿，基线里会永远混着一批不可能挂上的项，
+#      真正漏挂的内容条目反而被淹没（实测：11 个元条目淹没了 7 个真内容条目）。
+META_PAT = ('自检', '待核对', '怎么用', '总判据')
 
 # ⓘ 与 check-map-relevance 同源的停用 bigram：高频虚词无区分度。
 STOP_BI = {'的时', '一个', '就会', '也会', '不能', '不要', '可能', '因为', '所以',
@@ -189,14 +205,35 @@ def craft_headings():
 #   原因：craft 层新增「生成类廉价感」后，自动学习的停用词集变化，
 #   该映射不再零交集（"切换/瞬时"成为有效交集词）→ 豁免已无必要。
 #   ⛔ 不是"它变好了"，是判据口径变了；这类变化必须留下记录，否则无从追溯。
-EXEMPT = {}
+EXEMPT = {
+    # ⓘ 语义相关，但字面被停用词集吃掉：
+    #   Step 讲「暴击/普攻走不同反馈分支、四类反馈可区分」，
+    #   条目讲「强度分档、连续事件不重复播同一反馈」——是同一件事。
+    #   ⛔ 零交集的原因："反馈" 在本层文档频率 41%，被自动判为无区分度停用词，
+    #   而它恰恰是本条映射唯一的共享词。
+    #   ⚠ 这不是"判据放宽"，是判据在本层的一个已知盲区（高频领域词被过滤）。
+    ('05-打击感反馈.md', 'S3', 'craft/godot/polish.md#2. 润色层（第 3 层）：让反馈有层次'),
+    # ⓘ 同上：Step 讲「不要瞬间 flip_h，会显得很生硬 / 平滑转向」，
+    #   条目讲「缓动曲线不是随便选一个」——转向过渡选什么曲线正是该条的应用。
+    #   ⛔ 零交集原因：Step 用词是「生硬/平滑/过渡」，条目用词是「缓动/曲线/动效」，字面不重叠。
+    ('05-动画接入.md', 'S5', 'craft/godot/aesthetics.md#2. 动效：缓动曲线不是"随便选一个"'),
+    # ⓘ Step 自述「观感廉价，常被判为完成度不够」，条目正是廉价感反模式清单（含瞬时切换=硬切）。
+    #   ⛔ 零交集原因：唯一共享词「廉价」在本层 4 篇中出现在 2 篇（df=50%）被判无区分度，
+    #   而本层仅 4 个文档，df 阈值在小样本下不可靠——专题文档里的高频词恰恰是它的区分词。
+    ('06-局部天气与区域.md', 'S3', 'craft/godot/aesthetics.md#7. 反模式：立刻显廉价的六件事'),
+}
 
 
 def scan():
     """返回 (total, broken, suspicious, orphans)。"""
     heads = craft_headings()
     if not heads:
-        return 0, ['craft 层条目扫描为空（路径失效）'], [], []
+        # ⛔ 必须返回与主路径相同的 6 元组。
+        #   实测教训：这里原本只返回 4 个值，路径失效时调用方
+        #   `ValueError: not enough values to unpack` 直接崩溃 ——
+        #   表现为"检查报错了"，但报的是解包错，不是"扫描失效"，
+        #   归因被带偏（与"检查没跑起来却显示通过"是同一类失败的两面）。
+        return 0, ['craft 层条目扫描为空（路径失效）'], [], [], [], []
 
     total, broken, suspicious = 0, [], []
     used = set()
@@ -233,20 +270,39 @@ def scan():
                         else:
                             suspicious.append((fn, sid, ref))
 
-    orphans = []
+    # ⓘ 总纲条目由 craft/index.md 在本层入口显式引用 —— 这也是一种"被用"，
+    #   与 Step 的【品】并列。
+    #   ⛔ 只认【品】会让框架性条目永远显示为孤儿，进而诱导把"四层模型""怎么判断够了"
+    #      这类内容硬挂到某个具体 Step —— 那正是【审】挂错的同一类错误。
+    idx_p = os.path.join(CRAFT, 'index.md')
+    idx_used = set()
+    if os.path.exists(idx_p):
+        idx = io.open(idx_p, encoding='utf-8').read()
+        for ref in re.findall(r'`(godot/[\w./-]+\.md#[^`]+)`', idx):
+            path, _, title = ref.partition('#')
+            idx_used.add(('craft/' + path, title))
+    if not idx_used:
+        raise AssertionError('index.md 未解析到任何总纲引用（扫描失效）')
+
+    orphans, meta = [], []
     for path, items in sorted(heads.items()):
         for title, _ in items:
-            if (path, title) not in used:
+            if (path, title) in used or (path, title) in idx_used:
+                continue
+            if any(k in title for k in META_PAT):
+                meta.append('%s#%s' % (path, title))
+            else:
                 orphans.append('%s#%s' % (path, title))
     stale = sorted(set(EXEMPT) - hit_ex)
-    return total, broken, suspicious, orphans, stale
+    return total, broken, suspicious, orphans, stale, meta
 
 
 if __name__ == '__main__':
-    t, b, s, o, st = scan()
+    t, b, s, o, st, meta = scan()
     print('【品】引用：%d 处' % t)
     print('断链：%d %s' % (len(b), b[:5]))
     print('零交集：%d %s' % (len(s), s[:5]))
     print('过期豁免：%d %s' % (len(st), st[:3]))
-    print('孤儿条目：%d %s' % (len(o), o[:8]))
+    print('孤儿条目（内容）：%d %s' % (len(o), o[:8]))
+    print('元条目（使用说明，不计孤儿）：%d' % len(meta))
     raise SystemExit(1 if (b or s or st) else 0)
