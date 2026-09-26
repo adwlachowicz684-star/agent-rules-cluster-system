@@ -1,358 +1,388 @@
 [
-  {
-    "id": "EV-M01",
-    "target": "scripts/lint.py",
-    "desc": "[gate] --json 分支改回「直接 return」→ 有 error 也返回 0，CI 永远绿灯",
-    "old": "        errs_j = [i for i in issues if i.get(\"level\") == \"error\"]\n        sys.exit(BLOCKED if errs_j else OK)",
-    "new": "        return",
-    "expect": "KILLED",
-    "why": "实测：CI 用 --json 解析 = 永远绿灯，gate 形同虚设。由自检用例「--json 模式有 error 时退出码非 0」守护",
-    "source": "2026-09-24 反哺 code-audit AR-04 时发现"
-  },
-  {
-    "id": "EV-M02",
-    "target": "scripts/lint.py",
-    "desc": "[假生效] 去掉 re.S → 豁免理由跨行时匹配失败，声明了但仍按超限报",
-    "old": "    re.S)   # re.S：理由可以跨行写",
-    "new": "    )   # 变异：去掉 re.S，跨行理由匹配不到",
-    "expect": "KILLED",
-    "why": "第二十一条「假生效」。实测 changelog-archive.md 理由跨 3 行，366 行仍被判超限，而人以为已豁免",
-    "source": "2026-09-24 补 FL-05 时发现"
-  },
-  {
-    "id": "EV-M03",
-    "target": "scripts/lint.py",
-    "desc": "[误报] 转发壳路径砍掉第一个片段 → canonical 找不到 → 4 条真实命令被误报",
-    "old": "    rel = os.path.normpath(os.path.join(*segs)) if segs else ''",
-    "new": "    rel = os.path.normpath(os.path.join(*segs[1:])) if segs else ''",
-    "expect": "KILLED",
-    "why": "_HERE 是裸变量不在引号里，findall 拿到的全是路径片段，一个都不能砍。误报的检查会被关掉",
-    "source": "2026-09-24 反哺 doc-promise 时发现"
-  },
-  {
-    "id": "EV-M04",
-    "target": "scripts/lint.py",
-    "desc": "[永久噪音] 豁免只覆盖超限档，不覆盖「接近上限」档 → 归档型文件提示永远消不掉",
-    "old": "        if lim > 0 and n < lim and n >= int(lim * 0.8) and not oversize_exempt(f):",
-    "new": "        if lim > 0 and n < lim and n >= int(lim * 0.8):",
-    "expect": "KILLED",
-    "why": "⛔ 曾是真盲区：手写用例漏了「已声明豁免的文件不报接近上限」，由本变异跑出来才发现。已补用例 → 现为 KILLED。保留本条以证明「手写用例 ≠ 覆盖历史缺陷」",
-    "source": "2026-09-24 拆 consolidation-rules 时发现"
-  },
-  {
-    "id": "EV-M05",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围] token 阈值关掉 → 行数合规但 token 超限的文件查不出",
-    "old": "        tlim = int(cfg.get(\"token_limits\", {}).get(\n            key, TOKEN_LIMITS.get(key, TOKEN_DEFAULT)))",
-    "new": "        tlim = 0   # 变异：关掉 token 阈值",
-    "expect": "KILLED",
-    "why": "双阈值不是装饰。关掉后「150 行宽表格比 400 行散文贵」这类文件完全查不出",
-    "source": "2026-09-24 反哺 code-audit SK006/SK009 时新增"
-  },
-  {
-    "id": "EV-M06",
-    "target": "scripts/lint.py",
-    "desc": "[用例形同虚设] 体积 hint 的断言退化 → 改掉任一提示用例照样绿",
-    "old": "        vol_hints = [h for h in hs if h]",
-    "new": "        vol_hints = []   # 变异：样本没触发任何提示",
-    "expect": "KILLED",
-    "why": "实测：断言用 any 时，去掉 o1 那句后 o3 仍在 → any 为真 → 变异没变红，用例形同虚设。改为 all() + 先断言 vol_hints 非空。判据：**断言必须能因「任一条被改坏」而变红**，且必须先断言「样本确实触发了」——否则空列表让 all() 恒真",
-    "source": "2026-09-24 加充实度判据时发现"
-  },
-  {
-    "id": "EV-M07",
-    "target": "scripts/lint.py",
-    "desc": "[交叉审计] check_check_coverage 全部跳过 → 检查项失效无人知",
-    "old": "        if fn == \"check_check_coverage\":\n            continue          # 别把自己算进去（自指，见 falsepos 第六条）",
-    "new": "        if True:\n            continue          # 变异：全部跳过",
-    "expect": "KILLED",
-    "why": "反哺 code-audit `--cross`。实测首次跑就抓出 check_root **在自检里从未被调用**——它失效了自检也全绿。已补正反两侧用例",
-    "source": "2026-09-24 反哺 rule-registry --cross 时发现"
-  },
-  {
-    "id": "EV-M08",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围] reference 体积检查 rglob → glob：子区文档完全不参与体积检查",
-    "old": "    for f in sorted((base / \"reference\").rglob(\"*.md\")):",
-    "new": "    for f in sorted((base / \"reference\").glob(\"*.md\")):",
-    "expect": "KILLED",
-    "why": "⛔ 实测：改回 glob 后自检**照样 61/0 全绿**——这个修过的缺陷没有任何用例守着。同一形态在 code-audit 侧踩过三次（断链/扫描器/体积）。已补用例；为让用例能自造样本，给 check_size 加了 root 注入",
-    "source": "2026-09-24 交叉审计时回放历史缺陷发现"
-  },
-  {
-    "id": "EV-M09",
-    "target": "scripts/lint.py",
-    "desc": "[误报] Step 识别改回「标题含 Step 字样」：说明性章节被当真步骤",
-    "old": "            if line.startswith(\"### \") and re.search(\n                    r'\\[[A-Za-z0-9-]+#S\\d+\\]', line):",
-    "new": "            if line.startswith(\"### \") and (\n                    re.search(r'\\[[A-Za-z0-9-]+#S\\d+\\]', line)\n                    or 'Step' in line):",
-    "expect": "KILLED",
-    "why": "实测 new-skill.md 的「### 批量四步（替换 Step 4）」只是**提到** Step，却被当成真 Step 报「缺五字段」。判据：节点 ID 才是稳定标识，不是标题字样",
-    "source": "2026-09-24 补 FL-03 时发现并修复"
-  },
-  {
-    "id": "EV-M10",
-    "target": "scripts/lint.py",
-    "desc": "[死链检查] scripts/reference 开头的路径存在性判断改恒真 → 死链不报",
-    "old": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = (base / rel).exists()",
-    "new": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = True",
-    "expect": "KILLED",
-    "why": "⛔ 教训：初版把 target 写成**文档文件** sequence.md，而 mutate 的测试套件是 `lint.py --self-test`，它**只读自造样本、不读真库文档** → 改文档自检当然不变，报了 SURVIVED。这是**变异定义写错了**，不是真盲区。判据：**变异目标必须是测试套件真的会读到的东西**。另注：手验确认 LK002 在真库上确实能抓到死链",
-    "source": "2026-09-25 反哺 game-dev flow 层时自己踩的（引用了对方的工具名）"
-  },
-  {
-    "id": "EV-M11",
-    "target": "scripts/lint.py",
-    "desc": "[假生效] 反模式表按完整匹配识别类型 → 缺列就认不出类型，检查被跳过",
-    "old": "            is_miscon = \"本能以为\" in j\n            is_omit = \"漏写\" in j",
-    "new": "            is_miscon = all(k in j for k in MISCON)\n            is_omit = all(k in j for k in OMIT)",
-    "expect": "KILLED",
-    "why": "⛔ 这正是第二十一条「假生效」的精确实例：用完整匹配识别类型时，**缺了列就识别不出类型 → 检查自己被跳过**。而缺列恰恰是要报的问题——**检查因被测对象缺了东西而静默罢工**。判据：先按主键认出它是哪一类，再查这一类的必需列",
-    "source": "2026-09-25 写 check_antipattern_tables 时自己踩的"
-  },
-  {
-    "id": "EV-M12",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围] 死链检查跳过区名开头的相对路径 → 4 条真死链长期未发现",
-    "old": "                ok = (base / \"reference\" / rel).exists() or (base / rel).exists()",
-    "new": "                ok = True   # 变异：区名开头一律跳过",
-    "expect": "KILLED",
-    "why": "实测 4 条真死链（`flow/README.md`、`common/howto/principles.md`）**长期未被发现**，因为老正则只认 `scripts/` 或 `reference/` 开头，而「【读】common/howto/principles.md」这种区名开头的写法不在范围内。**检查在跑，但没在查**（silent 第一条、第七条）。基准：区名开头的路径解析到 `reference/<区>/`",
-    "source": "2026-09-25 挖 game-dev common/ 时对照引擎侧发现的"
-  },
-  {
-    "id": "EV-M13",
-    "target": "scripts/lint.py",
-    "desc": "[全局块] 锚点存在性判断恒真 → 引用不存在的 EC-xx 不报",
-    "old": "            if m.group(1).lower() not in defined:",
-    "new": "            if False:  # 变异：锚点存在性不查",
-    "expect": "KILLED",
-    "why": "⛔ 全局块的意义是消除重复。锚点写错会让读的人得到「这个块不存在」→ **回去自己写一遍**——**重复又回来了，且没人发现**。与 check_refs 的分工：那个查文件在不在，这个查锚点在不在；只查前者会让「文件在、锚点错」完全漏掉",
-    "source": "2026-09-25 建 EC 全局块时配套新增"
-  },
-  {
-    "id": "EV-M14",
-    "target": "scripts/lint.py",
-    "desc": "[全局块] EC 块定义提取正则失效 → 所有锚点都判为不存在（或都不报）",
-    "old": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        defined.add(m.group(1).lower())",
-    "new": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        pass  # 变异：不收集已定义块",
-    "expect": "KILLED",
-    "why": "⛔ defined 集合为空时，所有引用都被判为「不存在」——**检查变成全量误报**。而误报的检查会被关掉（第十三条）。反向：若 defined 恒全，则所有引用都放过——**检查形同虚设**。两个方向都必须有用例守着（EC-02）",
-    "source": "2026-09-25 建 EC 全局块时配套新增（正反两侧）"
-  },
-  {
-    "id": "EV-M15",
-    "target": "scripts/lint.py",
-    "desc": "[格式缺陷] 孤立表格行检测失效 → 表格断裂不报",
-    "old": "            if prev_tbl or nxt_sep:\n                continue",
-    "new": "            continue  # 变异：一律跳过，永远不报",
-    "expect": "KILLED",
-    "why": "⛔ 实测 SKILL.md 目录地图里 `| pending/draft.md | … |` 夹在两个段落之间——Markdown **不把它渲染成表格**，读者看到的是一行带竖线的文字。这类缺陷**不影响任何检查通过**（行数/章节/死链都正常），只有人眼渲染时才看得见，而**入口文件恰恰是最常被读的**",
-    "source": "2026-09-25 修 SKILL.md 目录地图时发现的真缺陷"
-  },
-  {
-    "id": "EV-M16",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围] 孤立表格行检查缩回只扫 reference/ → 入口文件永远不被检查",
-    "old": "    targets = [p for p in sorted(base.rglob(\"*.md\"))\n               if \".git\" not in str(p)]",
-    "new": "    targets = [p for p in sorted((base / \"reference\").rglob(\"*.md\"))]",
-    "expect": "KILLED",
-    "why": "⛔ **缺陷就是在 SKILL.md 里发现的**，而 SKILL.md 不在 reference/ 下。只扫子目录会让「最常被读的那个文件」永远不被检查——而它恰恰是最该被检查的（silent 第七条：扫描范围必须自报）。这是目录分层后只扫直接子文件的**第 5 次**出现",
-    "source": "2026-09-25 扩展扫描范围时配套新增"
-  },
-  {
-    "id": "EV-M17",
-    "target": "scripts/lint.py",
-    "desc": "[误报] 条目型文档（编号条目册）被判「章节过多」→ 逼人拆掉本该在一起的册子",
-    "old": "            if numbered >= len(heads) * 0.7:\n                continue",
-    "new": "            if False:  # 变异：条目型豁免失效\n                continue",
-    "expect": "KILLED",
-    "why": "⛔ `self-verification-*.md` 是**编号条目册**：每章一条独立判据，用法是「查表：我这情况属于哪条」，**章节数等于条目数**。拆开反而要来回翻，且会切断跨文件锚点（20+ 条是全局编号，跨册引用）。不区分的话会逼着人拆掉**本来就该在一起**的册子（第十四条：判据看语义方向，不看表面特征）",
-    "source": "2026-09-25 credibility 册 14 章节被误报时发现的"
-  },
-  {
-    "id": "EV-M18",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围] check_scan_scope 不遍历 check_* 函数 → 只扫子目录的检查查不出",
-    "old": "    for fn in [n for n in ast.walk(tree)\n               if isinstance(n, ast.FunctionDef)\n               and n.name.startswith(\"check_\")]:",
-    "new": "    for fn in []:  # 变异：不遍历任何函数",
-    "expect": "KILLED",
-    "why": "⛔ 六问第 1 问「扫描范围包含入口文件吗」的自动化。缺陷**就是在 SKILL.md 里发现的**，而它不在任何「批量扫描的目录」里——最常被读的文件最容易漏在范围外。上线即抓到真漏：`check_block_refs` 只扫 reference/，而 SKILL.md 引用 `#EC-xx` 完全合理",
-    "source": "2026-09-25 六问第 1 问自动化时新增"
-  },
-  {
-    "id": "EV-M19",
-    "target": "scripts/lint.py",
-    "desc": "[格式缺陷] 重复章节标题检测失效 → 两个编号相同的章节不报",
-    "old": "            if st in seen:",
-    "new": "            if False:  # 变异：重复标题不查",
-    "expect": "KILLED",
-    "why": "⛔ 实测：往「## 六、自检」后**插入**新自检项时原文块没删，文件里出现**两个完全相同的 `## 六、自检`**。Markdown 照常渲染成两个编号相同的章节——**读的人以为自己看重复了，或漏掉第二个块**。现有检查抓不到：check_markdown_headings 只查重复 `#` 字符，两个各自合法的相同标题它不管；行数/体积/死链全正常。上线即抓到 6 条真重复（changelog-archive 重复追加）",
-    "source": "2026-09-25 techniques.md 自己踩的坑"
-  },
-  {
-    "id": "EV-M20",
-    "target": "scripts/lint.py",
-    "desc": "[漏判] 坑类表（坑/后果）不被识别 → 第三种反模式形态被判「自造形态」",
-    "old": "            is_pitfall = (\"坑\" in j and \"本能以为\" not in j\n                          and \"漏写\" not in j)",
-    "new": "            is_pitfall = False  # 变异：坑类不识别",
-    "expect": "KILLED",
-    "why": "⛔ 初版只统计出两种表头就下「只有两种」的结论，**没有验证「还有没有第三种」**——正是第十八条批判的「报『没有』前没证明『查了』」。而坑类恰恰是最危险的：**测量工具本身失效**，你会得到「没问题」的结论并基于它做决策。",
-    "source": "2026-09-25 复查 audit/ 115 份时发现的第三种"
-  },
-  {
-    "id": "EV-M21",
-    "target": "scripts/lint.py",
-    "desc": "[假生效] 豁免正则要求紧跟 `<!--` → 注释块内含 flow-type 时声明不生效",
-    "old": "    r'<!--(?:(?!-->).)*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
-    "new": "    r'<!--\\s*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
-    "expect": "KILLED",
-    "why": "⛔ **第二次踩同一个坑**（第一次是 re.S 不吃换行）。acceptance.md 的注释块是 `<!--\\nflow-type: meta\\noversize-exempt: …\\n-->`，而旧正则要求 exempt 紧跟 `<!--`，`\\s*` 匹配不到 `flow-type: meta` 这段文字 → **豁免声明了但不生效**（第二十一条：假生效）。假生效比没声明更糟：人以为处理过了。",
-    "source": "2026-09-25 acceptance.md 413 行超限仍报时发现"
-  },
-  {
-    "id": "EV-M22",
-    "target": "scripts/lint.py",
-    "desc": "[过期豁免] 登记了不存在的函数（改名后没删）→ 不报 → 豁免变遮羞布",
-    "old": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if fn not in live:",
-    "new": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if False:  # 变异：过期豁免不查",
-    "expect": "KILLED",
-    "why": "反哺自 game-dev 的 check-map-relevance.py：「⛔ **豁免变成掩盖真问题的遮羞布**」。改名后旧名字仍在登记表里，而没有任何检查在查它存不存在——这是第二十一条（假生效）的**登记版**。",
-    "source": "2026-09-25 二挖 game-dev/scripts/"
-  },
-  {
-    "id": "EV-M23",
-    "target": "scripts/lint.py",
-    "desc": "[易变计数] 目录标题写「N 个文件」→ 不报，计数悄悄过期",
-    "old": "    RX = re.compile(r'^#{2,4}\\s*.*?[（(]\\s*(\\d+)\\s*(?:个|份)\\s*(?:文件|文档)\\s*[)）]')",
-    "new": "    RX = re.compile(r'^#\\s*zzzz_never_match')  # 变异：计数检查失效",
-    "expect": "KILLED",
-    "why": "split-two-books.md 的区文件数**第 4 次**过期（howto 10→16→17，audit 3→6→7）。⚠ 每次都是「加了文件没回来改计数」，而读的人把数字当现状。⇒ **计数是快照，判据是稳定的**。⛔ 初版查所有标题+表格行报了 37 条（绝大多数误报）——带来源的实测统计是合法的。**误报的检查会被关掉**，所以宁可窄不可宽。",
-    "source": "2026-09-25 整合时发现第 4 次过期"
-  },
-  {
-    "id": "EV-M24",
-    "target": "scripts/lint.py",
-    "desc": "[正反覆盖] 自检 duality 判定恒完备 → 缺正/缺反/间接都不报",
-    "old": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])",
-    "new": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])\n        d = [1, 1]  # 变异：正反判定恒为完备 → 不报",
-    "expect": "KILLED",
-    "why": "**自审发现**：24 个检查项里 12 个（50%）自检覆盖不完备，引擎自己违反了第一条「检查项必须能红」与第四条「必须配正反双样本」。补齐后 11 条 → 0 条。",
-    "source": "2026-09-25 自审（用户要求：审查 skill 自己有没有遵守）"
-  },
-  {
-    "id": "EV-M25",
-    "target": "scripts/lint.py",
-    "desc": "[正反覆盖] 精度：间接形式(len(x)==0/bool(x))其实有方向，旧统计器认不出→误报",
-    "old": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    # ⚠ **间接形式也要认**",
-    "new": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    return []\n    # ⚠ **间接形式也要认**",
-    "expect": "KILLED",
-    "why": "只认直接调用会把 5 个其实正反都有的检查项误判为「只被间接引用」。误报的检查会被关掉（falsepos 第十四条）——必须提高精度。提高后 9 条真缺口 → 4 条。",
-    "source": "2026-09-25 自审"
-  },
-  {
-    "id": "EV-M26",
-    "target": "scripts/lint.py",
-    "desc": "[扫描范围自报] 第二条量化：输出通过信号但无扫描范围 → 不报",
-    "old": "            if has_pass and not has_scope:",
-    "new": "            if has_pass and not has_scope:\n                if True: continue  # 变异：自报检查永不报",
-    "expect": "KILLED",
-    "why": "实测：mutations.json 置空 → mutate.py 输出「KILLED 0 · SURVIVED 0」，看起来没问题，实际是配置空了。structure.py --check 输出「✓ 结构健康」而 domains 压根没初始化（扫了 0 个大类）。⛔ 失败模式是返回 0 条而不是报错。",
-    "source": "2026-09-25 第二条量化"
-  },
-  {
-    "id": "EV-M27",
-    "target": "scripts/lint.py",
-    "desc": "[表格列数] 不处理 \\| 转义 → 命令里的 | 全被当分隔符，27/37 误报",
-    "old": "            return len(st.replace(\"\\\\|\", \"\\x00\").split(\"|\"))",
-    "new": "            return len(st.split(\"|\"))  # 变异：不处理转义 —— 27/37 误报",
-    "expect": "KILLED",
-    "why": "真库探查第一版 37 处里 **27 处是误报**（95%），全是 grep 命令里的 `\\|`。处理转义后 10 处**全真**。这是第二十九条「先跑真库数误报率」的直接产物。",
-    "source": "2026-09-25 第十七条量化"
-  },
-  {
-    "id": "EV-M28",
-    "target": "scripts/consolidate.py",
-    "desc": "[主链路断点1] parse_drafts 把捕获注释 `<!-- [A] ... -->` 当注释丢弃 → 按模板写的捕获 100% 读不到",
-    "old": "            _m = re.match(r\"^<!--\\s*\\[([A-G][0-9]?)\\](.*?)-->\\s*$\", s)\n            if _m:\n                out.append(_m.group(2).strip().lstrip(\"-*0123456789. \"))\n                continue",
-    "new": "            _m = None  # 变异：不解析捕获注释",
-    "expect": "KILLED",
-    "why": "主链路第一次真跑发现：draft 模板规定的捕获格式就是 `<!-- [A] 场景 → 正确做法 -->`，而 archive.sh 与 consolidate.py **两个消费端都当注释丢弃** ⇒ 自建成以来从未有一条捕获进过库。⛔ 守卫从构造上不可能发现：RAW_COUNT 与 BODY 用同一个过滤器 ⇒ 恒等 ⇒ 告警永不响。",
-    "source": "2026-09-26 主链路真跑",
-    "test_cmd": [
-      "python",
-      "{root}/scripts/consolidate.py",
-      "--self-test"
-    ]
-  },
-  {
-    "id": "EV-M29",
-    "target": "scripts/consolidate.py",
-    "desc": "[主链路断点2] 查重不纳入 reference/ → 已入库知识被报成「可新增」，同一个东西进库两遍",
-    "old": "        for re_ in ref_corpus:\n            sc = similarity(dbgs[idx], re_[\"_bg\"])\n            if sc > best_score:\n                best, best_score, best_where = re_, sc, re_[\"_where\"]",
-    "new": "        pass  # 变异：查重不比对 reference/",
-    "expect": "KILLED",
-    "why": "实测：已写在 silent.md#第 4 次 的知识点被报成「可新增」。⛔ 只喂严格档（DUP 0.30）不喂宽松档（REL 0.05）——8000+ 行语料在宽松阈值下会让任何草稿都「疑似相关」，信号被噪声淹没。",
-    "source": "2026-09-26 主链路真跑",
-    "test_cmd": [
-      "python",
-      "{root}/scripts/consolidate.py",
-      "--self-test"
-    ]
-  },
-  {
-    "id": "EV-M30",
-    "target": "scripts/domain.py",
-    "desc": "[主链路断点3] domain_dir 只认 name（开发）不回退 key（dev） → 索引永远 0 项",
-    "old": "    if not named.exists():\n        by_key = root / key\n        if by_key.exists():\n            return by_key",
-    "new": "    pass  # 变异：不回退 key",
-    "expect": "KILLED",
-    "why": "目录实际建在 key（dev）而 name 是中文（开发）⇒ scan() 扫不存在的路径 ⇒ 索引永远 0 项，`--find` 输出「未命中：库里还没有这个技能」——⛔ 不报错，看起来就是「还没捕获」（第十八条）。",
-    "source": "2026-09-26 主链路真跑",
-    "test_cmd": [
-      "python",
-      "{root}/scripts/domain.py",
-      "--self-test"
-    ]
-  },
-  {
-    "id": "EV-M31",
-    "target": "scripts/archive.sh",
-    "desc": "[主链路断点4] 归档前不校验是否已整合 → 没整合就归档，捕获永久丢失",
-    "old": "LAST=$(cut -d' ' -f1 \"$STAMP\")",
-    "new": "LAST=\"$CUR\"  # 变异：跳过整合校验",
-    "expect": "KILLED",
-    "why": "FL-05 清单第 1 项「⛔ 归档前必须先整合」此前没有任何强制机制——清单写了，但没人拦。实测我自己跳过了一次（先归档后整合），archive.sh 正常退出 0，捕获永久丢失。⇒ **清单不会自己执行**。",
-    "source": "2026-09-26 主链路真跑",
-    "test_cmd": [
-      "bash",
-      "-c",
-      "set -e; cd \"$1\"; D=$(mktemp -d); cp -r scripts/pending \"$D/\" 2>/dev/null||mkdir -p \"$D/pending\"; printf \"<!-- [A] x -->\\n\" > \"$D/pending/draft.md\"; printf \"ffffffffffffffff x\\n\" > \"$D/pending/.last_consolidated\"; cd \"$D\" && bash \"$OLDPWD/scripts/archive.sh\" >/dev/null 2>&1 && exit 1 || test \"$?\" = \"3\"",
-      "--root"
-    ]
-  },
-  {
-    "id": "EV-M32",
-    "target": "scripts/lint.py",
-    "desc": "[自审] check_check_coverage 用子串 `\"self_test\" in name` 找自检入口 → 任何名字含 self_test 的辅助函数都会把 st[0] 带偏",
-    "old": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and n.name == \"cmd_self_test\"]",
-    "new": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and \"self_test\" in n.name]",
-    "expect": "KILLED",
-    "why": "实测（2026-09-26）：新增辅助函数 `_self_test_domains_in_repo` 后，st[0] 变成它（tree.body 顺序在前）⇒ 24 个检查项**全部**被报「在自检里从未被调用」，而它们明明都在 cmd_self_test 里。⛔ 用子串匹配找「入口」是脆的（falsepos 第十四条：判据看语义方向，不看表面特征）。⇒ **命名约定被无意撞到**。",
-    "source": "2026-09-26 domains 改造"
-  },
-  {
-    "id": "EV-M33",
-    "target": "scripts/domain.py",
-    "desc": "[架构] domain_root 不解析相对路径为 skill 根 → domains 落错目录 / 检查器无法在临时目录上自检",
-    "old": "    _b = cfg.get('_root')\n    return (Path(_b) if _b else Path(ROOT)) / raw",
-    "new": "    return Path(ROOT) / raw  # 变异：不支持 _root 注入、不解析相对路径",
-    "expect": "KILLED",
-    "why": "实测：`root: domains` 为相对路径，若不相对 skill 根解析就会落错目录；且检查器只能在真库上跑 ⇒ 用例依赖真库状态（踩过多次）。⛔ 相对路径必须相对 skill 根解析，不是 CWD（CWD 不定 ⇒ 扫到 0 个包而不报错）。",
-    "source": "2026-09-26 domains 改造",
-    "test_cmd": [
-      "python",
-      "{root}/scripts/domain.py",
-      "--self-test"
-    ]
-  }
+ {
+  "id": "EV-M01",
+  "target": "scripts/lint.py",
+  "desc": "[gate] --json 分支改回「直接 return」→ 有 error 也返回 0，CI 永远绿灯",
+  "old": "        errs_j = [i for i in issues if i.get(\"level\") == \"error\"]\n        sys.exit(BLOCKED if errs_j else OK)",
+  "new": "        return",
+  "expect": "KILLED",
+  "why": "实测：CI 用 --json 解析 = 永远绿灯，gate 形同虚设。由自检用例「--json 模式有 error 时退出码非 0」守护",
+  "source": "2026-09-24 反哺 code-audit AR-04 时发现"
+ },
+ {
+  "id": "EV-M02",
+  "target": "scripts/lint.py",
+  "desc": "[假生效] 去掉 re.S → 豁免理由跨行时匹配失败，声明了但仍按超限报",
+  "old": "    re.S)   # re.S：理由可以跨行写",
+  "new": "    )   # 变异：去掉 re.S，跨行理由匹配不到",
+  "expect": "KILLED",
+  "why": "第二十一条「假生效」。实测 changelog-archive.md 理由跨 3 行，366 行仍被判超限，而人以为已豁免",
+  "source": "2026-09-24 补 FL-05 时发现"
+ },
+ {
+  "id": "EV-M03",
+  "target": "scripts/lint.py",
+  "desc": "[误报] 转发壳路径砍掉第一个片段 → canonical 找不到 → 4 条真实命令被误报",
+  "old": "    rel = os.path.normpath(os.path.join(*segs)) if segs else ''",
+  "new": "    rel = os.path.normpath(os.path.join(*segs[1:])) if segs else ''",
+  "expect": "KILLED",
+  "why": "_HERE 是裸变量不在引号里，findall 拿到的全是路径片段，一个都不能砍。误报的检查会被关掉",
+  "source": "2026-09-24 反哺 doc-promise 时发现"
+ },
+ {
+  "id": "EV-M04",
+  "target": "scripts/lint.py",
+  "desc": "[永久噪音] 豁免只覆盖超限档，不覆盖「接近上限」档 → 归档型文件提示永远消不掉",
+  "old": "        if lim > 0 and n < lim and n >= int(lim * 0.8) and not oversize_exempt(f):",
+  "new": "        if lim > 0 and n < lim and n >= int(lim * 0.8):",
+  "expect": "KILLED",
+  "why": "⛔ 曾是真盲区：手写用例漏了「已声明豁免的文件不报接近上限」，由本变异跑出来才发现。已补用例 → 现为 KILLED。保留本条以证明「手写用例 ≠ 覆盖历史缺陷」",
+  "source": "2026-09-24 拆 consolidation-rules 时发现"
+ },
+ {
+  "id": "EV-M05",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] token 阈值关掉 → 行数合规但 token 超限的文件查不出",
+  "old": "        tlim = int(cfg.get(\"token_limits\", {}).get(\n            key, TOKEN_LIMITS.get(key, TOKEN_DEFAULT)))",
+  "new": "        tlim = 0   # 变异：关掉 token 阈值",
+  "expect": "KILLED",
+  "why": "双阈值不是装饰。关掉后「150 行宽表格比 400 行散文贵」这类文件完全查不出",
+  "source": "2026-09-24 反哺 code-audit SK006/SK009 时新增"
+ },
+ {
+  "id": "EV-M06",
+  "target": "scripts/lint.py",
+  "desc": "[用例形同虚设] 体积 hint 的断言退化 → 改掉任一提示用例照样绿",
+  "old": "        vol_hints = [h for h in hs if h]",
+  "new": "        vol_hints = []   # 变异：样本没触发任何提示",
+  "expect": "KILLED",
+  "why": "实测：断言用 any 时，去掉 o1 那句后 o3 仍在 → any 为真 → 变异没变红，用例形同虚设。改为 all() + 先断言 vol_hints 非空。判据：**断言必须能因「任一条被改坏」而变红**，且必须先断言「样本确实触发了」——否则空列表让 all() 恒真",
+  "source": "2026-09-24 加充实度判据时发现"
+ },
+ {
+  "id": "EV-M07",
+  "target": "scripts/lint.py",
+  "desc": "[交叉审计] check_check_coverage 全部跳过 → 检查项失效无人知",
+  "old": "        if fn == \"check_check_coverage\":\n            continue          # 别把自己算进去（自指，见 falsepos 第六条）",
+  "new": "        if True:\n            continue          # 变异：全部跳过",
+  "expect": "KILLED",
+  "why": "反哺 code-audit `--cross`。实测首次跑就抓出 check_root **在自检里从未被调用**——它失效了自检也全绿。已补正反两侧用例",
+  "source": "2026-09-24 反哺 rule-registry --cross 时发现"
+ },
+ {
+  "id": "EV-M08",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] reference 体积检查 rglob → glob：子区文档完全不参与体积检查",
+  "old": "    for f in sorted((base / \"reference\").rglob(\"*.md\")):",
+  "new": "    for f in sorted((base / \"reference\").glob(\"*.md\")):",
+  "expect": "KILLED",
+  "why": "⛔ 实测：改回 glob 后自检**照样 61/0 全绿**——这个修过的缺陷没有任何用例守着。同一形态在 code-audit 侧踩过三次（断链/扫描器/体积）。已补用例；为让用例能自造样本，给 check_size 加了 root 注入",
+  "source": "2026-09-24 交叉审计时回放历史缺陷发现"
+ },
+ {
+  "id": "EV-M09",
+  "target": "scripts/lint.py",
+  "desc": "[误报] Step 识别改回「标题含 Step 字样」：说明性章节被当真步骤",
+  "old": "            if line.startswith(\"### \") and re.search(\n                    r'\\[[A-Za-z0-9-]+#S\\d+\\]', line):",
+  "new": "            if line.startswith(\"### \") and (\n                    re.search(r'\\[[A-Za-z0-9-]+#S\\d+\\]', line)\n                    or 'Step' in line):",
+  "expect": "KILLED",
+  "why": "实测 new-skill.md 的「### 批量四步（替换 Step 4）」只是**提到** Step，却被当成真 Step 报「缺五字段」。判据：节点 ID 才是稳定标识，不是标题字样",
+  "source": "2026-09-24 补 FL-03 时发现并修复"
+ },
+ {
+  "id": "EV-M10",
+  "target": "scripts/lint.py",
+  "desc": "[死链检查] scripts/reference 开头的路径存在性判断改恒真 → 死链不报",
+  "old": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = (base / rel).exists()",
+  "new": "            if rel.startswith((\"scripts\", \"reference\")):\n                ok = True",
+  "expect": "KILLED",
+  "why": "⛔ 教训：初版把 target 写成**文档文件** sequence.md，而 mutate 的测试套件是 `lint.py --self-test`，它**只读自造样本、不读真库文档** → 改文档自检当然不变，报了 SURVIVED。这是**变异定义写错了**，不是真盲区。判据：**变异目标必须是测试套件真的会读到的东西**。另注：手验确认 LK002 在真库上确实能抓到死链",
+  "source": "2026-09-25 反哺 game-dev flow 层时自己踩的（引用了对方的工具名）"
+ },
+ {
+  "id": "EV-M11",
+  "target": "scripts/lint.py",
+  "desc": "[假生效] 反模式表按完整匹配识别类型 → 缺列就认不出类型，检查被跳过",
+  "old": "            is_miscon = \"本能以为\" in j\n            is_omit = \"漏写\" in j",
+  "new": "            is_miscon = all(k in j for k in MISCON)\n            is_omit = all(k in j for k in OMIT)",
+  "expect": "KILLED",
+  "why": "⛔ 这正是第二十一条「假生效」的精确实例：用完整匹配识别类型时，**缺了列就识别不出类型 → 检查自己被跳过**。而缺列恰恰是要报的问题——**检查因被测对象缺了东西而静默罢工**。判据：先按主键认出它是哪一类，再查这一类的必需列",
+  "source": "2026-09-25 写 check_antipattern_tables 时自己踩的"
+ },
+ {
+  "id": "EV-M12",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] 死链检查跳过区名开头的相对路径 → 4 条真死链长期未发现",
+  "old": "                ok = (base / \"reference\" / rel).exists() or (base / rel).exists()",
+  "new": "                ok = True   # 变异：区名开头一律跳过",
+  "expect": "KILLED",
+  "why": "实测 4 条真死链（`flow/README.md`、`common/howto/principles.md`）**长期未被发现**，因为老正则只认 `scripts/` 或 `reference/` 开头，而「【读】common/howto/principles.md」这种区名开头的写法不在范围内。**检查在跑，但没在查**（silent 第一条、第七条）。基准：区名开头的路径解析到 `reference/<区>/`",
+  "source": "2026-09-25 挖 game-dev common/ 时对照引擎侧发现的"
+ },
+ {
+  "id": "EV-M13",
+  "target": "scripts/lint.py",
+  "desc": "[全局块] 锚点存在性判断恒真 → 引用不存在的 EC-xx 不报",
+  "old": "            if m.group(1).lower() not in defined:",
+  "new": "            if False:  # 变异：锚点存在性不查",
+  "expect": "KILLED",
+  "why": "⛔ 全局块的意义是消除重复。锚点写错会让读的人得到「这个块不存在」→ **回去自己写一遍**——**重复又回来了，且没人发现**。与 check_refs 的分工：那个查文件在不在，这个查锚点在不在；只查前者会让「文件在、锚点错」完全漏掉",
+  "source": "2026-09-25 建 EC 全局块时配套新增"
+ },
+ {
+  "id": "EV-M14",
+  "target": "scripts/lint.py",
+  "desc": "[全局块] EC 块定义提取正则失效 → 所有锚点都判为不存在（或都不报）",
+  "old": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        defined.add(m.group(1).lower())",
+  "new": "    for m in re.finditer(r\"^##\\s+(EC-\\d+)\", btext, re.M):\n        pass  # 变异：不收集已定义块",
+  "expect": "KILLED",
+  "why": "⛔ defined 集合为空时，所有引用都被判为「不存在」——**检查变成全量误报**。而误报的检查会被关掉（第十三条）。反向：若 defined 恒全，则所有引用都放过——**检查形同虚设**。两个方向都必须有用例守着（EC-02）",
+  "source": "2026-09-25 建 EC 全局块时配套新增（正反两侧）"
+ },
+ {
+  "id": "EV-M15",
+  "target": "scripts/lint.py",
+  "desc": "[格式缺陷] 孤立表格行检测失效 → 表格断裂不报",
+  "old": "            if prev_tbl or nxt_sep:\n                continue",
+  "new": "            continue  # 变异：一律跳过，永远不报",
+  "expect": "KILLED",
+  "why": "⛔ 实测 SKILL.md 目录地图里 `| pending/draft.md | … |` 夹在两个段落之间——Markdown **不把它渲染成表格**，读者看到的是一行带竖线的文字。这类缺陷**不影响任何检查通过**（行数/章节/死链都正常），只有人眼渲染时才看得见，而**入口文件恰恰是最常被读的**",
+  "source": "2026-09-25 修 SKILL.md 目录地图时发现的真缺陷"
+ },
+ {
+  "id": "EV-M16",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] 孤立表格行检查缩回只扫 reference/ → 入口文件永远不被检查",
+  "old": "    targets = [p for p in sorted(base.rglob(\"*.md\"))\n               if \".git\" not in str(p)]",
+  "new": "    targets = [p for p in sorted((base / \"reference\").rglob(\"*.md\"))]",
+  "expect": "KILLED",
+  "why": "⛔ **缺陷就是在 SKILL.md 里发现的**，而 SKILL.md 不在 reference/ 下。只扫子目录会让「最常被读的那个文件」永远不被检查——而它恰恰是最该被检查的（silent 第七条：扫描范围必须自报）。这是目录分层后只扫直接子文件的**第 5 次**出现",
+  "source": "2026-09-25 扩展扫描范围时配套新增"
+ },
+ {
+  "id": "EV-M17",
+  "target": "scripts/lint.py",
+  "desc": "[误报] 条目型文档（编号条目册）被判「章节过多」→ 逼人拆掉本该在一起的册子",
+  "old": "            if numbered >= len(heads) * 0.7:\n                continue",
+  "new": "            if False:  # 变异：条目型豁免失效\n                continue",
+  "expect": "KILLED",
+  "why": "⛔ `self-verification-*.md` 是**编号条目册**：每章一条独立判据，用法是「查表：我这情况属于哪条」，**章节数等于条目数**。拆开反而要来回翻，且会切断跨文件锚点（20+ 条是全局编号，跨册引用）。不区分的话会逼着人拆掉**本来就该在一起**的册子（第十四条：判据看语义方向，不看表面特征）",
+  "source": "2026-09-25 credibility 册 14 章节被误报时发现的"
+ },
+ {
+  "id": "EV-M18",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] check_scan_scope 不遍历 check_* 函数 → 只扫子目录的检查查不出",
+  "old": "    for fn in [n for n in ast.walk(tree)\n               if isinstance(n, ast.FunctionDef)\n               and n.name.startswith(\"check_\")]:",
+  "new": "    for fn in []:  # 变异：不遍历任何函数",
+  "expect": "KILLED",
+  "why": "⛔ 六问第 1 问「扫描范围包含入口文件吗」的自动化。缺陷**就是在 SKILL.md 里发现的**，而它不在任何「批量扫描的目录」里——最常被读的文件最容易漏在范围外。上线即抓到真漏：`check_block_refs` 只扫 reference/，而 SKILL.md 引用 `#EC-xx` 完全合理",
+  "source": "2026-09-25 六问第 1 问自动化时新增"
+ },
+ {
+  "id": "EV-M19",
+  "target": "scripts/lint.py",
+  "desc": "[格式缺陷] 重复章节标题检测失效 → 两个编号相同的章节不报",
+  "old": "            if st in seen:",
+  "new": "            if False:  # 变异：重复标题不查",
+  "expect": "KILLED",
+  "why": "⛔ 实测：往「## 六、自检」后**插入**新自检项时原文块没删，文件里出现**两个完全相同的 `## 六、自检`**。Markdown 照常渲染成两个编号相同的章节——**读的人以为自己看重复了，或漏掉第二个块**。现有检查抓不到：check_markdown_headings 只查重复 `#` 字符，两个各自合法的相同标题它不管；行数/体积/死链全正常。上线即抓到 6 条真重复（changelog-archive 重复追加）",
+  "source": "2026-09-25 techniques.md 自己踩的坑"
+ },
+ {
+  "id": "EV-M20",
+  "target": "scripts/lint.py",
+  "desc": "[漏判] 坑类表（坑/后果）不被识别 → 第三种反模式形态被判「自造形态」",
+  "old": "            is_pitfall = (\"坑\" in j and \"本能以为\" not in j\n                          and \"漏写\" not in j)",
+  "new": "            is_pitfall = False  # 变异：坑类不识别",
+  "expect": "KILLED",
+  "why": "⛔ 初版只统计出两种表头就下「只有两种」的结论，**没有验证「还有没有第三种」**——正是第十八条批判的「报『没有』前没证明『查了』」。而坑类恰恰是最危险的：**测量工具本身失效**，你会得到「没问题」的结论并基于它做决策。",
+  "source": "2026-09-25 复查 audit/ 115 份时发现的第三种"
+ },
+ {
+  "id": "EV-M21",
+  "target": "scripts/lint.py",
+  "desc": "[假生效] 豁免正则要求紧跟 `<!--` → 注释块内含 flow-type 时声明不生效",
+  "old": "    r'<!--(?:(?!-->).)*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
+  "new": "    r'<!--\\s*oversize-exempt\\s*:\\s*(.+?)\\s*-->',",
+  "expect": "KILLED",
+  "why": "⛔ **第二次踩同一个坑**（第一次是 re.S 不吃换行）。acceptance.md 的注释块是 `<!--\\nflow-type: meta\\noversize-exempt: …\\n-->`，而旧正则要求 exempt 紧跟 `<!--`，`\\s*` 匹配不到 `flow-type: meta` 这段文字 → **豁免声明了但不生效**（第二十一条：假生效）。假生效比没声明更糟：人以为处理过了。",
+  "source": "2026-09-25 acceptance.md 413 行超限仍报时发现"
+ },
+ {
+  "id": "EV-M22",
+  "target": "scripts/lint.py",
+  "desc": "[过期豁免] 登记了不存在的函数（改名后没删）→ 不报 → 豁免变遮羞布",
+  "old": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if fn not in live:",
+  "new": "    for fn, reason in sorted(INDIRECT_COVERAGE.items()):\n        if False:  # 变异：过期豁免不查",
+  "expect": "KILLED",
+  "why": "反哺自 game-dev 的 check-map-relevance.py：「⛔ **豁免变成掩盖真问题的遮羞布**」。改名后旧名字仍在登记表里，而没有任何检查在查它存不存在——这是第二十一条（假生效）的**登记版**。",
+  "source": "2026-09-25 二挖 game-dev/scripts/"
+ },
+ {
+  "id": "EV-M23",
+  "target": "scripts/lint.py",
+  "desc": "[易变计数] 目录标题写「N 个文件」→ 不报，计数悄悄过期",
+  "old": "    RX = re.compile(r'^#{2,4}\\s*.*?[（(]\\s*(\\d+)\\s*(?:个|份)\\s*(?:文件|文档)\\s*[)）]')",
+  "new": "    RX = re.compile(r'^#\\s*zzzz_never_match')  # 变异：计数检查失效",
+  "expect": "KILLED",
+  "why": "split-two-books.md 的区文件数**第 4 次**过期（howto 10→16→17，audit 3→6→7）。⚠ 每次都是「加了文件没回来改计数」，而读的人把数字当现状。⇒ **计数是快照，判据是稳定的**。⛔ 初版查所有标题+表格行报了 37 条（绝大多数误报）——带来源的实测统计是合法的。**误报的检查会被关掉**，所以宁可窄不可宽。",
+  "source": "2026-09-25 整合时发现第 4 次过期"
+ },
+ {
+  "id": "EV-M24",
+  "target": "scripts/lint.py",
+  "desc": "[正反覆盖] 自检 duality 判定恒完备 → 缺正/缺反/间接都不报",
+  "old": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])",
+  "new": "    for c in sorted(checks - {\"check_check_coverage\"}):\n        u = used.get(c, 0)\n        d = direct.get(c, [0, 0])\n        d = [1, 1]  # 变异：正反判定恒为完备 → 不报",
+  "expect": "KILLED",
+  "why": "**自审发现**：24 个检查项里 12 个（50%）自检覆盖不完备，引擎自己违反了第一条「检查项必须能红」与第四条「必须配正反双样本」。补齐后 11 条 → 0 条。",
+  "source": "2026-09-25 自审（用户要求：审查 skill 自己有没有遵守）"
+ },
+ {
+  "id": "EV-M25",
+  "target": "scripts/lint.py",
+  "desc": "[正反覆盖] 精度：间接形式(len(x)==0/bool(x))其实有方向，旧统计器认不出→误报",
+  "old": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    # ⚠ **间接形式也要认**",
+  "new": "                    d = direct.setdefault(c.func.id, [0, 0])\n                    d[0 if neg else 1] += 1\n    return []\n    # ⚠ **间接形式也要认**",
+  "expect": "KILLED",
+  "why": "只认直接调用会把 5 个其实正反都有的检查项误判为「只被间接引用」。误报的检查会被关掉（falsepos 第十四条）——必须提高精度。提高后 9 条真缺口 → 4 条。",
+  "source": "2026-09-25 自审"
+ },
+ {
+  "id": "EV-M26",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围自报] 第二条量化：输出通过信号但无扫描范围 → 不报",
+  "old": "            if has_pass and not has_scope:",
+  "new": "            if has_pass and not has_scope:\n                if True: continue  # 变异：自报检查永不报",
+  "expect": "KILLED",
+  "why": "实测：mutations.json 置空 → mutate.py 输出「KILLED 0 · SURVIVED 0」，看起来没问题，实际是配置空了。structure.py --check 输出「✓ 结构健康」而 domains 压根没初始化（扫了 0 个大类）。⛔ 失败模式是返回 0 条而不是报错。",
+  "source": "2026-09-25 第二条量化"
+ },
+ {
+  "id": "EV-M27",
+  "target": "scripts/lint.py",
+  "desc": "[表格列数] 不处理 \\| 转义 → 命令里的 | 全被当分隔符，27/37 误报",
+  "old": "            return len(st.replace(\"\\\\|\", \"\\x00\").split(\"|\"))",
+  "new": "            return len(st.split(\"|\"))  # 变异：不处理转义 —— 27/37 误报",
+  "expect": "KILLED",
+  "why": "真库探查第一版 37 处里 **27 处是误报**（95%），全是 grep 命令里的 `\\|`。处理转义后 10 处**全真**。这是第二十九条「先跑真库数误报率」的直接产物。",
+  "source": "2026-09-25 第十七条量化"
+ },
+ {
+  "id": "EV-M28",
+  "target": "scripts/consolidate.py",
+  "desc": "[主链路断点1] parse_drafts 把捕获注释 `<!-- [A] ... -->` 当注释丢弃 → 按模板写的捕获 100% 读不到",
+  "old": "            _m = re.match(r\"^<!--\\s*\\[([A-G][0-9]?)\\](.*?)-->\\s*$\", s)\n            if _m:\n                out.append(_m.group(2).strip().lstrip(\"-*0123456789. \"))\n                continue",
+  "new": "            _m = None  # 变异：不解析捕获注释",
+  "expect": "KILLED",
+  "why": "主链路第一次真跑发现：draft 模板规定的捕获格式就是 `<!-- [A] 场景 → 正确做法 -->`，而 archive.sh 与 consolidate.py **两个消费端都当注释丢弃** ⇒ 自建成以来从未有一条捕获进过库。⛔ 守卫从构造上不可能发现：RAW_COUNT 与 BODY 用同一个过滤器 ⇒ 恒等 ⇒ 告警永不响。",
+  "source": "2026-09-26 主链路真跑",
+  "test_cmd": [
+   "python",
+   "{root}/scripts/consolidate.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M29",
+  "target": "scripts/consolidate.py",
+  "desc": "[主链路断点2] 查重不纳入 reference/ → 已入库知识被报成「可新增」，同一个东西进库两遍",
+  "old": "        for re_ in ref_corpus:\n            sc = similarity(dbgs[idx], re_[\"_bg\"])\n            if sc > best_score:\n                best, best_score, best_where = re_, sc, re_[\"_where\"]",
+  "new": "        pass  # 变异：查重不比对 reference/",
+  "expect": "KILLED",
+  "why": "实测：已写在 silent.md#第 4 次 的知识点被报成「可新增」。⛔ 只喂严格档（DUP 0.30）不喂宽松档（REL 0.05）——8000+ 行语料在宽松阈值下会让任何草稿都「疑似相关」，信号被噪声淹没。",
+  "source": "2026-09-26 主链路真跑",
+  "test_cmd": [
+   "python",
+   "{root}/scripts/consolidate.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M30",
+  "target": "scripts/domain.py",
+  "desc": "[主链路断点3] domain_dir 只认 name（开发）不回退 key（dev） → 索引永远 0 项",
+  "old": "    if not named.exists():\n        by_key = root / key\n        if by_key.exists():\n            return by_key",
+  "new": "    pass  # 变异：不回退 key",
+  "expect": "KILLED",
+  "why": "目录实际建在 key（dev）而 name 是中文（开发）⇒ scan() 扫不存在的路径 ⇒ 索引永远 0 项，`--find` 输出「未命中：库里还没有这个技能」——⛔ 不报错，看起来就是「还没捕获」（第十八条）。",
+  "source": "2026-09-26 主链路真跑",
+  "test_cmd": [
+   "python",
+   "{root}/scripts/domain.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M31",
+  "target": "scripts/archive.sh",
+  "desc": "[主链路断点4] 归档前不校验是否已整合 → 没整合就归档，捕获永久丢失",
+  "old": "LAST=$(cut -d' ' -f1 \"$STAMP\")",
+  "new": "LAST=\"$CUR\"  # 变异：跳过整合校验",
+  "expect": "KILLED",
+  "why": "FL-05 清单第 1 项「⛔ 归档前必须先整合」此前没有任何强制机制——清单写了，但没人拦。实测我自己跳过了一次（先归档后整合），archive.sh 正常退出 0，捕获永久丢失。⇒ **清单不会自己执行**。",
+  "source": "2026-09-26 主链路真跑",
+  "test_cmd": [
+   "bash",
+   "-c",
+   "set -e; cd \"$1\"; D=$(mktemp -d); cp -r scripts/pending \"$D/\" 2>/dev/null||mkdir -p \"$D/pending\"; printf \"<!-- [A] x -->\\n\" > \"$D/pending/draft.md\"; printf \"ffffffffffffffff x\\n\" > \"$D/pending/.last_consolidated\"; cd \"$D\" && bash \"$OLDPWD/scripts/archive.sh\" >/dev/null 2>&1 && exit 1 || test \"$?\" = \"3\"",
+   "--root"
+  ]
+ },
+ {
+  "id": "EV-M32",
+  "target": "scripts/lint.py",
+  "desc": "[自审] check_check_coverage 用子串 `\"self_test\" in name` 找自检入口 → 任何名字含 self_test 的辅助函数都会把 st[0] 带偏",
+  "old": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and n.name == \"cmd_self_test\"]",
+  "new": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and \"self_test\" in n.name]",
+  "expect": "KILLED",
+  "why": "实测（2026-09-26）：新增辅助函数 `_self_test_domains_in_repo` 后，st[0] 变成它（tree.body 顺序在前）⇒ 24 个检查项**全部**被报「在自检里从未被调用」，而它们明明都在 cmd_self_test 里。⛔ 用子串匹配找「入口」是脆的（falsepos 第十四条：判据看语义方向，不看表面特征）。⇒ **命名约定被无意撞到**。",
+  "source": "2026-09-26 domains 改造"
+ },
+ {
+  "id": "EV-M33",
+  "target": "scripts/domain.py",
+  "desc": "[架构] domain_root 不解析相对路径为 skill 根 → domains 落错目录 / 检查器无法在临时目录上自检",
+  "old": "    _b = cfg.get('_root')\n    return (Path(_b) if _b else Path(ROOT)) / raw",
+  "new": "    return Path(ROOT) / raw  # 变异：不支持 _root 注入、不解析相对路径",
+  "expect": "KILLED",
+  "why": "实测：`root: domains` 为相对路径，若不相对 skill 根解析就会落错目录；且检查器只能在真库上跑 ⇒ 用例依赖真库状态（踩过多次）。⛔ 相对路径必须相对 skill 根解析，不是 CWD（CWD 不定 ⇒ 扫到 0 个包而不报错）。",
+  "source": "2026-09-26 domains 改造",
+  "test_cmd": [
+   "python",
+   "{root}/scripts/domain.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M34",
+  "target": "scripts/lint.py",
+  "desc": "[craft 接入] 锚点判据改回全等 → 手写引用（几乎总是省略）全部判成断链",
+  "old": "    return len(anc) >= 4 and anc in title",
+  "new": "    return False  # 变异：只认全等，不认手写省略",
+  "expect": "KILLED",
+  "why": "实测：条目标题 `1. 写正确的废话 = 没写` 被引用成 `#写正确的废话`。⛔ 全等判据会让所有真实引用判成断链——而断链是 error，会逼人删掉引用，craft 层彻底没人用。⚠ 太短的锚点（<4 字）不能子串匹配，否则 `文` 命中所有标题。",
+  "source": "2026-09-26 craft 层检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M35",
+  "target": "scripts/lint.py",
+  "desc": "[craft 接入] 孤儿口径不排除元条目 → 基线永远混着一批不可能挂上的项",
+  "old": "            if any(k in t for k in META):\n                continue",
+  "new": "            pass  # 变异：元条目（自检/变更溯源）也算孤儿",
+  "expect": "KILLED",
+  "why": "⛔ 自检、变更溯源、为什么单独一层本来就不该被引用。算进孤儿 = 基线永远清不掉 = 检查永远红 = 被关掉（第十四条：误报的检查会被关掉）。",
+  "source": "2026-09-26 craft 层检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ }
 ]

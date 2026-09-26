@@ -2246,6 +2246,160 @@ def check_duplicate_headings(cfg, root=None):
     return issues
 
 
+def _norm_anchor(t):
+    """把章节标题归一化成锚点形态。
+
+    GitHub 的锚点规则：小写、空格转 `-`、去掉标点与 markdown 符号，
+    **保留中文**。⛔ 按字面比对会让所有中文锚点判成断链——
+    实测全库 0 处带锚点的引用，正是因为没人敢写（写了也对不上）。
+    """
+    t = re.sub(r'[*`⛔⚠ⓘ✅❌#.\-—…·、，。：；！？（）()\[\]{}|/\\"\'"]', '', t)
+    t = re.sub(r'\s+', '', t)
+    return t.lower()
+
+
+def _anchor_match(anc, title):
+    """锚点是否指向该标题（都已是归一化形态）。
+
+    ⛔ 不能只做全等：手写引用时**几乎总是省略**（标题
+    `1. 写正确的废话 = 没写` 会被写成 `#写正确的废话`）。
+    ⇒ 要求锚点是标题的**子串**。
+
+    ⚠ 太短的锚点不能子串匹配（`文` 会命中所有标题），
+    要求 ≥4 字；短于 4 字则必须全等。
+    ⓘ 与 falsepos 第十四条同族：判据要认**人真实的写法**，
+    不是认「最好匹配的那种写法」。
+    """
+    if not anc or not title:
+        return False
+    if anc == title:
+        return True
+    return len(anc) >= 4 and anc in title
+
+
+def check_craft_refs(cfg, root=None):
+    """craft 层接入：断链 + 孤儿（本层形同虚设的检查）。
+
+    反哺自 game-dev 的 `check-craft.py`（319 行，三查：断链 / 零交集 / 孤儿）。
+
+    ⛔ **为什么必须查孤儿**：craft 层的意义是「告诉你什么算好」——
+    但**它只有被读到时才起作用**。一本书写得再好没人翻，等于没写。
+    实测首次跑：43 条 ### 级判据，41 条从未被指向；
+    `judgment.md`（238 行）全库只被提到 1 次。
+
+    三查：
+        ① **断链**（error）—— `craft/xxx.md#锚点` 指向的章节不存在
+        ② **孤儿**（warn/info）—— ### 级判据条目从未被条目级引用指向
+        ③ **元条目豁免** —— 自检 / 变更溯源 / 为什么单独一层
+           本来就不该被引用（⛔ 算进去会让基线永远混着一批不可能挂上的项）
+
+    分级理由：
+        文件从未被引用 → **warn**（整册没接入，最严重）
+        文件被引用、但条目没被指向 → **info**（册接入了，条目没接）
+
+    ⛔ 与 `check_block_refs`（`#EC-xx`）的分工：那个查**全局块**锚点，
+    这个查 craft 层条目锚点 + 接入率。两者都是「建了但没人用」的守卫。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    craft = base / "reference" / "craft"
+    if not craft.is_dir():
+        return issues
+    files = sorted(craft.glob("*.md"))
+    if not files:
+        return issues
+
+    META = ("自检", "变更溯源", "为什么单独一层", "总判据")
+
+    # ① 收集条目（### 级判据）与章节（供断链比对）
+    entries, heads = [], {}
+    for f in files:
+        if f.name == "index.md":
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        hs = re.findall(r"^#{2,4}\s+(.+)$", txt, re.M)
+        heads[f.name] = [_norm_anchor(h) for h in hs]
+        for m in re.finditer(r"^#{3,4}\s+(.+)$", txt, re.M):
+            t = m.group(1).strip()
+            if any(k in t for k in META):
+                continue
+            entries.append((f.name, t, _norm_anchor(t)))
+
+    # ② 扫描引用方（⛔ 排除 craft 自身）
+    targets = [base / "SKILL.md"]
+    targets += sorted((base / "reference").rglob("*.md"))
+    targets += sorted((base / "assets").rglob("*.md"))
+    ref_lines = []
+    for f in targets:
+        if not f.is_file() or f.parent == craft:
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        rel = str(f.relative_to(base))
+        for i, ln in enumerate(lines, 1):
+            if "craft/" in ln:
+                ref_lines.append((rel, i, ln))
+
+    # 断链
+    for rel, ln_no, ln in ref_lines:
+        for m in re.finditer(r"craft/([\w.\-]+\.md)#([^`)\"']+)", ln):
+            fn, anc = m.group(1), m.group(2)
+            if fn not in heads:
+                continue  # 文件不存在由 check_refs 报
+            if not any(_anchor_match(_norm_anchor(anc), h) for h in heads[fn]):
+                issues.append({
+                    "level": "error", "file": "%s:%d" % (rel, ln_no),
+                    "issue": "craft 条目锚点不存在：`%s#%s`" % (fn, anc),
+                    "hint": "⛔ 锚点写错 → 读的人得到「这条不存在」→ "
+                            "**回去自己想一遍**，craft 层形同虚设"})
+
+    # 孤儿
+    cited_files = set()
+    anchored = set()   # (file, norm_anchor) 被条目级指向的
+    for rel, ln_no, ln in ref_lines:
+        for m in re.finditer(r"craft/([\w.\-]+\.md)", ln):
+            cited_files.add(m.group(1))
+        for m in re.finditer(r"craft/([\w.\-]+\.md)#([^`)\"']+)", ln):
+            anchored.add((m.group(1), _norm_anchor(m.group(2))))
+
+    if not entries:
+        return issues
+    orphan = []
+    for fn, t, na in entries:
+        if any(a[0] == fn and _anchor_match(a[1], na) for a in anchored):
+            continue
+        orphan.append((fn, t, na))
+    if not orphan:
+        return issues
+    rate = 100 * (len(entries) - len(orphan)) // len(entries)
+    # 分两级：整册没接入 = warn
+    whole_book = sorted({e[0] for e in orphan if e[0] not in cited_files})
+    for fn in whole_book:
+        n = sum(1 for e in orphan if e[0] == fn)
+        issues.append({
+            "level": "warn", "file": "reference/craft/%s" % fn,
+            "issue": "本册 %d 条判据从未被任何文件引用（整册未接入）" % n,
+            "hint": "⛔ craft 层只有被读到时才起作用。"
+                    "接入方式：在具体流程 / 判据处写 `craft/%s#条目标题`。" % fn})
+    rest = [e for e in orphan if e[0] in cited_files]
+    if rest:
+        sample = "、".join("%s#%s" % (e[0], e[1][:24]) for e in rest[:4])
+        issues.append({
+            "level": "info", "file": "reference/craft/",
+            "issue": "craft 条目级接入率 %d%%（%d/%d），未指向 %d 条，如：%s"
+                     % (rate, len(entries) - len(orphan), len(entries),
+                        len(rest), sample),
+            "hint": "文件级引用让读的人**自己去找**那一条。"
+                    "⛔ 文件在 ≠ 内容在。接入率会随引用增长——"
+                    "这是欠账，不是错误"})
+    return issues
+
+
 def check_antipattern_tables(cfg, root=None):
     """反模式清单的表头必须是两种形态之一，且列齐全。
 
@@ -3276,6 +3430,71 @@ trigger: 测试
         chk(not [i for i in check_duplicate_headings(cfg, vroot)
                  if 'd.md' in str(i.get('file', ''))],
             '标题各不相同不报')
+
+        # ---- craft 层接入：断链 + 孤儿 ----
+        # 反哺 game-dev 的 check-craft.py。⛔ 为什么必须查孤儿：
+        #   craft 层只有**被读到时**才起作用；没人翻的书等于没写。
+        #   实测首次跑：46 条判据，条目级接入率 0%。
+        cf = vroot / 'reference' / 'craft'
+        cf.mkdir(parents=True, exist_ok=True)
+        (cf / 'taste.md').write_text(
+            '# t\n\n## 二、总判据\n\n### 1. 写正确的废话 = 没写\n\n内容\n\n'
+            '### 自检（30 秒）\n\n- [ ] x\n\n'
+            '## 七、变更溯源\n\n| a | b |\n|---|---|\n',
+            encoding='utf-8')
+        how = vroot / 'reference' / 'howto'
+        how.mkdir(parents=True, exist_ok=True)
+        hd = how / 'h.md'
+        # 正向：条目被条目级引用指向 → 不报孤儿
+        hd.write_text('# h\n\n见 craft/taste.md#写正确的废话\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_craft_refs(cfg, vroot)
+                 if '孤儿' in str(i.get('issue', ''))
+                 or '未指向' in str(i.get('issue', ''))],
+            'craft 条目被条目级引用指向时不报孤儿')
+        chk(not [i for i in check_craft_refs(cfg, vroot)
+                 if '锚点不存在' in str(i.get('issue', ''))],
+            'craft 锚点存在时不报断链')
+        # 反向一：锚点不存在 → error
+        hd.write_text('# h\n\n见 craft/taste.md#压根没这一条\n',
+                      encoding='utf-8')
+        # ⛔ 必须内联调用：写成 `r = check_craft_refs(...)` 再断言 r，
+        #    check_selftest_duality 的 AST 看不到调用 → 判「缺反向用例」。
+        chk(any('锚点不存在' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            'craft 条目锚点不存在能查出（error）')
+        chk(all(i['level'] == 'error'
+                for i in check_craft_refs(cfg, vroot)
+                if '锚点不存在' in str(i.get('issue', ''))),
+            'craft 断链是 error 级')
+        chk(all(i.get('level') == 'info'
+                for i in check_craft_refs(cfg, vroot)
+                if '接入率' in str(i.get('issue', ''))),
+            '接入率欠账是 info 级（⛔ 不是 error：它不阻断，但要可见）')
+        # 反向二：只有文件级引用 → 报未指向（条目级接入率 0）
+        hd.write_text('# h\n\n见 craft/taste.md\n', encoding='utf-8')
+        chk(any('未指向' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            '只有文件级引用时报「未指向」（⛔ 文件在 ≠ 内容在）')
+        # 反向三：整册从未被引用 → warn（比条目未指向更严重）
+        hd.write_text('# h\n\n别的\n', encoding='utf-8')
+        chk(any(i.get('level') == 'warn'
+                and '整册未接入' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            '整册从未被引用时报 warn')
+        # ⛔ 反侧：太短的锚点（<4 字）必须全等，不能子串匹配
+        #   —— 否则 `文` 会命中所有标题，断链检查形同虚设
+        hd.write_text('# h\n\n见 craft/taste.md#内容\n', encoding='utf-8')
+        chk(any('锚点不存在' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            '短锚点（<4 字）不会子串乱匹配（⛔ 否则断链检查失效）')
+        # 反侧：元条目（自检/变更溯源）不算孤儿 —— ⛔ 必须断言**条数**：
+        #   只查 issue 文本里有没有"自检"字样是假断言，
+        #   而样本里元条目在 ## 级（entries 只收 ### 级）⇒ 变异后照样绿
+        chk(any('未指向 1 条' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            '元条目（自检）不算孤儿：样本 2 条 ### 只报 1 条'
+            '（⛔ 算进去基线永远清不掉 = 检查被关掉）')
         # 反向：相同标题 → 报
         dfile.write_text('# d\n\n## 一\n\nx\n\n## 一\n\ny\n',
                          encoding='utf-8')
@@ -3902,7 +4121,8 @@ def main():
               + check_selftest_duality(cfg)
               + check_scope_selfreport(cfg)
               + check_table_columns(cfg)
-              + check_domains_in_repo(cfg, ROOT))
+              + check_domains_in_repo(cfg, ROOT)
+              + check_craft_refs(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
