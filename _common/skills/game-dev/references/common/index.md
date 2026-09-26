@@ -33,6 +33,7 @@
 | GA-05 | 缓存无失效路径 | `audit/godot/datatable.md` `audit/godot/ui.md` `audit/godot/save-migration.md`  `audit/godot/class-awaken.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vip-subscription.md` `audit/godot/modding.md`|
 | GA-06 | 状态机只写 enter 不写 exit | `audit/godot/character.md` `audit/godot/ai-behavior.md` `audit/godot/survival.md` `audit/godot/vegetation.md` `audit/godot/vehicle.md`|
 | GA-07 | 错误处理吞掉异常 | `audit/godot/save-migration.md` `audit/godot/netsync-advanced.md` `audit/godot/io-network.md` `audit/godot/gem-rune.md` `audit/godot/relic-build.md` `audit/godot/vip-subscription.md`|
+| GA-08 | 占位值当最终值（待实测参数未回填） | `flow/godot/character/00-域流程总览.md` `flow/godot/netsync/00-域流程总览.md` `flow/godot/audio/00-域流程总览.md` `flow/godot/combat/00-域流程总览.md` `flow/godot/datatable/00-域流程总览.md` `flow/godot/lifeskill/00-域流程总览.md` `flow/godot/ai/00-域流程总览.md` `flow/godot/ui/00-域流程总览.md` `flow/godot/level/00-域流程总览.md` `flow/godot/inventory/00-域流程总览.md`|
 
 ## 双向校验规则
 

@@ -2001,6 +2001,47 @@ def cmd_self_test():
         except Exception as _e4:
             chk(False, '【品】映射检查可执行（%s）' % str(_e4)[:60])
 
+        # ⚠ 代码块自包含检查：流程文档是逐步叠加的，常量声明常写在
+        #   "Step 1 变量块"或"§3 参考实现"里，后续 Step 片段直接引用。
+        #   ⛔ 读者单独复制某一段 → 未声明标识符，跑不起来 ——
+        #      而这正是 SKILL.md 原则 1（给能跑的完整代码）要防的。
+        #   ⓘ 合规二选一：块内声明，或块内注释点名来源。
+        try:
+            import importlib.util as _ilu5
+            _sp5 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 'check-code-blocks.py')
+            _spec5 = _ilu5.spec_from_file_location('ccblocks', _sp5)
+            _cb = _ilu5.module_from_spec(_spec5)
+            _spec5.loader.exec_module(_cb)
+            _bad5 = _cb.scan()
+            chk(not _bad5,
+                '代码块常量有出处（无出处 %d: %s）'
+                % (len(_bad5), ['%s#%d %s' % (x[0][-24:], x[1], x[2][:2]) for x in _bad5[:3]]))
+            # ⛔ 必须取到样本：扫描路径失效时 bad 恒为空 → 假性全绿
+            _nb5 = _cb.count_blocks() if hasattr(_cb, 'count_blocks') else 0
+            chk(_nb5 > 0, '代码块扫描能取到样本（当前 %d 块）' % _nb5)
+        except Exception as _e5:
+            chk(False, '代码块自包含检查可执行（%s）' % str(_e5)[:60])
+
+        # ⚠ 参数登记检查（GA-08 的机械检查）：
+        #   标了「待实测」的常量必须进本域参数表，否则无处追踪 ——
+        #   ⛔ 没人知道它没测、改了没处回填、回归时漏测，而自检照绿。
+        try:
+            import importlib.util as _ilu6
+            _sp6 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 'check-params.py')
+            _spec6 = _ilu6.spec_from_file_location('cparams', _sp6)
+            _cp = _ilu6.module_from_spec(_spec6)
+            _spec6.loader.exec_module(_cp)
+            _nr6, _ms6, _ns6 = _cp.scan()
+            chk(_nr6 > 0, '参数登记扫描能取到样本（当前 %d 条）' % _nr6)
+            chk(not _ms6, '待实测常量已进参数表（未登记 %d: %s）'
+                % (len(_ms6), _ms6[:3]))
+            chk(not _ns6, '有待实测常量的域都有参数登记节（缺 %d: %s）'
+                % (len(_ns6), _ns6[:2]))
+        except Exception as _e6:
+            chk(False, '参数登记检查可执行（%s）' % str(_e6)[:60])
+
     print()
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
