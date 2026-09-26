@@ -1293,6 +1293,44 @@ def cmd_self_test():
                 'flow/index.md 表格列数一致（异常 %d 行: %s）'
                 % (len(_odd), [r[:40] for r in _odd[:2]]))
 
+        # ⚠⛔ 域声明核查：索引声称"已铺"的域，磁盘上必须真实存在。
+        #   为什么单独加：本库出现过三次"对话里报告域已完成、磁盘上零个文件"
+        #   （procgen / hotupdate / monetization）。⛔ 既有检查器只校验
+        #   **已存在文件之间**的引用关系，对"根本不存在"的文件天然查不到，
+        #   自检照样全绿。根因是把"设计完成"当成了"落盘完成"。
+        #   本检查把两者的落差变成硬失败：幽灵域 / 功能点缺文件 / 点数不符 /
+        #   磁盘有但没登记 / 表头数字失真（"凭印象写数字"的集中爆发点）。
+        try:
+            import importlib.util as _ilu4
+            _sp4 = _ilu4.spec_from_file_location(
+                '_dc', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    'check-domain-claims.py'))
+            _dc = _ilu4.module_from_spec(_sp4)
+            _sp4.loader.exec_module(_dc)
+            _r = _dc.scan()
+            chk(not _r['ghosts'],
+                '无幽灵域（索引登记但磁盘没有：%d %s）'
+                % (len(_r['ghosts']), _r['ghosts'][:2]))
+            chk(not _r['missing_fp'],
+                '域内功能点文件齐全（缺 %d: %s）'
+                % (len(_r['missing_fp']), _r['missing_fp'][:2]))
+            chk(not _r['miscount'],
+                '索引声称的功能点数与磁盘一致（不符 %d: %s）'
+                % (len(_r['miscount']), _r['miscount'][:2]))
+            chk(not _r['unregistered'],
+                '无未登记域（磁盘有、索引无：%d %s）'
+                % (len(_r['unregistered']), _r['unregistered'][:3]))
+            chk(not _r['head_bad'],
+                '表头数字与表内一致（失真 %d: %s）'
+                % (len(_r['head_bad']), _r['head_bad'][:2]))
+            # ⓘ 解析结果必须非空：表结构变了/路径指错层会静默返回 0，
+            #   与 verify.py 路径失效静默 0 条同类 —— 靠断言兜住。
+            chk(len(_r['domains']) >= 30,
+                '域声明核查解析到域（当前 %d 个；过少说明扫描失效）'
+                % len(_r['domains']))
+        except Exception as _e4:     # ⓘ 检查器自身出错不应静默放行
+            chk(False, '域声明核查可运行（%s）' % _e4)
+
         # 框架设施：结构总纲 + 通用骨架。
         # ⚠ 骨架是兜底设施 —— 110 个域只有少数有细化流程，其余全靠它，
         #   它丢了就退回"凭记忆开工"。
