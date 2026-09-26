@@ -195,6 +195,15 @@ def parse_drafts(path: Path) -> list[str]:
                 in_comment = False
             continue
         if s.startswith("<!--"):
+            # ⛔ 早先一律丢弃 `<!--`，而 draft 模板**规定的捕获格式就是**
+            #    `<!-- [A] 场景 → 正确做法 -->`
+            #    ⇒ 按模板写的捕获 100% 被丢弃。**archive.sh 同病**（已修）。
+            #    实测（主链路第一次真跑）：6 条真捕获，归档丢光、整合也读不到。
+            # ⇒ 捕获注释（`<!-- [A]`~`[G]`）= 内容；其余注释才是注释。
+            _m = re.match(r"^<!--\s*\[([A-G][0-9]?)\](.*?)-->\s*$", s)
+            if _m:
+                out.append(_m.group(2).strip().lstrip("-*0123456789. "))
+                continue
             if "-->" not in s:
                 in_comment = True
             continue
