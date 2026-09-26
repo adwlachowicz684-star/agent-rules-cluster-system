@@ -225,6 +225,36 @@ seen.add(_key)        # ← 在 continue 之后，没执行
 
 ---
 
+## 六、⛔ AST 提取：同一个节点会被遍历到两次
+
+**三件套**
+
+| | |
+|---|---|
+| **来源** | 2026-09-26 开发 `check_scope_selfreport`（信号 B：自己踩的坑） |
+| **证据** | 实测：把 `FormattedValue` 和它内部的 `Name` **都**还原成 `{}` → 得到 `"{}{}"`，范围信号正则失效，用例恒绿 |
+| **后果** | 提取出的文本与源码不符 → 范围信号永远匹配不上 → **检查器误报**；⛔ 误报的检查会被关掉（falsepos 第十四条） |
+
+```python
+# ⛔ 错：ast.walk 会同时给出 FormattedValue 和它内部的 Name
+for x in ast.walk(a):
+    if isinstance(x, ast.FormattedValue): txt += "{}"
+    elif isinstance(x, ast.Name):         txt += "{}"   # → "{}{}"
+
+# ✅ 对：只处理 FormattedValue
+for x in ast.walk(a):
+    if isinstance(x, ast.Constant) and isinstance(x.value, str): txt += x.value
+    elif isinstance(x, ast.FormattedValue): txt += "{}"
+```
+
+**判据**：同一个语法结构，**父节点和子节点都可能命中你的 isinstance**。
+写之前先打印一次提取结果，看有没有**重复占位**。
+
+ⓘ 与第七问同族：那一条说「断言输入非空」，这一条说「提取要验证提取对了没」——
+**都是"中间产物没人看"**。
+
+---
+
 ## 变更溯源
 
 | 日期 | 改动 | 原因 |

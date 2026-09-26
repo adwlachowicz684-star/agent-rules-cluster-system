@@ -15,6 +15,7 @@
 """
 
 import re
+import time
 import sys
 import argparse
 from exitcode import OK, ERR, USAGE, ENV, BLOCKED  # 码表：0/1/2/3/4
@@ -284,6 +285,62 @@ def check_trio(text: str) -> list[str]:
     return miss
 
 
+def load_reference_corpus(root: Path) -> list[dict]:
+    """reference/ 下已入库的知识文档，按标题块拆分作为查重语料。
+
+    ### ⛔ 为什么需要（实测动机）
+
+    主链路第一次真跑时，整合器把
+    「同一脚本内连续两次 `write(s.replace(...))`，s 没重新赋值」
+    报成 **「可新增」**——而它**早就写在**
+    `reference/audit/self-verification-silent.md` 第十七条「第 4 次」里。
+
+    ⇒ 查重只扫 `SKILLS/*.md` 的**条目表**，`reference/` 下 8000+ 行
+    已入库知识**完全不参与查重**。
+    **同一个东西会进库两遍，而整合器说"不重复"。**
+
+    ⓘ 这是第十八条「查不到 ≠ 没有」的变体：
+    失败模式是"返回 0 条重复"而不是报错。
+
+    ### ⛔ 只用于严格档（DUP），不用于宽松档（REL）
+
+    `reference/` 有 8000+ 行、词汇面极广。宽松阈值（0.05）下
+    **任何草稿都会与某块有交集** → 全部被判「疑似相关」→ 信号被噪声淹没。
+    ⛔ **误报的检查会被关掉**（falsepos 第十四条）。
+
+    ⇒ 语料纳入，但**只喂给严格判据**。
+    """
+    ref = root / "reference"
+    if not ref.is_dir():
+        return []
+    out = []
+    for f in sorted(ref.rglob("*.md")):
+        try:
+            text = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        head, buf = "(开头)", []
+        for ln in text.split("\n"):
+            if ln.startswith("#"):
+                if buf:
+                    t = " ".join(buf).strip()
+                    if len(t) >= 12:
+                        out.append({"_id": "", "_text": t[:300], "_bg": bigrams(t),
+                                    "_env": "", "_where": "%s#%s" % (
+                                        f.relative_to(root).as_posix(), head)})
+                head = ln.lstrip("#").strip() or "(开头)"
+                buf = []
+            else:
+                buf.append(ln)
+        if buf:
+            t = " ".join(buf).strip()
+            if len(t) >= 12:
+                out.append({"_id": "", "_text": t[:300], "_bg": bigrams(t),
+                            "_env": "", "_where": "%s#%s" % (
+                                f.relative_to(root).as_posix(), head)})
+    return out
+
+
 def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
     # 扫描实际存在的技能文件，按用途给中文名
     name_map = {
@@ -355,6 +412,8 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
         print("  ℹ️ 仍继续检查库内已有条目（跨库重复不依赖草稿）")
 
     dbgs = [bigrams(d) for d in drafts]
+    # ⛔ reference/ 已入库知识必须参与**严格档**查重（详见 load_reference_corpus）
+    ref_corpus = load_reference_corpus(root)
     dup, related, fresh, variants = [], [], [], []
 
     # 草稿 ↔ 技能库：找最相似的已有条目
@@ -378,6 +437,12 @@ def report(skills_dir: Path, draft_path: Path, root: Path) -> None:
                 rs = related_score(dbgs[idx], e["_bg"])
                 if rs > rel_score:
                     rbest, rel_score, rwhere = e, rs, fname
+        # 严格档也比对 reference/（⛔ 只扫 SKILLS/ 会漏掉已入库的知识）。
+        # ⛔ 不喂给宽松档：8000+ 行语料会让任何草稿都"疑似相关"。
+        for re_ in ref_corpus:
+            sc = similarity(dbgs[idx], re_["_bg"])
+            if sc > best_score:
+                best, best_score, best_where = re_, sc, re_["_where"]
         if best_score >= DUP_THRESHOLD and not env_overlap(
                 _draft_env(d), best.get("_env", "")):
             # 相似但适用环境不重叠 → 版本分化，不是冲突，两条都留
@@ -568,6 +633,19 @@ def main():
         sys.stderr.write("找不到技能库目录：%s\n" % skills_dir)
         sys.exit(ENV)
     report(skills_dir, draft_path, root)
+    # ⛔ FL-05 清单第 1 项「归档前必须先整合」此前**没有任何强制机制**——
+    #    清单写了，但没人拦。实测我自己就跳过了一次（先归档后整合）。
+    #    ⇒ 整合后记录草稿指纹；archive.sh 归档前比对，不匹配就拦下。
+    #    ⛔ 只在文档里写「必须先整合」是不够的：**清单不会自己执行**。
+    _stamp = root / "pending" / ".last_consolidated"
+    try:
+        import hashlib
+        _fp = hashlib.sha1(draft_path.read_bytes()).hexdigest()[:16] \
+            if draft_path.exists() else "empty"
+        _stamp.write_text("%s %s\n" % (
+            _fp, time.strftime("%Y-%m-%d %H:%M:%S")), encoding="utf-8")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

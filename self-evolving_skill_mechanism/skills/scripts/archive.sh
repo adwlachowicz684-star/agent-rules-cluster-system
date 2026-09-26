@@ -13,6 +13,28 @@ if [ ! -s "$DRAFT" ]; then
   exit 0
 fi
 
+# ⛔ FL-05 清单第 1 项「归档前必须先整合」——强制校验
+#    ⛔ 清单不会自己执行。实测我自己就跳过一次：先归档后整合，
+#       archive.sh 正常退出 0，捕获**永久丢失**。
+#    ⇒ 比对 consolidate.py 记录的草稿指纹；不匹配 = 整合后草稿又变了
+#      （或压根没整合）→ 拦下并提示。
+#    退出码 3 = ENV（前置条件不满足，先去做那一步）。
+STAMP="pending/.last_consolidated"
+CUR=$(sha1sum "$DRAFT" | cut -c1-16)
+if [ ! -f "$STAMP" ]; then
+  echo "[blocked] 没有整合记录（$STAMP 不存在）" >&2
+  echo "  ⛔ 归档会重置 draft.md —— 没整合就归档 = 本轮捕获永久丢失" >&2
+  echo "  → 先跑：python3 scripts/consolidate.py" >&2
+  exit 3
+fi
+LAST=$(cut -d' ' -f1 "$STAMP")
+if [ "$CUR" != "$LAST" ]; then
+  echo "[blocked] 草稿在整合之后又变过（整合时 $LAST / 现在 $CUR）" >&2
+  echo "  ⛔ 归档会重置 draft.md —— 未整合的捕获永久丢失" >&2
+  echo "  → 先跑：python3 scripts/consolidate.py" >&2
+  exit 3
+fi
+
 # 提取有效草稿行（跳过标题、注释、空行）
 # ⚠ 早先的正则把 `|` 开头的行也过滤了（想跳过表格分隔线），
 #   但**表格形式写的捕获会被整条静默丢弃**——

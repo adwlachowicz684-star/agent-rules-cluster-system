@@ -150,9 +150,24 @@ def domain_root(cfg: dict) -> Path:
 
 
 def domain_dir(cfg: dict, key: str) -> Path:
-    """大类的真实目录名：优先用 name（中文），否则用 key。"""
+    """大类的真实目录名：优先用 name（中文），否则用 key。
+
+    ⛔ **实测（主链路真跑第 4 个断点）**：
+    目录实际建在 `key`（`dev`），而 `name` 是中文（`开发`）。
+    只认 name ⇒ `scan()` 扫 `domains/开发/skills` 不存在 ⇒ **索引永远 0 项**，
+    而 `--find` 输出「未命中：… 库里还没有这个技能」——
+    ⛔ **失败模式是"返回 0 条"而不是报错**（第十八条）。
+
+    ⇒ name 目录不存在而 key 目录存在时回退到 key，避免整套召回空转。
+    """
     meta = cfg.get("domains", {}).get(key, {})
-    return domain_root(cfg) / meta.get("name", key)
+    root = domain_root(cfg)
+    named = root / meta.get("name", key)
+    if not named.exists():
+        by_key = root / key
+        if by_key.exists():
+            return by_key
+    return named
 
 
 # ---------- 初始化 ----------
