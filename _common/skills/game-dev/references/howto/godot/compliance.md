@@ -253,6 +253,48 @@ requested → identity_verified → scheduled/anonymized
 建议做法：构建流水线里加**隐私清单测试** —— 从首次启动抓包，识别域名、SDK 初始化、请求字段、设备标识符，
 映射到问卷类别。⚠ **新增广告/统计/客服/远程配置/崩溃/反作弊 SDK 时，CI 必须阻止未更新隐私清单的版本合入。**
 
+## 7.1 ⛔ iOS 隐私清单与导出：三条会静默改变行为的官方约束
+
+⚠ 商店合规字段不只是"填给审核看的" —— 其中至少一条会**直接改变运行时行为**。
+
+### ⛔ 追踪域未授权时，网络请求会失败
+
+Apple 官方对 `NSPrivacyTrackingDomains` 的说明原文：
+*"如果用户未通过 App Tracking Transparency 框架授予追踪许可，
+则对这些域的网络请求会失败，你的 App 会收到错误。"*
+（该 key 自 iOS 17.0+ 起生效；仅在 `NSPrivacyTracking` 为 `true` 时才需要提供。）
+
+⛔ 把广告 / 统计 / 归因域名填进 `NSPrivacyTrackingDomains` 之后，
+未授权 ATT 的用户对这些域的请求**全部失败并返回错误**。
+表现为"部分第三方功能在部分用户上莫名其妙不可用"，
+⛔ 而排查方向几乎必然被引到 SDK 集成或网络库——不会想到是隐私清单里填的域名。
+
+⚠ 判据：**只有真正用于追踪的域才填进这个列表**。
+用于崩溃上报、远程配置、登录鉴权的域⛔ 不应在此列，
+否则一次合规填写会把这些基础功能的请求一并打断。
+
+### ⛔ Bundle ID 大小写不敏感
+
+Godot 官方 iOS 导出文档：*"Bundle IDs are case-insensitive."*（依 `CFBundleIdentifier`）
+
+⛔ 于是 `com.example.MyGame` 与 `com.example.mygame` 在系统看来是**同一个应用**。
+想靠大小写区分两个包（如国内版 / 海外版、测试版 / 正式版）会失败，
+且失败发生在签名与安装阶段，表现为"覆盖安装"或"签名冲突"，
+⛔ 不会有一行日志说明是大小写问题。
+
+### ⛔ 导出项目名的两个约束
+
+Godot 官方 iOS 导出文档两条 Note：
+
+1. ⛔ **`exported_xcode_project_name` 不要带空格** ——
+   "this can lead to corruption in your XCode project file"。
+   表现为 Xcode 项目文件损坏，⛔ 而 Godot 侧导出全程无报错。
+2. ⛔ **`godot_project_to_export` 不能与 `exported_xcode_project_name` 同名** ——
+   否则会导致 Xcode 签名问题。
+
+ⓘ 另外两条是硬性的：`App Store Team ID` 与 `Bundle Identifier`
+**留空会导致导出器直接抛错**；bundle ID 只能含字母数字、连字符与句点。
+
 ## 8. 构建元数据里应该写进去的东西
 
 ⚠ **这些不是文档，是发布门禁要检查的字段**：
@@ -287,3 +329,13 @@ requested → identity_verified → scheduled/anonymized
 - A/B、灰度、配置下发、补偿 → `ops.md`
 - SDK、账号与令牌 → `platform-services.md`
 - 日志与埋点 → `analytics.md`
+
+## 11. 流程：按什么顺序做
+
+⚠ 本页讲**单个要素怎么满足**（版号 / 防沉迷 / 隐私 / UGC / 海外 / 商店字段）；
+**按什么顺序做、哪些不能颠倒、怎么验收** → `flow/godot/compliance/`
+
+⛔ 本页多处标注"待核对 / 由法务复核原文"，
+那不是没写完，是**法律文本会修订**：
+上线前须由项目法务取得最新原文复核，
+⛔ 不得凭行业惯例或旧文档编一个数字出来。
