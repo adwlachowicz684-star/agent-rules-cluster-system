@@ -15,6 +15,11 @@
    3. **点数不符** —— 索引声称的功能点数 ≠ 磁盘上实际的功能点文件数
    4. **表头数字失真** —— 头部"已有 N 个域""其余 M 个"与实际表行数/口径不符
        ⛔ 这是"凭印象写数字"的集中爆发点（openworld 精度表、index 头部都栽过）
+   5. **接缝指向不存在的域** —— 00 总览接缝表写 `` `xxx` 域 ``，但 godot/xxx/ 不存在
+       ⛔ 读者会以为是 flow 域，点过去发现没有 → 该接缝实际是悬空的。
+       （实测全库 8 处：security / ops / performance / account-security /
+         platform-export，全都只有 howto 没有 flow 域）
+       ⓘ 允许显式标注 `` `xxx` ⓘ howto 层，暂无 flow 域 ``，此时校验 howto 文件存在。
 
 反向也查：**磁盘上有目录但索引没登记** —— 铺完忘了登记，等于别人找不到。
 
@@ -122,7 +127,41 @@ def scan():
         if n_done == len(domains) and real_how >= 0 and rest != real_how - len(domains):
             head_bad.append('"其余 %d" ≠ %d − %d' % (rest, real_how, len(domains)))
 
+    # 5. 接缝表指向的域是否真实存在
+    #    ⛔ 判据：解析结果必须非空 —— 扫描失效会静默归零，整套机制形同虚设
+    seam_bad = []          # `xxx` 域 但目录不存在
+    seam_howto_bad = []    # 标注了 howto 层但 howto 文件不存在
+    n_seam = 0
+    g_root = os.path.join(PROC, 'godot')
+    if os.path.isdir(g_root):
+        for name in sorted(os.listdir(g_root)):
+            dpath = os.path.join(g_root, name)
+            if not os.path.isdir(dpath):
+                continue
+            f00 = [os.path.join(dpath, f) for f in sorted(os.listdir(dpath))
+                   if f.startswith('00-') and f.endswith('.md')]
+            if not f00:
+                continue
+            t = _read(f00[0])
+            for m in re.finditer(r'`([\w-]+)`\s*域', t):
+                tgt = m.group(1)
+                n_seam += 1
+                if not os.path.isdir(os.path.join(g_root, tgt)):
+                    seam_bad.append('%s → `%s` 域（目录不存在）' % (name, tgt))
+            # ⓘ 显式标注 howto 层的：允许无 flow 域，但 howto 文件必须在
+            for m in re.finditer(r'`([\w-]+)`\s*ⓘ\s*howto 层', t):
+                tgt = m.group(1)
+                n_seam += 1
+                if not os.path.isfile(os.path.join(HOWTO, tgt + '.md')):
+                    seam_howto_bad.append('%s → `%s` 标注 howto 层但文件不存在'
+                                          % (name, tgt))
+    if n_seam == 0:
+        raise AssertionError('接缝表未解析到任何行（扫描路径失效 / 格式变了）')
+
     return {
+        'seam_bad': seam_bad,
+        'seam_howto_bad': seam_howto_bad,
+        'n_seam': n_seam,
         'domains': domains,
         'ghosts': ghosts,
         'missing_fp': missing_fp,
@@ -134,12 +173,18 @@ def scan():
 
 if __name__ == '__main__':
     r = scan()
+    print('接缝引用：%d 处（不合格 %d / howto 层失效 %d） %s'
+          % (r['n_seam'], len(r['seam_bad']), len(r['seam_howto_bad']),
+             (r['seam_bad'] + r['seam_howto_bad'])[:3]))
     print('索引登记域：%d 个' % len(r['domains']))
     print('幽灵域（登记了但磁盘没有）：%d %s' % (len(r['ghosts']), r['ghosts'][:5]))
     print('功能点文件缺失：%d %s' % (len(r['missing_fp']), r['missing_fp'][:5]))
     print('功能点数不符：%d %s' % (len(r['miscount']), r['miscount'][:5]))
     print('未登记域（磁盘有、索引无）：%d %s' % (len(r['unregistered']), r['unregistered'][:5]))
     print('表头数字失真：%d %s' % (len(r['head_bad']), r['head_bad'][:5]))
+    # ⛔ seam 必须进退出码：漏掉它 = 打印了问题却返回 0 → 挂进自检后
+    #    整套接缝检查形同虚设（变异验证实测：报"不合格 1"但 exit=0）
     bad = bool(r['ghosts'] or r['missing_fp'] or r['miscount']
-               or r['unregistered'] or r['head_bad'])
+               or r['unregistered'] or r['head_bad']
+               or r['seam_bad'] or r['seam_howto_bad'])
     raise SystemExit(1 if bad else 0)

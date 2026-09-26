@@ -1323,6 +1323,16 @@ def cmd_self_test():
             chk(not _r['head_bad'],
                 '表头数字与表内一致（失真 %d: %s）'
                 % (len(_r['head_bad']), _r['head_bad'][:2]))
+            # ⓘ 接缝指向的域必须真实存在：写 `xxx` 域 而 godot/xxx/ 不存在 →
+            #   读者点过去发现没有，接缝实际悬空（实测全库曾有 8 处）
+            chk(not _r['seam_bad'],
+                '接缝指向的域真实存在（悬空 %d: %s）'
+                % (len(_r['seam_bad']), _r['seam_bad'][:3]))
+            chk(not _r['seam_howto_bad'],
+                '标注 howto 层的接缝文件存在（失效 %d: %s）'
+                % (len(_r['seam_howto_bad']), _r['seam_howto_bad'][:3]))
+            chk(_r['n_seam'] >= 50,
+                '接缝扫描取到样本（当前 %d 处；过少说明扫描失效）' % _r['n_seam'])
             # ⓘ 解析结果必须非空：表结构变了/路径指错层会静默返回 0，
             #   与 verify.py 路径失效静默 0 条同类 —— 靠断言兜住。
             chk(len(_r['domains']) >= 30,

@@ -84,11 +84,11 @@
 
 【做】
 避免诱导加好友、诱导充值绑定、定位式社交、跨代际私聊。
-⚠ 具体条款指向 `compliance.md`，⛔ 本域不重复也不自行编造。
+⚠ 具体条款指向 `compliance/05`（UGC 治理与举报留痕），⛔ 本域不重复也不自行编造。
 
 【产出】合规检查项（指向 compliance 域，不自行定义）
 
-【判据】每条合规要求都能指到 `compliance.md` 的对应条目。
+【判据】每条合规要求都能指到 `compliance/0X` 的具体 Step，⛔ 不是指到整篇。
 
 【审】`audit/godot/social.md#63`
 
@@ -113,7 +113,7 @@ func apply_relation_bonus(base: float, bonuses: Array) -> float:
 - [ ] 解除有冷却且批量解除受限流
 - [ ] 关系加成有硬上限
 - [ ] 好友与关系状态存服务端
-- [ ] 合规项指向 compliance 域，未自行编造
+- [ ] 合规项指向 `compliance/05` 具体 Step，未自行编造
 
 ## 5. 常见返工
 
