@@ -59,6 +59,7 @@ MIN_IDLE_TIME 实测值
 【判据】⚠ 盯着待机敌人看 10 秒，**能观察到至少 2 次动作变化**
 
 【审】`audit/godot/ai-behavior.md#11`
+【品】`craft/godot/cheapness.md#1. 动效类廉价感`
 
 ### Step 2　⚠ Idle 里也要跑感知　`[ai/03#S2]`
 
