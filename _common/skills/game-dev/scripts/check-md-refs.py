@@ -57,7 +57,9 @@ def scan():
     if not os.path.isdir(REF):
         raise RuntimeError('references 目录不存在：%s' % REF)
     files = []
-    for sub in ('flow/godot', 'howto/godot', 'audit/godot'):
+    # ⓘ craft 必须一起扫：新增层若不在扫描范围内，它内部的引用
+    #   **完全不被检查** —— 而自检仍报「0 断链」（只查了一部分的又一例）。
+    for sub in ('flow/godot', 'howto/godot', 'audit/godot', 'craft/godot'):
         d = os.path.join(REF, sub)
         for dd, _, fs in os.walk(d):
             for f in fs:

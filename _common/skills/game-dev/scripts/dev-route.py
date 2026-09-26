@@ -1963,6 +1963,34 @@ def cmd_self_test():
         except Exception as _e3:
             chk(False, 'md 引用扫描可执行（%s）' % str(_e3)[:60])
 
+        # ⚠【品】映射检查：craft 是第四层，回答"做到什么程度算好"。
+        #   ⛔ 主观层最容易被写成摆设 —— 内容写完没人引用，或引用了但指错，
+        #      两种方式都让这一层实际失效，而技术检查全绿。
+        try:
+            import importlib.util as _ilu4
+            _sp4 = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 'check-craft.py')
+            _spec4 = _ilu4.spec_from_file_location('ccraft', _sp4)
+            _cc = _ilu4.module_from_spec(_spec4)
+            _spec4.loader.exec_module(_cc)
+            _t4, _b4, _s4, _o4, _st4 = _cc.scan()
+            chk(_t4 > 0, '【品】映射扫描能取到样本（当前 %d 个引用）' % _t4)
+            chk(not _b4, '【品】映射无断链（%d: %s）' % (len(_b4), _b4[:3]))
+            chk(not _s4,
+                '【品】映射与所在 Step 相关（零交集 %d: %s）'
+                % (len(_s4), ['%s %s %s' % x[:3] for x in _s4[:3]]))
+            chk(not _st4,
+                '【品】映射豁免未过期（过期 %d: %s）'
+                % (len(_st4), ['%s %s %s' % x for x in _st4[:3]]))
+            # ⓘ 孤儿用「不增长」基线：craft 新建、引用随铺域逐步增加，
+            #   强制为 0 会阻塞每轮推送；但⛔ 不许变多（变多 = 写了没人用）。
+            _CRAFT_ORPHAN_BASE = 30
+            chk(len(_o4) <= _CRAFT_ORPHAN_BASE,
+                'craft 孤儿条目不增长（当前 %d / 基线 %d）'
+                % (len(_o4), _CRAFT_ORPHAN_BASE))
+        except Exception as _e4:
+            chk(False, '【品】映射检查可执行（%s）' % str(_e4)[:60])
+
     print()
     print('自检：%d 通过 / %d 失败' % (ok, fail))
     if not fail:
