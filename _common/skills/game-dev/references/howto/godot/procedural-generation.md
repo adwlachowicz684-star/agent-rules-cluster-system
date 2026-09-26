@@ -103,7 +103,49 @@ tilemap_layer.set_cell(coords, source_id, atlas_coords, alternative_tile)
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/procedural-generation.md`
 
 
-## 7. 相关文档
+## 7. 种子质量：RNG 无雪崩效应
+
+⚠ **官方口径**：*"The RNG does not have an avalanche effect, and can output similar random streams given similar seeds."*
+
+⛔ 用局数 1 / 2 / 3 或关卡号 1 / 2 / 3 当种子 ——
+相邻种子产出的**结构高度相似**，玩家连开三局会觉得"根本没随机"。
+
+✅ 外部来源的种子**先过一次 `hash()`** 再喂给 `rng.seed`：
+
+```gdscript
+rng.seed = hash(seed_source)   # seed_source 可以是字符串、关卡号、分享码
+```
+
+⚠ 还有一条官方副作用：*"Setting this property produces a side effect of changing the internal state, so make sure to initialize the seed **before** modifying the state"*
+—— 先恢复 `state` 再设 `seed`，恢复的状态会被覆盖掉。顺序只能是 **先 seed 后 state**。
+
+## 8. FastNoiseLite 的默认值与取值域
+
+⚠ **`noise_type` 的默认值是 `1`，即 `TYPE_SIMPLEX_SMOOTH`**（不是 value 噪声）。
+
+⛔ 以为默认是 value 噪声 → 按 value 的特征调参，
+表现为"怎么调都不像教程里的效果"，而去反复改一个根本没生效的旋钮。
+
+⚠ **`fractal_*` 参数对所有噪声类型生效**（按官方属性表），
+不存在"value 用一套、simplex 用另一套"之分 —— 别去找那套不存在的对应关系。
+
+⚠ **cellular（Cellular / Worley）的返回值可能大于 1**：
+官方写明 *"Most generated noise values are in the range of `[-1, 1]`, but not always. Some of the cellular noise algorithms return results above `1`."*
+
+⛔ 把 cellular 输出当 `[0, 1]` 直接用 → 阈值判断失效，
+表现为"洞穴比预期大一圈"，而阈值看着完全正常。
+
+## 9. 待核对项（运行时验证）
+
+- ⚠ **连续 `RandomNumberGenerator.new()` 可能拿到同一种子** ——
+  有实测报告指出 `randomize()` 的时间源是微秒粒度，紧密循环里连续构造会撞种子
+  （来源为第三方实测，非官方文档）。⛔ 未亲自复现前不要当成结论写进判据，
+  但可以**规避**：不要在循环里 new，复用单个实例或显式设 seed。
+- ⚠ **`randi()` 实现质量的说法**：有文章称官方形容其实现"bad and insulting"，
+  未从官方文档核实。⛔ 本库只采用"全局 `randi()` 是全局状态、必须实例隔离"这条已有结论。
+
+## 10. 相关文档
+
 
 - TileMap 手工编辑 → `tilemap.md`
 - 3D 与 GridMap → `3d.md`
