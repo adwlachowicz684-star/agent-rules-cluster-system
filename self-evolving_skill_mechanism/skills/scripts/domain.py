@@ -146,7 +146,39 @@ def _scalar(v: str):
 
 
 def domain_root(cfg: dict) -> Path:
-    return Path(os.path.expanduser(cfg.get("root", "~/.ai/domains")))
+    """大类根目录。
+
+    ### ⛔ 2026-09-26：默认改为**仓库内**（`domains/`，跟着 git 走）
+
+    三种取值，优先级从高到低：
+
+    | 来源 | 用途 |
+    |---|---|
+    | 环境变量 `SKILL_DOMAINS_ROOT` | 需要"每台机器独立积累"时覆盖 |
+    | config 里的**绝对**路径 | 用户显式指定 |
+    | config 里的**相对**路径 | **默认**：`domains`，相对 skill 根 |
+
+    ⛔ **为什么不直接写 `~/.ai/domains`**：
+    技能数据是**资产**，不是运行时产物。实测环境重置后 1 个真技能包没了，
+    而 git 管不到它 ⇒ 无法版本化、无法 review、无法回滚，
+    且 lint 长期报「大类根目录不存在 → 检查不完整」。
+
+    ⚠ **相对路径必须相对 skill 根解析，不是 CWD**：
+    从别处调用脚本时 CWD 不定，按 CWD 解析会指向错误目录
+    ⇒ 扫到 0 个包而不报错（第十八条）。
+    """
+    raw = os.environ.get("SKILL_DOMAINS_ROOT", "").strip()
+    if raw:
+        return Path(os.path.expanduser(raw))
+    raw = cfg.get("root", "domains")
+    raw = os.path.expanduser(str(raw))
+    if os.path.isabs(raw):
+        return Path(raw)
+    # 相对路径 → 相对 skill 根
+    # ⛔ 支持 cfg['_root'] 覆盖：自检要能在临时目录上跑，
+    #    否则检查器只能用真库，而用例会依赖真库状态（踩过多次）。
+    _b = cfg.get('_root')
+    return (Path(_b) if _b else Path(ROOT)) / raw
 
 
 def domain_dir(cfg: dict, key: str) -> Path:
@@ -181,7 +213,15 @@ def make_link(link_path: Path, target: Path) -> bool:
             subprocess.run(["cmd", "/c", "mklink", "/J", str(link_path), str(target)],
                            check=True, capture_output=True)
         else:
-            link_path.symlink_to(target, target_is_directory=True)
+            # ⛔ 2026-09-26：改用**相对**软链接。
+            #    绝对软链接（/data/workspace/.../domains/_common）在：
+            #      · 换机器 / 换 clone 路径 → **指向不存在的目录**（断链）
+            #      · 进 git → checkout 出来是写死别人路径的链接
+            #    ⇒ domains 现在跟着仓库走（root 改为相对路径），
+            #      链接也必须相对，否则仓库搬一次就全断。
+            #    ⓘ os.path.relpath 需要基于 link 的父目录计算。
+            link_path.symlink_to(os.path.relpath(str(target), str(link_path.parent)),
+                                 target_is_directory=True)
         return True
     except Exception as e:
         print(f"  ✗ 创建链接失败 {link_path}: {e}")
@@ -491,6 +531,19 @@ def cmd_self_test() -> int:
         (root / '开发').mkdir()
         chk(domain_dir(cfg, 'dev').resolve() == _R / '开发',
             'name 目录存在 → 优先 name（不误伤正常情况）')
+    # ---- 相对路径必须相对 skill 根解析，不是 CWD ----
+    # ⛔ CWD 不定（从别处调用脚本时）⇒ 按 CWD 解析会指向错误目录
+    #    ⇒ 扫到 0 个包而不报错（第十八条）。
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        _r = base / 'skills'
+        _r.mkdir()
+        chk(domain_root({'root': 'domains', '_root': str(_r)}) == _r / 'domains',
+            '相对 root 基于 skill 根解析（⛔ 不是 CWD）—— '
+            '落错目录会扫到 0 个包且不报错')
+        chk(domain_root({'root': 'domains'}) == ROOT / 'domains',
+            '未注入 _root 时回退到真 skill 根（不误伤生产路径）')
+
     print()
     print('自检：%s' % ('全部通过' if ok else '有失败'))
     return OK if ok else ERR

@@ -1070,8 +1070,16 @@ def check_check_coverage(cfg, root=None):
         return []
     funcs = [n.name for n in tree.body
              if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")]
+    # ⛔ 必须**精确**匹配 `cmd_self_test`，不能用 `"self_test" in name` 子串。
+    #    实测（2026-09-26）：新增辅助函数 `_self_test_domains_in_repo` 后，
+    #    st[0] 变成它（tree.body 顺序在前）⇒ 24 个检查项**全部**被报
+    #    「在自检里从未被调用」——而它们明明都在 cmd_self_test 里。
+    #
+    #    ⓘ 这是**命名约定被无意撞到**：作者只是想起个"自检用例"的名字，
+    #    却把检查器的入口判定带偏了。⛔ 用子串匹配找"入口"是脆的
+    #    （falsepos 第十四条：判据看语义方向，不看表面特征）。
     st = [n for n in tree.body
-          if isinstance(n, ast.FunctionDef) and "self_test" in n.name]
+          if isinstance(n, ast.FunctionDef) and n.name == "cmd_self_test"]
     if not funcs or not st:
         return []
     body = ast.get_source_segment(src, st[0]) or ""
@@ -1983,6 +1991,105 @@ def check_scope_selfreport(cfg, root=None):
     return issues
 
 
+def check_domains_in_repo(cfg, root=None):
+    """技能数据必须跟着仓库走（2026-09-26 架构决策）。
+
+    ### ⛔ 动机（实测）
+
+    `root` 原本是 `~/.ai/domains`（家目录）。环境重置后实测：
+
+    ```
+    ls: cannot access '/root/.ai/domains': No such file or directory
+    ```
+
+    ⇒ 1 个真技能包**没了**，而 git 管不到它：
+    无法版本化、无法 review、无法回滚、换机即丢。
+    且 lint 长期报「大类根目录不存在 → 本次结果不完整」——**检查本身残缺**。
+
+    ### 四查
+
+    1. root 是否落在仓库内（不是家目录 / 不是绝对路径）
+    2. 软链接**是否被 git 跟踪** → ⛔ error：Windows 上 checkout 成文本文件，静默损坏
+    3. 软链接目标是否为**相对路径** → ⛔ error：绝对路径换机即断
+    4. 资产（skills/rules/*.md）是否**未被跟踪** → warn：写了但换机就丢
+
+    ⓘ 第 2 条最容易被忽略：git 存 symlink 是合法的，
+    **在 Linux/macOS 上跑得好好的**，只有换到 Windows 才现形——
+    而那时报错的是别的东西（"找不到目录"），没人会联想到 symlink。
+    """
+    import subprocess as _sp
+    base = Path(root) if root else Path(cfg.get('_root', '.'))
+    issues = []
+    # 1. root 位置
+    raw = str(cfg.get('root', 'domains')).strip()
+    if os.path.isabs(os.path.expanduser(raw)):
+        issues.append({'issue': '大类根目录 %s 是绝对路径 → 技能数据不在仓库里，'
+                                '换机即丢且 git 管不到（实测：环境重置后 1 个技能包没了）'
+                                % raw,
+                       "level": "warn",
+                       "file": "",
+                       'hint': '改成相对路径 `domains`（相对 skill 根），'
+                               '或用环境变量 SKILL_DOMAINS_ROOT 显式覆盖'})
+    # git 仓库根
+    try:
+        gr = _sp.run(['git', 'rev-parse', '--show-toplevel'], cwd=str(base),
+                     capture_output=True, text=True)
+        git_root = Path(gr.stdout.strip()) if gr.returncode == 0 else None
+    except Exception:
+        git_root = None
+    cfg = dict(cfg); cfg['_root'] = str(base)  # 让 domain_root 支持自检注入
+    droot = domain_root(cfg)
+    if not git_root or not droot.exists():
+        return issues
+    # 2+3. 软链接
+    for link in sorted(droot.rglob('*')):
+        if not link.is_symlink():
+            continue
+        tgt = os.readlink(str(link))
+        if os.path.isabs(tgt):
+            issues.append({'issue': '软链接 %s 指向绝对路径 %s → 换机 / 换 clone 路径即断'
+                                    % (link.relative_to(droot), tgt),
+                           "level": "error",
+                       "file": "",
+                           'hint': '用相对路径（domain.py 已改；跑 --add-common 重建）'})
+        # 是否被 git 跟踪
+        try:
+            r = _sp.run(['git', 'ls-files', '--error-unmatch', str(link)],
+                        cwd=str(base), capture_output=True, text=True)
+            tracked = r.returncode == 0
+        except Exception:
+            tracked = False
+        if tracked:
+            issues.append({'issue': '软链接 %s **被 git 跟踪** → Windows 上 checkout 出来'
+                                    '可能是文本文件而非链接（无 symlink 权限时 git 就这么做）'
+                                    '→ 静默损坏且不报错' % link.relative_to(droot),
+                           "level": "error",
+                       "file": "",
+                           'hint': '加进 .gitignore；它由 domain.py --add-common 重建'})
+    # 4. 资产未跟踪
+    untracked = []
+    for f in sorted(droot.rglob('*.md')):
+        if any(part.startswith('.') for part in f.relative_to(droot).parts):
+            continue
+        if 'INDEX.md' in f.name:
+            continue
+        try:
+            r = _sp.run(['git', 'ls-files', '--error-unmatch', str(f)],
+                        cwd=str(base), capture_output=True, text=True)
+            if r.returncode != 0:
+                untracked.append(str(f.relative_to(droot)))
+        except Exception:
+            pass
+    if untracked:
+        issues.append({'issue': '%d 个技能/规则文件未被 git 跟踪 → 换机即丢：%s'
+                                % (len(untracked), '、'.join(untracked[:3])
+                                   + ('…' if len(untracked) > 3 else '')),
+                       "level": "warn",
+                       "file": "",
+                       'hint': 'git add 它们；派生物（INDEX.md / _common 链接）才该忽略'})
+    return issues
+
+
 def check_table_columns(cfg, root=None):
     """表格列数错位（第十七条量化：格式缺陷 100% 静默）。
 
@@ -2343,6 +2450,38 @@ def scan_scope(cfg):
             dom_files += len([f for f in sk.rglob("*.md")])
     return {"engine_files": scanned, "engine_missing": missing,
             "domain_files": dom_files, "domain_missing": dom_missing}
+
+
+def _mk_domains_repo(tmp, *, abs_link=False, track_link=False,
+                     add_asset=True, root=None):
+    """造一个带 git 的 domains 样本（供 check_domains_in_repo 用例用）。
+
+    ⛔ 为什么必须 `git init` 而不是用真库：
+    检查器内部跑 `git ls-files`，若不隔离会往上找到**真仓库根**，
+    用例结果依赖真库状态 ⇒ 被无关残留带红（这个坑踩过多次）。
+    """
+    import subprocess as _sp
+    for a in (['git', 'init', '-q'], ['git', 'config', 'user.email', 't@t'],
+              ['git', 'config', 'user.name', 't']):
+        _sp.run(a, cwd=str(tmp), capture_output=True)
+    d = tmp / 'domains'
+    (d / '_common').mkdir(parents=True, exist_ok=True)
+    (d / 'dev' / 'skills').mkdir(parents=True, exist_ok=True)
+    f = d / 'dev' / 'skills' / 'x.md'
+    f.write_text('# 技能\n', encoding='utf-8')
+    link = d / 'dev' / '_common'
+    if abs_link:
+        link.symlink_to(str(d / '_common'), target_is_directory=True)
+    else:
+        link.symlink_to('../_common', target_is_directory=True)
+    if add_asset:
+        _sp.run(['git', 'add', '-f', str(f)], cwd=str(tmp), capture_output=True)
+    if track_link:
+        _sp.run(['git', 'add', '-f', str(link)], cwd=str(tmp), capture_output=True)
+    # ⛔ 默认必须是**相对**路径 'domains'：
+    #    第一版写成 str(d)（绝对路径）→ 正向用例自己触发了 warn，恒红。
+    #    ⓘ 用例的样本必须落在它想验证的那一侧。
+    return {'root': str(root) if root else 'domains'}
 
 
 def cmd_self_test():
@@ -3477,6 +3616,47 @@ trigger: 测试
         _tf = _tm / 'tb.md'
         # 正向：列数一致 → 不报
         _tf.write_text('| a | b |\n|---|---|\n| 1 | 2 |\n', encoding='utf-8')
+        # ---- 技能数据必须跟着仓库走（2026-09-26 架构决策）----
+        # ⛔ 用 mkdtemp 手动管理，不用 TemporaryDirectory：
+        #    每处都要**直接**出现 check_domains_in_repo( 调用——
+        #    ⛔ 包进辅助函数会让 check_selftest_duality 的 AST 看不见，
+        #    报「检查项从未被引用」（实测报了 error + warn 两条）。
+        #    ⇒ 自检用例的调用要能被静态分析看到，别藏进 helper。
+        _td = tempfile.mkdtemp(); _t = Path(_td)
+        _c = _mk_domains_repo(_t)
+        chk(not check_domains_in_repo(_c, _t),
+            'domains：相对软链接 + 资产已跟踪 + root 相对 → 不报')
+        shutil.rmtree(_td, ignore_errors=True)
+
+        _td = tempfile.mkdtemp(); _t = Path(_td)
+        _c = _mk_domains_repo(_t, track_link=True)
+        chk(any('被 git 跟踪' in i.get('issue', '')
+                for i in check_domains_in_repo(_c, _t)),
+            'domains：软链接被 git 跟踪 → error'
+            '（⛔ Windows 上 checkout 成文本文件，静默损坏）')
+        shutil.rmtree(_td, ignore_errors=True)
+
+        _td = tempfile.mkdtemp(); _t = Path(_td)
+        _c = _mk_domains_repo(_t, abs_link=True)
+        chk(any('绝对路径' in i.get('issue', '')
+                for i in check_domains_in_repo(_c, _t)),
+            'domains：软链接指向绝对路径 → error（换机 / 换 clone 路径即断）')
+        shutil.rmtree(_td, ignore_errors=True)
+
+        _td = tempfile.mkdtemp(); _t = Path(_td)
+        _c = _mk_domains_repo(_t, root=str(_t / 'domains'))
+        chk(any('绝对路径' in i.get('issue', '')
+                for i in check_domains_in_repo(_c, _t)),
+            'domains：root 为绝对路径 → warn（换机即丢，git 管不到）')
+        shutil.rmtree(_td, ignore_errors=True)
+
+        _td = tempfile.mkdtemp(); _t = Path(_td)
+        _c = _mk_domains_repo(_t, add_asset=False)
+        chk(any('未被 git 跟踪' in i.get('issue', '')
+                for i in check_domains_in_repo(_c, _t)),
+            'domains：技能文件未被 git 跟踪 → warn（写了也换机即丢）')
+        shutil.rmtree(_td, ignore_errors=True)
+
         chk(not check_table_columns(cfg, vroot),
             '表格列数一致 → 不报')
         # 反向：某行少一列 → 报（⛔ 渲染断列但不报错）
@@ -3596,6 +3776,24 @@ trigger: 测试
         chk(not check_mirror_pairs(mcfg, vroot),
             '双向都补齐后不误报')
 
+        # ---- 自检入口必须精确匹配 cmd_self_test（EV-M32）----
+        # ⛔ 样本里放一个名字含 "self_test" 的辅助函数：
+        #    子串匹配会把它当成自检入口（tree.body 顺序在前）
+        #    ⇒ cmd_self_test 里的真实调用全被判「从未被调用」。
+        #    ⚠ 实测：真库里新增 `_self_test_domains_in_repo` 后
+        #    24 个检查项**全部**被误报。
+        _cb = vroot / 'cov'
+        (_cb / 'scripts').mkdir(parents=True, exist_ok=True)
+        (_cb / 'scripts' / 'lint.py').write_text(
+            'def check_alpha(cfg, root=None):\n    return []\n\n\n'
+            'def _self_test_helper():\n    return 1\n\n\n'
+            'def cmd_self_test():\n'
+            '    chk(not check_alpha({}), "x")\n    return 0\n',
+            encoding='utf-8')
+        chk(not check_check_coverage({}, _cb),
+            '自检入口精确匹配 cmd_self_test：'
+            '⛔ 子串匹配会被名字含 self_test 的辅助函数带偏（实测误报 24 条）')
+
         # ---- 文档形态：接近上限 + 章节过多 ----
         # ⚠ 样本必须自己造够大：以前这里造了个 43 行的文件却断言
         #   「接近 400 行上限」——因为当时 check_doc_shape 不支持 root 注入，
@@ -3703,7 +3901,8 @@ def main():
               + check_volatile_counts(cfg)
               + check_selftest_duality(cfg)
               + check_scope_selfreport(cfg)
-              + check_table_columns(cfg))
+              + check_table_columns(cfg)
+              + check_domains_in_repo(cfg, ROOT))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

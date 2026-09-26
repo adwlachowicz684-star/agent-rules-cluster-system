@@ -1,3 +1,24 @@
 # 运行产物：本目录下跑脚本会生成，入库会让每次执行都产生 diff。
 __pycache__/
 *.pyc
+
+# ── domains/（技能数据，跟着仓库走）─────────────────────────────
+# ⛔ 2026-09-26：root 从 ~/.ai/domains 改为仓库内 domains/。
+#    ⇒ **资产进 git、派生物不进**。判据：能不能由脚本重新生成？
+#
+# 【派生物】不进 git —— 可由脚本重建，入库只会产生无意义 diff
+#   · INDEX.md：index.py 生成的索引
+#   · <大类>/_common：软链接，domain.py --add-common 重建
+#      ⛔ 它若入库，Windows 上 checkout 出来可能是**文本文件**而非链接
+#        （无 symlink 权限时 git 就这么做）→ 静默损坏，且不报错
+#   · .last_consolidated：整合指纹，运行时状态
+domains/**/INDEX.md
+domains/INDEX.md
+domains/*/_common
+pending/.last_consolidated
+
+# 【资产】以下**必须**进 git（不要加到这里）：
+#   · domains/<大类>/skills/*.md    真技能包 ← 换机不丢靠这个
+#   · domains/<大类>/rules/*.md     领域规则
+#   · domains/_common/**            跨领域通用
+#   · pending/archive-*.md          已归档的捕获（历史，丢了找不回）

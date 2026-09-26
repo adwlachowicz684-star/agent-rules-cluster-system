@@ -81,3 +81,8 @@
 | 2026-09-26 | ⛔ 残留判据收窄 | 修正 | 第一版用 `new in src` 误报阻塞整轮（EV-M01 的 `        return` 在真库里必然存在）。⇒ 只查**带变异标记**或**长度 ≥20** 的 new |
 | 2026-09-26 | consolidate/domain 加 --self-test | 新增 | 主链路断点 1、2、3 现在有用例守着。⛔ **第一版 EV-M29 用例直接调 similarity，绕过了被变异的循环 → SURVIVED** ⇒ 断言必须针对 report() 的实际输出 |
 | 2026-09-26 | mutate 支持 per-target test_cmd | 新增 | 变异现在可以指定自己的测试命令（默认只覆盖 lint.py） |
+| 2026-09-26 | 🏗️ **技能数据跟着仓库走**：root 从 `~/.ai/domains` 改为仓库内 `domains` | 架构 | 实测环境重置后 1 个真技能包没了，git 管不到 ⇒ 无法版本化/review/回滚。判据：**能不能由脚本重新生成？** 资产进 git，派生物不进 |
+| 2026-09-26 | ⛔ 软链接改相对 + 不进 git | 修正 | 绝对软链接换机即断；进 git 的软链接在 Windows 上可能 checkout 成**文本文件** → 静默损坏。新增 `check_domains_in_repo` 四查 |
+| 2026-09-26 | ⛔ 自检入口必须**精确**匹配 `cmd_self_test` | 修正 | 实测：新增 `_self_test_domains_in_repo` 后，子串匹配 `\"self_test\" in name` 把 st[0] 带偏 ⇒ **24 个检查项全部**被误报「从未被调用」。⛔ 命名约定被无意撞到 |
+| 2026-09-26 | ⛔ 自检用例别藏进 helper | 修正 | 包进辅助函数后 `check_selftest_duality` 的 AST 看不见调用 → 报 error+warn。⇒ **用例的调用要能被静态分析看到** |
+| 2026-09-26 | domain_root 支持 `_root` 注入 + 相对路径解析 | 修正 | ⛔ 相对路径必须相对 skill 根解析（不是 CWD，CWD 不定 ⇒ 扫到 0 个包不报错）；不注入则检查器只能用真库，用例依赖真库状态 |

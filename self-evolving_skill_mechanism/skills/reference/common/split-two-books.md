@@ -243,6 +243,45 @@ code-audit/references/godot-antipatterns/*.md  79 份 · 只写「不能怎么�
 - [ ] 两册对同一件事各有一句吗？只有一句的话，通常缺的是**审查册那句「不做的代价」**
 - [ ] 写新技能时，是不是不自觉地打开了审查册？
 
+## 3.8 技能数据跟着仓库走，不放在家目录（2026-09-26）
+
+```
+root: domains          # ← 相对路径，相对 skill 根
+# 旧：root: ~/.ai/domains
+```
+
+### ⛔ 实测动机
+
+环境重置后：`ls: cannot access '/root/.ai/domains'`
+⇒ 1 个真技能包**没了**，而 git 管不到它：无法版本化、无法 review、
+无法回滚、换机即丢。且 lint 长期报「大类根目录不存在 → 检查不完整」。
+
+### 判据：能不能由脚本重新生成？
+
+| | 进 git | 例子 |
+|---|---|---|
+| **资产** | ✅ | `domains/<大类>/skills/*.md`、`rules/*.md`、`_common/**`、`pending/archive-*.md` |
+| **派生物** | ⛔ | `INDEX.md`（index 生成）、`<大类>/_common`（软链接）、`.last_consolidated`（指纹） |
+
+### ⛔ 软链接必须相对，且不进 git
+
+```
+domains/开发/_common -> ../_common                    ✅ 相对
+domains/开发/_common -> /home/x/.../domains/_common   ⛔ 绝对，换机即断
+```
+
+⛔ **进 git 的软链接在 Windows 上可能被 checkout 成文本文件**
+（无 symlink 权限时 git 就这么做）→ **静默损坏，且不报错**。
+ⓘ Linux/macOS 上跑得好好的，**只有换到 Windows 才现形**，
+而那时报错的是别的东西（"找不到目录"），没人会联想到 symlink。
+
+### 覆盖机制
+
+环境变量 `SKILL_DOMAINS_ROOT` 优先——需要"每台机器独立积累"时用。
+⛔ 不写死绝对家目录路径：那会让 skill 无法分发。
+
+---
+
 ## 七、变更溯源
 
 | 日期 | 改动 | 原因 |

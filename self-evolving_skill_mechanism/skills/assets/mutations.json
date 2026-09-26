@@ -329,5 +329,30 @@
       "set -e; cd \"$1\"; D=$(mktemp -d); cp -r scripts/pending \"$D/\" 2>/dev/null||mkdir -p \"$D/pending\"; printf \"<!-- [A] x -->\\n\" > \"$D/pending/draft.md\"; printf \"ffffffffffffffff x\\n\" > \"$D/pending/.last_consolidated\"; cd \"$D\" && bash \"$OLDPWD/scripts/archive.sh\" >/dev/null 2>&1 && exit 1 || test \"$?\" = \"3\"",
       "--root"
     ]
+  },
+  {
+    "id": "EV-M32",
+    "target": "scripts/lint.py",
+    "desc": "[自审] check_check_coverage 用子串 `\"self_test\" in name` 找自检入口 → 任何名字含 self_test 的辅助函数都会把 st[0] 带偏",
+    "old": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and n.name == \"cmd_self_test\"]",
+    "new": "    st = [n for n in tree.body\n          if isinstance(n, ast.FunctionDef) and \"self_test\" in n.name]",
+    "expect": "KILLED",
+    "why": "实测（2026-09-26）：新增辅助函数 `_self_test_domains_in_repo` 后，st[0] 变成它（tree.body 顺序在前）⇒ 24 个检查项**全部**被报「在自检里从未被调用」，而它们明明都在 cmd_self_test 里。⛔ 用子串匹配找「入口」是脆的（falsepos 第十四条：判据看语义方向，不看表面特征）。⇒ **命名约定被无意撞到**。",
+    "source": "2026-09-26 domains 改造"
+  },
+  {
+    "id": "EV-M33",
+    "target": "scripts/domain.py",
+    "desc": "[架构] domain_root 不解析相对路径为 skill 根 → domains 落错目录 / 检查器无法在临时目录上自检",
+    "old": "    _b = cfg.get('_root')\n    return (Path(_b) if _b else Path(ROOT)) / raw",
+    "new": "    return Path(ROOT) / raw  # 变异：不支持 _root 注入、不解析相对路径",
+    "expect": "KILLED",
+    "why": "实测：`root: domains` 为相对路径，若不相对 skill 根解析就会落错目录；且检查器只能在真库上跑 ⇒ 用例依赖真库状态（踩过多次）。⛔ 相对路径必须相对 skill 根解析，不是 CWD（CWD 不定 ⇒ 扫到 0 个包而不报错）。",
+    "source": "2026-09-26 domains 改造",
+    "test_cmd": [
+      "python",
+      "{root}/scripts/domain.py",
+      "--self-test"
+    ]
   }
 ]
