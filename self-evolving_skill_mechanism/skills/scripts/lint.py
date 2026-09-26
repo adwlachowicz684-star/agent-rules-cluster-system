@@ -2346,6 +2346,60 @@ def check_heading_numbering(cfg, root=None):
     return issues
 
 
+def check_flow_seams(cfg, root=None):
+    """procedure 流程必须声明**接缝**（上下游对不对得上）。
+
+    ⛔ 实证：主链路第一次在真实数据上跑，四个断点**全是接缝**——
+    捕获→整合（草稿被当注释丢）、整合→归档（无强制机制）、
+    整合→索引（name/key 不一致）、索引→召回（索引 0 项）。
+
+    ⇒ 单流程内部每步都对，拼起来仍可能不成立（见 `flow/seams.md`）。
+    ⛔ 不声明接缝 = 没人确认过上下游对不对得上，
+       而四次的失败模式都是「返回 0 条」——不报错，看不出来。
+
+    判据（⛔ 不要太严）：
+        ✅ 有 `##`/`###` 标题含「接缝」
+        ✅ 或有正文行以 `> 接缝：` / `- 接缝：` 开头（显式声明，含"无接缝"）
+        ⛔ 只看正文里有没有"接缝"二字会误报：
+           提到「见 seams.md」不算声明，声明要说清**上下游对不对得上**。
+
+    级别 warn：这是欠账不是错误——⛔ 报 error 会让 lint 立刻红，
+    而红线会被关掉（第十四条：误报的检查会被关掉）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    flow = base / "reference" / "flow"
+    if not flow.is_dir():
+        return issues
+    for f in sorted(flow.glob("*.md")):
+        try:
+            txt = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        m = re.search(r"<!--(.*?)-->", txt, re.S)
+        if not m or "flow-type: procedure" not in m.group(1):
+            continue
+        declared = False
+        for ln in txt.split("\n"):
+            st = ln.strip()
+            if re.match(r"^#{2,4}\s*.*接缝", st):
+                declared = True
+                break
+            if st.startswith("> 接缝：") or st.startswith("- 接缝："):
+                declared = True
+                break
+        if declared:
+            continue
+        issues.append({
+            "level": "warn", "file": "reference/flow/%s" % f.name,
+            "issue": "procedure 流程未声明接缝（上下游对不对得上）",
+            "hint": "⛔ 主链路首次真跑的四个断点**全是接缝**，"
+                    "且失败模式都是「返回 0 条」——不报错。"
+                    "加一节「接缝」列出上游产出 / 我这边的期望 / **是否一致**；"
+                    "确无上下游就写 `> 接缝：无（<理由>）`。见 `flow/seams.md`"})
+    return issues
+
+
 def check_craft_refs(cfg, root=None):
     """craft 层接入：断链 + 孤儿（本层形同虚设的检查）。
 
@@ -3609,6 +3663,53 @@ trigger: 测试
         chk(not [i for i in check_heading_numbering(cfg, vroot)
                  if 'changelog-archive' in str(i.get('file', ''))],
             '追加型归档的重复编号被豁免（⛔ 那是设计如此）')
+
+        # ---- procedure 流程必须声明接缝 ----
+        # ⛔ 实证：主链路首次真跑四个断点全是接缝（失败模式都是"返回 0 条"）
+        sf = vroot / 'reference' / 'flow'
+        sf.mkdir(parents=True, exist_ok=True)
+        sp = sf / 'x.md'
+        # 正向：有接缝节 → 不报
+        sp.write_text('<!--\nflow-type: procedure\n-->\n# x\n\n'
+                      '## 2. 工序\n\n## 接缝\n\n| 接缝 | 是否一致 |\n|---|---|\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_flow_seams(cfg, vroot)
+                 if 'x.md' in str(i.get('file', ''))],
+            '声明了接缝的 procedure 不报')
+        # 正向二：显式声明无接缝（⛔ 只写"见 seams.md"不算声明）
+        sp.write_text('<!--\nflow-type: procedure\n-->\n# x\n\n'
+                      '> 接缝：无（独立流程，无上下游）\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_flow_seams(cfg, vroot)
+                 if 'x.md' in str(i.get('file', ''))],
+            '显式声明「无接缝」不报（⛔ 单流程也要说清）')
+        # 反向：procedure 没声明 → 报
+        sp.write_text('<!--\nflow-type: procedure\n-->\n# x\n\n'
+                      '## 2. 工序\n\n内容\n', encoding='utf-8')
+        chk(any('未声明接缝' in str(i.get('issue', ''))
+                for i in check_flow_seams(cfg, vroot)),
+            'procedure 未声明接缝能查出')
+        # ⛔ 反侧一：meta 文件不查（元规则不是流程，没有上下游）
+        sp.write_text('<!--\nflow-type: meta\n-->\n# x\n\n内容\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_flow_seams(cfg, vroot)
+                 if 'x.md' in str(i.get('file', ''))],
+            'meta 文件不查接缝（⛔ 元规则不是流程）')
+        # ⛔ 反侧二：template 不查（模板是空壳，声明了也是占位）
+        sp.write_text('<!--\nflow-type: template\n-->\n# x\n\n内容\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_flow_seams(cfg, vroot)
+                 if 'x.md' in str(i.get('file', ''))],
+            'template 不查接缝（⛔ 空壳声明了也是占位）')
+        # ⛔ 反侧三：只"提到"接缝不算声明（必须是标题或 `> 接缝：`）
+        sp.write_text('<!--\nflow-type: procedure\n-->\n# x\n\n'
+                      '见 seams.md 了解接缝是什么\n', encoding='utf-8')
+        chk(any('未声明接缝' in str(i.get('issue', ''))
+                for i in check_flow_seams(cfg, vroot)),
+            '只「提到」接缝不算声明（⛔ 要说清上下游对不对得上）')
+        # 级别：warn 不是 error（⛔ 欠账可见但不阻断）
+        chk(all(i.get('level') == 'warn' for i in check_flow_seams(cfg, vroot)),
+            '未声明接缝是 warn（⛔ 报 error 会让 lint 立刻红 → 检查被关掉）')
         # 反侧：元条目（自检/变更溯源）不算孤儿 —— ⛔ 必须断言**条数**：
         #   只查 issue 文本里有没有"自检"字样是假断言，
         #   而样本里元条目在 ## 级（entries 只收 ### 级）⇒ 变异后照样绿
@@ -4244,6 +4345,7 @@ def main():
               + check_table_columns(cfg)
               + check_domains_in_repo(cfg, ROOT)
               + check_craft_refs(cfg)
+              + check_flow_seams(cfg)
               + check_heading_numbering(cfg))
 
     if args.json:

@@ -414,5 +414,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M38",
+  "target": "scripts/lint.py",
+  "desc": "[接缝] 只认标题不认 `> 接缝：` 声明 → 单流程被迫造假节",
+  "old": "            if st.startswith(\"> 接缝：\") or st.startswith(\"- 接缝：\"):",
+  "new": "            pass  # 变异：不认行内声明",
+  "expect": "KILLED",
+  "why": "⛔ 有些流程确无上下游，只能写「> 接缝：无（理由）」。不认行内声明 = 逼它造一个空节 = 声明变成占位（第二十一条：假生效）。",
+  "source": "2026-09-26 接缝检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M39",
+  "target": "scripts/lint.py",
+  "desc": "[接缝] 不按 flow-type 分流 → meta/template 被当成流程报一遍",
+  "old": "        if not m or \"flow-type: procedure\" not in m.group(1):\n            continue",
+  "new": "        pass  # 变异：不分流，全部都查",
+  "expect": "KILLED",
+  "why": "⛔ 元规则（meta）与模板（template）不是流程，没有上下游。查它们 = 每份都报 = 基线永远清不掉 = 检查被关掉。与 meta/procedure 分流同族。",
+  "source": "2026-09-26 接缝检查器",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
