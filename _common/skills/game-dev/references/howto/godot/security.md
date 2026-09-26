@@ -102,6 +102,28 @@ func observe_client_logic_time(reported_logic_ms: int, max_speed: float) -> bool
 
 ⚠ **合法用户开两个窗口不该封号**，只应禁止同账号进同一排位局。
 
+### 密码学原语的边界（KDF / 哈希 / 随机数）
+
+⚠ **Godot 4 没有原生密码 KDF** —— 无 PBKDF2 / bcrypt / scrypt / argon2，
+也**没有 SHA-512**；内置只有 MD5 / SHA-1 / SHA-256
+（依据 4.3-stable `modules/mbedtls/crypto_mbedtls.cpp`）。
+⚠ `Crypto.hmac_digest()` 官方明确：*"Currently, only HashingContext.HASH_SHA256 and HashingContext.HASH_SHA1 are supported."*
+
+⛔ **别用单次 SHA-256 存密码/凭据** ——
+没有盐、没有迭代，彩虹表直接命中。
+
+⚠ 真要在 Godot 侧做凭据校验，最小可用模式是：
+逐账号**密码学随机盐**（`Crypto.generate_random_bytes(16)`，mbedTLS CTR_DRBG）
++ 用 `Crypto.hmac_digest()` 手工迭代派生
++ 用 `Crypto.constant_time_compare()` 比对，
+并且⛔ 派生要放离主线程、限制密码长度。
+⚠ 但这是**降级方案**：纯 GDScript 迭代次数达不到 OWASP 基线，
+要真正够用得引 Argon2id 的 GDExtension。
+
+ⓘ 可用的 CSPRNG 只有 `Crypto.generate_random_bytes()`；
+⛔ `randi()` / `randf()` **不是**密码学安全的，
+密钥、IV、盐、会话令牌都不得用它生成。
+
 ### 服务端有效性来自可证伪规则
 
 每次高价值动作校验：身份与 session 有效 → 角色/物品归属 → 位置可达、速度不超上限 → CD 未结束 →
@@ -119,6 +141,12 @@ FileAccess.open_encrypted_with_pass(path, mode_flags, pass: String)
 ```
 
 两者都返回 `FileAccess`，之后用法与普通文件一致（`store_var` / `get_var` / `store_string` …）。
+
+⚠ **官方签名**：`open_encrypted(path, mode_flags, key, iv = PackedByteArray())`。
+第四个参数 `iv` **默认是空数组** —— 不传就是用空 IV，官方文档的默认值已经把坑摆在那里了。
+⚠ **key 必须正好 32 字节**（官方 Note: *"The provided key must be 32 bytes long."*）；
+⛔ 长度不对不会报"长度错"，只会拿到 `null` 或解出乱码，排查时会被引向密钥内容本身。
+⛔ `open_encrypted_with_pass` **不暴露 IV 参数** —— 想用随机 IV 就必须走 key 版本。
 
 ⚠ **是 AES-256-CBC 不是 ECB**，但有两个必须知道的坑：
 
@@ -254,11 +282,8 @@ func load(path: String) -> Dictionary:
     return json.data as Dictionary
 
 func _random_bytes(n: int) -> PackedByteArray:
-    var out := PackedByteArray()
-    out.resize(n)
-    for i in n:
-        out[i] = randi() % 256
-    return out
+    # ⛔ 必须用密码学安全随机数：randi() 不是 CSPRNG，IV 可预测等于没随机
+    return Crypto.new().generate_random_bytes(n)
 
 func _hmac(data: PackedByteArray) -> PackedByteArray:
     return Crypto.new().hmac_digest(HashingContext.HASH_SHA256, _hmac_key, data)
@@ -269,8 +294,9 @@ func _verify(data: PackedByteArray, mac: PackedByteArray) -> bool:
 
 func _encrypt(data: PackedByteArray, iv: PackedByteArray) -> PackedByteArray:
     # Godot 4.x 没暴露内存级 AES API，用临时文件中转
+    # ⛔ 第四个参数 iv 必须传：不传就是空 IV，与"每次存都换 IV"自相矛盾
     var tmp := "user://.tmp_enc"
-    var f := FileAccess.open_encrypted(tmp, FileAccess.WRITE, _key)
+    var f := FileAccess.open_encrypted(tmp, FileAccess.WRITE, _key, iv)
     if f == null:
         return PackedByteArray()
     f.store_buffer(data)
@@ -286,7 +312,7 @@ func _decrypt(data: PackedByteArray, iv: PackedByteArray) -> PackedByteArray:
         return PackedByteArray()
     f.store_buffer(data)
     f.close()
-    var g := FileAccess.open_encrypted(tmp, FileAccess.READ, _key)
+    var g := FileAccess.open_encrypted(tmp, FileAccess.READ, _key, iv)
     if g == null:
         DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
         return PackedByteArray()
