@@ -69,6 +69,12 @@
 | 56 | 修好 rewind 就没 peeker's advantage | 那是**预测与延迟的固有产物**，只能缓解 |
 | 57 | 观战视角混入 rewind 逻辑 | 会造成误判 |
 | 58 | 客户端反馈反向改变伤害 | 反馈可协商，⛔ 不得改变伤害 |
+| 59 | 开了 `hit_from_inside` 法线照常 | 官方：此时**碰撞法线是 `Vector3(0,0,0)`**；贴花朝向 / 跳弹反射 / 入射角会算错或除零 → 要兜底用射线反方向 |
+| 60 | `force_raycast_update()` 要求 `enabled=true` | 官方：**`enabled` 不需要为 true** 也能更新；但反过来，以为"关了 enabled 就不会算"是错的 |
+| 61 | 靠 `exclude_parent` 排除自己 | 官方：`exclude_parent` **只在父节点是 CollisionObject3D 时才有作用**；射线挂在枪口 `Node3D` / 相机下时无效 → **打到自己** |
+| 62 | 相机开了物理插值，照常用 `transform` 取瞄准原点 | 官方：相机要 `top_level = true`、在 `_process()` 更新、读 `get_global_transform_interpolated()`；用未插值位置发射线会**系统性偏移** |
+| 63 | 弹道在 `_process()` 里按渲染帧算 | 物理空间在渲染期锁定，直接空间查询**只在 `_physics_process()` 内安全**；且下坠要固定子步，见 04 |
+| 64 | 加成 / buff 改了伤害就算接好了 | 所有派生参数**必须都走 FireContext**；只改伤害不改扩散 / 后坐力 → "加了 buff 手感没变、或变了但说不清" |
 
 ## 审核时逐条问自己
 

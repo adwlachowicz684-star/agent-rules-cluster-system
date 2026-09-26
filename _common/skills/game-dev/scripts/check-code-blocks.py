@@ -58,7 +58,11 @@ BUILTIN = {
 # 裸常量：前面不能是 . 或单词字符（排除 Control.PRESET_X 这类成员访问）
 USE = re.compile(r'(?<![\.\w])([A-Z][A-Z0-9_]{2,})\b')
 DEC = re.compile(r'^\s*(?:const|var|@export\s+var|@onready\s+var)\s+([A-Z][A-Z0-9_]{2,})\b', re.M)
-ENUM = re.compile(r'enum\s*(?:\w+)?\s*\{([^}]*)\}', re.S)
+# ⛔ 两种写法都要认：带花括号 enum S {A,B} 与 GDScript 简写 enum S A, B
+# 简写分支用 [ \t] 而非 \s，避免跨行吃到后面无关代码
+ENUM = re.compile(
+    r'enum\s*(?:\w+)?\s*\{([^}]*)\}'
+    r'|enum\s+\w+[ \t]+([A-Z][A-Z0-9_]*(?:[ \t]*,[ \t]*[A-Z][A-Z0-9_]*)*)', re.S)
 
 
 def strip_noise(blk):
@@ -93,7 +97,8 @@ def scan():
             code = strip_noise(blk)
             decl = set(DEC.findall(code))
             for e in ENUM.findall(code):
-                decl |= set(re.findall(r'([A-Z][A-Z0-9_]{2,})', e))
+                decl |= set(re.findall(r'([A-Z][A-Z0-9_]{2,})',
+                                       (e[0] or '') + ' ' + (e[1] or '')))
             miss = sorted(set(USE.findall(code)) - decl - BUILTIN)
             if not miss:
                 continue

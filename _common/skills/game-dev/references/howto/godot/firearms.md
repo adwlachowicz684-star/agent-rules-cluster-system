@@ -291,6 +291,34 @@ total_spread = base_spread
 ⚠ 服务端对探头边界做胶囊/形状夹紧，避免极端 lean 让头模型穿墙。
 ⚠ 探头切换用固定时长状态机，⛔ 不能逐帧把摄像机自由拖到墙外。
 
+### 命中判定的官方口径（Godot 4.7 核实）
+
+ⓘ 以下四条都是**官方文档明写**、但按直觉写代码必然踩的时序 / 语义坑。
+
+**⛔ RayCast3D 每物理帧算一次，结果保留到下一物理帧。**
+
+官方原话：*"RayCast3D calculates intersection every physics frame, and it holds the result until the next physics frame."*
+
+开火瞬间直接读 `is_colliding()` 拿到的是**上一物理帧**的结果。
+要 `force_raycast_update()`，或改用直接空间查询。
+配套：官方明确 **`enabled` 不需要为 true** 也能 `force_raycast_update()`。
+
+**⛔ `hit_from_inside` 命中时，碰撞法线是零向量。**
+
+官方：*"In this case the collision normal will be `Vector3(0, 0, 0)`."*
+用它算贴花朝向、跳弹反射、穿透入射角会得到错误方向或除零 → 要兜底。
+
+**⛔ `exclude_parent` 只在父节点是 CollisionObject3D 时生效。**
+
+官方：*"This property only has an effect if the parent node is a CollisionObject3D."*
+射线常挂在枪口 `Node3D` 或相机下 —— 那时**不会排除自己** → 打到自己。
+要显式 `exclude`。
+
+**⛔ 直接空间查询只在 `_physics_process()` 内安全。**
+
+物理空间在渲染期锁定。相机若开了物理插值，瞄准原点要读
+`get_global_transform_interpolated()`，相机本身 `top_level = true` 并在 `_process()` 更新。
+
 ## 9. 弹药：是节奏资源，备弹要支持多武器共享
 
 ⚠ 核心问题不是"数字多大"，而是**它限制什么**。
