@@ -759,5 +759,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M61",
+  "target": "scripts/lint.py",
+  "desc": "[扫描范围] 只扫 reference/ → SKILL.md 里的副本永远找不到",
+  "old": "    sk = base / \"SKILL.md\"\n    if sk.exists() and sk not in files:\n        files.append(sk)",
+  "new": "    pass  # 变异：不加入口文件",
+  "expect": "KILLED",
+  "why": "⛔ 实测：note.py 的 TYPES 抄在 SKILL.md:142，而不扫 SKILL.md 永远找不到。同形态第 5 次：最常被读的文件恰恰最容易漏在扫描范围外——它是单点，不在任何批量扫描的目录里。",
+  "source": "2026-09-26 扫描范围含入口",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

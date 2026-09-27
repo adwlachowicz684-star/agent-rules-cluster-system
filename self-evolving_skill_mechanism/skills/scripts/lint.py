@@ -3088,8 +3088,19 @@ def check_undeclared_spec_copies(cfg, root=None):
     base = Path(root) if root else ROOT
     issues = []
     declared = {(c, d) for c, d, _k in SPEC_DRIFT}
+    files = sorted((base / "reference").rglob("*.md"))
+    # ⛔ 必须含入口文件：同形态第 5 次
+    #    （断链 / 扫描器清单 / 体积 / check_size 的 glob /
+    #      check_orphan_table_row 只扫 reference/）
+    #    ⛔ 实测：note.py 的 TYPES 就在 **SKILL.md:142** 抄了一份，
+    #       而 SKILL.md 不在 reference/ 下 ⇒ 只扫子目录永远找不到它。
+    #    ⛔ 最常被读的文件恰恰最容易漏在扫描范围外——它是单点，
+    #       不在任何"批量扫描的目录"里。
+    sk = base / "SKILL.md"
+    if sk.exists() and sk not in files:
+        files.append(sk)
     for (fname, cname), vals in sorted(_module_str_consts(base).items()):
-        for d in sorted((base / "reference").rglob("*.md")):
+        for d in files:
             try:
                 lines = d.read_text(encoding="utf-8").split("\n")
             except Exception:
@@ -4726,6 +4737,22 @@ trigger: 测试
         # 正向二：词恰好同现但覆盖率不够（<60%）→ 不报
         #    ⛔ 实测：FLOW_SECTION 只 3/6、NOTE_SECTION 只 3/7
         udf.write_text('# x\n\n流程与步骤：操作\n', encoding='utf-8')
+        # ⛔ 入口文件 SKILL.md 必须在扫描范围内（同形态第 5 次）
+        #    实测：note.py 的 TYPES 就抄在 **SKILL.md** 里，
+        #    而不扫 SKILL.md 永远找不到它。
+        skf = vroot / 'SKILL.md'
+        skf.write_text('# s\n\n类型：新增 / 补充 / 修正 / 更新 / 参考 / 合并'
+                       ' / 拆分 / 冷藏\n', encoding='utf-8')
+        # ⛔ 前一个用例把 note.py 换成了 FLOW_SECTION，这里要放回去
+        #    （⛔ 顺序依赖：用例共用 vroot/scripts，不留痕会静默失效）
+        cpy.write_text(
+            'TYPES = ["新增", "补充", "修正", "更新", "参考", "合并",'
+            ' "拆分", "冷藏"]\n', encoding='utf-8')
+        chk(any('SKILL.md' in str(i.get('file', ''))
+                for i in check_undeclared_spec_copies(cfg, vroot)),
+            '⛔ 入口文件 SKILL.md 在扫描范围内（只扫 reference/ 会漏，'
+            '实测 TYPES 就抄在 SKILL.md 里）')
+        skf.unlink(missing_ok=True)
         cpy.write_text(
             'FLOW_SECTION = ["流程", "步骤", "操作", "做法", "怎么用",'
             ' "执行"]\n', encoding='utf-8')
