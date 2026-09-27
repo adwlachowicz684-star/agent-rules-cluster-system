@@ -5,7 +5,7 @@
 ⚠ **Godot 引擎既不内置账号、A/B 测试、远程配置后台，也没有兑换码或补偿系统。**
 这些必须由项目自建后端或第三方 LiveOps 服务实现。
 
-## 0. ⚠ 一句话边界## 0. ⚠ 一句话边界
+## 0. ⚠ 一句话边界
 
 > ⚠ **与 `backend-stability.md` 的分工**：本篇是**运营侧**（A/B 与灰度、配置下发、活动时间、补偿幂等、CDK）。
 > **稳定性与事故响应**（限流/熔断/降级、容量压测、监控告警、值班复盘、灾备回滚）
@@ -123,7 +123,8 @@ rtt    = client_recv_at - client_sent_at
 两者都要重校准。不检测时玩家把时间往后调一天就能刷每日奖励。
 
 ⚠ `get_ticks_msec()` 是**单调时钟**（引擎启动至今，保证不减小）—— 用来测间隔、做轮询定时器、测 RTT。
-它**不是**现实时间，不能存盘、不能跨重启。
+ⓘ 官方说明它是 **64 位值（约 5 亿年后才回绕）**，⛔ 所以"会不会溢出"不是用它的顾虑；
+真正的限制是它**不是现实时间**，不能存盘、不能跨重启、不能用来判活动起止。
 
 ### 8.2 活动模型：定义与实例分离
 
@@ -240,6 +241,41 @@ Autoload 在 `_init()` 里加载了旧 Resource —— 之后再加载 PCK 只�
 ⚠ **兼容性：加字段安全，删字段/改类型危险**。
 Godot 的 JSON 解析**不区分 `null` 与"缺失键"** → 一律 `dict.get("key", default)`。
 
+#### 8.7.1 ⛔ JSON 数值全是 float：64 位 ID 会静默失真
+
+官方原话：*"The JSON specification does not define integer or float types, but only a number type.
+Therefore, converting a Variant to JSON text will convert all numerical values to float types."*
+
+→ 配置里的活动 ID、玩家 ID、订单号经 JSON 往返后是 **float**。
+⛔ 超过 **2^53（9007199254740992）** 的 64 位 ID 会**静默失真** —— 不报错、不抛异常，只是值变了。
+⛔ 用 `==` 直接比较解析出的 ID、或对解析结果做位运算，会在"看着完全正确"的情况下得到错误结果。
+→ 大整数一律**按字符串传递**，或解析后显式 `int()`（⚠ 只在大整数场景，普通计数用 float 没问题）。
+
+#### 8.7.2 ⛔ ConfigFile 的空格是静默截断，不是报错
+
+官方原话：*"Keep in mind that section and property names can't contain spaces.
+**Anything after a space will be ignored on save and on load.**"*
+
+→ `set_value("activity", "daily reset", 1)` 存进去变成 `daily`，读出来也是 `daily`，**全程无警告**。
+⛔ 表现为"配置读不到"，而排查会被引向路径、权限或序列化格式，不会想到是键名里的空格。
+
+#### 8.7.3 ⛔ HTTPRequest：一个节点不能并发，且 timeout 默认 0.0
+
+官方原话：*"You have to wait for a request to finish before sending another one.
+Making multiple request at once requires you to have one node per request."*
+
+→ 单节点并发会被静默丢弃或报错；并发要一请求一节点（运行时 `add_child` / `queue_free`）。
+⛔ `HTTPRequest.timeout` 默认 `0.0`，含义是**不超时** —— 弱网下请求永久挂起，
+表现为"一直转圈"，⛔ 而排查会被引向服务端或网络库。
+
+#### 8.7.4 ⚠ 官方明确警告：不要把凭据嵌进客户端
+
+官方原话（Warning）：*"someone might analyse and decompile your released application and thus may gain
+access to any embedded authorization information like tokens, usernames or passwords."*
+
+→ 运营后台 token、签名密钥、数据库凭据**一律不得嵌入客户端**。
+
+
 ## 9. 常见坑
 
 | # | 本能以为 | 实际 |
@@ -281,3 +317,23 @@ Godot 的 JSON 解析**不区分 `null` 与"缺失键"** → 一律 `dict.get("k
 - 网络与 RPC → `multiplayer.md`、`netsync-advanced.md`
 - 云存档 → `cloud-save.md`
 - 社交/公会 → `social.md`
+
+## 12. 流程：按什么顺序做
+
+本篇讲**单个机制怎么实现**；**按什么顺序做、哪些必须在服务端、怎么验收**见流程域
+`flow/godot/ops/`（8 个文件 / 37 个 Step）：
+
+| 功能点 | 内容 |
+|---|---|
+| 01 | 运营边界与客户端定位 |
+| 02 | 配置下发与灰度回滚 |
+| 03 | 活动时间与五态 |
+| 04 | 签到、战令与周期结算 |
+| 05 | 补偿发放与幂等 |
+| 06 | CDK 与兑换码 |
+| 07 | 运营验收 |
+
+⛔ **先定客户端是什么（01）再做其余** ——
+倒计时的直观性会让人先做 03，而此时资格判定还在客户端。
+
+⛔ 本篇讲"怎么做"，**"不能怎么做"**见 `audit/godot/ops.md`（42 条反模式，用于流程结束后自审）。
