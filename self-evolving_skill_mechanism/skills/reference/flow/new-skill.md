@@ -110,7 +110,7 @@ flow-type: procedure
 
 【判据】`--route` 输出命中该类且**不是靠泛词**；⛔ 归错类比不归更糟
 
-【审】`howto/structure-evolution.md#装不下`
+【审】`howto/structure-evolution.md#判定：现有结构装得下吗`
 
 ### Step 3　定契约（目录骨架）　`[FL-03#S3]`
 
@@ -149,7 +149,7 @@ flow-type: procedure
 
 ### Step 5　注册索引　`[FL-03#S5]`
 
-【读】`howto/loading.md#重建索引`
+【读】`howto/global-rule.md#7. 整合（会话结束时批量执行）`
 
 【做】`python3 scripts/index.py`
 
@@ -162,7 +162,7 @@ flow-type: procedure
 
 ### Step 6　首次命中验证　`[FL-03#S6]`
 
-【读】`howto/loading.md#冷热分层的诊断`
+【读】`howto/consolidation-place.md#冷热分层的诊断：0 命中到底是哪种`
 
 【做】拿一个真实任务跑一遍：模拟检索 → 命中 → 照做 → 看能否产出
 

@@ -358,9 +358,9 @@
  {
   "id": "EV-M34",
   "target": "scripts/lint.py",
-  "desc": "[craft 接入] 锚点判据改回全等 → 手写引用（几乎总是省略）全部判成断链",
-  "old": "    return len(anc) >= 4 and anc in title",
-  "new": "    return False  # 变异：只认全等，不认手写省略",
+  "desc": "[锚点] 短锚点不做长度限制 → `文` 命中所有标题",
+  "old": "    if len(anc) >= 4:\n        return anc in title",
+  "new": "    if True:\n        return anc in title  # 变异：短锚点也子串",
   "expect": "KILLED",
   "why": "实测：条目标题 `1. 写正确的废话 = 没写` 被引用成 `#写正确的废话`。⛔ 全等判据会让所有真实引用判成断链——而断链是 error，会逼人删掉引用，craft 层彻底没人用。⚠ 太短的锚点（<4 字）不能子串匹配，否则 `文` 命中所有标题。",
   "source": "2026-09-26 craft 层检查器",
@@ -524,11 +524,56 @@
   "id": "EV-M45",
   "target": "scripts/lint.py",
   "desc": "[craft接入表] 自指计入接入率 → index 列一遍就 100%",
-  "old": "                           for h in heads[fn]):\n                    issues.append({",
-  "new": "                           for h in heads[fn]):\n                    anchored.add((fn, _norm_anchor(anc)))\n                    issues.append({",
+  "old": " for h in heads[fn]):\n                    issues.append({",
+  "new": " for h in heads[fn]):\n                    issues.append({anchored.add((fn, _norm_anchor(anc)))\n                    ",
   "expect": "KILLED",
   "why": "⛔ 接入表若把自指算进 anchored，index 列一遍全部条目 ⇒ 接入率 100% 但没人真用。假接入比低接入更危险（第二十一条 + 第二十三条）。",
   "source": "2026-09-26 craft 动作接入",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M46",
+  "target": "scripts/lint.py",
+  "desc": "[锚点] heads key 只用文件名 → 同名文件互相覆盖 ⇒ 误报",
+  "old": "            heads[(z, f.name)] = [",
+  "new": "            heads[f.name] = [  # 变异：只用文件名",
+  "expect": "KILLED",
+  "why": "⛔ flow/index.md 与 craft/index.md 同名。key 只用文件名 ⇒ 后者覆盖前者 ⇒ craft 的引用全误报断链。实测 1 条误报就是这么来的。",
+  "source": "2026-09-26 通用锚点检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M47",
+  "target": "scripts/lint.py",
+  "desc": "[锚点] 不认 GitHub 锚点写法 → 8 条真引用全误报断链",
+  "old": "    for na, nt in ((_norm_anchor(anc), _norm_anchor(title)),\n                   (_norm_github(anc), _norm_github(title))):",
+  "new": "    for na, nt in ((_norm_anchor(anc), _norm_anchor(title)),):  # 变异：不认 github",
+  "expect": "KILLED",
+  "why": "⛔ 全库 8 处引用写的是 GitHub 真实锚点 `#ec-01-查不到--没有`，而 _norm_anchor 是去标点去空格 ⇒ 完全不匹配 ⇒ 8 条真实有效的引用全判断链。接入率被系统性低估（audit 曾显示 0%）。",
+  "source": "2026-09-26 通用锚点检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M48",
+  "target": "scripts/lint.py",
+  "desc": "[锚点] 编号型短锚点要求全等 → audit 全局编号全判不匹配",
+  "old": "    if RX_NUMERIC_ANCHOR.match(anc) and title.startswith(anc):",
+  "new": "    if False and title.startswith(anc):  # 变异：不放宽编号",
+  "expect": "KILLED",
+  "why": "⛔ self-verification 那 20+ 条是全局编号，跨册引用本就靠 `#十三` `#十八` 这种简称。要求全等 ⇒ 8 条引用全判断链/未接入。",
+  "source": "2026-09-26 通用锚点检查",
   "test_cmd": [
    "python3",
    "scripts/lint.py",

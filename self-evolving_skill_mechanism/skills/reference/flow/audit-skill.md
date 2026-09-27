@@ -124,7 +124,7 @@ flow-type: procedure
 
 ### Step 5　分级与排序　`[FL-04#S5]`
 
-【读】`audit/rejection.md#说不出后果`
+【读】`audit/rejection.md#清单`（第 3 条）
 
 【做】按后果严重度分级：
 

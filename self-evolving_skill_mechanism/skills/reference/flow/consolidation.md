@@ -79,7 +79,7 @@ flow-type: procedure
 
 【判据】留下来的每条都过了四道门槛，说得出各自过了哪几道
 
-【审】`audit/rejection.md#证据不足`
+【审】`audit/rejection.md#清单`（第 1 条）
 
 ### Step 2　查重　`[FL-01#S2]`
 
@@ -123,7 +123,7 @@ flow-type: procedure
 
 ### Step 5　重建索引　`[FL-01#S5]`
 
-【读】`howto/loading.md#重建索引`
+【读】`howto/global-rule.md#7. 整合（会话结束时批量执行）`
 
 【做】`python3 scripts/index.py`（**必做**）
 
@@ -137,7 +137,7 @@ flow-type: procedure
 
 ### Step 6　分层复核　`[FL-01#S6]`
 
-【读】`howto/loading.md#冷热分层`
+【读】`howto/consolidation-place.md#冷热分层（替代删除）`
 
 【做】`python3 scripts/index.py --stats`，按建议调整 tier
 

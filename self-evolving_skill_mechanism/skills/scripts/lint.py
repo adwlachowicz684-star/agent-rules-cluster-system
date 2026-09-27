@@ -2282,8 +2282,29 @@ def _norm_anchor(t):
     return t.lower()
 
 
-def _anchor_match(anc, title):
-    """锚点是否指向该标题（都已是归一化形态）。
+# 编号形态：中文数字 / 阿拉伯数字 / 字母+数字（ec01、fl01、s1）
+RX_NUMERIC_ANCHOR = re.compile(r'^[〇一二三四五六七八九十百千万\d]+$'
+                               r'|^[a-z]{1,4}\d+$')
+
+
+def _norm_github(t):
+    """按 **GitHub 真实锚点规则** 归一化。
+
+    ⛔ 实测：全库 8 处引用写的是 `#ec-01-查不到--没有`
+    （GitHub 生成 `EC-01 查不到 ≠ 没有` 的真实锚点），
+    而 `_norm_anchor` 是"去标点去空格" ⇒ `ec01查不到没有`，
+    两者**完全不匹配** ⇒ 8 条真实有效的引用全被判成断链 / 未接入。
+    ⇒ 接入率被**系统性低估**（audit 区曾显示 0%）。
+
+    GitHub 规则：小写 · 空格→`-` · 删除标点（连字符保留）。
+    """
+    t = t.lower().replace(" ", "-")
+    t = re.sub(r'[^\w\u4e00-\u9fa5-]', '', t)
+    return t
+
+
+def _anchor_match_one(anc, title):
+    """锚点是否指向该标题（都已是**同一种**归一化形态）。
 
     ⛔ 不能只做全等：手写引用时**几乎总是省略**（标题
     `1. 写正确的废话 = 没写` 会被写成 `#写正确的废话`）。
@@ -2291,6 +2312,15 @@ def _anchor_match(anc, title):
 
     ⚠ 太短的锚点不能子串匹配（`文` 会命中所有标题），
     要求 ≥4 字；短于 4 字则必须全等。
+
+    ⛔ 但**编号型短锚点必须例外**——实测 audit 区接入率被判 0%，
+    而实际有 8 条引用，全是 `#十三` `#十八` `#十一` 这种编号简称：
+    `self-verification` 那 20+ 条是**全局编号**，
+    跨册引用的设计本就靠编号（当初保留全局编号正是为此）。
+    ⇒ 要求全等会让它们**全部判为未接入 / 断链**。
+
+    判据：`十三` 能匹配 `十三检查项必须能红`（编号开头即可），
+    但 `文` 不能匹配 `文件在`（⛔ 不是编号形态，仍走严格分支）。
     ⓘ 与 falsepos 第十四条同族：判据要认**人真实的写法**，
     不是认「最好匹配的那种写法」。
     """
@@ -2298,7 +2328,33 @@ def _anchor_match(anc, title):
         return False
     if anc == title:
         return True
-    return len(anc) >= 4 and anc in title
+    if len(anc) >= 4:
+        return anc in title
+    # ⛔ 短锚点：只有编号形态才放宽，且必须是**开头**且后接非编号
+    if RX_NUMERIC_ANCHOR.match(anc) and title.startswith(anc):
+        rest = title[len(anc):]
+        if not rest:
+            return True
+        # 后接的若是数字/中文数字 ⇒ 是另一个编号（`十三` vs `十三五`）
+        return not re.match(r'^[〇一二三四五六七八九十百千万\d]', rest)
+    return False
+
+
+def _anchor_match(anc, title):
+    """锚点是否指向该标题（**接收原始文本**，内部两种形态都试）。
+
+    ⛔ 必须同时认两种写法：
+        ① 标题子串（`#写正确的废话`）—— 手写引用几乎总是省略
+        ② GitHub 真实锚点（`#ec-01-查不到--没有`）—— 网页上真能跳转
+    只认一种 ⇒ 另一种的引用**全部**被判断链（实测 8 条）。
+    """
+    if not anc or not title:
+        return False
+    for na, nt in ((_norm_anchor(anc), _norm_anchor(title)),
+                   (_norm_github(anc), _norm_github(title))):
+        if _anchor_match_one(na, nt):
+            return True
+    return False
 
 
 def check_heading_numbering(cfg, root=None):
@@ -2496,6 +2552,73 @@ def check_feed_source_path(cfg, root=None):
     return issues
 
 
+def check_anchor_refs(cfg, root=None):
+    """全五区通用的**锚点断链**检查（⛔ 此前只有 craft 区在查）。
+
+    ⛔ 实测（2026-09-26）：howto / audit / common 三区积累了 **9 条死链**，
+    而 craft 区一条都没有——差别就是 craft 有检查、其余区没有。
+
+    真断链举例（读的人点过去是空的）：
+        `audit/rejection.md#证据不足`   ← 该文件的清单是**表格**，无此标题
+        `howto/loading.md#重建索引`     ← 该文件根本没有这一节
+        `common/blocks.md#ec-02-正反双样本缺反侧等于没验证`
+                                       ← 真实锚点是 `...缺反侧--没在验证`
+
+    ⇒ **引用指向的锚点在目标文件里不存在**，而文档自己不会报错。
+    ⛔ 精确但失效的引用，不如粗但有效的引用。
+
+    判据要点（两个都是踩出来的）：
+        ① heads 的 key 必须是 **(区, 文件名)**：只按文件名会让
+           `flow/index.md` 覆盖 `craft/index.md` ⇒ 误报（实测 1 条）。
+        ② 锚点要同时认**标题子串**与 **GitHub 真实锚点**两种写法
+           （`_anchor_match` 已处理；只认一种会系统性误报 8 条）。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    ZONES = ("howto", "audit", "flow", "common", "craft")
+    heads = {}
+    for z in ZONES:
+        zd = base / "reference" / z
+        if not zd.is_dir():
+            continue
+        for f in sorted(zd.glob("*.md")):
+            try:
+                txt = f.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            heads[(z, f.name)] = [
+                m.group(1).strip()
+                for m in re.finditer(r"^#{1,4}\s+(.+)$", txt, re.M)]
+
+    for f in sorted(base.rglob("*.md")):
+        if ".git" in str(f):
+            continue
+        try:
+            rel = str(f.relative_to(base))
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        for z in ZONES:
+            rx = re.compile(r"%s/([\w.\-]+\.md)#([^`)\"']+)" % z)
+            for i, ln in enumerate(lines, 1):
+                for m in rx.finditer(ln):
+                    fn, anc = m.group(1), m.group(2)
+                    key = (z, fn)
+                    if key not in heads:
+                        continue      # 文件不存在由 check_refs 报
+                    if any(_anchor_match(anc, h) for h in heads[key]):
+                        continue
+                    issues.append({
+                        "level": "error", "file": "%s:%d" % (rel, i),
+                        "issue": "锚点不存在：`%s/%s#%s`" % (z, fn, anc),
+                        "hint": "⛔ 引用跳不过去，读的人得到空白。"
+                                "精确但失效的引用不如粗但有效的引用。"
+                                "⛔ 注意两种写法都认：标题子串 与 "
+                                "GitHub 锚点（`EC-01 查不到 ≠ 没有` → "
+                                "`ec-01-查不到--没有`）"})
+    return issues
+
+
 def check_craft_refs(cfg, root=None):
     """craft 层接入：断链 + 孤儿（本层形同虚设的检查）。
 
@@ -2540,12 +2663,12 @@ def check_craft_refs(cfg, root=None):
         except Exception:
             continue
         hs = re.findall(r"^#{2,4}\s+(.+)$", txt, re.M)
-        heads[f.name] = [_norm_anchor(h) for h in hs]
+        heads[f.name] = list(hs)   # ⛔ 存原始：norm 由 _anchor_match 内部做
         for m in re.finditer(r"^#{3,4}\s+(.+)$", txt, re.M):
             t = m.group(1).strip()
             if any(k in t for k in META):
                 continue
-            entries.append((f.name, t, _norm_anchor(t)))
+            entries.append((f.name, t, t))
 
     # ② 扫描引用方（⛔ 排除 craft 自身）
     targets = [base / "SKILL.md"]
@@ -2591,8 +2714,7 @@ def check_craft_refs(cfg, root=None):
                 fn, anc = m.group(1), m.group(2)
                 if fn not in heads:
                     continue
-                if not any(_anchor_match(_norm_anchor(anc), h)
-                           for h in heads[fn]):
+                if not any(_anchor_match(anc, h) for h in heads[fn]):
                     issues.append({
                         "level": "error",
                         "file": "reference/craft/index.md:%d" % i,
@@ -2608,7 +2730,7 @@ def check_craft_refs(cfg, root=None):
         for m in re.finditer(r"craft/([\w.\-]+\.md)", ln):
             cited_files.add(m.group(1))
         for m in re.finditer(r"craft/([\w.\-]+\.md)#([^`)\"']+)", ln):
-            anchored.add((m.group(1), _norm_anchor(m.group(2))))
+            anchored.add((m.group(1), m.group(2)))
 
     if not entries:
         return issues
@@ -3886,6 +4008,61 @@ trigger: 测试
         chk(rate and '0%' in rate[0]['issue'],
             '接入表自指不计入接入率（⛔ 否则 index 列一遍就 100%，'
             '但读的人仍然不知道什么时候该来本层）')
+
+        # ---- 全五区锚点断链 ----
+        ap = vroot / 'reference' / 'howto'
+        ap.mkdir(parents=True, exist_ok=True)
+        (ap / 't.md').write_text('# t\n\n## 甲节\n\nx\n', encoding='utf-8')
+        wp = vroot / 'reference' / 'flow'
+        wp.mkdir(parents=True, exist_ok=True)
+        wf = wp / 'w.md'
+        wf.write_text('# w\n\n见 `howto/t.md#甲节`\n', encoding='utf-8')
+        chk(not [i for i in check_anchor_refs(cfg, vroot)
+                 if 'w.md' in str(i.get('file', ''))],
+            '锚点存在 → 不报')
+        wf.write_text('# w\n\n见 `howto/t.md#不存在节`\n', encoding='utf-8')
+        chk(any('锚点不存在' in str(i.get('issue', ''))
+                and 'w.md' in str(i.get('file', ''))
+                for i in check_anchor_refs(cfg, vroot)),
+            '锚点不存在能查出（⛔ 引用跳过去是空的）')
+        # ⛔ 反侧一：同名文件不能互相覆盖 key
+        #    （flow/index.md 与 craft/index.md 同名，只按文件名做 key 会误报）
+        cp = vroot / 'reference' / 'craft'
+        cp.mkdir(parents=True, exist_ok=True)
+        (cp / 'index.md').write_text('# c\n\n## 独有节\n\nx\n', encoding='utf-8')
+        fp = vroot / 'reference' / 'flow'
+        (fp / 'index.md').write_text('# f\n\n见 `craft/index.md#独有节`\n',
+                                     encoding='utf-8')
+        chk(not [i for i in check_anchor_refs(cfg, vroot)
+                 if 'flow/index.md' in str(i.get('file', ''))],
+            '同名文件不互相覆盖（⛔ key 只用文件名会让 flow/index.md '
+            '覆盖 craft/index.md ⇒ 误报）')
+        # ⛔ 反侧二：GitHub 锚点写法要认（实测 8 条真实引用靠这个才不误报）
+        (ap / 'g.md').write_text('# g\n\n## EC-01 查不到 ≠ 没有\n\nx\n',
+                                 encoding='utf-8')
+        wf.write_text('# w\n\n见 `howto/g.md#ec-01-查不到--没有`\n',
+                      encoding='utf-8')
+        chk(not [i for i in check_anchor_refs(cfg, vroot)
+                 if 'w.md' in str(i.get('file', ''))],
+            'GitHub 锚点写法要认（⛔ 只认标题子串会误报 8 条真引用）')
+        # ⛔ 反侧三：编号型短锚点要认（audit 全局编号 #十三 这类）
+        (ap / 'n.md').write_text('# n\n\n## 十三、检查项必须能红\n\nx\n',
+                                 encoding='utf-8')
+        wf.write_text('# w\n\n见 `howto/n.md#十三`\n', encoding='utf-8')
+        chk(not [i for i in check_anchor_refs(cfg, vroot)
+                 if 'w.md' in str(i.get('file', ''))],
+            '编号型短锚点要认（⛔ audit 全局编号靠它，'
+            '要求全等会让 8 条引用全判断链）')
+        # ⛔ 反侧四：非编号短锚点**不能**放宽（`文` 不能匹配 `文件在`）
+        # ⛔ 样本必须让变异**必然生效**：EV-M34 首跑 SURVIVED，
+        #    因为旧样本标题里根本不含该短词（`文件` vs `十三、检查项...`）
+        #    ⇒ 去掉长度限制后仍然不匹配 ⇒ 用例恒绿（又踩一次）。
+        (ap / 's.md').write_text('# s\n\n## 文件在\n\nx\n', encoding='utf-8')
+        wf.write_text('# w\n\n见 `howto/s.md#文`\n', encoding='utf-8')
+        chk(any('锚点不存在' in str(i.get('issue', ''))
+                and 'w.md' in str(i.get('file', ''))
+                for i in check_anchor_refs(cfg, vroot)),
+            '非编号短锚点不放宽（⛔ `文` 不能命中 `文件在`）')
         chk(all(i.get('level') == 'info' for i in check_feed_source_path(cfg, vroot)),
             '反哺无路径是 info（⛔ 报 warn 会让 lint 长期带基线 → 检查被关掉）')
 
@@ -4560,6 +4737,7 @@ def main():
               + check_scope_selfreport(cfg)
               + check_table_columns(cfg)
               + check_domains_in_repo(cfg, ROOT)
+              + check_anchor_refs(cfg)
               + check_craft_refs(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
