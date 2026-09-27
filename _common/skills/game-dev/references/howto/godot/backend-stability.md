@@ -247,6 +247,36 @@ SLO 多窗口燃烧率起点（ⓘ 须按自身 SLO 校准）：
 断线后要恢复的是：战斗状态、房间状态、玩家输入一致性——
 ⚠ **这些引擎都不管，必须自己设计**（见 `spectate-reconnect.md`、`netsync-advanced.md`）。
 
+### Godot 客户端侧的五个默认陷阱
+
+⛔ **`HTTPRequest.body_size_limit` 默认 `-1`（无限制）。**
+官方把这个属性的用途直接写成 *"preventing potential denial of service attacks"*——
+不设上限时，服务端（或被劫持的中间节点）返回一个超大响应体会直接吃满客户端内存。
+⛔ 这与服务端限流是两件事：**服务端防的是被压垮，客户端防的是被撑爆**，
+只在一侧设防会留下"两边都以为对方管了"的空隙。
+
+⛔ **`HTTPRequest.timeout` 默认 `0.0`，含义是永不超时。**
+官方口径：*"If `timeout` is set to 0.0 then the request will never time out"*。
+→ 服务端不返回时请求**永久挂起**，配合无界重试就是客户端侧的雪崩放大器。
+ⓘ 文件下载应留 `0.0`，但 REST 调用官方建议设 **1.0–10.0 秒**。
+
+⛔ **单个 `HTTPRequest` 节点不能并发请求。**
+处理中再发起会返回 `ERR_BUSY`（*"Wait for completion or cancel it before attempting a new one"*），
+官方给的写法是**一次请求一个节点**。
+→ 重试时复用同一节点，第二次请求会直接失败，
+而回调看起来"什么都没发生"，极易被当成网络问题。
+
+⛔ **`Timer` 受 `Engine.time_scale` 影响。**
+官方原文：*"Timers are affected by `Engine.time_scale`. The higher the time scale, the sooner timers will end."*
+→ 用 `Timer` 做重试退避时，游戏内的**子弹时间 / 加速**会把退避间隔一起缩放，
+重试节奏失真、抖动被抹平，重连请求重新聚成雷鸣群。
+ⓘ Godot 4.6 才新增 `ignore_time_scale`，**老版本没有这个开关**，只能改用累加 delta 的写法。
+
+⛔ **`Timer.wait_time` 小于约 0.05 秒时行为随帧率显著变化。**
+官方原文：定时器每渲染帧（或物理帧）最多触发一次，
+低于该值时 *"will behave in significantly different ways depending on the rendered framerate"*。
+→ 20ms 级的短退避在高帧率与低帧率机器上表现完全不同，应改用 `_process` 累加 delta。
+
 ## 11. 待核对项（运行时验证）
 
 ⚠ 待核对：限流阈值、熔断阈值、超时与重试参数 · 验证：本轮数值均为**可落地起点而非行业标准**，须按压测拐点与 SLO 校准
@@ -265,3 +295,20 @@ SLO 多窗口燃烧率起点（ⓘ 须按自身 SLO 校准）：
 - 指标与埋点 → `analytics.md`
 - 账号安全与风控 → `account-security.md`
 - 断线重连与状态恢复 → `spectate-reconnect.md`
+
+## 13. 流程：按什么顺序做
+
+> ⚠ 本节只给顺序与判据，机制本身见上文各节。
+> 完整流程见 `flow/godot/backend-stability/00-域流程总览.md`。
+
+01 韧性边界与限流 → 02 熔断与降级 → 03 超时重试与客户端侧 →
+04 数据层与分片 → 05 容量与压测 → 06 监控告警事故响应与灾备 → 07 验收
+
+⛔ **先做限流与仪表盘、把超时留到最后，是最常见的错序**：
+限流可观测、能立刻看到"QPS 被压住了"，
+⚠ 而此时**每个外部调用仍无超时**——一次慢依赖就能拖垮整个线程池，
+且限流仪表盘上完全看不出来（它显示的是"被限流的量"，不是"挂起的量"）。
+
+⛔ **先上监控再定止损动作，会得到一堆没有人能执行的图表**：
+告警的判据是"必须有人 5 分钟内介入且指向唯一一组动作"，
+⛔ 动作只是"登录看看"说明规则层级或自动化不足，应降级或删除。
