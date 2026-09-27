@@ -255,10 +255,95 @@ if not OS.is_userfs_persistent():
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/platform-export.md`
 
 
-## 7. 相关文档
+## 7. 命令行导出与 CI（预设名是硬匹配）
+
+```bash
+# ⓘ 预设名必须与 export_presets.cfg 中定义的完全一致，含空格要加引号
+godot --headless --export-release "Windows Desktop" build/windows/game.exe
+godot --headless --export-release "Web" build/web/index.html
+godot --headless --export-pack  "Linux/X11" build/game.pck
+```
+
+⛔ **相对路径的基准是 `project.godot` 所在目录，不是当前工作目录。**（官方 Warning）
+在 CI 里换个工作目录跑同一条命令，产物会落在完全不同的地方，
+⛔ 表现为"命令成功、产物找不到"，排查方向被引向构建脚本而非路径基准。
+
+⛔ **预设名不匹配直接失败** —— `"Windows"` 配不出名为 `"Windows Desktop"` 的预设，
+且失败信息不会提示"是不是名字写错了"。
+
+⛔ **非资源文件不会自动进包** —— 外部 `.json` / `.txt` 要在预设的
+`Resources > Filters` 里显式加（如 `*.json`）。
+表现为"编辑器里读得到、导出后读不到"，而导出过程**完全无警告**。
+
+ⓘ `--export-debug` 不止是"多个调试符号"：它会开启远程调试与调试检查，
+Android 上还会用 debug 签名 —— 与已装的正式版冲突，报"解析包时出现问题"。
+
+## 8. Android：Gradle 构建模板要按项目装一次
+
+⛔ **装了编辑器导出模板还不够** —— 预设勾了 `Use Gradle Build` 时，
+编辑器要求项目内有 `res://android/build/`，来自：
+
+```
+Project > Install Android Build Template     每项目一次，产出目录要提交
+```
+
+⛔ 缺它的报错是"路径找不到，指向 templates 文件夹"，
+⛔ 看起来像导出模板没装，⛔ 于是反复重装 600MB 的模板包 —— 而根因在项目里。
+AAB 输出也依赖它（没装时导出下拉里只有 APK）。
+
+## 9. iOS：Xcode 工程的三个静默坑
+
+| 项 | 官方口径 | 后果 |
+|---|---|---|
+| 导出目录 | **必须是空文件夹** | 混入旧文件后症状不可预测 |
+| Xcode 工程名 | ⛔ **不能带空格** | 会导致 Xcode 工程文件**损坏** |
+| 与项目目录同名 | ⛔ `godot_project_to_export` **不得**与 `exported_xcode_project_name` 同名 | Xcode **签名问题** |
+
+⛔ 后两条最难查：症状都是"签名失败"，
+排查必然被引向证书 / App ID / Profile 三件套，⛔ 而它们全是对的。
+
+⛔ **`App Store Team ID` 填错会报完全无关的错**：
+官方记录的错误信息是
+`JSON text did not start with array or object and option to allow fragments not set`
+—— 官方明确说这是 Team ID 格式错（要 10 位 `ABCDE12XYZ`，
+⛔ 不是 Xcode 在 Signing & Capabilities 里显示的"你的名字"）。
+⛔ 这条报错**看起来是 JSON 解析问题**，会把排查引向完全无关的方向。
+
+ⓘ iOS **模拟器导出目前不支持**（GH-102149）；Apple Silicon Mac 可直接跑 iOS app。
+
+## 10. macOS 与 Web 的两处边界
+
+**macOS**：⛔ **导出为 DMG 只在 macOS 主机上支持**（官方原文），
+在 Win/Linux 上该选项不可用。
+
+ⓘ 关于 ad-hoc 签名：官方口径是它会"让终端用户运行导出 App 更容易"，
+⛔ 具体行为取决于签名 / 公证的组合（官方列了五种情形：
+已签名已公证经 App Store / 已签名已公证外部分发 / 已签名含 ad-hoc 但未公证 /
+未签名但可执行文件 linker-signed / 两者都未签名）。
+⛔ 所以"ad-hoc 到底能不能分发"没有单一答案，要看落在哪一种。
+
+**Web**：
+
+⛔ **`OS.is_userfs_persistent()` 会误报**（官方原文："在某些情况下会误报"）。
+所以检测通过**不等于**一定持久化 —— 它只是个提示，不是保证。
+
+⛔ **iframe 内游玩还需启用第三方 cookie**（官方原文）。
+⛔ itch.io 正是 iframe 嵌入 —— 于是"itch.io 上进度丢失"的排查
+会被引向 Godot 存档代码，而根因在浏览器 cookie 策略。
+
+ⓘ PWA 的 Service Worker 会**始终**模拟跨域隔离头（即使服务器没配），
+这让启用线程的导出能托管在任意站点；该行为可在
+`渐进式 Web 应用` 部分取消勾选「启用跨域隔离标头」来禁用。
+
+## 11. 流程：按什么顺序做
+
+→ `flow/godot/platform-export/00-域流程总览.md`
+
+## 12. 相关文档
 
 - CI 与自动化发布 → `cicd-publish.md`
 - 渲染器能力矩阵 → `render-pipeline.md`
 - 存档 → `security.md`
 - 移动端触控 → `mobile.md`
+- 合规与商店提交 → `compliance.md`
 - 项目设置 → `project.md`

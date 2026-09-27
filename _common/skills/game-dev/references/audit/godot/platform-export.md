@@ -26,3 +26,20 @@
 | 16 | arm64+armv7 都要 | 包体翻倍，只 arm64 就够 |
 | 17 | Linux 用发行版 SDK | 普遍过时，用官方命令行工具 |
 | 18 | 导出模板版本差不多就行 | 必须匹配 |
+| 19 | CLI 导出的相对路径按当前目录算 | ⛔ 基准是 `project.godot` 所在目录 |
+| 20 | 预设名差不多就行 | 必须**精确匹配**，含空格要引号，否则直接失败 |
+| 21 | 非资源文件会自动进包 | `.json`/`.txt` 要在 `Resources > Filters` 显式加，否则静默缺失 |
+| 22 | Android 装了导出模板就够 | Gradle 构建还要 `Install Android Build Template`（每项目一次） |
+| 23 | iOS 导出目录随便选 | 必须是**空文件夹** |
+| 24 | iOS 工程名与项目目录同名没事 | ⛔ 同名导致 Xcode **签名问题** |
+| 25 | iOS 工程名带空格没事 | ⛔ 会**损坏 Xcode 工程文件** |
+| 26 | Team ID 填错只报签名错 | ⛔ 会报 `JSON text did not start with array or object` |
+| 27 | iOS 能用模拟器测 | 官方不支持（GH-102149） |
+| 28 | 任意平台都能打 DMG | ⛔ 仅 macOS 主机支持 |
+| 29 | `--export-debug` 只是多个调试符号 | 还开远程调试与调试检查；Android 上 debug 签名与正式版冲突 |
+| 30 | 存档检测通过就安全 | ⛔ `OS.is_userfs_persistent()` 官方明示会**误报** |
+| 31 | itch.io 丢存档只在无痕模式 | ⛔ iframe 内还需**第三方 cookie** |
+| 32 | PWA 勾了就永远有隔离头 | 由 Service Worker 模拟，**可取消勾选禁用** |
+| 33 | Bundle identifier 随便填 | 官方要求 **valid and unique**（有效且唯一） |
+| 34 | 纹理压缩随便配 | 项目设置与导出预设的 `For Mobile` 必须一致，否则导出校验失败 |
+| 35 | Web 首屏就能出声 | ⛔ 无用户手势前 AudioContext suspended，要做启动屏解锁 |
