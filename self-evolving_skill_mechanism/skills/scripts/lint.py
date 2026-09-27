@@ -1073,6 +1073,11 @@ def check_check_coverage(cfg, root=None):
 
     为什么用 AST 而不是运行时统计：运行时只能看到「本次跑没跑」，
     看不到「自检里有没有为它写用例」——这次跑了不等于下次还测。
+    
+    ⛔ 本检查查的是"自检有没有调用"，**不查"主流程有没有调用"**——
+       实测有 5 个检查被自检调用但从未接入主流程，本检查报 0 条。
+       ⇒ **有测试 ≠ 在跑**：测试证明它能工作，不证明它在工作。
+       那一档由 `check_unwired_checks` 守着。
     """
     base = Path(root) if root else ROOT
     target = base / "scripts" / "lint.py"
@@ -3194,6 +3199,81 @@ def check_spec_drift(cfg, root=None):
     return issues
 
 
+def check_unwired_checks(cfg, root=None):
+    """检查项定义了、自检也调了，但**没接进主流程**。
+
+    ⛔ 实测（2026-09-26）：定义 39 个 / 自检调用 39 个 / **主流程只调 34 个**
+    ⇒ 5 个检查（`check_scan_scope` / `check_block_refs` /
+       `check_duplicate_headings` / `check_orphan_table_row` /
+       `check_antipattern_tables`）**跑得绿、自检计数照涨，
+       但真库从未被它们检查过**。
+
+    ⛔ 为什么 `check_check_coverage` 没抓到：它查的是
+    "在 `cmd_self_test` 里有没有被调用"——而这 5 个**确实被自检调了**。
+    ⇒ 判据认错了对象（同族第 N 次）：
+    "有测试" ≠ "在跑"。测试证明它能工作，不证明它在工作。
+
+    ### 三层
+
+    ```
+    定义（def check_*）        39
+    自检调用（cmd_self_test）  39   ← 差集=没测试
+    主流程调用（main）         34   ← 差集=没在跑 ⛔ 本检查
+    ```
+
+    ⛔ 只比"定义 vs 主流程"会漏掉"既没测又没接"的那个差集归属，
+       分成两层才能说清每个检查处于哪一档。
+    """
+    base = Path(root) if root else ROOT
+    srcf = base / "scripts" / "lint.py"
+    if not srcf.is_file():
+        return []
+    try:
+        tree = ast.parse(srcf.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return []
+    defined = {n.name for n in tree.body
+               if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")}
+    mainf = self_fn = None
+    for n in tree.body:
+        if isinstance(n, ast.FunctionDef):
+            if n.name == "main":
+                mainf = n
+            elif n.name == "cmd_self_test":
+                self_fn = n
+
+    def _called(node):
+        return {c.func.id for c in ast.walk(node)
+                if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                and c.func.id.startswith("check_")}
+
+    in_main = _called(mainf) if mainf else set()
+    in_test = _called(self_fn) if self_fn else set()
+    issues = []
+    for name in sorted(defined - in_main):
+        if name == "check_unwired_checks":
+            continue
+        tested = name in in_test
+        issues.append({
+            "level": "error",
+            "file": "scripts/lint.py",
+            "issue": "⛔ 检查项 `%s` 未接入主流程（%s）" %
+                     (name, "自检有调用" if tested else "⛔ 自检也没调用"),
+            "hint": "⛔ 只写测试不接线：测试证明它**能**工作，"
+                    "不证明它**在**工作。自检计数照涨，"
+                    "而真库从未被这个检查看过。"
+                    "判据：定义 / 自检调用 / 主流程调用三层都要对上。"})
+    for name in sorted(defined - in_test):
+        if name == "check_unwired_checks":
+            continue
+        issues.append({
+            "level": "warn",
+            "file": "scripts/lint.py",
+            "issue": "检查项 `%s` 在自检里从未被调用" % name,
+            "hint": "接入主流程但没有用例 ⇒ 改坏了不会被发现。"})
+    return issues
+
+
 def check_hardcoded_scan_sets(cfg, root=None):
     """扫全库的检查里，区名单不能写死（字面量含 ≥2 个区名即报）。
 
@@ -4758,6 +4838,31 @@ trigger: 测试
             ' "执行"]\n', encoding='utf-8')
         chk(not check_undeclared_spec_copies(cfg, vroot),
             '覆盖率 <60% 的巧合同现不报（⛔ 实测 FLOW_SECTION 只 3/6）')
+
+        # ---- check_unwired_checks：定义了但没接进主流程 ----
+        #    ⛔ 实测：5 个检查只在自检里跑，主流程从不调用
+        #       ⇒ 自检计数照涨，真库从未被检查
+        uw = vroot / 'scripts'
+        uw.mkdir(parents=True, exist_ok=True)
+        uwf = uw / 'lint.py'
+        uwf.write_text(
+            'import ast\n\n\n'
+            'def check_a(cfg, root=None):\n    return []\n\n\n'
+            'def check_b(cfg, root=None):\n    return []\n\n\n'
+            'def cmd_self_test():\n    check_a(None)\n    check_b(None)\n\n\n'
+            'def main():\n    check_a(None)\n',
+            encoding='utf-8')
+        got = check_unwired_checks(cfg, vroot)
+        # ⛔ 反侧：check_b 自检有调用但主流程没有 → 必须报 error
+        chk(any('check_b' in str(i2.get('issue', ''))
+                and i2.get('level') == 'error' for i2 in got),
+            '未接入主流程能查出（⛔ 自检有调用 ≠ 在跑，'
+            '实测 5 个检查就是这么漏的）')
+        chk(not any('check_a' in str(i2.get('issue', '')) for i2 in got),
+            '已接入主流程的不报（确认没有一刀切）')
+        chk(not any(i2.get('level') == 'warn' for i2 in got),
+            '两个都在自检里被调用 → 不报自检缺失')
+        uwf.unlink(missing_ok=True)
         cpy.unlink()
 
         chk(not [i for i in check_zone_refs(cfg, vroot)
@@ -5690,7 +5795,16 @@ def main():
               + check_undeclared_spec_copies(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
-              + check_heading_numbering(cfg))
+              + check_heading_numbering(cfg)
+              # ⛔ 以下 5 个此前**只在自检里被调用，从未进入主流程**
+              #    （实测：定义 39 / 自检 39 / 主流程 34）
+              #    ⇒ 它们跑得绿、自检计数照涨，但**真库从未被检查过**。
+              + check_scan_scope(cfg)
+              + check_block_refs(cfg)
+              + check_duplicate_headings(cfg)
+              + check_orphan_table_row(cfg)
+              + check_antipattern_tables(cfg)
+              + check_unwired_checks(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

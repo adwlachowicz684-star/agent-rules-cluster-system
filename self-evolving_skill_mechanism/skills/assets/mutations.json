@@ -774,5 +774,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M62",
+  "target": "scripts/lint.py",
+  "desc": "[未接线] 主流程差集不报 → 检查只写测试不接线，真库从未被查",
+  "old": "    for name in sorted(defined - in_main):\n        if name == \"check_unwired_checks\":\n            continue",
+  "new": "    for name in ():",
+  "expect": "KILLED",
+  "why": "⛔ 实测：定义 39 / 自检 39 / 主流程 34 ⇒ 5 个检查跑得绿、自检计数照涨，而真库从未被它们检查。且 check_check_coverage 抓不到（它查的是自检是否调用，而这 5 个确实被自检调了）。判据：有测试 ≠ 在跑。",
+  "source": "2026-09-26 检查项未接入主流程",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
