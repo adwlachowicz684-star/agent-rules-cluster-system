@@ -654,5 +654,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M54",
+  "target": "scripts/lint.py",
+  "desc": "[区列表] 写死 4 个区 → common 区永远进不来",
+  "old": "    for zone in sorted(d.name for d in ref.iterdir() if d.is_dir()):\n        zd = ref / zone",
+  "new": "    for zone in (\"howto\", \"audit\", \"craft\", \"flow\"):\n        zd = ref / zone",
+  "expect": "KILLED",
+  "why": "⛔ 实测：写死的名单漏掉 common 区（总纲五区之一，3 份文档，也没有 index.md）——而它是我自己在总纲里定义的。写死的名单 = 新增区永远进不来（第二十一条形态②）。⛔ 这类洞会反复出现：扫全库的检查只要用常量名单就会漏。",
+  "source": "2026-09-26 common 区索引",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

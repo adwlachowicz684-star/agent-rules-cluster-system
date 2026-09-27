@@ -72,14 +72,15 @@ verified: yes
 
 | 区 | 装什么 | 判据（动词） | 读的时机 |
 |---|---|---|---|
-| **`howto/`** (16) | 具体怎么做 | 「应该…」「先做…再…」 | 写 / 改 / 生成技能时（含 [`ratchet.md`](reference/howto/ratchet.md) 只进不退） |
+| **`howto/`** (17) | 具体怎么做 | 「应该…」「先做…再…」 | 写 / 改 / 生成技能时（含 [`ratchet.md`](reference/howto/ratchet.md) 只进不退） |
 | **`audit/`** (7) | 不能怎么做 | 「不要…」「会失效如果…」 | 审核 / 提优化建议时 |
 | **`flow/`** (13) | 端到端流程（`FL-xx` 编号） | 「第一步…第二步…」 | 要走完一整件事时 |
-| **`common/`** (2) | 元规则、共用约定 | 「本文讲…」 | **不确定读哪个区时** |
+| **`common/`** (3) | 元规则、共用约定 | 「本文讲…」 | **不确定读哪个区时** |
 | **`craft/`** (4) | 品位与技巧 | 「好的…应该…」 | 想做得更好时 |
 
 **三种场景需要展开**：
 - 不知道某句话该进哪个区 → `reference/common/split-two-books.md` 第二节
+- **不确定这件事归谁管** → `reference/common/index.md`（按困惑接入，含五区入口形态对照表）
 - 审核 / 加检查项 → `reference/audit/self-verification.md`（索引，按失效大类分三册）
 - **走流程 / 新建流程** → `reference/flow/index.md`（FL-xx 登记表 + 新建四步）
 - **从零建一个新 skill** → `reference/flow/new-skill.md`（`FL-03`，含批量填充）

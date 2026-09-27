@@ -2807,8 +2807,15 @@ def check_zone_index(cfg, root=None):
     base = Path(root) if root else ROOT
     issues = []
     RX_ENTRY = re.compile(r"^##+[^\n]*按[^\n]{0,8}接入[^\n]*$", re.M)
-    for zone in ("howto", "audit", "craft", "flow"):
-        zd = base / "reference" / zone
+    # ⛔ 区列表**不能写死**：实测写死成 ("howto","audit","craft","flow")
+    #    ⇒ 漏掉 common 区（总纲五区之一，3 份文档，也没有 index.md）。
+    #    ⛔ 写死的名单 = 新增区永远进不来（第二十一条形态②：
+    #       "名单写死，新增进不来"）。
+    ref = base / "reference"
+    if not ref.is_dir():
+        return issues
+    for zone in sorted(d.name for d in ref.iterdir() if d.is_dir()):
+        zd = ref / zone
         if not zd.is_dir():
             continue
         files = [f for f in zd.glob("*.md") if f.name != "index.md"]
@@ -2954,7 +2961,11 @@ def check_zone_refs(cfg, root=None):
     它报 info 不报 warn：报 warn 会让 lint 长期带基线 ⇒ 检查被关掉。
     """
     issues = []
-    for z in ("howto", "audit", "common", "flow"):
+    # ⛔ 同上，区列表不写死（实测漏掉 craft 之外的任何新区）
+    ref = Path(root) / "reference" if root else ROOT / "reference"
+    if not ref.is_dir():
+        return issues
+    for z in sorted(d.name for d in ref.iterdir() if d.is_dir()):
         issues += _zone_orphans(cfg, root, z)
     return issues
 
@@ -4174,6 +4185,19 @@ trigger: 测试
                  if i.get('level') == 'error'
                  and 'howto' in str(i.get('file', ''))],
             '接入表链接存在 → 不报（确认没有一刀切）')
+        # ⛔ 反侧二：区列表**不能写死**（EV-M54 守着）
+        #    实测写死成 ("howto","audit","craft","flow") ⇒ 漏掉 common 区
+        #    （总纲五区之一，3 份文档，也没有 index.md）。
+        #    ⛔ 样本必须含**不在写死名单里的区名**，否则变异与否都一样
+        #       ⇒ 用例恒绿（EV-M54 首跑 SURVIVED 就是这么来的，第 N 次）。
+        cz = vroot / 'reference' / 'common'
+        cz.mkdir(parents=True, exist_ok=True)
+        (cz / 'b.md').write_text('# b\n\nx\n', encoding='utf-8')
+        chk(any('没有 index.md' in str(i.get('issue', ''))
+                and 'common' in str(i.get('file', ''))
+                for i in check_zone_index(cfg, vroot)),
+            '⛔ 区列表不能写死：名单外的区（common）也要能查出'
+            '（写死 = 新增区永远进不来）')
 
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
