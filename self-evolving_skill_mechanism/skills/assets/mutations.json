@@ -504,5 +504,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M44",
+  "target": "scripts/lint.py",
+  "desc": "[craft接入表] 不扫 craft/index.md → 接入表锚点错了查不出来",
+  "old": "    idx = craft / \"index.md\"\n    if idx.is_file():",
+  "new": "    idx = None  # 变异：不扫接入表\n    if idx is not None and idx.is_file():",
+  "expect": "KILLED",
+  "why": "⛔ 接入表写的是同目录相对（`taste.md#1. ...`），不带 craft/ 前缀 ⇒ 不在主匹配范围。它是「按动作找条目」的唯一入口，指错了读的人跳过去是空的，而 lint 全绿。",
+  "source": "2026-09-26 craft 动作接入",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M45",
+  "target": "scripts/lint.py",
+  "desc": "[craft接入表] 自指计入接入率 → index 列一遍就 100%",
+  "old": "                           for h in heads[fn]):\n                    issues.append({",
+  "new": "                           for h in heads[fn]):\n                    anchored.add((fn, _norm_anchor(anc)))\n                    issues.append({",
+  "expect": "KILLED",
+  "why": "⛔ 接入表若把自指算进 anchored，index 列一遍全部条目 ⇒ 接入率 100% 但没人真用。假接入比低接入更危险（第二十一条 + 第二十三条）。",
+  "source": "2026-09-26 craft 动作接入",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

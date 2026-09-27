@@ -2577,6 +2577,30 @@ def check_craft_refs(cfg, root=None):
                     "hint": "⛔ 锚点写错 → 读的人得到「这条不存在」→ "
                             "**回去自己想一遍**，craft 层形同虚设"})
 
+    # ⓘ 本层接入表（craft/index.md）的锚点也要查断链
+    #    ⛔ 实测漏：接入表里写的是**同目录相对**（`taste.md#1. ...`），
+    #       不带 `craft/` 前缀 ⇒ 不在上面的匹配范围 ⇒ 锚点错了查不出来。
+    #    ⇒ 读的人按接入表跳过去是空的，而 lint 全绿。
+    #
+    #    ⛔ 但**不能计入 anchored**：index 自指会让所有条目"看起来已接入"，
+    #       接入率被自己刷高（第二十三条：能数出来的不等于该判的）。
+    idx = craft / "index.md"
+    if idx.is_file():
+        for i, ln in enumerate(idx.read_text(encoding="utf-8").split("\n"), 1):
+            for m in re.finditer(r"(?<![\w/.-])([\w.\-]+\.md)#([^`)\"']+)", ln):
+                fn, anc = m.group(1), m.group(2)
+                if fn not in heads:
+                    continue
+                if not any(_anchor_match(_norm_anchor(anc), h)
+                           for h in heads[fn]):
+                    issues.append({
+                        "level": "error",
+                        "file": "reference/craft/index.md:%d" % i,
+                        "issue": "本层接入表的锚点不存在：`%s#%s`" % (fn, anc),
+                        "hint": "⛔ 接入表是**按动作找条目**的入口——"
+                                "它指错了，读的人照着跳过去是空的。"
+                                "⛔ 不算接入率（自指会把接入率刷高）"})
+
     # 孤儿
     cited_files = set()
     anchored = set()   # (file, norm_anchor) 被条目级指向的
@@ -3838,6 +3862,30 @@ trigger: 测试
                  if 'assets' in str(i.get('file', ''))],
             'assets/ 变更溯源不报（⛔ 历史记录改写会失真）')
         # 级别：info 不是 warn（⛔ 存量 22 条报 warn = 长期带基线 → 检查被关掉）
+
+        # ---- 本层接入表（craft/index.md）的锚点断链 ----
+        cp = vroot / 'reference' / 'craft'
+        cp.mkdir(parents=True, exist_ok=True)
+        (cp / 'taste.md').write_text(
+            '# t\n\n### 1. 甲\n\nx\n', encoding='utf-8')
+        (cp / 'index.md').write_text(
+            '# i\n\n| a | `taste.md#1. 甲` |\n', encoding='utf-8')
+        chk(not [i for i in check_craft_refs(cfg, vroot)
+                 if '接入表的锚点' in str(i.get('issue', ''))],
+            '接入表锚点正确 → 不报')
+        (cp / 'index.md').write_text(
+            '# i\n\n| a | `taste.md#9. 不存在` |\n', encoding='utf-8')
+        chk(any('接入表的锚点不存在' in str(i.get('issue', ''))
+                for i in check_craft_refs(cfg, vroot)),
+            '接入表锚点写错能查出（⛔ 接入表是"按动作找条目"的入口，'
+            '指错了读的人跳过去是空的）')
+        # ⛔ 反侧：接入表自指**不能**计入接入率
+        #    （否则 index 列一遍全部条目 ⇒ 接入率 100% 但没人真用）
+        rate = [i for i in check_craft_refs(cfg, vroot)
+                if '接入率' in str(i.get('issue', ''))]
+        chk(rate and '0%' in rate[0]['issue'],
+            '接入表自指不计入接入率（⛔ 否则 index 列一遍就 100%，'
+            '但读的人仍然不知道什么时候该来本层）')
         chk(all(i.get('level') == 'info' for i in check_feed_source_path(cfg, vroot)),
             '反哺无路径是 info（⛔ 报 warn 会让 lint 长期带基线 → 检查被关掉）')
 
