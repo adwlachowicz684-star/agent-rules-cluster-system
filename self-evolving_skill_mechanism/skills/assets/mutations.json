@@ -639,5 +639,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M53",
+  "target": "scripts/lint.py",
+  "desc": "[区索引] 只认「文件名出现过」→ 清单必然全过，检查形同虚设",
+  "old": "        m = RX_ENTRY.search(itx)\n        if not m:\n            issues.append({\n                \"level\": \"warn\", \"file\": \"reference/%s/index.md\" % zone,\n                \"issue\": \"%s 区索引没有「按 X 接入」章节（有索引 ≠ 有入口）\"\n                         % zone,",
+  "new": "        m = RX_ENTRY.search(itx)\n        if False:\n            issues.append({\n                \"level\": \"warn\", \"file\": \"reference/%s/index.md\" % zone,\n                \"issue\": \"%s 区索引没有「按 X 接入」章节（有索引 ≠ 有入口）\"\n                         % zone,",
+  "expect": "KILLED",
+  "why": "⛔ 与 check_flow_entry 同族：列表型内容天然列出全部成员，按「出现过」判必然全过。索引回答「我知道有 X，它在哪」（要先知道名字），入口回答「我在情况 Y，该看哪个」。⛔ 这个洞在流程入口那次已经踩过一次，这是同形态第二次——说明它会反复出现。",
+  "source": "2026-09-26 区索引检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

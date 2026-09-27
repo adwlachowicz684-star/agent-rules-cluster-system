@@ -2784,6 +2784,79 @@ def check_craft_refs(cfg, root=None):
     return _zone_orphans(cfg, root, "craft")
 
 
+def check_zone_index(cfg, root=None):
+    """每个区必须有 index.md，且必须有「按 X 接入」章节。
+
+    ⛔ 实测（2026-09-26）：**howto（17 份）与 audit（7 份）连索引文件都没有**。
+    读的人要先知道 `capture-signals.md` 这个文件名才找得到它。
+
+    ⇒ 接入率 13% / 5% 的根因不是"引用写得少"，是**触发机制缺失**。
+    ⛔ 为接入率加引用是治标——数字变好看，读的人仍然不知道有这些文件。
+
+    三查：
+        ① **缺 index.md**（warn）——触发机制不存在
+        ② **缺接入表章节**（warn）——有索引不等于有入口。
+           索引回答"我知道有 X，它在哪"（要先知道名字），
+           入口回答"我在情况 Y，该看哪个"。
+        ③ **接入表里的链接指向不存在的文件**（error）——跳过去是空的
+
+    ⛔ 为什么 ② 和 `check_flow_entry` 的"登记表不算入口"是同一条：
+       列表型内容天然会列出全部成员，按"出现过"判必然全过
+       ⇒ 检查形同虚设。必须认**按用法组织的章节**。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    RX_ENTRY = re.compile(r"^##+[^\n]*按[^\n]{0,8}接入[^\n]*$", re.M)
+    for zone in ("howto", "audit", "craft", "flow"):
+        zd = base / "reference" / zone
+        if not zd.is_dir():
+            continue
+        files = [f for f in zd.glob("*.md") if f.name != "index.md"]
+        if not files:
+            continue
+        idx = zd / "index.md"
+        if not idx.is_file():
+            issues.append({
+                "level": "warn", "file": "reference/%s/" % zone,
+                "issue": "%s 区 %d 份文档没有 index.md（读的人不知道有这些文件）"
+                         % (zone, len(files)),
+                "hint": "⛔ 接入率低的根因是**触发机制缺失**，不是引用少。"
+                        "⛔ 不要靠加引用提数字——读的人仍然不知道有这些文件。"
+                        "建 index.md，并按用法组织入口表"
+                        "（howto=按动作 / audit=按症状 / craft=按犹豫 / flow=按场景）"})
+            continue
+        try:
+            itx = idx.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        m = RX_ENTRY.search(itx)
+        if not m:
+            issues.append({
+                "level": "warn", "file": "reference/%s/index.md" % zone,
+                "issue": "%s 区索引没有「按 X 接入」章节（有索引 ≠ 有入口）"
+                         % zone,
+                "hint": "⛔ 索引回答「我知道有 X，它在哪」——**要先知道名字**。"
+                        "入口回答「我在情况 Y，该看哪个」。"
+                        "⛔ 判据不能是「文件名出现过」：列表型内容必然列出全部成员，"
+                        "按出现过判 ⇒ 全过 ⇒ 检查形同虚设"})
+            continue
+        # ③ 接入表里的链接必须存在
+        seg = itx[m.end():]
+        nxt = re.search(r"^##\s", seg, re.M)
+        if nxt:
+            seg = seg[:nxt.start()]
+        for lm in re.finditer(r"\]\(([\w.\-]+\.md)\)", seg):
+            fn = lm.group(1)
+            if not (zd / fn).is_file():
+                issues.append({
+                    "level": "error",
+                    "file": "reference/%s/index.md" % zone,
+                    "issue": "%s 区接入表指向不存在的文件：`%s`" % (zone, fn),
+                    "hint": "⛔ 入口指错 = 读的人跳过去是空的，"
+                            "而文档自己不会报错"})
+    return issues
+
+
 def check_flow_entry(cfg, root=None):
     """procedure 型流程必须有**入口**（⛔ 没有 = 没人知道什么时候走它）。
 
@@ -4052,6 +4125,56 @@ trigger: 测试
                  if 'm.md' in str(i.get('file', ''))],
             'meta 型不要求入口（它不是"照着走"的流程）')
 
+        # ---- check_zone_index：区必须有索引 + 接入表 ----
+        #    ⛔ 实测：howto（17 份）与 audit（7 份）**连索引都没有**
+        #    ⇒ 接入率低的根因是触发机制缺失，不是引用少。
+        zi = vroot / 'reference' / 'howto'
+        zi.mkdir(parents=True, exist_ok=True)
+        (zi / 'a.md').write_text('# a\n\nx\n', encoding='utf-8')
+        # 正向：有索引 + 有接入表 + 链接存在 → 不报
+        (zi / 'index.md').write_text(
+            '# i\n\n## 按动作接入\n\n| 做啥 | 看哪 |\n|---|---|\n'
+            '| 写规则 | [a.md](a.md) |\n', encoding='utf-8')
+        chk(not [i for i in check_zone_index(cfg, vroot)
+                 if 'howto' in str(i.get('file', ''))],
+            '有索引 + 有接入表 + 链接存在 → 不报')
+        # 反向一：缺 index.md → warn
+        (zi / 'index.md').unlink()
+        chk(any(i.get('level') == 'warn'
+                and '没有 index.md' in str(i.get('issue', ''))
+                and 'howto' in str(i.get('file', ''))
+                for i in check_zone_index(cfg, vroot)),
+            '区缺 index.md 能查出（⛔ 接入率低的根因是触发机制缺失）')
+        chk(not [i for i in check_zone_index(cfg, vroot)
+                 if i.get('level') == 'error'
+                 and 'howto' in str(i.get('file', ''))],
+            '缺索引是 warn 不是 error（⛔ 报 error 会让 lint 立刻红）')
+        # 反向二：⛔ 有索引但只有**清单** → 仍报（列表必然列出全部成员，
+        #         按"出现过"判 ⇒ 全过 ⇒ 检查形同虚设）
+        (zi / 'index.md').write_text(
+            '# i\n\n## 文件清单\n\n| 文件 | 说明 |\n|---|---|\n'
+            '| [a.md](a.md) | x |\n', encoding='utf-8')
+        chk(any('没有「按 X 接入」章节' in str(i.get('issue', ''))
+                and 'howto' in str(i.get('file', ''))
+                for i in check_zone_index(cfg, vroot)),
+            '⛔ 只有清单仍报（索引="我知道有 X"，入口="我在情况 Y 该看哪个"）')
+        # 反向三：接入表指向不存在的文件 → error
+        (zi / 'index.md').write_text(
+            '# i\n\n## 按动作接入\n\n| 做啥 | 看哪 |\n|---|---|\n'
+            '| 写规则 | [nope.md](nope.md) |\n', encoding='utf-8')
+        chk(any(i.get('level') == 'error'
+                and '不存在的文件' in str(i.get('issue', ''))
+                for i in check_zone_index(cfg, vroot)),
+            '接入表指向不存在的文件能查出（error）')
+        # 正侧：接入表链接存在 → 不报断链（确认不是一刀切）
+        (zi / 'index.md').write_text(
+            '# i\n\n## 按动作接入\n\n| 做啥 | 看哪 |\n|---|---|\n'
+            '| 写规则 | [a.md](a.md) |\n', encoding='utf-8')
+        chk(not [i for i in check_zone_index(cfg, vroot)
+                 if i.get('level') == 'error'
+                 and 'howto' in str(i.get('file', ''))],
+            '接入表链接存在 → 不报（确认没有一刀切）')
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
@@ -4976,6 +5099,7 @@ def main():
               + check_craft_refs(cfg)
               + check_zone_refs(cfg)
               + check_flow_entry(cfg)
+              + check_zone_index(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))
