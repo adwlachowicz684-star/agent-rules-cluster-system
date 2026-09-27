@@ -82,6 +82,26 @@ Godot 的骨骼配置（`SkeletonProfileHumanoid` 等）用于在导入/绑定�
 
 ## 2. ⚠ 第一道隔离：显示用 A，属性用 B
 
+⚠ **显示链与属性链必须各自独立取数**，这是外观系统最重要的一条隔离。
+
+| | 显示链（A） | 属性链（B） |
+|---|---|---|
+| 数据 | `ActiveAppearance` + 外观资产 | 装备实例 / 角色数值 / 能力模板 |
+| 谁来问 | 渲染、动画、UI 展示 | 战斗、移动、碰撞、经济结算 |
+| 失败时 | 回退默认外观，⛔ **不影响任何数值** | 与外观无关 |
+
+⛔ **最常见的越界**：外观挂点被写成"顺便提供碰撞/移速/技能参数"，
+于是换一件时装等于改一次战斗数值 —— 而这在功能测试里**完全测不出来**
+（测试只验证"穿上后能跑能打"）。
+
+✅ 落地判据（CI 可查）：
+- 外观目录/资源**不得**含 `collision_shape`、根运动、移速、伤害、命中范围字段
+- 战斗与移动代码**不得**读取外观实例上的任何数值字段
+- 外观实例与装备实例**分离存储**：装备交易/分解/回滚不该让时装消失（见 `economy.md`）
+
+ⓘ 反过来说，"外观改数值"的诉求（如坐骑皮肤带移速）应当**显式转成数值系统的一部分**
+并纳入平衡与商业化审批，⛔ 不能藏在外观资产里悄悄生效。
+
 ## 3. 称号 / 头像框：纯 UI 资产，但仍要服务端权威
 
 ⚠ **称号可伪造 → 冒充 GM / 客服。** 这是权限伪造与社会工程攻击的入口。
@@ -124,7 +144,8 @@ func apply_or_load(slot, template, target) -> void:
 
 func fail_loader(loader) -> void:
     for item in loader.waiters: apply_default(item.slot, item.target)   # ⚠ 回退默认
-    _loaders.erase(loader.path); loader.cancel()
+    _loaders.erase(loader.path)
+    # ⛔ ResourceLoader 没有 cancel API —— "取消"只能是丢弃结果，不是中止加载线程
 ```
 
 ⚠ **取消语义**：从 A 切到 B 而 A 仍在加载时，B 完成后必须**丢弃 A 的结果**，
@@ -135,6 +156,41 @@ func fail_loader(loader) -> void:
 ⛔ 避免一个玩家离开就导致其他玩家卸载。
 
 ⚠ **"资源已加载完成" ≠ "外观已展示"** —— 要另设 `asset_applied` 状态，显式回调。
+
+### 6.1 ⚠ 官方线程加载的四个坑（与"多玩家等同一件时装"直接冲突）
+
+| 官方口径 | 后果 |
+|---|---|
+| ⛔ `load_threaded_get()` **会把任务从列表移除**（一次性检索） | 第一个等待者取走后，其余人再查状态得到 `THREAD_LOAD_INVALID_RESOURCE` → 被当成"资源无效"而回退默认 |
+| ⛔ 未完成时调 `load_threaded_get()` **会阻塞调用线程** | 在主线程调用可能死锁；官方要求轮询 `load_threaded_get_status()`，⛔ 不要在循环里等 |
+| ⛔ **没有 cancel API** | "取消"只能是**丢弃结果 + 令牌校验**，⛔ 不是中止加载线程 |
+| ⛔ 资源缓存是**弱引用**，自己不持有会被释放 | 外观"偶尔失效又重新加载"，且重载后是新实例 → 已染色的实例参数丢失 |
+
+⛔ **第一条对本域最致命**：上面的 `add_waiter` 模式（多玩家等同一件时装）
+与官方"取走即移除"的语义**直接冲突**。表现为"第一个人穿上正常、后面的人全回退默认"，
+而日志里写的是"资源无效" —— 排查必然被引向资源路径或导出设置，
+不会想到是**同一次加载被取了两次**。
+
+✅ 正确做法：**取一次，自己缓存，再广播给所有等待者**；
+后续请求一律走自己的 `asset_cache`，⛔ 不对同一 path 二次 `load_threaded_get()`。
+
+ⓘ `use_sub_threads = true` 更快但**会影响主线程、造成卡顿** ——
+大厅同屏大量外观时，默认的单线程模式（false）反而是对的。
+
+⚠ **加载侧的"独立实例"由 `cache_mode` 决定**：默认 `CACHE_MODE_REUSE`（1）
+会复用缓存里的同一个资源实例；需要真独立时用 **`CACHE_MODE_IGNORE`**。
+⛔ 只做"材质 `duplicate()`"而不管 `cache_mode` —— 同一路径仍返回同一实例，
+染色照样污染所有同材质对象，⛔ 而检查材质时它确实是实例材质（看着完全对）。
+
+### 6.2 ⛔ 导出后运行时加载：默认的二进制转换会让它整体失效
+
+官方：`editor/export/convert_text_resources_to_binary` **默认 `true`**，并明确
+*"@GDScript.load will not be able to read converted files in an exported project"*，
+同时 *"Some file paths within the exported PCK will also change, such as project.godot becoming project.binary"*。
+
+⛔ 只要依赖运行时加载 PCK 内文件（外观资产、UGC 素材），就必须把该项设为 **`false`**。
+表现为"编辑器里一切正常、导出后外观全部回退默认"，⛔ 且不报"路径不存在" ——
+因为文件确实在包里，只是读不出来。
 
 ## 7. 网络：进场景全量 + 变更增量 + 周期全量校正
 
@@ -249,5 +305,13 @@ func fail_loader(loader) -> void:
 - 玩家交易 / 拍卖行 → `player-trading.md`
 - 网络同步与 RPC → `multiplayer.md`
 - 资源加载与异步 → `art-assets.md`
+- 按什么顺序做 → `flow/godot/cosmetic/00-域流程总览.md`
 - UGC 内容审核 → `compliance.md`
 - 反作弊与服务器权威 → `security.md`
+
+## 13. 流程：按什么顺序做
+
+→ `flow/godot/cosmetic/00-域流程总览.md`
+
+⛔ 先定"谁拥有、谁说了算"（模板/实例/生效三层 + 服务端权威），再做换装表现；
+顺序反了会在装备交易、限时时装到期、热更换资产时**成片返工**。
