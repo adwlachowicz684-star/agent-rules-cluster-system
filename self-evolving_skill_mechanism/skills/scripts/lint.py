@@ -1381,13 +1381,8 @@ def check_refs(cfg, root=None):
             #    那是描述设计意图，不是指向已存在的文件。
             #    ⇒ 降级 info（可见但不阻断），块外仍 error。
             if _offset_in_code_block(text, m.start()):
-                issues.append({
-                    "level": "info", "file": str(f),
-                    "issue": "L%d 代码块内的路径不存在：`%s`（示意性，未验）"
-                             % (ln, rel),
-                    "hint": "⛔ 代码块内的路径通常是示意，不报 error"
-                            "（误报会让检查被关掉）。"
-                            "若它**应当存在**，把写法移出代码块"})
+                # ⛔ 不再在这里报 info：所有权交给 `check_codeblock_paths`
+                #    （⛔ 降级 info = 埋掉，实测这两条真问题被埋了几十轮）
                 continue
             issues.append({
                 "level": "error",
@@ -3199,6 +3194,89 @@ def check_spec_drift(cfg, root=None):
     return issues
 
 
+# 代码块路径的"示意性"标注：同行出现才算（⛔ 跨行会误配）
+_CB_MARK_RX = re.compile(r"示意|示例|举例|待建|尚未|计划中|虚构|假想")
+
+
+def check_codeblock_paths(cfg, root=None):
+    """代码块里的**本仓库路径**是否真的存在。
+
+    ⛔ 来源：`check_refs` 遇到代码块内的路径会**降级 info**——
+       理由是"代码块里多是示意"。⛔ **降级不等于解决**：
+       它把真问题和假问题一起埋进 40 条提示里，没人看。
+
+       实测（2026-09-26）：两条真问题被埋了几十轮——
+
+        ```
+        layers.md:81   _common/skills/structured-output.md  ← "三层覆盖"整节的核心示例
+        layers.md:101  _common/rules/_common.md             ← 四层优先级链里的"通用铁律"层
+        ```
+
+        集群里只有 `_common/skills/{code-audit, game-dev, localization}`
+        ⇒ **两个都不存在**。而 `structured-output` 还在
+        `loading.md:176` 被**当作真实技能第二次引用**。
+        ⇒ 读者按图去找会找不到，且不知道是自己路径错了还是文档错了。
+
+    ### 判据（第二十九条：先跑真库数误报率）
+
+    | 收窄步骤 | 不存在数 | 误报率 |
+    |---|---|---|
+    | 全部代码块路径 | 51 | **80%**（全是指令示例 `verify.py` 等） |
+    | 收窄到**本仓库**前缀 | 6 | 50%（3 个 `.ai-local/`） |
+    | **排除 `.ai-local/`** | **2** | **0%（2 条全真）** |
+
+    ⇒ `.ai-local/` 必须豁免：它是**项目内覆盖层，按设计就不在仓库里**
+      （存在于用户项目中，见 `howto/layers.md`「项目级覆盖层」）。
+    ⇒ 只认带目录前缀的路径：裸文件名（如 `verify.py`）无法判断归属，
+      收进来就是那 80% 误报的来源。
+    """
+    base = Path(root) if root else ROOT
+    cluster = base.parent.parent          # arc/work → _common/ 在这一层
+    rx = re.compile(
+        r'(?<![\w/-])((?:\.ai-local|_common|reference|scripts|domains|'
+        r'assets|SKILLS|pending|rules|agents)/'
+        r'[\w\u4e00-\u9fff./_-]*\.(?:md|py|sh|json|yaml|yml))')
+    issues = []
+    for f in sorted(base.rglob("*.md")):
+        rel0 = str(f.relative_to(base)) if str(f).startswith(str(base)) else str(f)
+        if rel0.startswith("assets/") or ".git" in rel0:
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        inb = False
+        for ln, line in enumerate(lines, 1):
+            if line.lstrip().startswith("```"):
+                inb = not inb
+                continue
+            if not inb:
+                continue
+            for m in rx.finditer(line):
+                rel = m.group(1)
+                if rel.startswith(".ai-local"):
+                    continue        # 项目内覆盖层，按设计不在仓库里
+                if (base / rel).exists() or (cluster / rel).exists():
+                    continue
+                # 同行标注「示意 / 待建」→ 跳过
+                #    ⓘ 这不是"可静音"的漏洞：写出「示意」这个动作本身
+                #      就是在告诉读者"别去找"——而"不知道该不该去找"
+                #      正是本检查要解决的原始问题。
+                #    ⛔ 必须**同行**（不是 ±3 行上下文）：
+                #      跨行的标注会被误配到无关路径上。
+                if _CB_MARK_RX.search(line):
+                    continue
+                issues.append({
+                    "level": "warn", "file": "%s:%d" % (rel0, ln),
+                    "issue": "⛔ 代码块内的本仓库路径不存在：`%s`" % rel,
+                    "hint": "⛔ 这是**结构文档写的结构**，读者按图去找会找不到，"
+                            "且不知道是自己路径错了还是文档错了。"
+                            "处置：① 它应当存在 → 建它或改写法移出代码块；"
+                            "② 它是设计意图 → 在行内标注「示意 / 待建」，"
+                            "让读者知道不必去找。"})
+    return issues
+
+
 def check_unwired_checks(cfg, root=None):
     """检查项定义了、自检也调了，但**没接进主流程**。
 
@@ -4862,6 +4940,41 @@ trigger: 测试
             '已接入主流程的不报（确认没有一刀切）')
         chk(not any(i2.get('level') == 'warn' for i2 in got),
             '两个都在自检里被调用 → 不报自检缺失')
+
+        # ---- check_codeblock_paths：代码块里的本仓库路径 ----
+        cb = vroot / 'reference' / 'howto'
+        cb.mkdir(parents=True, exist_ok=True)
+        cbf = cb / 'layers.md'
+        # ⛔ 反侧：文档描述的结构在代码块里，但文件不存在 → 必须报
+        #    （实测：_common/skills/structured-output.md 就是这个情况）
+        cbf.write_text('```\n_common/skills/nope.md    ← 流程骨架\n```\n',
+                       encoding='utf-8')
+        chk(any('代码块内的本仓库路径不存在' in i2.get('issue', '')
+                for i2 in check_codeblock_paths(cfg, vroot)),
+            '代码块内不存在的本仓库路径能查出'
+            '（⛔ 降级 info 会把它埋进 40 条提示里，实测埋了几十轮）')
+        # 正向一：`.ai-local/` 按设计不在仓库里 → 不报
+        cbf.write_text('```\n.ai-local/rules.md    ← 项目特化\n```\n',
+                       encoding='utf-8')
+        chk(not check_codeblock_paths(cfg, vroot),
+            '`.ai-local/` 不报（⛔ 项目内覆盖层，按设计就不在仓库里）')
+        # 正向二：裸文件名（无目录前缀）→ 不报
+        #    ⛔ 实测：不收窄会 80% 误报（verify.py 等指令示例）
+        cbf.write_text('```\npython3 verify.py --pending\n```\n',
+                       encoding='utf-8')
+        chk(not check_codeblock_paths(cfg, vroot),
+            '裸文件名不报（⛔ 收进来就是那 80% 误报的来源）')
+        # 正向三：同行标注「示意 / 待建」→ 不报
+        #    ⓘ 写出「示意」这个动作本身就是在告诉读者"别去找"
+        cbf.write_text('```\n_common/skills/nope.md  ← 骨架（示意：待建）\n```\n',
+                       encoding='utf-8')
+        chk(not check_codeblock_paths(cfg, vroot),
+            '同行标注「示意 / 待建」不报（⛔ 该标注本身就是给读者的信息）')
+        # 正向四：块外不归本检查（由 check_refs 以 error 报）
+        cbf.write_text('_common/skills/nope.md 是骨架\n', encoding='utf-8')
+        chk(not check_codeblock_paths(cfg, vroot),
+            '块外路径不归本检查（由 check_refs 报 error）')
+        cbf.unlink(missing_ok=True)
         uwf.unlink(missing_ok=True)
         cpy.unlink()
 
@@ -5804,7 +5917,8 @@ def main():
               + check_duplicate_headings(cfg)
               + check_orphan_table_row(cfg)
               + check_antipattern_tables(cfg)
-              + check_unwired_checks(cfg))
+              + check_unwired_checks(cfg)
+              + check_codeblock_paths(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

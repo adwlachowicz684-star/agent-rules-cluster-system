@@ -789,5 +789,50 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M63",
+  "target": "scripts/lint.py",
+  "desc": "[代码块路径] 去掉 .ai-local 豁免 → 项目内覆盖层误报",
+  "old": "                if rel.startswith(\".ai-local\"):\n                    continue        # 项目内覆盖层，按设计不在仓库里",
+  "new": "                pass",
+  "expect": "KILLED",
+  "why": "⛔ 实测：不排除 .ai-local/ 时误报率 50%（6 个不存在里 3 个是它）。它是项目内覆盖层，按设计就不在仓库里（存在于用户项目中）。误报的检查会被关掉。",
+  "source": "2026-09-26 check_codeblock_paths",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M64",
+  "target": "scripts/lint.py",
+  "desc": "[代码块路径] 放宽到任意路径（不限目录前缀）→ 80% 误报",
+  "old": "assets|SKILLS|pending|rules|agents)/",
+  "new": "assets|SKILLS|pending|rules|agents)?/?",
+  "expect": "KILLED",
+  "why": "⛔ 实测：不限目录前缀时 51 个不存在里 80% 是示意（verify.py 等指令示例）。只认带目录前缀的路径才能降到 0%。",
+  "source": "2026-09-26 check_codeblock_paths",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M65",
+  "target": "scripts/lint.py",
+  "desc": "[代码块路径] 同行标注豁免改成跨行 → 示意标注被误配",
+  "old": "                if _CB_MARK_RX.search(line):\n                    continue",
+  "new": "                if False:\n                    continue",
+  "expect": "KILLED",
+  "why": "⛔ 写出「示意」这个动作本身就是在告诉读者别去找——而不知道该不该去找正是本检查要解决的原始问题。去掉豁免 → layers.md 两条已标注示意的路径被误报。",
+  "source": "2026-09-26 check_codeblock_paths",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

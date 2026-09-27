@@ -77,8 +77,10 @@
 
 **解法：参数化。** 通用包写流程，领域 `rules/` 提供字段定义。
 
+ⓘ **下图是设计意图，不是现状快照**——标注「示意」的路径尚未建立。
+
 ```
-_common/skills/structured-output.md    ← 流程骨架
+_common/skills/structured-output.md    ← 流程骨架（⛔ 示意：集群当前只有 code-audit / game-dev / localization，本文件待建）
   步骤 2「按领域规则定义填充字段」
         ↑ 运行时读取
 法律/rules/_domain.md                   ← 字段定义（4 行）
@@ -98,7 +100,7 @@ _common/skills/structured-output.md    ← 流程骨架
       ↓
 大类 rules/*.md              ← 领域硬约束
       ↓
-_common/rules/_common.md     ← 通用铁律
+_common/rules/_common.md     ← 通用铁律（⛔ 示意：`_common/rules/` 目录待建，集群当前只有 `_common/skills/`）
       ↓
 SKILLS/_hot.md               ← 引擎自带热区
 ```

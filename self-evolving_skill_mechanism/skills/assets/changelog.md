@@ -54,3 +54,6 @@
 | 2026-09-26 | ⛔⛔ **5 个检查只在自检里跑，从未接入主流程** | 修正 | 定义 39 / 自检 39 / **主流程 34**。check_scan_scope · check_block_refs · check_duplicate_headings · check_orphan_table_row · check_antipattern_tables —— 自检计数照涨而真库从未被查。⛔ **check_check_coverage 抓不到**：它查"自检有没有调用"，而这 5 个确实被调了 ⇒ **有测试 ≠ 在跑** |
 | 2026-09-26 | 接入后立刻报出 3 条真缺陷 | 修正 | falsepos.md 重复标题「### 判据」×2、substance.md 孤立表格行、**changelog.md 缺 `\|---\|` 分隔行（整张表从未渲染）** |
 | 2026-09-26 | 新增 `check_unwired_checks`（三层比对） | 新增 | 定义 / 自检调用 / 主流程调用。⛔ 只比"定义 vs 主流程"说不清每个检查处于哪一档 |
+| 2026-09-26 | ⛔ 结构文档描述的结构，2 处在集群里不存在 | 修正 | layers.md 的 `_common/skills/structured-output.md`（三层覆盖整节的核心示例）与 `_common/rules/_common.md`（四层优先级链里的通用铁律层）。集群只有 `_common/skills/{code-audit, game-dev, localization}`。已在行内标注「示意：待建」 |
+| 2026-09-26 | 新增 `check_codeblock_paths` | 新增 | ⛔ 此前 `check_refs` 遇到代码块路径**降级 info** ⇒ 这 2 条真问题被埋在 40 条提示里几十轮。判据：本仓库前缀 + 排除 `.ai-local/` + 同行「示意」标注 ⇒ **误报率 0%**（不限前缀时 80%、不排除 .ai-local 时 50%） |
+| 2026-09-26 | ⓘ 「示意」豁免不是漏洞 | 说明 | 写出「示意」这个动作本身就是在告诉读者"别去找"——**而"不知道该不该去找"正是本检查要解决的原始问题**。⛔ 必须同行，跨行会误配 |
