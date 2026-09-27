@@ -141,5 +141,6 @@
 | 39 | `firearms` | `audit/godot/firearms.md` |
 | 40 | `build-affix` | `audit/godot/build-affix.md` |
 | 41 | `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
+| 42 | `ops` | `audit/godot/ops.md` |
 
 完整判据见 `../../../../code-audit/references/p-godot.md`。
