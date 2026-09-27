@@ -725,7 +725,8 @@ def check_reference_zones(cfg, root=None):
     """
     base = Path(root) if root else ROOT
     ref = base / "reference"
-    zones = cfg.get("reference_zones") or ["howto", "audit", "flow", "common", "craft"]
+    # ⛔ 不写死：`_zones` 内部优先 config，否则扫描目录
+    zones = _zones(root, cfg)
     if not ref.exists():
         return []
     issues = []
@@ -1226,6 +1227,28 @@ CROSS_SKILLS = ("game-dev", "code-audit")
 CROSS_OK = []          # 本次实际验到的跨 skill 引用（用于自证"真的在查"）
 
 
+def _zones(root=None, cfg=None):
+    """五区名单：优先 `cfg["reference_zones"]`，否则**扫描** `reference/` 目录。
+
+    ⛔ 实测（2026-09-26 两次同形态）：
+      · `check_zone_index` 写死 4 个区 → 漏掉 **common**（总纲五区之一，
+        3 份文档也没有 index.md，从来没被查过）
+      · `check_zone_refs` 写死 4 个区 → 漏掉 **craft**
+
+    ⇒ 写死的名单 = 新增区永远进不来（第二十一条形态②）。
+    而这类洞**不会报错**——检查照跑、照常返回 0 条。
+
+    ⓘ config 优先是刻意的：允许显式收窄（比如只想查两个区）。
+    但 config 没给就必须扫描，⛔ 不能退回写死默认值。
+    """
+    if cfg and cfg.get("reference_zones"):
+        return list(cfg["reference_zones"])
+    ref = (Path(root) if root else ROOT) / "reference"
+    if not ref.is_dir():
+        return []
+    return sorted(d.name for d in ref.iterdir() if d.is_dir())
+
+
 def check_refs(cfg, root=None):
     """文档引用的 scripts/ 与 reference/ 路径必须真实存在。
 
@@ -1257,7 +1280,7 @@ def check_refs(cfg, root=None):
     #
     #    基准：区名开头的路径解析到 `reference/<区>/`，
     #    因为五区目录都在 reference/ 下。
-    ZONES = ("howto", "audit", "flow", "common", "craft")
+    ZONES = tuple(_zones(root, cfg))  # ⛔ 不写死：写死 = 新增区进不来
     # ⛔ 第三处扩展：跨 skill 前缀 + 中文路径
     #    ① `game-dev/...` / `code-audit/...` 不在老前缀里 ⇒ 跨 skill 引用
     #       压根没进匹配（实测 CROSS_OK 恒为 0 = 从来没验过）。
@@ -2575,7 +2598,7 @@ def check_anchor_refs(cfg, root=None):
     """
     base = Path(root) if root else ROOT
     issues = []
-    ZONES = ("howto", "audit", "flow", "common", "craft")
+    ZONES = tuple(_zones(root, cfg))  # ⛔ 不写死：写死 = 新增区进不来
     heads = {}
     for z in ZONES:
         zd = base / "reference" / z
@@ -2861,6 +2884,65 @@ def check_zone_index(cfg, root=None):
                     "issue": "%s 区接入表指向不存在的文件：`%s`" % (zone, fn),
                     "hint": "⛔ 入口指错 = 读的人跳过去是空的，"
                             "而文档自己不会报错"})
+    return issues
+
+
+def check_hardcoded_zone_list(cfg, root=None):
+    """扫全库的检查里，区名单不能写死（字面量含 ≥2 个区名即报）。
+
+    ⛔ 实测：同一形态**已经踩过两次**（2026-09-26）
+      · `check_zone_index` 写死 4 区 → 漏 common（3 份文档没索引也查不到）
+      · `check_zone_refs`  写死 4 区 → 漏 craft
+
+    ⇒ 两次都是"我自己在总纲里定义的五区，检查器只认四个"，
+    而**没有任何东西发现两者不一致**——检查照跑、返回 0 条、全绿。
+
+    ⛔ 判据用 AST 找字面量，不扫原文：
+      扫原文会把注释里那句"⛔ 写死成 (...)"也算进去（误报）。
+
+    ⓘ 级别 warn：config 显式指定区名单是合法用法（允许收窄），
+       此时 `_zones()` 走 config 分支，不经过这里的字面量。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    known = set()
+    ref = base / "reference"
+    if not ref.is_dir():
+        # ⛔ 没有 reference/ 就无从判断"哪些是区名" ⇒ 直接跳过。
+        #    ⛔ 不要退回写死的默认名单——那正是本检查要抓的东西。
+        return issues
+    known = {d.name for d in ref.iterdir() if d.is_dir()}
+    # ⛔ 自检函数里的字面量是**测试样本**，必须显式写死
+    #    （自造样本不能依赖被测逻辑，否则用例恒绿）。
+    #    不豁免会误报 4 条 ⇒ 误报的检查会被关掉。
+    EXEMPT_FN = ("self_test",)
+    for f in sorted((base / "scripts").glob("*.py")):
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for fn in [n for n in ast.walk(tree)
+                   if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            if any(k in fn.name for k in EXEMPT_FN):
+                continue
+            for node in ast.walk(fn):
+                if not isinstance(node, (ast.Tuple, ast.List)):
+                    continue
+                names = [e.value for e in node.elts
+                         if isinstance(e, ast.Constant)
+                         and isinstance(e.value, str)]
+                hit = [n for n in names if n in known]
+                if len(hit) < 2:
+                    continue
+                issues.append({
+                    "level": "warn",
+                    "file": "scripts/%s" % f.name,
+                    "issue": "L%d 区名单写死：%s"
+                             % (getattr(node, "lineno", 0), hit),
+                    "hint": "⛔ 写死的名单 = 新增区永远进不来"
+                            "（实测两次：漏 common、漏 craft，且不报错）。"
+                            "改用 `_zones(root, cfg)`——它优先读 config，"
+                            "否则扫描 `reference/` 下的目录。"})
     return issues
 
 
@@ -4199,6 +4281,46 @@ trigger: 测试
             '⛔ 区列表不能写死：名单外的区（common）也要能查出'
             '（写死 = 新增区永远进不来）')
 
+        # ---- check_hardcoded_zone_list：扫全库的检查不能写死区名单 ----
+        hz = vroot / 'reference' / 'howto'
+        hz.mkdir(parents=True, exist_ok=True)
+        (hz / 'c.md').write_text('# c\n\nx\n', encoding='utf-8')
+        # ⛔ 反侧：样本必须**在被测脚本里真的写死一个区名单**，
+        #    否则检查永远返回 0（用例恒绿，什么都没验证）。
+        spy = vroot / 'scripts' / 'spy.py'
+        spy.parent.mkdir(parents=True, exist_ok=True)
+        spy.write_text(
+            'def scan(root=None):\n'
+            '    for z in ("howto", "audit", "flow"):\n'
+            '        pass\n', encoding='utf-8')
+        chk(any('区名单写死' in str(i.get('issue', ''))
+                and 'spy.py' in str(i.get('file', ''))
+                for i in check_hardcoded_zone_list(cfg, vroot)),
+            '扫全库的检查里写死区名单能查出'
+            '（⛔ 实测两次：漏 common、漏 craft，且不报错）')
+        chk(all(i.get('level') == 'warn'
+                for i in check_hardcoded_zone_list(cfg, vroot)
+                if i.get('level')),
+            '写死名单是 warn（config 显式收窄是合法用法）')
+        # 正向：没有写死 → 不报（确认豁免没有一刀切）
+        spy.write_text(
+            'def scan(root=None):\n'
+            '    for z in _zones(root):\n'
+            '        pass\n', encoding='utf-8')
+        chk(not [i for i in check_hardcoded_zone_list(cfg, vroot)
+                 if 'spy.py' in str(i.get('file', ''))],
+            '改用 _zones() 后不报（确认没有一刀切）')
+        # ⛔ 正侧二：自检函数里的字面量是**测试样本**，必须豁免。
+        #    不豁免会误报 4 条 ⇒ 误报的检查会被关掉。
+        spy.write_text(
+            'def cmd_self_test(cfg):\n'
+            '    for z in ("howto", "audit", "flow", "common", "craft"):\n'
+            '        pass\n', encoding='utf-8')
+        chk(not [i for i in check_hardcoded_zone_list(cfg, vroot)
+                 if 'spy.py' in str(i.get('file', ''))],
+            '自检里的测试样本豁免（⛔ 自造样本不能依赖被测逻辑）')
+        spy.unlink()
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
@@ -5124,6 +5246,7 @@ def main():
               + check_zone_refs(cfg)
               + check_flow_entry(cfg)
               + check_zone_index(cfg)
+              + check_hardcoded_zone_list(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))

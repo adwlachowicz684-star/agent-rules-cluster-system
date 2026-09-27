@@ -669,5 +669,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M55",
+  "target": "scripts/lint.py",
+  "desc": "[写死名单] 永远不报 → 新增区永远进不来且不报错",
+  "old": "                if len(hit) < 2:\n                    continue",
+  "new": "                if True:\n                    continue  # 变异：永不报",
+  "expect": "KILLED",
+  "why": "⛔ 同形态已踩两次（漏 common、漏 craft）：写死的区名单让新增区永远进不来，而检查照跑、返回 0 条、全绿。⛔ 反侧样本必须在被测脚本里真的写死一个区名单，否则检查恒 0（用例恒绿）。",
+  "source": "2026-09-26 写死名单检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
