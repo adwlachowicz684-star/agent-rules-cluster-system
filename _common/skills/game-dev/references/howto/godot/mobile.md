@@ -206,6 +206,11 @@ func _unhandled_input(event: InputEvent) -> void:
 **最省事的接法**：它有 `action_left/right/up/down` 四个属性，
 直接填 Input Map 里的动作名，摇杆就成了虚拟按键——移动代码完全不用改。
 
+⛔ **这四个属性必须显式设置** —— 它们的默认值是
+`ui_left` / `ui_right` / `ui_up` / `ui_down`，
+留默认会让摇杆直接触发 **UI 导航动作**，
+表现为"推动摇杆时界面焦点乱跳、按钮被莫名选中"，且不报错。
+
 ```gdscript
 # 方式 A：绑 action（推荐，移动逻辑零改动）
 @onready var joystick: VirtualJoystick = $UI/VirtualJoystick
@@ -445,8 +450,17 @@ func _apply_safe_area() -> void:
 ⚠ `get_display_safe_area()` 返回的是**屏幕坐标**，不是项目 Content 坐标，
 有拉伸设置（`canvas_items` / `viewport`）时必须转换。
 
-⚠ 它只在 Android / iOS 真实实现，其它平台回退成 `screen_get_usable_rect()`。
-`get_display_cutouts()` **仅 Android 实现**，别在 iOS 上依赖。
+⚠ 它只在 Android / iOS / macOS 真实实现，其它平台回退成 `screen_get_usable_rect()`。
+
+⛔ `get_display_cutouts()` **只在 Android 和 macOS 实现** —— 官方原文是其它平台
+"即使设备确实有刘海/挖孔，也会返回空数组"。所以 iOS 上它返回空，
+**⛔ 而 iOS 恰恰是有刘海的平台**。用它算安全区在 iOS 上会得到 0 边距 ——
+表现为"iOS 上 UI 被刘海挡住、安卓上完全正常"，且不报错。
+安全区一律走 `get_display_safe_area()`，不要自己用 cutouts 拼。
+
+ⓘ 两个方法返回的矩形都在**物理屏幕坐标系**（官方：*"relative to the physical
+screen and not the virtual desktop"*），这正是上面那段 `screen_transform` 转换
+必须存在的原因 —— 有 `canvas_items` / `viewport` 拉伸时不转换边距全错。
 
 ### 方向与分辨率
 
@@ -533,5 +547,40 @@ func _on_perm(perms: PackedStringArray) -> void:
 ⚠ 桌面端 60fps 不代表移动端能跑。**至少在一台低端 Android 上跑 20 分钟**，
 看发热、掉帧、内存。
 
+## 9. 暂停 / 恢复与后台预算
+
+移动端没有"退出"这件事 —— 玩家是切后台，进程随时被系统回收。
+
+```gdscript
+func _notification(what: int) -> void:
+    match what:
+        NOTIFICATION_APPLICATION_PAUSED:
+            _flush_save()          # ⛔ 必须快
+        NOTIFICATION_APPLICATION_RESUMED:
+            _recheck_time_source() # ⛔ 系统时钟可能已跳变
+```
+
+⛔ **iOS 上暂停通知只有大约 5 秒预算** —— 官方原文：*"在 iOS 上，你只有大约
+5 秒时间来完成由该信号启动的任务。如果你超过了该分配，则 iOS 将终止该应用程序
+而不是暂停它。"*
+
+所以暂停里做完整序列化、批量上报、资源整理，超时后 **iOS 直接杀进程而不是暂停**。
+⛔ 表现为"iOS 上切后台回来闪退/进度没了"，⛔ 而排查几乎必然被引向崩溃 SDK 或内存问题 ——
+没人会想到是暂停回调做得太慢。
+
+ⓘ 另一个同源问题：暂停期间**系统时钟可能已跳变**（用户改时间、跨时区、长时间后台）。
+恢复后所有依赖 `Time.get_*_from_system()` 的逻辑都要重新取基准 ——
+这与 `monetization` / `vip` 域确立的"系统时钟可被玩家设置"是同一条约束，
+只是在移动端它不是"玩家恶意设置"，而是**正常的挂机行为**。
+
+## 10. 流程：按什么顺序做
+
+> **流程域** → `flow/godot/mobile/`
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/mobile.md`
+
+⛔ 移动端最容易错序的一步是 **01 输入架构定性**：
+先写摇杆再去想"这游戏到底该用哪种输入"，改架构等于所有输入代码重写。
+
+⛔ 其次是 **05 屏幕适配留到最后做** —— 那时 UI 已按固定尺寸摆完，
+安全区、方向切换、软键盘三件事会让每一处锚点都要重算。
 
