@@ -2619,6 +2619,16 @@ def check_anchor_refs(cfg, root=None):
     return issues
 
 
+def _flow_type(txt):
+    """读文件头的 `flow-type:` 标记（meta / procedure / template）。
+
+    ⛔ 没有它就无法区分「讲怎么写」与「照着做」——
+       元规范必然**举例** Step，不区分会让示例被当真步骤检查（必然误报）。
+    """
+    m = re.search(r"^flow-type:\s*(\S+)", txt, re.M)
+    return m.group(1).strip() if m else None
+
+
 def _zone_orphans(cfg, root, zone):
     """单区条目接入：接入表断链 + 孤儿 + 接入率。
 
@@ -2667,6 +2677,12 @@ def _zone_orphans(cfg, root, zone):
             continue
         heads[f.name] = [m.group(1).strip()
                          for m in re.finditer(r"^#{1,4}\s+(.+)$", txt, re.M)]
+        # ⛔ procedure 型流程**不参与条目级接入统计**：
+        #    它的用法是「跟着走一遍」（从头读到尾），不是「跳到某一条」。
+        #    用查表型的接入判据去量流程型 ⇒ 0% 是**判据制造出来的幻觉**。
+        #    ⇒ 它们该由 `check_flow_entry` 按「有没有入口」来判。
+        if zone == "flow" and _flow_type(txt) in ("procedure", "template"):
+            continue
         for m in re.finditer(r"^#{2,4}\s+(.+)$", txt, re.M):
             t = m.group(1).strip()
             if any(k in t for k in META):
@@ -2766,6 +2782,83 @@ def check_craft_refs(cfg, root=None):
     里的 EV-M44 / EV-M45 都以它为入口。
     """
     return _zone_orphans(cfg, root, "craft")
+
+
+def check_flow_entry(cfg, root=None):
+    """procedure 型流程必须有**入口**（⛔ 没有 = 没人知道什么时候走它）。
+
+    ⛔ 实测（2026-09-26）：flow 区 6 个 procedure（可照着走完的真流程），
+    区外引用的 9 处里 8 处指向 **meta**，procedure 只有 2 处
+    （且都在 SKILL.md / split-two-books 里）。
+
+    ⇒ **FL-02/03/04/05/06 五个流程零区外入口**。
+    这比"条目接入率 0%"严重得多：
+    craft 层没人读只是辅助缺失，
+    **流程没人走 = 主链路形同虚设**——定义了六步，没人知道何时走哪步。
+
+    ⛔ 为什么不能靠「条目级接入率」发现它：
+    procedure 的用法是**跟着走一遍**（从头读到尾），
+    不是跳到某一条 ⇒ 拿查表型判据去量流程型，
+    得到的 0% 是**判据制造出来的幻觉**（见 `flow/index.md`）。
+
+    判据：procedure 型文件必须出现在**读的人会先到的地方**之一：
+        ① `SKILL.md` 的定向加载区
+        ② `flow/index.md` 的「按场景接入」表
+
+    ⚠ 级别 warn：⛔ 报 error 会让 lint 立刻红，而红线会被关掉；
+       但也不能是 info——**没有入口的流程等于不存在**。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    fd = base / "reference" / "flow"
+    if not fd.is_dir():
+        return issues
+    procs = []
+    for f in sorted(fd.glob("*.md")):
+        try:
+            txt = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if _flow_type(txt) != "procedure":
+            continue
+        procs.append(f.name)
+    if not procs:
+        return issues
+
+    # ① 读的人会先到的两个入口
+    #    ⛔ 判据不能是"文件名出现过"——流程**登记表**里必然列出所有
+    #       procedure（实测：按"出现过"判，6 个全过，检查形同虚设）。
+    #       登记表的用法是"我知道有 FL-03，它在哪"（要先知道 ID），
+    #       而入口是"**我在场景 X，该走哪个**"。
+    #    ⇒ 只认「按场景接入」章节 + SKILL.md 定向加载区。
+    entries_txt = ""
+    idxp = fd / "index.md"
+    if idxp.is_file():
+        try:
+            itx = idxp.read_text(encoding="utf-8")
+        except Exception:
+            itx = ""
+        m = re.search(r"^##+[^\n]*按场景接入[^\n]*$([\s\S]*?)(?=^##\s|\Z)",
+                      itx, re.M)
+        if m:
+            entries_txt += m.group(1)
+    skp = base / "SKILL.md"
+    if skp.is_file():
+        try:
+            entries_txt += skp.read_text(encoding="utf-8")
+        except Exception:
+            pass
+    for fn in procs:
+        if fn in entries_txt:
+            continue
+        issues.append({
+            "level": "warn", "file": "reference/flow/%s" % fn,
+            "issue": "procedure 型流程没有入口（读的人不知道什么时候走它）",
+            "hint": "⛔ 定义了流程但没人走 = 主链路形同虚设。"
+                    "在 `SKILL.md` 定向加载区 或 `flow/index.md` "
+                    "「按场景接入」表里加一行：什么场景 → 走这个流程。"
+                    "⛔ 不要靠条目级接入率发现它——流程是跟着走，不是跳着查"})
+    return issues
 
 
 def check_zone_refs(cfg, root=None):
@@ -3918,12 +4011,66 @@ trigger: 测试
         # ⛔ 断言必须**针对被改的地方**：EV-M50 首跑 SURVIVED，
         #    因为只过滤 '未指向' —— 变异后 f.md 不在 cited_files，
         #    改报「整册未接入」⇒ 过滤不到 ⇒ 用例恒绿（又踩一次）。
+        # ---- check_flow_entry：procedure 型必须有入口 ----
+        fe = vroot / 'reference' / 'flow'
+        fe.mkdir(parents=True, exist_ok=True)
+        (fe / 'p.md').write_text(
+            '# p\nflow-type: procedure\n\n## S1\n\nx\n', encoding='utf-8')
+        # 反向一：没有按场景表 → 报 warn（⛔ 流程没人走 = 主链路形同虚设）
+        (fe / 'index.md').write_text('# i\n\n## 登记表\n\n| a | p.md |\n',
+                                     encoding='utf-8')
+        # ⛔ 必须**内联**调用：写成 `r = check_flow_entry(...)` 再断言 r，
+        #    check_selftest_duality 的 AST 看不到调用 ⇒ 报「缺反向用例」
+        #    （这条在 craft 检查器那次就踩过，这里又踩一次）。
+        chk(any('没有入口' in str(i.get('issue', ''))
+                and 'p.md' in str(i.get('file', ''))
+                for i in check_flow_entry(cfg, vroot)),
+            'procedure 没有入口能查出（⛔ 定义了流程但没人知道何时走它）')
+        chk(all(i.get('level') == 'warn'
+                for i in check_flow_entry(cfg, vroot) if i.get('level')),
+            '缺入口是 warn（⛔ 报 error 会让 lint 立刻红，而红线会被关掉）')
+        # ⛔ 反侧：登记表里列出**不算入口**
+        #    （实测：按"文件名出现过"判，6 个全过 ⇒ 检查形同虚设）
+        chk(any('没有入口' in str(i.get('issue', ''))
+                for i in check_flow_entry(cfg, vroot)),
+            '登记表列出不算入口（⛔ 登记表的用法是"我知道有 FL-03"，'
+            '而入口是"我在场景 X 该走哪个"）')
+        # 正向：按场景表里出现 → 不报
+        (fe / 'index.md').write_text(
+            '# i\n\n## ⛔ 按场景接入：什么时候走哪个流程\n\n'
+            '| 情况 | 流程 |\n|---|---|\n| 收尾时 | [p.md](p.md) |\n\n'
+            '## 三、别的\n\nx\n', encoding='utf-8')
+        chk(not [i for i in check_flow_entry(cfg, vroot)
+                 if 'p.md' in str(i.get('file', ''))],
+            '按场景表里有入口 → 不报')
+        # 正向二：meta 型不参与（它不是"照着走"的流程）
+        (fe / 'm.md').write_text(
+            '# m\nflow-type: meta\n\n## S1\n\nx\n', encoding='utf-8')
+        (fe / 'index.md').write_text('# i\n\n## 别的\n\nx\n',
+                                     encoding='utf-8')
+        chk(not [i for i in check_flow_entry(cfg, vroot)
+                 if 'm.md' in str(i.get('file', ''))],
+            'meta 型不要求入口（它不是"照着走"的流程）')
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
             '⛔ flow 区认节点 ID `[FL-01#S1]`（否则 flow 区天然 0%——'
             '跨文件引用 flow 的稳定标识就是它）。'
             '⛔ 断言要覆盖整册未接入与未指向两种，只查一种会漏')
+        # ⛔ procedure 型**不参与条目级接入统计**（EV-M52 守着）：
+        #    它的用法是"跟着走一遍"，不是跳到某一条。
+        #    ⇒ 样本必须含 procedure 型文件，否则豁免与否都一样 ⇒ 用例恒绿
+        #      （EV-M52 首跑 SURVIVED 就是这么来的）。
+        (fz / 'pp.md').write_text(
+            '# pp\nflow-type: procedure\n\n## S1 出发\n\nx\n',
+            encoding='utf-8')
+        (oz / 'o.md').write_text('# o\n\n别的\n', encoding='utf-8')
+        chk(not [i for i in check_zone_refs(cfg, vroot)
+                 if 'pp.md' in str(i.get('issue', ''))
+                 or 'pp.md' in str(i.get('file', ''))],
+            'procedure 型不计入条目接入（⛔ 拿查表型判据量流程型，'
+            '0% 是判据造出来的幻觉；它的入口由 check_flow_entry 判）')
         # 反向二：只有文件级引用 → 报未指向（条目级接入率 0）
         hd.write_text('# h\n\n见 craft/taste.md\n', encoding='utf-8')
         chk(any('未指向' in str(i.get('issue', ''))
@@ -4828,6 +4975,7 @@ def main():
               + check_anchor_refs(cfg)
               + check_craft_refs(cfg)
               + check_zone_refs(cfg)
+              + check_flow_entry(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))

@@ -609,5 +609,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M51",
+  "target": "scripts/lint.py",
+  "desc": "[流程入口] 登记表列出就算入口 → 6 个流程全过，检查形同虚设",
+  "old": "        m = re.search(r\"^##+[^\\n]*按场景接入[^\\n]*$([\\s\\S]*?)(?=^##\\s|\\Z)\",\n                      itx, re.M)\n        if m:\n            entries_txt += m.group(1)",
+  "new": "        entries_txt += itx  # 变异：整个 index 都算入口",
+  "expect": "KILLED",
+  "why": "⛔ 实测：按「文件名出现过」判，6 个 procedure 全过（登记表必然列出全部文件名）⇒ 检查形同虚设。登记表的用法是「我知道有 FL-03，它在哪」（要先知道 ID），入口是「我在场景 X 该走哪个」。",
+  "source": "2026-09-26 流程入口检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M52",
+  "target": "scripts/lint.py",
+  "desc": "[接入] procedure 型不豁免 → 0% 是判据制造出来的幻觉",
+  "old": "        if zone == \"flow\" and _flow_type(txt) in (\"procedure\", \"template\"):\n            continue",
+  "new": "        if False:\n            continue  # 变异：不豁免 procedure",
+  "expect": "KILLED",
+  "why": "⛔ procedure 的用法是「跟着走一遍」，不是跳到某一条。拿查表型接入判据去量流程型 ⇒ 得到的 0% 是判据造出来的。真正的入口问题由 check_flow_entry 按「有没有入口」判。",
+  "source": "2026-09-26 流程入口检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
