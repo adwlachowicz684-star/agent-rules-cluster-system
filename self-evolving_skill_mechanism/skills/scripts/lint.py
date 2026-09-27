@@ -2619,41 +2619,44 @@ def check_anchor_refs(cfg, root=None):
     return issues
 
 
-def check_craft_refs(cfg, root=None):
-    """craft 层接入：断链 + 孤儿（本层形同虚设的检查）。
+def _zone_orphans(cfg, root, zone):
+    """单区条目接入：接入表断链 + 孤儿 + 接入率。
 
-    反哺自 game-dev 的 `check-craft.py`（319 行，三查：断链 / 零交集 / 孤儿）。
+    ⛔ 2026-09-26 之前**只有 craft 区在查接入**。实测后果：
 
-    ⛔ **为什么必须查孤儿**：craft 层的意义是「告诉你什么算好」——
-    但**它只有被读到时才起作用**。一本书写得再好没人翻，等于没写。
-    实测首次跑：43 条 ### 级判据，41 条从未被指向；
-    `judgment.md`（238 行）全库只被提到 1 次。
+        howto / audit / common 三区积压 **9 条死链**
+        flow 区 192 条条目 **零**被条目级指向
+
+    ⇒ **有没有检查，差别就是有没有问题。**
+    （死链部分已由 `check_anchor_refs` 接管，这里只留区内接入表。）
 
     三查：
-        ① **断链**（error）—— `craft/xxx.md#锚点` 指向的章节不存在
-        ② **孤儿**（warn/info）—— ### 级判据条目从未被条目级引用指向
-        ③ **元条目豁免** —— 自检 / 变更溯源 / 为什么单独一层
-           本来就不该被引用（⛔ 算进去会让基线永远混着一批不可能挂上的项）
+        ① **接入表断链**（error）—— `index.md` 里写的是
+           **同目录相对**锚点（`taste.md#1. ...`），不带区名前缀
+           ⇒ 不在 `check_anchor_refs` 的匹配范围 ⇒ ⛔ 只有这里能查到。
+        ② **整册未接入**（warn）—— 该文件从未被任何区外文件引用
+        ③ **条目未指向**（info）—— 册接入了，但只有**文件级**引用
 
-    分级理由：
-        文件从未被引用 → **warn**（整册没接入，最严重）
-        文件被引用、但条目没被指向 → **info**（册接入了，条目没接）
+    ⛔ **接入表自指不计入接入率**：否则 index 把条目列一遍就 100%——
+       但读的人仍然不知道什么时候该来本层。**假接入比低接入更危险**
+       （第二十一条 + 第二十三条）。
 
-    ⛔ 与 `check_block_refs`（`#EC-xx`）的分工：那个查**全局块**锚点，
-    这个查 craft 层条目锚点 + 接入率。两者都是「建了但没人用」的守卫。
+    ⚠ **flow 区的稳定标识是节点 ID**（`[FL-01#S1]`），不是标题字样——
+       见 `flow/step-spec.md`：标题含 "Step" 字样会被误判为真步骤。
+       ⇒ 认节点 ID 才算真接入；只认标题会让 flow 区天然 0%。
     """
     base = Path(root) if root else ROOT
     issues = []
-    craft = base / "reference" / "craft"
-    if not craft.is_dir():
+    zd = base / "reference" / zone
+    if not zd.is_dir():
         return issues
-    files = sorted(craft.glob("*.md"))
+    files = sorted(zd.glob("*.md"))
     if not files:
         return issues
 
     META = ("自检", "变更溯源", "为什么单独一层", "总判据")
 
-    # ① 收集条目（### 级判据）与章节（供断链比对）
+    # ① 条目：## ~ #### 级可引用章节（⛔ 排除 index.md 与元章节）
     entries, heads = [], {}
     for f in files:
         if f.name == "index.md":
@@ -2662,54 +2665,29 @@ def check_craft_refs(cfg, root=None):
             txt = f.read_text(encoding="utf-8")
         except Exception:
             continue
-        hs = re.findall(r"^#{2,4}\s+(.+)$", txt, re.M)
-        heads[f.name] = list(hs)   # ⛔ 存原始：norm 由 _anchor_match 内部做
-        for m in re.finditer(r"^#{3,4}\s+(.+)$", txt, re.M):
+        heads[f.name] = [m.group(1).strip()
+                         for m in re.finditer(r"^#{1,4}\s+(.+)$", txt, re.M)]
+        for m in re.finditer(r"^#{2,4}\s+(.+)$", txt, re.M):
             t = m.group(1).strip()
             if any(k in t for k in META):
                 continue
-            entries.append((f.name, t, t))
+            nid = None
+            nm = re.search(r"\[(FL-\d+#S\d+)\]", t)
+            if nm:
+                nid = nm.group(1)
+            entries.append((f.name, t, t, nid))
 
-    # ② 扫描引用方（⛔ 排除 craft 自身）
-    targets = [base / "SKILL.md"]
-    targets += sorted((base / "reference").rglob("*.md"))
-    targets += sorted((base / "assets").rglob("*.md"))
-    ref_lines = []
-    for f in targets:
-        if not f.is_file() or f.parent == craft:
-            continue
-        try:
-            lines = f.read_text(encoding="utf-8").split("\n")
-        except Exception:
-            continue
-        rel = str(f.relative_to(base))
-        for i, ln in enumerate(lines, 1):
-            if "craft/" in ln:
-                ref_lines.append((rel, i, ln))
+    if not entries:
+        return issues
 
-    # 断链
-    for rel, ln_no, ln in ref_lines:
-        for m in re.finditer(r"craft/([\w.\-]+\.md)#([^`)\"']+)", ln):
-            fn, anc = m.group(1), m.group(2)
-            if fn not in heads:
-                continue  # 文件不存在由 check_refs 报
-            if not any(_anchor_match(_norm_anchor(anc), h) for h in heads[fn]):
-                issues.append({
-                    "level": "error", "file": "%s:%d" % (rel, ln_no),
-                    "issue": "craft 条目锚点不存在：`%s#%s`" % (fn, anc),
-                    "hint": "⛔ 锚点写错 → 读的人得到「这条不存在」→ "
-                            "**回去自己想一遍**，craft 层形同虚设"})
-
-    # ⓘ 本层接入表（craft/index.md）的锚点也要查断链
-    #    ⛔ 实测漏：接入表里写的是**同目录相对**（`taste.md#1. ...`），
-    #       不带 `craft/` 前缀 ⇒ 不在上面的匹配范围 ⇒ 锚点错了查不出来。
-    #    ⇒ 读的人按接入表跳过去是空的，而 lint 全绿。
-    #
-    #    ⛔ 但**不能计入 anchored**：index 自指会让所有条目"看起来已接入"，
-    #       接入率被自己刷高（第二十三条：能数出来的不等于该判的）。
-    idx = craft / "index.md"
+    # ② 本区接入表（index.md）的锚点断链
+    idx = zd / "index.md"
     if idx.is_file():
-        for i, ln in enumerate(idx.read_text(encoding="utf-8").split("\n"), 1):
+        try:
+            itx = idx.read_text(encoding="utf-8")
+        except Exception:
+            itx = ""
+        for i, ln in enumerate(itx.split("\n"), 1):
             for m in re.finditer(r"(?<![\w/.-])([\w.\-]+\.md)#([^`)\"']+)", ln):
                 fn, anc = m.group(1), m.group(2)
                 if fn not in heads:
@@ -2717,51 +2695,101 @@ def check_craft_refs(cfg, root=None):
                 if not any(_anchor_match(anc, h) for h in heads[fn]):
                     issues.append({
                         "level": "error",
-                        "file": "reference/craft/index.md:%d" % i,
-                        "issue": "本层接入表的锚点不存在：`%s#%s`" % (fn, anc),
+                        "file": "reference/%s/index.md:%d" % (zone, i),
+                        "issue": "%s 区接入表的锚点不存在：`%s#%s`" % (zone, fn, anc),
                         "hint": "⛔ 接入表是**按动作找条目**的入口——"
                                 "它指错了，读的人照着跳过去是空的。"
                                 "⛔ 不算接入率（自指会把接入率刷高）"})
 
-    # 孤儿
-    cited_files = set()
-    anchored = set()   # (file, norm_anchor) 被条目级指向的
-    for rel, ln_no, ln in ref_lines:
-        for m in re.finditer(r"craft/([\w.\-]+\.md)", ln):
-            cited_files.add(m.group(1))
-        for m in re.finditer(r"craft/([\w.\-]+\.md)#([^`)\"']+)", ln):
-            anchored.add((m.group(1), m.group(2)))
+    # ③ 扫描区外引用
+    targets = [base / "SKILL.md"]
+    targets += sorted((base / "reference").rglob("*.md"))
+    targets += sorted((base / "assets").rglob("*.md"))
+    rx_pre = re.compile(r"%s/([\w.\-]+\.md)#([^`)\"']+)" % zone)
+    rx_file = re.compile(r"%s/([\w.\-]+\.md)" % zone)
+    cited_files, anchored = set(), set()
+    node_hits = set()
+    for f in targets:
+        if not f.is_file() or f.parent == zd:
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").split("\n")
+        except Exception:
+            continue
+        for ln in lines:
+            for m in rx_file.finditer(ln):
+                cited_files.add(m.group(1))
+            for m in rx_pre.finditer(ln):
+                anchored.add((m.group(1), m.group(2)))
+            if zone == "flow":
+                for nid in re.findall(r"FL-\d+#S\d+", ln):
+                    node_hits.add(nid)
 
-    if not entries:
-        return issues
     orphan = []
-    for fn, t, na in entries:
+    for fn, t, na, nid in entries:
         if any(a[0] == fn and _anchor_match(a[1], na) for a in anchored):
             continue
-        orphan.append((fn, t, na))
+        if nid and nid in node_hits:
+            continue
+        orphan.append((fn, t))
+
     if not orphan:
         return issues
     rate = 100 * (len(entries) - len(orphan)) // len(entries)
-    # 分两级：整册没接入 = warn
+    # 分两级：整册没接入更严重
     whole_book = sorted({e[0] for e in orphan if e[0] not in cited_files})
     for fn in whole_book:
         n = sum(1 for e in orphan if e[0] == fn)
         issues.append({
-            "level": "warn", "file": "reference/craft/%s" % fn,
+            "level": "warn", "file": "reference/%s/%s" % (zone, fn),
             "issue": "本册 %d 条判据从未被任何文件引用（整册未接入）" % n,
-            "hint": "⛔ craft 层只有被读到时才起作用。"
-                    "接入方式：在具体流程 / 判据处写 `craft/%s#条目标题`。" % fn})
+            "hint": "⛔ 只有被读到时才起作用。"
+                    "接入方式：在具体流程 / 判据处写 `%s/%s#条目标题`。"
+                    % (zone, fn)})
     rest = [e for e in orphan if e[0] in cited_files]
     if rest:
         sample = "、".join("%s#%s" % (e[0], e[1][:24]) for e in rest[:4])
         issues.append({
-            "level": "info", "file": "reference/craft/",
-            "issue": "craft 条目级接入率 %d%%（%d/%d），未指向 %d 条，如：%s"
-                     % (rate, len(entries) - len(orphan), len(entries),
+            "level": "info", "file": "reference/%s/" % zone,
+            "issue": "%s 区条目级接入率 %d%%（%d/%d），未指向 %d 条，如：%s"
+                     % (zone, rate, len(entries) - len(orphan), len(entries),
                         len(rest), sample),
             "hint": "文件级引用让读的人**自己去找**那一条。"
-                    "⛔ 文件在 ≠ 内容在。接入率会随引用增长——"
-                    "这是欠账，不是错误"})
+                    "⛔ 文件在 ≠ 内容在。这是欠账，不是错误"})
+    return issues
+
+
+def check_craft_refs(cfg, root=None):
+    """craft 区接入检查（= `_zone_orphans` 的 craft 实例）。
+
+    保留独立函数是因为 self-test 与 `assets/mutations.json`
+    里的 EV-M44 / EV-M45 都以它为入口。
+    """
+    return _zone_orphans(cfg, root, "craft")
+
+
+def check_zone_refs(cfg, root=None):
+    """其余四区（howto / audit / common / flow）的条目接入。
+
+    ⛔ **为什么单独加**：`check_craft_refs` 上线当天就开始抓自己，
+    而其余四区**从来没被检查过**——不是它们没问题，是没人查。
+
+    实测首次跑出的欠账：
+
+        flow 192 条条目，接入 0 条
+        howto / audit / common 三区接入率 13% / 5% / 7%
+
+    ⚠ flow 区 0% 有一个**具体原因**：跨文件引用 flow 全是文件级，
+    而 flow 的稳定标识是节点 ID `[FL-xx#Sn]`（见 `flow/step-spec.md`），
+    **目前没有任何跨文件引用用到它**。
+    ⇒ 已让 `_zone_orphans` 认节点 ID，欠账因此可见而不是被掩盖。
+
+    ⛔ 接入率是**欠账指标**，不是质量指标（第二十三条）。
+    它报 info 不报 warn：报 warn 会让 lint 长期带基线 ⇒ 检查被关掉。
+    """
+    issues = []
+    for z in ("howto", "audit", "common", "flow"):
+        issues += _zone_orphans(cfg, root, z)
     return issues
 
 
@@ -3817,7 +3845,9 @@ trigger: 测试
                  if '孤儿' in str(i.get('issue', ''))
                  or '未指向' in str(i.get('issue', ''))],
             'craft 条目被条目级引用指向时不报孤儿')
-        chk(not [i for i in check_craft_refs(cfg, vroot)
+        # ⛔ 区外前缀锚点（`craft/x.md#y`）的断链已归 check_anchor_refs 管，
+        #    _zone_orphans 只留 **区内接入表**（同目录相对锚点）。
+        chk(not [i for i in check_anchor_refs(cfg, vroot)
                  if '锚点不存在' in str(i.get('issue', ''))],
             'craft 锚点存在时不报断链')
         # 反向一：锚点不存在 → error
@@ -3826,16 +3856,74 @@ trigger: 测试
         # ⛔ 必须内联调用：写成 `r = check_craft_refs(...)` 再断言 r，
         #    check_selftest_duality 的 AST 看不到调用 → 判「缺反向用例」。
         chk(any('锚点不存在' in str(i.get('issue', ''))
-                for i in check_craft_refs(cfg, vroot)),
+                for i in check_anchor_refs(cfg, vroot)),
             'craft 条目锚点不存在能查出（error）')
         chk(all(i['level'] == 'error'
-                for i in check_craft_refs(cfg, vroot)
+                for i in check_anchor_refs(cfg, vroot)
                 if '锚点不存在' in str(i.get('issue', ''))),
             'craft 断链是 error 级')
         chk(all(i.get('level') == 'info'
                 for i in check_craft_refs(cfg, vroot)
                 if '接入率' in str(i.get('issue', ''))),
             '接入率欠账是 info 级（⛔ 不是 error：它不阻断，但要可见）')
+
+        # ---- check_zone_refs：其余四区（⛔ 此前只有 craft 在查）----
+        # ⛔ 引用方必须在**目标区之外**（同区引用不计入接入——自己引自己
+        #    等于没接）。⛔ 第一版把引用方放在 flow 区内 ⇒ 用例恒绿。
+        oz = vroot / 'reference' / 'audit'
+        oz.mkdir(parents=True, exist_ok=True)
+        hz = vroot / 'reference' / 'howto'
+        hz.mkdir(parents=True, exist_ok=True)
+        (hz / 't.md').write_text('# t\n\n## 甲节\n\nx\n', encoding='utf-8')
+        # 正向：条目被区外条目级引用 → 不算孤儿
+        (oz / 'o.md').write_text('# w\n\n见 howto/t.md#甲节\n', encoding='utf-8')
+        zr = [i for i in check_zone_refs(cfg, vroot)
+              if 'howto' in str(i.get('issue', ''))]
+        chk(not [i for i in zr if '未指向' in str(i.get('issue', ''))
+                 and 't.md' in str(i.get('issue', ''))],
+            'howto 条目被条目级引用时不报未指向')
+        # 反向一：只有文件级引用 → 报未指向
+        (oz / 'o.md').write_text('# w\n\n见 howto/t.md\n', encoding='utf-8')
+        chk(any('未指向' in str(i.get('issue', ''))
+                and 'howto' in str(i.get('issue', ''))
+                for i in check_zone_refs(cfg, vroot)),
+            '只有文件级引用时报未指向（⛔ 文件在 ≠ 内容在）')
+        # 反向二：整册从未被引用 → warn
+        (oz / 'o.md').write_text('# w\n\n别的\n', encoding='utf-8')
+        chk(any(i.get('level') == 'warn'
+                and '整册未接入' in str(i.get('issue', ''))
+                and 'howto' in str(i.get('file', ''))
+                for i in check_zone_refs(cfg, vroot)),
+            '整册从未被引用时报 warn')
+        chk(all(i.get('level') == 'info'
+                for i in check_zone_refs(cfg, vroot)
+                if '接入率' in str(i.get('issue', ''))),
+            '接入率是 info 不是 warn（⛔ 报 warn 会让 lint 长期带基线'
+            ' ⇒ 检查被关掉）')
+        # ⛔ 反向三：flow 区必须认**节点 ID**（`[FL-01#S1]`）
+        #    标题含 "Step" 字样会被误判为真步骤（`flow/step-spec.md`），
+        #    ⇒ 稳定标识是节点 ID；只认标题会让 flow 区天然 0%。
+        fz = vroot / 'reference' / 'flow'
+        fz.mkdir(parents=True, exist_ok=True)
+        (fz / 'f.md').write_text(
+            '# f\n\n### Step 1　出发　`[FL-01#S1]`\n\nx\n',
+            encoding='utf-8')
+        (oz / 'o.md').write_text('# w\n\n见 flow/f.md\n', encoding='utf-8')
+        chk(any('未指向' in str(i.get('issue', ''))
+                and 'flow' in str(i.get('issue', ''))
+                for i in check_zone_refs(cfg, vroot)),
+            'flow 只被文件级引用时仍报未指向')
+        (oz / 'o.md').write_text(
+            '# w\n\n【读】`[FL-01#S1]`\n', encoding='utf-8')
+        # ⛔ 断言必须**针对被改的地方**：EV-M50 首跑 SURVIVED，
+        #    因为只过滤 '未指向' —— 变异后 f.md 不在 cited_files，
+        #    改报「整册未接入」⇒ 过滤不到 ⇒ 用例恒绿（又踩一次）。
+        chk(not [i for i in check_zone_refs(cfg, vroot)
+                 if 'f.md' in str(i.get('issue', ''))
+                 or 'f.md' in str(i.get('file', ''))],
+            '⛔ flow 区认节点 ID `[FL-01#S1]`（否则 flow 区天然 0%——'
+            '跨文件引用 flow 的稳定标识就是它）。'
+            '⛔ 断言要覆盖整册未接入与未指向两种，只查一种会漏')
         # 反向二：只有文件级引用 → 报未指向（条目级接入率 0）
         hd.write_text('# h\n\n见 craft/taste.md\n', encoding='utf-8')
         chk(any('未指向' in str(i.get('issue', ''))
@@ -3851,7 +3939,7 @@ trigger: 测试
         #   —— 否则 `文` 会命中所有标题，断链检查形同虚设
         hd.write_text('# h\n\n见 craft/taste.md#内容\n', encoding='utf-8')
         chk(any('锚点不存在' in str(i.get('issue', ''))
-                for i in check_craft_refs(cfg, vroot)),
+                for i in check_anchor_refs(cfg, vroot)),
             '短锚点（<4 字）不会子串乱匹配（⛔ 否则断链检查失效）')
 
         # ---- 序号撞车：同级重复中文序号 ----
@@ -4739,6 +4827,7 @@ def main():
               + check_domains_in_repo(cfg, ROOT)
               + check_anchor_refs(cfg)
               + check_craft_refs(cfg)
+              + check_zone_refs(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))

@@ -579,5 +579,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M49",
+  "target": "scripts/lint.py",
+  "desc": "[zone接入] 引用方不限区外 → 同区自引会把接入率刷高",
+  "old": "        if not f.is_file() or f.parent == zd:\n            continue",
+  "new": "        if not f.is_file():\n            continue  # 变异：不限区外",
+  "expect": "KILLED",
+  "why": "⛔ 同区文件互引（flow/a.md 引 flow/b.md）若计入，一个区内互相列一遍就能让接入率变高，而读的人仍然找不到。⛔ 第一版用例就把引用方放在了 flow 区内 ⇒ 用例恒绿（又踩「样本没让变异必然生效」）。",
+  "source": "2026-09-26 全区接入检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M50",
+  "target": "scripts/lint.py",
+  "desc": "[zone接入] flow 不认节点 ID → flow 区天然 0%",
+  "old": "            if zone == \"flow\":\n                for nid in re.findall(r\"FL-\\d+#S\\d+\", ln):\n                    node_hits.add(nid)",
+  "new": "            if False:\n                for nid in re.findall(r\"FL-\\\\d+#S\\\\d+\", ln):\n                    node_hits.add(nid)  # 变异：不认节点ID",
+  "expect": "KILLED",
+  "why": "⛔ flow 区的稳定标识是节点 ID `[FL-01#S1]`（标题含 Step 字样会被误判为真步骤，见 flow/step-spec.md）。只认标题 ⇒ flow 区 192 条天然 0%，欠账被判据本身制造出来。",
+  "source": "2026-09-26 全区接入检查",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
