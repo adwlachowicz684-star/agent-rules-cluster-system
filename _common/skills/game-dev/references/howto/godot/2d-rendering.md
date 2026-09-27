@@ -42,6 +42,23 @@ func _ready() -> void:
 
 推荐**方案一**（统一脚底在原点），碰撞体、Y 排序、射线检测全部对齐，后面省事。
 
+### 官方排序语义：传播 + z_index 约束
+
+官方文档对 `y_sort_enabled` 的两条精确口径：
+
+> *"With Y-sorting enabled on a parent node ('A') but disabled on a child node ('B'),
+> the child node ('B') is sorted but its children ('C1', 'C2', etc.) render together
+> on the same Y position as the child node ('B')."*
+>
+> *"Nodes sort relative to each other only if they are on the same `z_index`."*
+
+⛔ **第二条是最隐蔽的失效来源**：玩家 `z_index = 1`、树 `z_index = 0`，
+两者**不互排**，角色永远画在树前面。而检查面板时
+`y_sort_enabled` 处处是 `true`、父子结构也正确，⛔ 于是看起来"配置全对但排序完全没生效"。
+
+ⓘ 第一条反而是个可用特性：给子关掉 `y_sort_enabled`，
+就能让"这一整组塌成一个 Y 值"一起排序（做多层建筑、载具时有用）。
+
 ## 2. 精灵与动画
 
 ```gdscript
@@ -91,6 +108,14 @@ Background (Node2D)
 要手动滚就操作 `scroll_offset`，或设 `ignore_camera_scroll = true`。
 
 ⚠ `repeat_size` 要和贴图尺寸一致，否则循环处会跳。
+
+⚠ **`limit_begin` / `limit_end` 必须给视口留余量**（官方口径）：
+`limit_begin` 要低于 `limit_end` **减去视口尺寸**，`limit_end` 要高于
+`limit_begin` **加上视口尺寸** 才能正常工作。
+
+⛔ 照着关卡边界原样填（如 `limit_begin=(0,0)`、`limit_end=关卡尺寸`）会**直接不满足条件**，
+表现是**视差层完全不动**，而滚动范围、贴图、`scroll_scale` 全部检查都是对的
+——排查方向被引向 `scroll_scale` 或相机，不会想到是两个限制值本身不成立。
 
 ## 4. 2D 光照
 
@@ -239,6 +264,22 @@ void fragment() {
 
 ⚠ **4.x 没有 `SCREEN_TEXTURE`**（3.x 的内置变量）。
 必须自己声明 `uniform sampler2D xxx : hint_screen_texture`。
+（该内置变量在 PR #70967 中被移除，改为显式 uniform hint。）
+
+⚠ **只能在 `fragment()` 里读**，在 `vertex()` 里读取不到。
+
+⚠ **2D 里必须配 `BackBufferCopy`**：2D 的抓取时机是
+"绘制顺序中**第一个**读取它的 CanvasItem 触发一次全屏拷贝"。
+⛔ 不插 `BackBufferCopy` 就没有"从这一层开始拷"的边界，
+拷到的是**已经画上去的东西** —— 表现为水面把 UI、把角色一起扭了，
+或者反过来该扭的没扭到，⛔ 而 shader 代码本身完全正确。
+
+```gdscript
+# 在需要"从这一层开始抓屏"的位置插入
+var bbc := BackBufferCopy.new()
+bbc.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+add_child(bbc)
+```
 
 ⚠ 屏幕纹理的分辨率取决于 viewport，窗口缩放/多 viewport 下效果会变。
 
@@ -345,6 +386,35 @@ void fragment() {
 
 ⚠ 转场用的 ColorRect 必须设 `mouse_filter = Ignore`，
 否则过场期间挡住所有点击（表现为"过场后点不了按钮"）。
+
+## 9. 纹理过滤：像素风的三层开关
+
+Godot 4 的过滤设置存在于**三个层级**，像素风项目要三层都对：
+
+| 层级 | 位置 | 作用域 |
+|---|---|---|
+| 项目默认 | 项目设置 → Rendering → Textures → Default Texture Filter | 所有**新**贴图与未覆盖的节点 |
+| **每份导入** | 选中贴图 → Import 面板 → Filter | 单个文件，**优先于项目默认** |
+| 逐节点覆盖 | CanvasItem 的 `texture_filter` 属性 | 单个节点，优先级最高 |
+
+⛔ **改项目默认不会追溯已导入的贴图** ——
+改之前导入的文件**保留着旧的 Linear 设置**。
+表现为"明明把项目默认改成 Nearest 了，图还是糊"，
+⛔ 而项目设置里显示的就是 Nearest，于是确认过一遍后排除掉这个方向，
+最后被引向"是不是分辨率不对"。
+
+**改完必须重新导入**（删掉 `.godot/imported/` 重开工程，或选中贴图 Reimport）。
+
+配合的另外两条：
+
+- ⛔ 像素风 stretch 要设 `Mode = viewport`，
+  否则整屏按线性插值放大，糊的是**整个游戏**
+- ⛔ 相机 `zoom` 取非整数倍会让像素边缘随移动闪烁/撕裂，
+  像素风要么固定整数倍，要么接受这个代价
+
+## 10. 流程：按什么顺序做
+
+→ `flow/godot/2d-rendering/00-域流程总览.md`
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/2d-rendering.md`
 
