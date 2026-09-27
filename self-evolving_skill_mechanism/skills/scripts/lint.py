@@ -776,6 +776,20 @@ def check_reference_zones(cfg, root=None):
     return issues
 
 
+def _offset_in_code_block(text, off):
+    """字符偏移 `off` 是否落在 ``` fenced code block 内。
+
+    ⛔ 不能复用 `_outside_code_blocks`（它按**行**处理，丢偏移信息）。
+    判据：数 `off` 之前 fence 的个数，奇数 = 在块内。
+    """
+    head = text[:off]
+    n = 0
+    for ln in head.split("\n"):
+        if ln.lstrip().startswith("```"):
+            n += 1
+    return n % 2 == 1
+
+
 def _outside_code_blocks(text):
     """返回不在 ``` fenced code block 内的行。
 
@@ -1221,10 +1235,40 @@ def check_frontmatter(cfg, root=None):
                                    "不是正文；超了要精简，不是加长"})
     return issues
 
-# 跨 skill 引用的根：本仓库三个 skill 同在 _common/skills/ 下
+# 跨 skill 引用的根：本集群所有 skill 同在 _common/skills/ 下
 COMMON_SKILLS = ROOT.parent.parent / "_common" / "skills"
-CROSS_SKILLS = ("game-dev", "code-audit")
+# ⛔ 本集群**实际有几个 skill** 必须扫出来，不能写死。
+#    实测（2026-09-26）：写死 ("game-dev","code-audit")，而集群里已经有
+#    第三个 skill `localization` —— ⇒ 指向它的跨 skill 引用
+#    **永远验不到**（不报错，只是静默跳过）。
+#    ⛔ 与区名单写死是同一个形态，这是第三次踩。
+CROSS_SKILLS_FALLBACK = ("game-dev", "code-audit")
 CROSS_OK = []          # 本次实际验到的跨 skill 引用（用于自证"真的在查"）
+
+
+def _cross_skills(base=None):
+    """集群里有哪些 skill：**扫** `_common/skills/` 下的目录。
+
+    ⛔ `base` 参数是为了自检：vroot 是临时目录，没有真 `_common/`，
+       不注入就只能测真集群 ⇒ 用例在换环境时失效（EV-M56 首跑
+       SURVIVED 就是这么来的：变异改了返回值，但用例没断言它）。
+
+    ⛔ 写死 = 新建的 skill 永远进不来跨 skill 死链检查，且不报错。
+    实测：`localization` 建起来后，指向它的引用一直验不到。
+
+    ⓘ 扫不到时退回 fallback（而不是返回空）：
+       环境里可能没有 `_common/`（单 skill 独立分发），
+       ⛔ 返回空会让所有跨 skill 引用都匹配不到 ⇒ 静默漏报。
+    """
+    try:
+        cs = Path(base) / "_common" / "skills" if base else COMMON_SKILLS
+        if cs.is_dir():
+            got = tuple(sorted(d.name for d in cs.iterdir() if d.is_dir()))
+            if got:
+                return got
+    except Exception:
+        pass
+    return CROSS_SKILLS_FALLBACK
 
 
 def _zones(root=None, cfg=None):
@@ -1287,10 +1331,14 @@ def check_refs(cfg, root=None):
     #    ② 字符类不含中文 ⇒ `00-域流程总览.md` 这类**真路径**匹配不到
     #       （game-dev 的域流程文件名全是中文）⇒ 漏报。
     #    ⛔ 两个都是"检查在跑但没在查"，且都不报错。
+    # ⛔ 第三处扩展（2026-09-26）：`_common/skills/<skill>/...` 完整写法。
+    #    实测 `new-skill.md` 写的就是「反哺自 `_common/skills/localization`」，
+    #    而老正则只认 `<skill名>/` 裸前缀 ⇒ **匹配不到 ⇒ 永远验不到**。
+    #    ⛔ 与"区名开头"那次是同形态：引用方式变了，正则还停在旧前缀上。
     RX = re.compile(r'(?<![A-Za-z0-9_/.-])'
-                    r'((?:scripts|reference|%s|%s)/'
+                    r'((?:scripts|reference|_common/skills|%s|%s)/'
                     r'[A-Za-z0-9_./\u4e00-\u9fa5-]+\.(?:py|sh|md))'
-                    % ("|".join(ZONES), "|".join(CROSS_SKILLS)))
+                    % ("|".join(ZONES), "|".join(_cross_skills(base))))
     for f in targets:
         try:
             text = f.read_text(encoding="utf-8")
@@ -1310,13 +1358,32 @@ def check_refs(cfg, root=None):
             #    ⇒ 正确做法是**验到对方仓库**，不是排除。
             if not ok:
                 top = rel.split("/")[0]
-                if top in CROSS_SKILLS:
+                if top == "_common" and rel.startswith("_common/skills/"):
+                    ok = (ROOT.parent.parent / rel).exists()
+                    if ok:
+                        CROSS_OK.append(rel)
+                elif top in _cross_skills(base):
                     ok = (COMMON_SKILLS / rel).exists()
                     if ok:
                         CROSS_OK.append(rel)
             if ok:
                 continue
             ln = text[:m.start()].count('\n') + 1
+            # ⛔ 代码块内的路径多是**示意**（ASCII 架构图、示例目录树），
+            #    不是真引用 ⇒ 报 error 会误报 ⇒ 误报的检查会被关掉。
+            #    实测：layers.md 的 ASCII 图里写
+            #    `_common/skills/structured-output.md ← 流程骨架`，
+            #    那是描述设计意图，不是指向已存在的文件。
+            #    ⇒ 降级 info（可见但不阻断），块外仍 error。
+            if _offset_in_code_block(text, m.start()):
+                issues.append({
+                    "level": "info", "file": str(f),
+                    "issue": "L%d 代码块内的路径不存在：`%s`（示意性，未验）"
+                             % (ln, rel),
+                    "hint": "⛔ 代码块内的路径通常是示意，不报 error"
+                            "（误报会让检查被关掉）。"
+                            "若它**应当存在**，把写法移出代码块"})
+                continue
             issues.append({
                 "level": "error",
                 "file": "%s:%d" % (f.relative_to(base), ln),
@@ -2887,7 +2954,7 @@ def check_zone_index(cfg, root=None):
     return issues
 
 
-def check_hardcoded_zone_list(cfg, root=None):
+def check_hardcoded_scan_sets(cfg, root=None):
     """扫全库的检查里，区名单不能写死（字面量含 ≥2 个区名即报）。
 
     ⛔ 实测：同一形态**已经踩过两次**（2026-09-26）
@@ -2902,6 +2969,15 @@ def check_hardcoded_zone_list(cfg, root=None):
 
     ⓘ 级别 warn：config 显式指定区名单是合法用法（允许收窄），
        此时 `_zones()` 走 config 分支，不经过这里的字面量。
+
+    ### ⛔ 2026-09-26 第二次扩展：skill 名单同样不能写死
+
+    实测：`CROSS_SKILLS = ("game-dev", "code-audit")` 写死，
+    而集群里已经有第三个 skill **`localization`**
+    ⇒ 指向它的跨 skill 引用**永远验不到**（不报错，静默跳过）。
+
+    ⛔ 与区名单写死是**同一个形态的第三次**。
+    判据不变：**这个集合是从哪来的？**
     """
     base = Path(root) if root else ROOT
     issues = []
@@ -2912,6 +2988,15 @@ def check_hardcoded_zone_list(cfg, root=None):
         #    ⛔ 不要退回写死的默认名单——那正是本检查要抓的东西。
         return issues
     known = {d.name for d in ref.iterdir() if d.is_dir()}
+    # skill 名：扫 _common/skills/（扫不到就空 ⇒ 只查区名，不误报）
+    known_skills = set()
+    try:
+        if COMMON_SKILLS.is_dir():
+            known_skills = {d.name for d in COMMON_SKILLS.iterdir()
+                            if d.is_dir()}
+    except Exception:
+        pass
+    known |= known_skills
     # ⛔ 自检函数里的字面量是**测试样本**，必须显式写死
     #    （自造样本不能依赖被测逻辑，否则用例恒绿）。
     #    不豁免会误报 4 条 ⇒ 误报的检查会被关掉。
@@ -4281,7 +4366,7 @@ trigger: 测试
             '⛔ 区列表不能写死：名单外的区（common）也要能查出'
             '（写死 = 新增区永远进不来）')
 
-        # ---- check_hardcoded_zone_list：扫全库的检查不能写死区名单 ----
+        # ---- check_hardcoded_scan_sets：扫全库的检查不能写死区名单 ----
         hz = vroot / 'reference' / 'howto'
         hz.mkdir(parents=True, exist_ok=True)
         (hz / 'c.md').write_text('# c\n\nx\n', encoding='utf-8')
@@ -4295,11 +4380,11 @@ trigger: 测试
             '        pass\n', encoding='utf-8')
         chk(any('区名单写死' in str(i.get('issue', ''))
                 and 'spy.py' in str(i.get('file', ''))
-                for i in check_hardcoded_zone_list(cfg, vroot)),
+                for i in check_hardcoded_scan_sets(cfg, vroot)),
             '扫全库的检查里写死区名单能查出'
             '（⛔ 实测两次：漏 common、漏 craft，且不报错）')
         chk(all(i.get('level') == 'warn'
-                for i in check_hardcoded_zone_list(cfg, vroot)
+                for i in check_hardcoded_scan_sets(cfg, vroot)
                 if i.get('level')),
             '写死名单是 warn（config 显式收窄是合法用法）')
         # 正向：没有写死 → 不报（确认豁免没有一刀切）
@@ -4307,7 +4392,7 @@ trigger: 测试
             'def scan(root=None):\n'
             '    for z in _zones(root):\n'
             '        pass\n', encoding='utf-8')
-        chk(not [i for i in check_hardcoded_zone_list(cfg, vroot)
+        chk(not [i for i in check_hardcoded_scan_sets(cfg, vroot)
                  if 'spy.py' in str(i.get('file', ''))],
             '改用 _zones() 后不报（确认没有一刀切）')
         # ⛔ 正侧二：自检函数里的字面量是**测试样本**，必须豁免。
@@ -4316,10 +4401,34 @@ trigger: 测试
             'def cmd_self_test(cfg):\n'
             '    for z in ("howto", "audit", "flow", "common", "craft"):\n'
             '        pass\n', encoding='utf-8')
-        chk(not [i for i in check_hardcoded_zone_list(cfg, vroot)
+        chk(not [i for i in check_hardcoded_scan_sets(cfg, vroot)
                  if 'spy.py' in str(i.get('file', ''))],
             '自检里的测试样本豁免（⛔ 自造样本不能依赖被测逻辑）')
         spy.unlink()
+
+        # ---- 扩展：skill 名单同样不能写死（同形态第 3 次） ----
+        #    ⛔ 实测：`CROSS_SKILLS = ("game-dev","code-audit")` 写死，
+        #    而集群里已有第三个 skill `localization`
+        #    ⇒ 指向它的跨 skill 引用永远验不到（静默跳过，不报错）。
+        spy.write_text(
+            'def scan(root=None):\n'
+            '    for s in ("game-dev", "code-audit"):\n'
+            '        pass\n', encoding='utf-8')
+        chk(any('区名单写死' in str(i.get('issue', ''))
+                and 'spy.py' in str(i.get('file', ''))
+                for i in check_hardcoded_scan_sets(cfg, vroot)),
+            '⛔ skill 名单写死同样能查出'
+            '（实测：漏 localization ⇒ 跨 skill 引用永远验不到）')
+        spy.unlink()
+        # ⛔ 反侧二：`_cross_skills()` 必须返回**扫出来的**集合，不是写死的
+        #    （EV-M56 首跑 SURVIVED：变异改了返回值，但用例没断言它）
+        xk = vroot / '_common' / 'skills'
+        for nm in ('game-dev', 'code-audit', 'localization'):
+            (xk / nm).mkdir(parents=True, exist_ok=True)
+        chk(set(_cross_skills(vroot)) ==
+            {'code-audit', 'game-dev', 'localization'},
+            '⛔ _cross_skills 返回扫出来的集合（写死会漏掉新 skill，'
+            '且不报错）')
 
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
@@ -5246,7 +5355,7 @@ def main():
               + check_zone_refs(cfg)
               + check_flow_entry(cfg)
               + check_zone_index(cfg)
-              + check_hardcoded_zone_list(cfg)
+              + check_hardcoded_scan_sets(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))

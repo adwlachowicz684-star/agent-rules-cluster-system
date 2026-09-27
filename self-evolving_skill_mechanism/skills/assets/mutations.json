@@ -684,5 +684,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M56",
+  "target": "scripts/lint.py",
+  "desc": "[skill 名单] 扫到了却返回写死名单 → 新 skill 引用永远验不到",
+  "old": "            got = tuple(sorted(d.name for d in cs.iterdir() if d.is_dir()))\n            if got:\n                return got",
+  "new": "            got = tuple(sorted(d.name for d in cs.iterdir() if d.is_dir()))\n            if got:\n                return CROSS_SKILLS_FALLBACK  # 变异：扫到了也返回写死的",
+  "expect": "KILLED",
+  "why": "⛔ 实测：集群已有第三个 skill `localization`，而 CROSS_SKILLS 写死两个 ⇒ 指向它的跨 skill 引用静默跳过。与区名单写死同形态，第三次。\n⛔ **变异第一版选错了目标**：改的是 fallback（扫不到才走），而用例环境里 `_common/skills` 存在 ⇒ 走的是 `return got` ⇒ 变异从未生效 ⇒ SURVIVED。⇒ 判据：**变异必须改到实际生效的那条路径**，不是长得像的那条。",
+  "source": "2026-09-26 CROSS_SKILLS 扫描",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
