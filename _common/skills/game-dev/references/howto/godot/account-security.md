@@ -217,6 +217,58 @@ PC/Mac/Linux 没有统一"安全区"，应按系统凭据库实现或降低离�
 ⛔ token 不进命令行、导出配置、Autoload 属性、版本控制。
 ⚠ **崩溃报告必须脱敏**——token、邮箱、内部用户 ID、请求头发前剥离。
 
+### TLS 传输：⛔ `client_unsafe()` 不是"让报错消失"的手段
+
+官方 `TLSOptions.client_unsafe()` 的口径是：创建一个**不安全**的客户端配置，
+**证书校验变成可选，且证书的 common name 永不检查**（官方原话：
+"Using this configuration for purposes other than testing is not recommended"）。
+
+⛔ 为了在内网自签环境里跑通而加上 `tls_options = TLSOptions.client_unsafe()`，
+出包后忘了删 —— 结果是**能连通、能登录、看起来一切正常**，
+而中间人可以任意换证书截获 access / refresh token，客户端**不会有任何提示**。
+
+⛔ 这是本域最难发现的一类：它不产生任何错误，只是把校验关掉了。
+"HTTPS 能通"与"HTTPS 校验生效"是两件事，而只有后者能防中间人。
+
+ⓘ 官方 `is_unsafe_client()` 可以反过来查这个状态，适合做成发布门禁。
+
+⚠ **Web 平台是例外**：官方注明 Web 上 "TLS verification is always enforced
+against the CA list of the web browser"，并称这是 security feature ——
+⛔ 也就是说 Web 导出**无法**用 `client_unsafe()` 绕过，
+表现为"桌面版连得上内网、Web 版握手失败"，排查方向会被引向 Web 平台本身。
+
+⚠ 方向相反的另一个坑：把自签证书加进项目设置的 TLS 证书包**不等于放行任意域名**。
+官方 Warning：此时仍会按证书的 CN 与 SAN 做**域名校验**。
+⛔ 表现为"证书明明配了还是握手失败"，而证书文件、路径、导出过滤全都正确。
+
+### 凭据存放：⛔ `user://` 的"其他应用不可访问"只在移动端成立
+
+官方对 `user://` 的说明里，**只有移动端**写了"该路径是项目独享的，
+无法被其他应用程序访问（出于安全原因）"。桌面平台的实际路径是
+`%APPDATA%\Godot\app_userdata\[project_name]`（Windows）、
+`~/Library/Application Support/Godot/app_userdata/[project_name]`（macOS）、
+`~/.local/share/godot/app_userdata/[project_name]`（Linux）—— **普通用户目录**；
+HTML5 导出则是基于 IndexedDB 的虚拟文件系统。
+
+⛔ 把"移动端不可访问"当成 `user://` 的通用性质，是这条最常见的误读：
+桌面端把 token 写进 `user://` 的任何文件，等同于写进一个谁都能读的目录。
+
+ⓘ 因此本域判据不变：**`user://` 不是凭据库**，它只能放可撤销的 refresh token
+且应进平台安全存储。桌面端若无统一凭据库，就应降低离线续期能力
+（每次冷启动重新认证），⛔ 而不是"加密一下继续存"。
+
+### 随机源：⛔ TOTP 密钥与恢复码不能由 `randi()` 产生
+
+`randi()` 不是密码学安全随机源，输出可预测。官方为此提供的是
+`Crypto.generate_random_bytes()`。
+
+⛔ 用 `randi()` 生成 TOTP 共享密钥或恢复码 —— **每一次都不同、看起来完全随机**，
+但密钥空间被压缩到种子空间。
+表现为"验证码体系在正常测试里 100% 正确"，⛔ 出事时在日志里也查不出异常。
+
+ⓘ 同理：恢复码与 TOTP 的比较要用 `Crypto.constant_time_compare()`，
+⛔ 普通 `==` 比较字符串会引入时序侧信道。
+
 ## 8. 待核对项（运行时验证）
 
 ⚠ 待核对：Argon2id 参数与登录峰值延迟的取值 · 验证：在预发布环境测 p50/p99，本轮 19 MiB / t=2 / p=1 是 OWASP 基线**起测值**而非定值
