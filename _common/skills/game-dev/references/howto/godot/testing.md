@@ -200,5 +200,50 @@ python3 ../../code-audit/scripts/godot-audit.py --src=. --format=json > audit.js
 - [ ] 测试用 `--headless` 跑，退出码正确
 - [ ] release 导出后跑一遍（debug 能跑不代表 release 能跑）
 
+## 8. 断言与退出码：测试有效的两个前提
+
+测试写了、跑了、绿了 —— ⛔ **这三件事都不能证明测试在验证东西**。
+有两个前提会让它静默失效，且都不报错。
+
+**① ⛔ `assert()` 只在 debug 构建执行。**
+
+官方原话：*"the code inside `assert()` is only executed in debug builds
+or when running the project from the editor"*。
+
+⛔ 用 `assert` 写断言、却在 **release 导出包**里跑测试 ——
+断言整段被跳过，输出仍是"通过 100 / 失败 0"，
+而实际一次都没验证。
+
+ⓘ 注意它与 `push_error()` 的区别：后者是**报告**错误（不会让测试失败），
+前者在 debug 下会**中断**。⛔ 用 push_error 替代 assert 并不会让测试变有效。
+
+**② ⛔ `assert()` 内不能有副作用。**
+
+官方原话：*"Don't include code that has side effects in an `assert()` call.
+Otherwise, the project will behave differently when exported in release mode."*
+
+⛔ `assert(take_damage(30) == 70)` —— release 下整个表达式不求值，
+**被测函数根本没被调用**，而 debug 下完全正常。
+
+**③ ⛔ 退出码要实测，不能假设 `quit(1)` 生效。**
+
+官方仓库有 issue 记录 `--headless --script` 下 `quit(1)` **返回 0**
+（GH-88055，4.2.1 / 4.2.2 可复现）。
+⛔ 表现为"测试全红但 CI 全绿" —— 信号与事实相反。
+
+ⓘ 该 issue 已关闭，**修复版本需实测确认**。
+兜底做法是把失败数写进文件，CI 读文件判成败，⛔ 不单纯依赖进程退出码。
+
+ⓘ 配套一条：回溯（backtrace）默认只在 editor / debug 构建可用，
+release 需显式开启 `debug/settings/gdscript/always_track_call_stacks`。
+⛔ 未开启时线上崩溃只有一句日志，本地却总能复现出堆栈。
+
+## 9. 流程：按什么顺序做
+
+→ `flow/godot/testing/`（7 个功能点）
+
+⛔ 先定断言机制与退出码（01），再写测试（02）——
+顺序反了会写出"跑了但什么都没验证"的测试。
+
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/testing.md`
 
