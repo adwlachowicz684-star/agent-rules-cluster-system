@@ -3031,6 +3031,91 @@ def _module_const(name, path):
     return None
 
 
+# ⛔ 示意性省略标记：命中这些就说明那一行是**举例**，不是规范清单
+_VAGUE_RX = re.compile(r"(\.\.\.|…|\b等\b|等\s*\d+\s*类|\b等等\b)")
+
+
+def _module_str_consts(base):
+    """扫 `scripts/*.py` 的**模块级**字符串常量（≥3 项）。
+
+    ⛔ 只收模块级（tree.body），不收函数内——函数内的是局部变量/默认值，
+       不是"规范"。收进来会大量误报。
+    """
+    out = {}
+    for f in sorted((base / "scripts").glob("*.py")):
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for n in tree.body:
+            if not isinstance(n, ast.Assign):
+                continue
+            if not isinstance(n.value, (ast.Tuple, ast.List)):
+                continue
+            names = [e.value for e in n.value.elts
+                     if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+            if len(names) < 3:
+                continue
+            for tg in n.targets:
+                if isinstance(tg, ast.Name):
+                    out[(f.name, tg.id)] = names
+    return out
+
+
+def check_undeclared_spec_copies(cfg, root=None):
+    """自动发现**未登记**的规范副本：脚本常量 ↔ 文档里的同款清单。
+
+    ⛔ 为什么需要：`check_spec_drift` 只查 **SPEC_DRIFT 登记过**的。
+       未登记的副本照样静默漂移——而"不知道有第二份"比"两份不一致"
+       更难发现（后者至少能比对，前者根本没进视野）。
+
+    ### 判据（第二十九条：先跑真库数误报率，本轮 0%）
+
+    ```
+    覆盖率 ≥ 60%      排除"词恰好同现"的巧合
+                      （实测 FLOW_SECTION 只 3/6、NOTE_SECTION 只 3/7）
+    不含 ... / 等     排除示意性举例
+                      （实测 env.md「rg, git, zip, ... curl, ...」）
+    ≥3 项的模块级常量  函数内的局部变量不是规范
+    ```
+
+    ⇒ 收紧前 4 个候选里 2 个误报（50%）；收紧后 **0 误报**。
+    ⛔ 若用豁免压误报，新出现的真副本也会被豁免掉。
+
+    ⓘ 级别 warn：多份副本本身是问题（不知道哪份是权威），
+       但也可能只是**引用**（不是定义）⇒ 不阻断。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    declared = {(c, d) for c, d, _k in SPEC_DRIFT}
+    for (fname, cname), vals in sorted(_module_str_consts(base).items()):
+        for d in sorted((base / "reference").rglob("*.md")):
+            try:
+                lines = d.read_text(encoding="utf-8").split("\n")
+            except Exception:
+                continue
+            for ln, line in enumerate(lines, 1):
+                hit = [w for w in vals if w and w.lower() in line.lower()]
+                if len(vals) and len(hit) / len(vals) < 0.6:
+                    continue
+                if _VAGUE_RX.search(line):
+                    continue
+                rel = str(d.relative_to(base)) if str(d).startswith(str(base)) else str(d)
+                if (cname, rel) in declared:
+                    continue
+                issues.append({
+                    "level": "warn",
+                    "file": rel,
+                    "issue": "⛔ 未登记的规范副本：L%d 与 `scripts/%s` 的 `%s` 高度重合"
+                             "（%d/%d）" % (ln, fname, cname, len(hit), len(vals)),
+                    "hint": "⛔ 同一条规范在脚本和文档各写一份 ⇒ 改了一边另一边"
+                            "不知道，两边都不报错（第四类）。"
+                            "处置：① 登记进 SPEC_DRIFT 让它被比对；"
+                            "② 若这只是**引用**不是定义，改写成指向，别再抄一遍。"})
+                break
+    return issues
+
+
 def check_spec_drift(cfg, root=None):
     """同一条规范在文档和脚本里各写一份时，两边必须一致。
 
@@ -4612,6 +4697,42 @@ trigger: 测试
                  if 'loading' in str(i.get('file', ''))],
             'superset 型：必填 ⊆ 接口时不报（⛔ 反过来不成立）')
 
+        # ---- check_undeclared_spec_copies：自动发现未登记的副本 ----
+        ud = vroot / 'reference' / 'common'
+        ud.mkdir(parents=True, exist_ok=True)
+        udf = ud / 'x.md'
+        # ⛔ 反侧：文档里抄了一份脚本常量（8/8 全中）→ 必须报
+        #    （⛔ 不造反侧，本检查从未验证过"能红"）
+        udf.write_text('# x\n\n类型：新增 / 补充 / 修正 / 更新 / 参考 / 合并'
+                       ' / 拆分 / 冷藏\n', encoding='utf-8')
+        cpy = vroot / 'scripts' / 'note.py'
+        cpy.parent.mkdir(parents=True, exist_ok=True)
+        cpy.write_text(
+            'TYPES = ["新增", "补充", "修正", "更新", "参考", "合并",'
+            ' "拆分", "冷藏"]\n', encoding='utf-8')
+        chk(any('未登记的规范副本' in str(i.get('issue', ''))
+                for i in check_undeclared_spec_copies(cfg, vroot)),
+            '未登记的规范副本能查出（⛔ spec_drift 只查登记过的）')
+        # 正向一：示意性举例（带「等」）→ 不报
+        #    ⛔ 实测：env.md 写「rg, git, zip, ... curl, ...」是举例，
+        #       判据不排除会误报 ⇒ 误报的检查会被关掉
+        udf.write_text('# x\n\n工具：rg / git / zip / unzip / jq / curl 等\n',
+                       encoding='utf-8')
+        cpy.write_text(
+            'TOOLS = ["rg", "git", "zip", "unzip", "jq", "curl"]\n',
+            encoding='utf-8')
+        chk(not check_undeclared_spec_copies(cfg, vroot),
+            '示意性举例（含「等」）不报（⛔ 误报会让检查被关掉）')
+        # 正向二：词恰好同现但覆盖率不够（<60%）→ 不报
+        #    ⛔ 实测：FLOW_SECTION 只 3/6、NOTE_SECTION 只 3/7
+        udf.write_text('# x\n\n流程与步骤：操作\n', encoding='utf-8')
+        cpy.write_text(
+            'FLOW_SECTION = ["流程", "步骤", "操作", "做法", "怎么用",'
+            ' "执行"]\n', encoding='utf-8')
+        chk(not check_undeclared_spec_copies(cfg, vroot),
+            '覆盖率 <60% 的巧合同现不报（⛔ 实测 FLOW_SECTION 只 3/6）')
+        cpy.unlink()
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
@@ -5539,6 +5660,7 @@ def main():
               + check_zone_index(cfg)
               + check_hardcoded_scan_sets(cfg)
               + check_spec_drift(cfg)
+              + check_undeclared_spec_copies(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))

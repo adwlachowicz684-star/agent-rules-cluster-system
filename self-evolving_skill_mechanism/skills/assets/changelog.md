@@ -45,3 +45,6 @@
 | 2026-09-26 | ⛔ 第四类：同一规范的两份副本 | 新增 | blocks.md 原三类按"会不会变"分，漏掉按"是不是只有一份"分的这一类。实测 step-spec.md 与 FLOW_FIELDS 各写一份五字段，改了一边另一边永远不知道、都不报错。新增 `check_spec_drift`（SY001 的同 skill 版本：找不到就跳过） |
 | 2026-09-26 | ⚠ 脚本侧常量要取 globals()，不能 AST 读 base/scripts | 自检 | 自检 vroot 里没有 lint.py ⇒ AST 取不到 ⇒ 静默跳过 ⇒ 用例恒绿（实测踩到，第 N 次） |
 | 2026-09-26 | ⛔ 真漂移：必填 `name` 不在接口清单里 | 自检 | loading.md 列 id/keywords/trigger/tier/hits，而 REQUIRED_FM 要求 name ⇒ 按文档自建定向加载机制的人**解析不到 name**，且不报错。新增 superset 型判据：**必填 ⊆ 接口**（⛔ 反过来不成立） |
+| 2026-09-26 | ⛔ `note.py TYPES` 有 4 份副本（自检发现） | 自检 | SKILL.md + global-rule.md + writing-rules.md + note.py 各抄一份，改类型时没人知道要改另外 3 处。三处文档**都改成指向** `note.py --types`（⛔ 登记只是让漂移可发现，单一来源才是不漂移） |
+| 2026-09-26 | 新增 `check_undeclared_spec_copies`（自动发现未登记副本） | 新增 | 判据：覆盖率 ≥60% + 不含省略标记 + 模块级 ≥3 项。收紧前 4 候选 2 误报（50%），收紧后 **0 误报** |
+| 2026-09-26 | ⚠ 我自己写的文档又造了 2 份副本 | 自检 | blocks.md 的示例块、writing-checks.md 的表格各抄了一份清单——**在讲"别抄一遍"的同时又抄了一遍**。已改为不列举 |

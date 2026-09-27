@@ -729,5 +729,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M59",
+  "target": "scripts/lint.py",
+  "desc": "[自动发现副本] 覆盖率判据失效 → 任何句子都判为副本",
+  "old": "                if len(vals) and len(hit) / len(vals) < 0.6:\n                    continue",
+  "new": "                if False:\n                    continue",
+  "expect": "KILLED",
+  "why": "⛔ 覆盖率 60% 是唯一区分「规范清单」与「词恰好同现」的判据（实测 FLOW_SECTION 只 3/6、NOTE_SECTION 只 3/7）。去掉它 → 大量误报 ⇒ 检查被关掉。",
+  "source": "2026-09-26 自动发现未登记副本",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M60",
+  "target": "scripts/lint.py",
+  "desc": "[自动发现副本] 不排除示意性举例 → env.md 的「rg, git, ... 等」误报",
+  "old": "                if _VAGUE_RX.search(line):\n                    continue",
+  "new": "                if False:\n                    continue",
+  "expect": "KILLED",
+  "why": "⛔ 实测：env.md 写「可用工具: rg, git, zip, unzip, jq, curl, ...」是举例不是规范清单。不排除 → 误报 ⇒ 检查被关掉。",
+  "source": "2026-09-26 自动发现未登记副本",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

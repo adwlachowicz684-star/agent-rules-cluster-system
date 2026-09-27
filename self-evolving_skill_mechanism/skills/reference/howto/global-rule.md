@@ -93,7 +93,7 @@ python3 scripts/structure.py --apply                    # 用户确认后执行�
 python3 scripts/note.py "<ID>" 补充 "<为什么改>" [--domain X] [--src 来源]
 python3 scripts/note.py --show
 ```
-类型：新增 / 补充 / 修正 / 更新 / 参考 / 合并 / 拆分 / 冷藏
+类型：共 8 类，见 `python3 scripts/note.py --types`
 半年后看到一条规则没人记得它怎么来的——一行记录回答「从哪来、为什么」。
 
 ### 3.9 体积红线（超了就拆）
