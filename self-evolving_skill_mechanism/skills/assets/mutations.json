@@ -699,5 +699,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M57",
+  "target": "scripts/lint.py",
+  "desc": "[规范漂移] 两边不一致却不报 → 改了一边另一边永远不知道",
+  "old": "        if list(got_doc) != list(got_code):\n            issues.append({",
+  "new": "        if False:\n            issues.append({",
+  "expect": "KILLED",
+  "why": "⛔ 规范在文档和脚本各写一份（step-spec.md 与 FLOW_FIELDS），改了一边另一边不报错——SY001 的同 skill 版本。⛔ 脚本侧必须取 globals()：自检 vroot 里没有 lint.py，AST 取不到 ⇒ 静默跳过 ⇒ 用例恒绿（实测踩到）。",
+  "source": "2026-09-26 规范漂移",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

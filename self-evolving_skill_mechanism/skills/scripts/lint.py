@@ -2954,6 +2954,104 @@ def check_zone_index(cfg, root=None):
     return issues
 
 
+# ⛔ 规范漂移登记表：同一条规范在**文档和脚本各写一份**的，要定期比对。
+#
+#    ⓘ 这里的名单是**定义**，不是扫描集合 ⇒ 写死是对的
+#      （与 `check_hardcoded_scan_sets` 要抓的东西正好相反，见下）。
+#    ⛔ 没有这张表时，规范改了脚本不知道、脚本改了文档不知道，
+#      两边都不报错 —— 这就是 SY001（跨 skill 阈值漂移）的**同 skill 版本**。
+SPEC_DRIFT = [
+    # (脚本常量名, 规范出处文档, 提取方式)
+    ("FLOW_FIELDS", "reference/flow/step-spec.md", "bracket"),
+]
+
+
+def _extract_bracket_spec(doc):
+    """从文档里提【…】型规范：优先 ```markdown 代码块，其次表格首列。
+
+    ⛔ 两个来源都提，是因为实测两者**内容和顺序都一致**；
+       只提一个会在作者改了另一个时漏报。
+    """
+    import re as _re
+    try:
+        txt = doc.read_text(encoding="utf-8")
+    except Exception:
+        return None
+    m = _re.search(r"```markdown\n(.*?)```", txt, _re.S)
+    if m:
+        got = _re.findall(r"【[^】]+】", m.group(1))
+        if got:
+            return got
+    rows = _re.findall(r"^\|\s*\*\*(【[^】]+】)\*\*", txt, _re.M)
+    return rows or None
+
+
+def _module_const(name, path):
+    """用 AST 取模块级常量的字符串列表（⛔ 不用正则：引号形态会变）。"""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    for n in tree.body:
+        if not isinstance(n, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == name for t in n.targets):
+            continue
+        v = n.value
+        if isinstance(v, (ast.Tuple, ast.List)):
+            return [e.value for e in v.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return None
+
+
+def check_spec_drift(cfg, root=None):
+    """同一条规范在文档和脚本里各写一份时，两边必须一致。
+
+    ⛔ 与「写死的扫描集合」是**相反的两件事**，判据也不同：
+
+    | | 扫描集合（区 / skill / 文件） | 规范常量（五字段 / 退出码） |
+    |---|---|---|
+    | 成员是什么 | **被发现的对象** | **规则本身** |
+    | 应该 | 扫出来 | 写死 |
+    | 写死的后果 | 新成员永远进不来 | ✅ 正确 |
+    | 真正的风险 | — | ⛔ **两边各写一份 → 漂移** |
+
+    ⇒ 所以这不是"别写死"，而是"**写死了就要有单一来源，或一个比对者**"。
+
+    ⛔ 文档缺失时**跳过**，不报错：skill 可能被部分分发（只拷 scripts/）。
+       ⇒ 那是另一种问题，不该由本检查误报。
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    for cname, docrel, kind in SPEC_DRIFT:
+        doc = base / docrel
+        if not doc.exists():
+            continue
+        got_doc = _extract_bracket_spec(doc) if kind == "bracket" else None
+        if not got_doc:
+            continue
+        # ⛔ 脚本侧取自**正在运行的本模块**（而不是 base/scripts/lint.py）：
+        #    自检的 vroot 是临时目录，里面没有 lint.py ⇒ AST 取不到
+        #    ⇒ 检查静默跳过 ⇒ 用例恒绿（实测踩到，第 N 次）。
+        #    ⓘ 语义本来就对：本检查比的就是"我自己的常量" vs "那棵树的文档"。
+        got_code = globals().get(cname)
+        if not got_code:
+            got_code = _module_const(cname, base / "scripts" / "lint.py")
+        if got_code is None:
+            continue
+        if list(got_doc) != list(got_code):
+            issues.append({
+                "level": "error",
+                "file": docrel,
+                "issue": "⛔ 规范漂移：文档写 %s，脚本 `%s` 写 %s"
+                         % (got_doc, cname, got_code),
+                "hint": "同一条规范在两处各写一份 ⇒ 改了一边另一边不知道，"
+                        "**两边都不报错**（SY001 的同 skill 版本）。"
+                        "判据：谁改了另一处能发现？发现不了就要么单一来源，"
+                        "要么有比对者。"})
+    return issues
+
+
 def check_hardcoded_scan_sets(cfg, root=None):
     """扫全库的检查里，区名单不能写死（字面量含 ≥2 个区名即报）。
 
@@ -4430,6 +4528,25 @@ trigger: 测试
             '⛔ _cross_skills 返回扫出来的集合（写死会漏掉新 skill，'
             '且不报错）')
 
+        # ---- check_spec_drift：同一规范在文档和脚本各写一份时要一致 ----
+        sp = vroot / 'reference' / 'flow'
+        sp.mkdir(parents=True, exist_ok=True)
+        specf = sp / 'step-spec.md'
+        # ⛔ 反侧：文档少写一个字段 → 必须报
+        #    （⛔ 不造反侧，本检查从未验证过"能红"）
+        specf.write_text('# s\n\n```markdown\n'
+                         '【读】a\n【做】b\n【产出】c\n【判据】d\n```\n',
+                         encoding='utf-8')
+        chk(any('规范漂移' in str(i.get('issue', ''))
+                for i in check_spec_drift(cfg, vroot)),
+            '规范漂移能查出（文档与脚本不一致 ⇒ error）')
+        # 正向：写全五个 → 不报（确认没有一刀切）
+        specf.write_text('# s\n\n```markdown\n'
+                         '【读】a\n【做】b\n【产出】c\n【判据】d\n【审】e\n'
+                         '```\n', encoding='utf-8')
+        chk(not check_spec_drift(cfg, vroot),
+            '一致时不报（确认没有一刀切）')
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
@@ -5356,6 +5473,7 @@ def main():
               + check_flow_entry(cfg)
               + check_zone_index(cfg)
               + check_hardcoded_scan_sets(cfg)
+              + check_spec_drift(cfg)
               + check_feed_source_path(cfg)
               + check_flow_seams(cfg)
               + check_heading_numbering(cfg))
