@@ -2960,9 +2960,15 @@ def check_zone_index(cfg, root=None):
 #      （与 `check_hardcoded_scan_sets` 要抓的东西正好相反，见下）。
 #    ⛔ 没有这张表时，规范改了脚本不知道、脚本改了文档不知道，
 #      两边都不报错 —— 这就是 SY001（跨 skill 阈值漂移）的**同 skill 版本**。
+# ⛔ 说明：`kind` 决定比对方式
+#   "bracket"  —— 两份是**同一条规范的副本**，必须逐项全等
+#   "superset" —— 文档列的是**接口全集**，脚本列的是**必填子集**
+#                 ⇒ 判据：必填 ⊆ 接口。⛔ 反过来不成立
+#                   （接口字段不都必填，但必填的必须在接口里，
+#                    否则按文档接入的外部机制拿不到它）
 SPEC_DRIFT = [
-    # (脚本常量名, 规范出处文档, 提取方式)
     ("FLOW_FIELDS", "reference/flow/step-spec.md", "bracket"),
+    ("REQUIRED_FM", "reference/howto/loading.md", "superset"),
 ]
 
 
@@ -2984,6 +2990,27 @@ def _extract_bracket_spec(doc):
             return got
     rows = _re.findall(r"^\|\s*\*\*(【[^】]+】)\*\*", txt, _re.M)
     return rows or None
+
+
+def _extract_fm_interface(doc):
+    """从「提供 id / keywords / trigger / ...」这类说明里提接口字段名。
+
+    ⛔ 只认 `提供` 后的同义词列表：这是**接口声明句**，
+       其他地方的字段名只是举例（误报会让检查被关掉）。
+    """
+    import re as _re
+    try:
+        txt = doc.read_text(encoding="utf-8")
+    except Exception:
+        return None
+    m = _re.search(r"提供\s+([A-Za-z_][A-Za-z0-9_/\s]*?)\s*\|", txt)
+    if not m:
+        m = _re.search(r"提供\s+([A-Za-z_][A-Za-z0-9_\s/]*)", txt)
+    if not m:
+        return None
+    got = [w for w in _re.split(r"\s*/\s*|\s+", m.group(1).strip())
+           if _re.fullmatch(r"[a-z_][a-z0-9_]*", w)]
+    return got or None
 
 
 def _module_const(name, path):
@@ -3027,7 +3054,12 @@ def check_spec_drift(cfg, root=None):
         doc = base / docrel
         if not doc.exists():
             continue
-        got_doc = _extract_bracket_spec(doc) if kind == "bracket" else None
+        if kind == "bracket":
+            got_doc = _extract_bracket_spec(doc)
+        elif kind == "superset":
+            got_doc = _extract_fm_interface(doc)
+        else:
+            got_doc = None
         if not got_doc:
             continue
         # ⛔ 脚本侧取自**正在运行的本模块**（而不是 base/scripts/lint.py）：
@@ -3038,6 +3070,20 @@ def check_spec_drift(cfg, root=None):
         if not got_code:
             got_code = _module_const(cname, base / "scripts" / "lint.py")
         if got_code is None:
+            continue
+        if kind == "superset":
+            # ⛔ 判据：必填 ⊆ 接口。反过来不成立（接口字段不都必填）
+            miss = [k for k in got_code if k not in got_doc]
+            if miss:
+                issues.append({
+                    "level": "error",
+                    "file": docrel,
+                    "issue": "⛔ 规范漂移：脚本必填 %s，但文档列的接口字段 %s 里没有 %s"
+                             % (got_code, got_doc, miss),
+                    "hint": "⛔ 必填字段不在接口清单里 ⇒ 按文档接入的外部机制"
+                            "**拿不到它**，且不报错。"
+                            "判据：必填 ⊆ 接口（⛔ 反过来不成立——"
+                            "接口字段不都必填）。"})
             continue
         if list(got_doc) != list(got_code):
             issues.append({
@@ -4546,6 +4592,25 @@ trigger: 测试
                          '```\n', encoding='utf-8')
         chk(not check_spec_drift(cfg, vroot),
             '一致时不报（确认没有一刀切）')
+        # ---- superset 型：必填 ⊆ 接口 ----
+        #    ⛔ 实测真漂移：loading.md 列 id/keywords/trigger/tier/hits，
+        #    而 REQUIRED_FM 要求 name ⇒ 按文档接入的外部机制拿不到 name。
+        ld = vroot / 'reference' / 'howto'
+        ld.mkdir(parents=True, exist_ok=True)
+        ldf = ld / 'loading.md'
+        ldf.write_text('| frontmatter | x | 提供 id / keywords / trigger |\n',
+                       encoding='utf-8')
+        chk(any('规范漂移' in str(i.get('issue', ''))
+                and 'loading' in str(i.get('file', ''))
+                for i in check_spec_drift(cfg, vroot)),
+            'superset 型：必填字段不在接口清单里能查出'
+            '（⛔ 实测：name 必填但文档没列 ⇒ 外部机制拿不到）')
+        ldf.write_text('| frontmatter | x | '
+                       '提供 id / name / keywords / trigger |\n',
+                       encoding='utf-8')
+        chk(not [i for i in check_spec_drift(cfg, vroot)
+                 if 'loading' in str(i.get('file', ''))],
+            'superset 型：必填 ⊆ 接口时不报（⛔ 反过来不成立）')
 
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))

@@ -714,5 +714,20 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M58",
+  "target": "scripts/lint.py",
+  "desc": "[superset 漂移] 必填字段不在接口清单里却不报",
+  "old": "            miss = [k for k in got_code if k not in got_doc]",
+  "new": "            miss = []  # 变异：永不报",
+  "expect": "KILLED",
+  "why": "⛔ 实测真漂移：loading.md 列 id/keywords/trigger/tier/hits，而 REQUIRED_FM 要求 name ⇒ 按文档接入的外部机制拿不到 name，且不报错。判据：必填 ⊆ 接口（⛔ 反过来不成立——接口字段不都必填）。",
+  "source": "2026-09-26 superset 型规范漂移",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

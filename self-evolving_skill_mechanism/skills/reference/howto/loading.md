@@ -131,12 +131,17 @@ python3 scripts/index.py --find 打包
 
 | 接口 | 位置 | 用途 |
 |---|---|---|
-| frontmatter 元数据 | 每个 `domains/*.md` 头部 | 提供 id / keywords / trigger / tier / hits |
+| frontmatter 元数据 | 每个 `domains/*.md` 头部 | 提供 id / name / keywords / trigger / tier / hits |
 | `INDEX.md` | 根目录 | 一行一技能的总表，可直接解析 |
 | `--find` 检索 | `scripts/index.py` | 关键词检索 + 计数 + 回热 |
 | `--stats` 分层建议 | `scripts/index.py` | 输出分层调整建议 |
 
 自建机制只需按 frontmatter 解析即可接入，不需要改动文件结构。
+
+ⓘ **必填 vs 接口**：`id / name / keywords / trigger` 是**必填**
+（缺了 `lint.py` 会报），`tier / hits` 是**运行态**（由 `index.py`
+回热时写入，不需要手写）。
+⛔ 两个集合不同但**必填 ⊆ 接口**——已由 `check_spec_drift` 守着。
 
 ## 反模式
 

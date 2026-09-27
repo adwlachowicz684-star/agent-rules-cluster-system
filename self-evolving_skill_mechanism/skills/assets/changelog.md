@@ -44,3 +44,4 @@
 | 2026-09-26 | 代码块内的路径降级 info | 自检 | ASCII 架构图里的路径是示意，报 error 会误报 ⇒ 检查被关掉。块外仍 error |
 | 2026-09-26 | ⛔ 第四类：同一规范的两份副本 | 新增 | blocks.md 原三类按"会不会变"分，漏掉按"是不是只有一份"分的这一类。实测 step-spec.md 与 FLOW_FIELDS 各写一份五字段，改了一边另一边永远不知道、都不报错。新增 `check_spec_drift`（SY001 的同 skill 版本：找不到就跳过） |
 | 2026-09-26 | ⚠ 脚本侧常量要取 globals()，不能 AST 读 base/scripts | 自检 | 自检 vroot 里没有 lint.py ⇒ AST 取不到 ⇒ 静默跳过 ⇒ 用例恒绿（实测踩到，第 N 次） |
+| 2026-09-26 | ⛔ 真漂移：必填 `name` 不在接口清单里 | 自检 | loading.md 列 id/keywords/trigger/tier/hits，而 REQUIRED_FM 要求 name ⇒ 按文档自建定向加载机制的人**解析不到 name**，且不报错。新增 superset 型判据：**必填 ⊆ 接口**（⛔ 反过来不成立） |
