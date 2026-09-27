@@ -555,7 +555,67 @@ COLOR.rgb = vec3(fract(x));           // 周期值
 
 ---
 
-## 8. 3.x → 4.x 迁移
+## 8. 材质实例与逐实例参数
+
+### 材质是共享资源，改一个会改全部
+
+`ShaderMaterial` 是 Resource。从文件系统拖到检查器上时，
+**所有引用它的节点拿到的是同一个对象**，`set_shader_parameter()`
+改的是这个共享对象上的值。
+
+⛔ 给一个敌人设 `dissolve_amount`，十个敌人同时开始溶解 ——
+这是它最常见的表现，而代码逐行看完全正确、无任何报错。
+
+### 两种正确做法
+
+| 做法 | 适用 |
+|---|---|
+| 勾检查器里的 `Resource → Local to Scene` | 运行时 `PackedScene.instantiate()` 出来的实例 |
+| `_ready()` 里 `duplicate()` 再赋回节点 | 编辑器里**手动摆进场景**的实例 |
+
+⛔ **`Local to Scene` 只对运行时 `instantiate()` 出来的实例生效**，
+对编辑器里手动摆放的那些**不生效**。
+表现为"勾了但部分敌人仍然联动"——运行时刷出来的各自独立、
+手摆的仍共享，排查时几乎不会往这个方向想。
+
+配套一条：材质若直接挂在 **mesh 资源**上（不是 MeshInstance3D 的 override），
+`Local to Scene` 同样不生效，要挂到 **surface override / global material override**。
+
+```gdscript
+extends MeshInstance3D
+
+var _mat: ShaderMaterial
+
+func _ready() -> void:
+    # ⛔ 不复制就改 → 所有共用该材质的实例一起变
+    _mat = get_active_material(0).duplicate() as ShaderMaterial
+    set_surface_override_material(0, _mat)
+
+func set_dissolve(amount: float) -> void:
+    _mat.set_shader_parameter("dissolve_amount", amount)
+```
+
+### uniform 名的三处静默失败
+
+| 写法 | 后果 |
+|---|---|
+| `set_shader_param()`（3.x 名） | 4.x 已改名 `set_shader_parameter()`，旧名无此方法 |
+| 名字大小写不符 | **静默无效**：不报错，GDScript 侧也没有自动补全 |
+| 设到节点而非材质上 | `$Sprite.material` 未设 override 时是 `null`，或返回表面基础材质 |
+
+ⓘ 取材质的稳妥写法：3D 用 `get_active_material(0)`，2D 用 `node.material`。
+
+### 全局效果反而要故意共享
+
+世界色调、全局溶解这类"所有实例同步变化"的效果，**共享才是正确做法**。
+逐个 `duplicate()` 反而会漏掉某些实例，表现为"有的变了有的没变"。
+
+⛔ 所以判断顺序是固定的：**先定性这个参数是逐实例还是全局**，
+再决定共享还是复制。反过来做（先写完 shader 再想参数归谁）必然返工。
+
+---
+
+## 9. 3.x → 4.x 迁移
 
 | 3.x | 4.x |
 |---|---|
@@ -574,9 +634,24 @@ COLOR.rgb = vec3(fract(x));           // 周期值
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/shaders.md`
 
 
-## 9. 相关文档
+## 10. 相关文档
 
 - 2D 渲染特效 → `2d-rendering.md`
 - 3D 与材质 → `3d.md`
 - 管线预热 → `rendering-advanced.md`
 - 性能排查 → `debugging.md`、`performance.md`
+
+## 11. 流程：按什么顺序做
+
+> ⛔ 本节只给入口，"按什么顺序做"的完整流程在
+> `flow/godot/shaders/00-域流程总览.md`（7 个功能点 / 37 个 Step）。
+
+| 要做的事 | 走哪个功能点 |
+|---|---|
+| 定性视觉目标、定 shader 类型 | `flow/godot/shaders/01-需求定性与类型选型.md` |
+| 材质共享与逐实例参数契约 | `flow/godot/shaders/02-材质实例与参数契约.md` |
+| 最小可见闭环、能看见效果 | `flow/godot/shaders/03-原型与最小可见闭环.md` |
+| 变体控制与编译预热 | `flow/godot/shaders/04-变体与编译预热.md` |
+| 性能预算与移动端兼容 | `flow/godot/shaders/05-性能预算与移动兼容.md` |
+| 批量接入、替换与迁移 | `flow/godot/shaders/06-接入替换与迁移.md` |
+| 真机与敌意环境验收 | `flow/godot/shaders/07-着色器验收.md` |
