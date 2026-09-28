@@ -291,5 +291,101 @@ func spawn_enemy(pos: Vector2) -> void:
 ⚠ 同步属性要配置在 `MultiplayerSynchronizer` 的 replication 列表里，
 只写 `@export` 不会自动同步。
 
+## 5. 线程加载：`use_sub_threads` 是取舍，不是开关
+
+官方签名：
+
+```
+load_threaded_request(path, type_hint = "", use_sub_threads = false, cache_mode = 1)
+```
+
+官方原话：*"If `use_sub_threads` is true, multiple threads will be used to load the
+resource, which makes loading faster, but may affect the main thread (and thus
+cause game slowdowns)."*
+
+⛔ 默认 `false` 的含义是**单线程后台加载，把 CPU 留给主线程**，不是"性能没开满"。
+在加载界面上为了"更快"统一改成 `true` → **加载画面自己开始卡**，
+表现为"进度条走得很慢、动画一顿一顿"，⛔ 而排查必然被引向磁盘 IO 或资源体积。
+
+ⓘ 官方给的选择口径是二选一：
+要**加载耗时最短**用多子线程；要**不影响游戏表现**用单线程。
+加载界面属于后者 —— 它自己就是那个"游戏表现"。
+
+另两条同源：
+
+- ⛔ `load_threaded_get()` 在线程未完成时调用会**阻塞调用线程**
+  （官方：*"the calling thread will be blocked until the resource has finished loading"*）。
+  所以在主线程里提前调它 = 把异步加载变成同步卡顿，⛔ 且不报错。
+- ⛔ `load_threaded_get_status()` 官方建议**在不同帧调用**（如 `_process`），不要用循环轮询。
+  循环轮询等于把主线程占满等结果。
+
+## 6. HTTP：默认值比想象的危险
+
+| 属性 | 默认 | 官方口径 |
+|---|---|---|
+| `timeout` | `0.0` | **永不超时**。官方建议小 REST 请求设 10.0–30.0，文件下载留 `0.0` |
+| `body_size_limit` | `-1` | **无限制**，响应体多大都读进内存 |
+| `max_redirects` | `8` | 超限 → `RESULT_REDIRECT_LIMIT_REACHED = 12` |
+| `accept_gzip` | `true` | ⛔ 见下 |
+| `use_threads` | `false` | 不用多线程 |
+
+⛔ **`accept_gzip` 的静默失效**：官方写明 *"If the user has specified their own
+`Accept-Encoding` header, then no header will be added regardless of
+`accept_gzip`"*。
+
+于是"为了加鉴权头顺手把整个 header 数组重写一遍、里面带了 Accept-Encoding" →
+gzip 解压**不再执行**，`body` 直接是压缩后的原始字节 →
+`JSON.parse` 失败。⛔ 表现为"接口时好时坏"，排查被引向服务端或编码问题，
+⛔ 而不会想到是自己多加了一个头。
+
+⛔ **`request()` 的错误码要分开看**（官方）：
+
+| 返回值 | 含义 |
+|---|---|
+| `ERR_UNCONFIGURED` | 不在场景树里（⛔ 不 `add_child` 就是这个，不是"请求失败"） |
+| `ERR_BUSY` | 前一个请求还在处理（⛔ 一个 `HTTPRequest` 只能并发一个） |
+| `ERR_INVALID_PARAMETER` | URL 格式非法 |
+| `ERR_CANT_CONNECT` | 未用线程且连不上 |
+
+⛔ 统一 `if err != OK: push_error("请求发起失败")` 会把这四种压成一句话，
+于是"连发两次请求第二次没反应"（`ERR_BUSY`）看起来跟网络故障一模一样。
+
+⛔ **`get_body_size()` 可能返回 `-1`**（官方：服务器不发长度、或用 chunked 传输时）。
+拿它做进度条分母会得到负数或除零。
+
+## 7. 落盘：目录不会自动建，反序列化会执行代码
+
+⛔ **`download_file` 指向子目录时，文件夹不会自动创建**。官方原话：
+*"Folders are not automatically created when the file is created... it's
+recommended to create the necessary folders beforehand using
+`DirAccess.make_dir_recursive`"* → 得到 `RESULT_DOWNLOAD_FILE_CANT_OPEN = 10`。
+
+⛔ 这条最危险的地方在于**它在编辑器里可能是好的**：目录早就手工建过了。
+于是"下载功能在开发期一直正常，导出后才必然失败"，
+而 URL、权限、磁盘空间全部检查通过。
+
+⛔ **`get_open_error()` 只反映当前线程**。官方：*"Returns the result of the last
+`open` call in the current thread"*。后台线程里 `open` 失败，
+主线程调它拿到的是**主线程自己那次**（可能是 OK 的）结果 —— 于是错误被擦掉。
+
+⛔ **`get_var()` 反序列化会执行代码**。官方 Warning 原话：
+*"Deserialized objects can contain code which gets executed. Do not use this
+option if the serialized object comes from untrusted sources to avoid potential
+security threats such as remote code execution."*
+
+→ 下载来的配置、玩家上传的存档、多人房间交换的数据，**都不能**用它反序列化。
+
+另外两条加载侧：
+
+- ⛔ **相对路径会被自动加 `res://` 前缀**（官方 Note）。想 load `user://` 下
+  的相对路径，实际打到 `res://` → 拿到空资源，只打印一句"文件未找到"。
+- ⛔ `ResourceLoader.list_directory()` 的顺序**不确定，跨操作系统会变**
+  （官方原话）。拿它的返回顺序当加载顺序或版本号依据，会在换平台后错乱。
+
+## 8. 流程：按什么顺序做
+
+单个要素怎么做在本文件；**按什么顺序做、怎么验收**见
+`flow/godot/io-network/`（8 个功能点）。
+
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/io-network.md`
 

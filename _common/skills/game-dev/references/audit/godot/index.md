@@ -93,6 +93,7 @@
 | `vip-subscription` | `audit/godot/vip-subscription.md` |
 | `vehicle` | `audit/godot/vehicle.md` |
 | `achievement` | `audit/godot/achievement.md` |
+| `version-47-48` | `audit/godot/version-47-48.md` |
 
 ## 常见漏写速查
 
@@ -142,5 +143,6 @@
 | 40 | `build-affix` | `audit/godot/build-affix.md` |
 | 41 | `lifeskill-housing` | `audit/godot/lifeskill-housing.md` |
 | 42 | `ops` | `audit/godot/ops.md` |
+| 43 | `version-47-48` | `audit/godot/version-47-48.md` |
 
 完整判据见 `../../../../code-audit/references/p-godot.md`。

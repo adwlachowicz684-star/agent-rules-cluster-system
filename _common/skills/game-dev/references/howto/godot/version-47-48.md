@@ -262,6 +262,8 @@ TextureStreaming  # 单例
 
 ## 5. 相关文档
 
+- 升级后的自查 → `audit/godot/version-47-48.md`（35 条：breaking change 逐条、HDR/摇杆/tween 新 API、4.8 纹理流送限制、版本判断三条硬约束）
+
 - 迁移总览 → `version-migration.md`
 - 摇杆 → `mobile.md`
 - UI 动画 → `ui.md`
