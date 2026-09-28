@@ -191,6 +191,32 @@ snapshots[], rewards{}, reason, prev_anchor, next_anchor, request_id`。
 ⚠ 服务端**不必完整重放整场自动战斗**，但应保存**输入摘要、seed、版本和关键事件**，
 在异常或举报时做确定性校验 —— 判定标准见 `replay.md` 第 1 节的两个保证级别。
 
+## 6. 加速与暂停：⛔ 不要碰 `Engine.time_scale`
+
+⚠ **"自动战斗倍速 / 扫荡加速"的直觉做法是 `Engine.time_scale = 8.0`，这是错的。**
+
+官方对 `time_scale` 的说明原文：它是 in-game clock 的速度倍率，
+**"affects Timer, SceneTreeTimer, and all other simulations that make use of delta time
+(such as `Node._process()` and `Node._physics_process()`)"**。
+
+⛔ 也就是说它缩放的是 **delta**，**不是 tick 数**：
+60 tick 的模拟，改成 8 倍速后仍是 60 次 `step()`、每次 delta 乘 8 ——
+**轨迹与"跑了 480 个 tick"完全不同**。
+表现为"倍速下扫荡结果与 1 倍速不一致、回放对不上"，
+⛔ 而两边都是同一套模拟代码，排查时不会怀疑倍速开关。
+
+⛔ 官方另有一条 Note：**"It's recommended to keep this property above 0.0,
+as the game may behave unexpectedly otherwise."**
+所以 `time_scale = 0.0` 做暂停（含顿帧 hitstop）**不被官方推荐**，行为未定义。
+
+✅ 正确做法：**倍速改的是"每帧跑几个 tick"，不是 delta** ——
+在固定步长循环里把 `while` 的迭代上限放大（`steps_this_frame *= speed`），
+`STEP_MS` 与 `sim_tick` 语义不变。
+
+⛔ 但放大迭代上限会撞上另一条官方约束（见 §7）：
+每帧可模拟的 tick 数受 `max_physics_steps_per_frame` 限制，
+⛔ 只放大倍速不动这个上限，结果是**模拟变慢而不是变快**，且不报错。
+
 ## 7. Godot 实现：固定 tick 是自动战斗与扫荡的共同底座
 
 ⚠ **`_physics_process` 是正确入口，但它不是跨平台确定性承诺。**
@@ -212,6 +238,45 @@ func _physics_process(delta: float) -> void:
         simulation.step(STEP_MS)     # 自动战斗：喂 AI 意图
         event_sink.flush(sim_tick)
 ```
+
+### 提高 tick 率必须同步提高每帧步数上限
+
+⛔ **`Engine.physics_ticks_per_second` 与 `Engine.max_physics_steps_per_frame`（默认 `8`）是绑定的。**
+
+官方对后者的说明：默认值用于避免 spiral of death，并且
+**"the game will appear to slow down if the rendering FPS is less than
+1 / max_physics_steps_per_frame of physics_ticks_per_second"** ——
+即默认 60/8 = **7.5 FPS** 以下模拟就开始变慢。
+
+⛔ 于是"把 tick 率提到 120 让自动战斗更快、更细"若不动步数上限，
+阈值变成 120/8 = **15 FPS** —— **掉到 15 FPS 以下就变慢动作**，
+而自动战斗/扫荡恰恰是最容易瞬间吃满 CPU 的场景。
+表现为"玩家反馈自动战斗有时候很慢"，⛔ 且复现不了（只在低端机掉帧时出现）。
+
+ⓘ 官方给的换算：**步数上限要按 tick 率同比放大**（60→120 则 8→16）。
+
+### 联网与回放要把 `physics_jitter_fix` 设为 0
+
+ⓘ `Engine.physics_jitter_fix` 默认 `0.5`，含义是 tick **偏离**真实时钟以平滑帧率抖动。
+官方：设为 **0 或更小则完全同步**，且**推荐网络游戏用 0**（clock synchronization matters）。
+
+⛔ 回放与观战依赖"tick 与实际时间可对齐"，
+⛔ 沿用默认 0.5 会让同一段输入在不同帧率机器上推进到不同 tick，
+表现为"观战偶尔落后/超前"，而本地测试永远对得上。
+
+### 扫荡派生种子必须先 hash
+
+⛔ **`RandomNumberGenerator` 官方明确：没有 avalanche effect，
+相近的种子会产生相近的随机序列**（"can output similar random streams given similar seeds"）。
+
+而扫荡的惯例写法正是 `derive_sweep_seed(master_seed, stage_id, version, i)` ——
+**连续 10 次扫荡的种子只差一个 `i`**。
+⛔ 表现为"连续扫荡的出货有肉眼可见的规律""第 3、7 次总是出同一个东西"，
+而单次抽样的概率统计完全正常（看不出来）。
+
+✅ 官方建议：**种子先过一次 hash 再喂给 RNG**（`rng.seed = hash(derived)`）。
+⚠ 另两条同源：官方说底层算法是**实现细节**，⛔ 不能依赖跨版本复现；
+`state` 只应设回**从 `state` 取出来的值**，⛔ 不要设任意值。
 
 ⚠ **AI 决策与扫荡结算都对齐这个 `sim_tick`，⛔ 不是每渲染帧扫描一次。**
 
@@ -252,7 +317,28 @@ func _physics_process(delta: float) -> void:
 
 ⚠ 待核对：服务端数据库与事务隔离级别 · 验证：影响幂等与并发结算
 
-## 10. 相关文档
+## 10. 流程：按什么顺序做
+
+> 完整功能点拆解、接缝契约与敌意环境验收见 `flow/godot/auto-battle/`。
+
+⛔ **先定模拟器合同，再做四种模式**：自动战斗、扫荡、离线、回放
+是**同一个模拟器**在四种输入源下的复用，⛔ 不是四个播放功能。
+先做其中一个（通常是扫荡，因为最像"一个接口"），
+会写出四套互斥逻辑，表现为"手动能过、扫荡说你打不过"。
+
+⛔ **扫荡先定"预告与发放同一笔事务"再写 UI**：
+分成两次调用就会有"看到一项奖励、到账另一项"，
+⛔ 而日志里两次都是成功调用，发版后靠补日志定位不到。
+
+⛔ **离线先定"一次性分段推导"再接计时器**：
+按真实时间跑循环在单人测试里完全正常，
+⛔ 只在服务端有 N 个离线玩家时才爆 CPU，那时返工的是整个结算结构。
+
+⛔ **05 回放的确定性要跨构建验，不能只跑编辑器**：
+Debug/Release、x86/ARM、不同线程数下浮点会漂移，
+⛔ 只在编辑器跑一遍通过，是这类 bug 最典型的假通过。
+
+## 11. 相关文档
 
 - 战斗核心（四层分离、命中判定、帧数据、伤害公式、对抗层）→ `combat.md`
 - 离线结算的锚点原则 → `time-progression.md`
