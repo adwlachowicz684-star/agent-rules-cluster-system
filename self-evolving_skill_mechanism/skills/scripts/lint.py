@@ -1749,7 +1749,7 @@ def check_scan_scope(cfg, root=None):
             continue
         issues.append({
             "level": "info", "file": "scripts/lint.py",
-            "issue": "检查 `%s` 扫 .md 但不含入口文件（SKILL.md）" % fn.name,
+            "issue": "扫描范围：检查 `%s` 扫 .md 但不含入口文件（SKILL.md）" % fn.name,
             "hint": "⛔ 缺陷**就是在 SKILL.md 里发现的**，而它不在任何"
                     "「批量扫描的目录」里。确认入口是否该在范围内："
                     "该 → 显式加上入口文件；"
@@ -2857,7 +2857,7 @@ def _zone_orphans(cfg, root, zone):
         sample = "、".join("%s#%s" % (e[0], e[1][:24]) for e in rest[:4])
         issues.append({
             "level": "info", "file": "reference/%s/" % zone,
-            "issue": "%s 区条目级接入率 %d%%（%d/%d），未指向 %d 条，如：%s"
+            "issue": "条目级接入率：%s 区 %d%%（%d/%d），未指向 %d 条，如：%s"
                      % (zone, rate, len(entries) - len(orphan), len(entries),
                         len(rest), sample),
             "hint": "文件级引用让读的人**自己去找**那一条。"
@@ -3194,8 +3194,130 @@ def check_spec_drift(cfg, root=None):
     return issues
 
 
+NUM_RX = re.compile(r'\d+')
+
 # 代码块路径的"示意性"标注：同行出现才算（⛔ 跨行会误配）
 _CB_MARK_RX = re.compile(r"示意|示例|举例|待建|尚未|计划中|虚构|假想")
+
+
+def check_info_attributable(cfg, root=None, inject=None):
+    """每条 info 级提示能否**反查到它属于哪个检查器**。
+
+    ⛔ 命题（「被忽略的提示」的**可查部分**）：
+
+    > **报了但没看 = 没报。**
+
+    原始命题「有没有人看过它」无法从仓库内容推断——
+    实测 `check_feed_source_path` 那 21 条反哺提示在 changelog 里
+    "反哺"出现 46 次 ⇒ 用"changelog 提过没有"当判据，
+    **区分度为 0**（每类都能命中）。
+    ⇒ 判据不是"提过这个词"，而是"有一条改动是专门处理这类提示的"——
+      那是语义判断，无法自动化，属于第二十三条那种**不适合做检查器**的。
+
+    但它的**前提**可查：**读的人能不能看出这条提示是谁报的、该改哪**。
+    看不出 ⇒ 他无从下手 ⇒ 必然被忽略。
+
+    ### 实测
+
+    ```
+    改之前  45 条 info，6 条（13%）反查不到归属
+    改之后  45 条 info，0 条
+    ```
+
+    失败的全是**模板开头就是变量**的：
+
+    | 改前 | 改后 |
+    |---|---|
+    | `%s 区条目级接入率 …` | `条目级接入率：%s 区 …` |
+    | `检查 \`%s\` 扫 .md 但不含入口 …` | `扫描范围：检查 \`%s\` 扫 .md …` |
+
+    ⇒ **issue 文本要以"这是什么"开头，变量放后面**。
+      这不是风格偏好：读者扫提示时看到的是**前几个字**，
+      以变量开头 = 每条长得都不一样 = 认不出是同一类问题，
+      也就**不可能被当成一类问题去处理**。
+    """
+    # ⛔ segm 必须取自**本模块自己的源码**，不是 `base/scripts/lint.py`：
+    #    issue 是本模块的函数产出的，拿另一份源码比对必然对不上
+    #    （实测：自检里造假 lint.py → 真实函数的 issue 全部反查失败）。
+    # `inject` 只给自检用：真库当前恰好 0 条失败 ⇒
+    # 不注入就永远验证不到「能红」这一侧（第 N 次同族）。
+    if inject is not None:
+        return _info_attribution(*inject)
+    mod_f = getattr(sys.modules[__name__], "__file__", None)
+    srcf = Path(mod_f) if mod_f else (Path(root) if root else ROOT) / "scripts" / "lint.py"
+    if not srcf.is_file():
+        return []
+    try:
+        srctxt = srcf.read_text(encoding="utf-8")
+        tree = ast.parse(srctxt)
+    except (SyntaxError, OSError):
+        return []
+    segm = [(n.name, ast.get_source_segment(srctxt, n) or '')
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")]
+
+    collected = []
+    # ⛔ 必须跳过自己：遍历 dir(module) 会包含本函数，
+    #    直接调 = 无限递归（实测：lint 直接挂死）。
+    for fn in [n for n in dir(sys.modules[__name__])
+               if n.startswith("check_")
+               and n not in ("check_info_attributable",
+                             "check_unwired_checks")]:
+        try:
+            got = getattr(sys.modules[__name__], fn)(cfg, root)
+        except TypeError:
+            try:
+                got = getattr(sys.modules[__name__], fn)(cfg)
+            except Exception:
+                continue
+        except Exception:
+            continue
+        for i in got or []:
+            if i.get("level") == "info":
+                collected.append(i)
+    return _info_attribution(segm, collected)
+
+
+def _info_attribution(segm, issues_in):
+    """纯函数：给定「函数源码片段表」+「info 列表」，返回反查不到的那些。
+
+    ### ⛔ 还有一个前提：数据集里必须**真的有 0 条**才能拿"真库跑"当正向
+
+    实测：真库当前恰好 0 条失败。这带来两个后果——
+
+    - 反侧（能红）**只能靠注入**，真库跑不出来 ⇒ 加了 `inject=` 参数
+    - 正向（不误报）**会被前面用例污染**：vroot 里塞过自造文件，
+      某些检查会产出模板里没有的 issue 变体
+      （实测 `vroot` 报 0 条而**真库**报出来 ⇒ 断言用错了数据集）
+
+    ⇒ 判据：**"不误报"这一侧要用真库，"能红"这一侧要注入**，
+      两者不能共用同一个数据集。
+
+    ⛔ 拆出来不是为了好看：自检要能**注入假 segm + 假 issue** 验证判据。
+       若不拆，就只能拿真库跑，而真库当前恰好 0 条失败
+       ⇒ 「能红」这一侧永远验证不到（第 N 次「用例没让变异必然生效」）。
+    """
+    issues = []
+    for i in issues_in:
+        iss = NUM_RX.sub("", i.get("issue", ""))
+        if len(iss) < 6:
+            continue
+        hit = None
+        for L in range(min(24, len(iss)), 4, -1):
+            c = [f for f, s2 in segm if iss[:L] in NUM_RX.sub("", s2)]
+            if len(c) == 1:
+                hit = c[0]
+                break
+        if not hit:
+            issues.append({
+                "level": "warn", "file": "scripts/lint.py",
+                "issue": "⛔ info 提示反查不到归属检查器：%s"
+                         % i.get("issue", "")[:48],
+                "hint": "⛔ 报了但读的人看不出是谁报的 = 无从下手 = 必被忽略。"
+                        "修法：issue 文本**以「这是什么」开头，变量放后面**"
+                        "（实测 `%s 区条目级接入率` → `条目级接入率：%s 区`，"
+                        "45 条里 6 条反查失败降到 0）"})
+    return issues
 
 
 def check_codeblock_paths(cfg, root=None):
@@ -4974,6 +5096,32 @@ trigger: 测试
         cbf.write_text('_common/skills/nope.md 是骨架\n', encoding='utf-8')
         chk(not check_codeblock_paths(cfg, vroot),
             '块外路径不归本检查（由 check_refs 报 error）')
+
+        # ---- check_info_attributable：info 提示要能反查归属 ----
+        #    ⛔ 命题「有没有人看过」无法自动查（实测：changelog 里
+        #       "反哺" 出现 46 次，用「提过没有」当判据区分度为 0）。
+        #       ⇒ 本检查守住它的**前提**：读的人能不能看出是谁报的。
+        # ⛔ 用真库跑，不用 vroot：vroot 在此之前已被前面几十个用例
+        #    塞进各种自造文件，某些检查会产出**模板里没有的** issue 变体
+        #    ⇒ 断言被污染（同族第 N 次）。
+        chk(not check_info_attributable(cfg),
+            '真库 info 全部反查得到归属（改动后实测 0 条失败）')
+        # ⛔ 反侧必须**注入**：真库当前恰好 0 条失败，
+        #    只拿真库跑 ⇒ 「能红」这一侧永远验证不到
+        #    （第 N 次「用例没让变异必然生效」）。
+        bad_segm = [('check_x', '"issue": "%s 区条目级接入率很低"')]
+        chk(bool(check_info_attributable(
+                cfg, inject=(bad_segm,
+                             [{"level": "info", "file": "a.md",
+                               "issue": "howto 区条目级接入率很低"}]))),
+            'issue 以变量开头 → 反查不到归属能查出'
+            '（⛔ 读的人看不出是谁报的 = 无从下手 = 必被忽略）')
+        ok_segm = [('check_x', '"issue": "条目级接入率：%s 区"')]
+        chk(not check_info_attributable(
+                cfg, inject=(ok_segm,
+                             [{"level": "info", "file": "a.md",
+                               "issue": "条目级接入率：howto 区 很低"}])),
+            'issue 以「这是什么」开头 → 不报（确认没有一刀切）')
         cbf.unlink(missing_ok=True)
         uwf.unlink(missing_ok=True)
         cpy.unlink()
@@ -5918,7 +6066,8 @@ def main():
               + check_orphan_table_row(cfg)
               + check_antipattern_tables(cfg)
               + check_unwired_checks(cfg)
-              + check_codeblock_paths(cfg))
+              + check_codeblock_paths(cfg)
+              + check_info_attributable(cfg))
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))

@@ -834,5 +834,35 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M66",
+  "target": "scripts/lint.py",
+  "desc": "[归属可查] 跳过自引用 → 无限递归，lint 挂死",
+  "old": "               and n not in (\"check_info_attributable\",\n                             \"check_unwired_checks\")]:",
+  "new": "               ]:",
+  "expect": "KILLED",
+  "why": "⛔ 遍历 dir(module) 会包含本函数自己，直接调 = 无限递归（实测 lint 挂死到 502）。递归入口必须排除自身。",
+  "source": "2026-09-26 check_info_attributable",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M67",
+  "target": "scripts/lint.py",
+  "desc": "[归属可查] segm 取 vroot 的 lint.py 而非本模块 → 全部误判",
+  "old": "    mod_f = getattr(sys.modules[__name__], \"__file__\", None)",
+  "new": "    mod_f = None",
+  "expect": "KILLED",
+  "why": "⛔ issue 是本模块的函数产出的，拿另一份源码（vroot 的假 lint.py）比对必然对不上 ⇒ 真实函数的 issue 全部反查失败。实测自检里就这么失败过。",
+  "source": "2026-09-26 check_info_attributable",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]
