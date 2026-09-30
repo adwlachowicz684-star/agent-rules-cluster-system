@@ -157,4 +157,81 @@ var _units: Array[Unit] = []   # UnitManager 持有
 ⚠ **100 个单位每帧各写一次 `set_cell` 会反复触发导航/渲染重算**。
 收集本轮变化的格子，逻辑帧末尾一次性提交。
 
+## 8. 避障与寻路：三条官方约束
+
+⚠ **`avoidance_enabled` 默认是 `false`。** 置 true 后代理会在
+`NavigationServer2D` 上注册 RVO 避障回调，完成后用 `safe_velocity`
+经 `velocity_computed` 信号返回。
+
+⛔ **官方原话（性能）**：_"Avoidance processing with many registered agents
+has a significant performance cost and should only be enabled on agents
+that currently require it."_
+
+⛔ RTS 里"给 1000 个单位全开避障"是**官方点名的开销源** ——
+而且它不是掉帧那么简单：`target_position` 设下去后路径逻辑不推进，
+单位表现为"卡住不动原地挤"，⛔ 这时看 `velocity` 与碰撞都正常，
+排查会被引向寻路网格而不是避障开关。
+
+⚠ **官方 Note（必须每物理帧调一次）**：设了 `target_position` 之后，
+**必须每物理帧调用一次** `get_next_path_position()` 来更新内部路径逻辑。
+
+⛔ **更隐蔽的是递归**：官方写明 `get_next_path_position()` 等方法
+**会触发新的路径计算**，在 `waypoint_reached` 这类信号的回调里调用它
+**会导致无限递归**。
+
+⛔ 而"到点后取下一个点"恰恰是 RTS 最自然的写法 ——
+于是卡死表现为"单位走到第一个路径点后停住"，
+日志里**没有报错**，只是再也不动了。
+
+```gdscript
+# ⛔ 典型错法：在信号回调里取下一个点 → 官方警告会无限递归
+func _on_waypoint_reached(_d: Dictionary) -> void:
+    _next = agent.get_next_path_position()      # ⛔
+
+# ✅ 放在物理步里取，帧末再改 target
+func _physics_process(_d: float) -> void:
+    if not agent.is_navigation_finished():
+        _next = agent.get_next_path_position()   # ✅ 每物理帧一次
+```
+
+ⓘ **避障在物理之前计算**（官方口径），所以避障结果可以安全地用于物理步。
+
+## 9. 相机与屏幕坐标：官方口径
+
+⚠ **官方 Note**：`Camera2D` 的 `global_position`
+**不代表屏幕的实际位置** —— 平滑（smoothing）与边界限制（limits）
+会让它与真实屏幕位置不同；要看真实位置用 **`get_screen_center_position()`**。
+
+⚠ 同一条也适用于 **`global_rotation`**（旋转平滑会导致不同），
+要用 **`get_screen_rotation()`**。
+
+⛔ RTS 相机几乎必然开平滑与边界限制 ——
+用 `camera.global_position` 反推屏幕中心来算框选矩形，
+框出来的区域与实际看到的**差一个平滑偏移量**，
+表现为"框选边缘的单位选不中 / 多选"，⛔ 而相机代码一处都没错。
+
+⚠ **屏幕→世界的变换要经 viewport，不是相机节点**：
+
+```gdscript
+# ✅ 官方口径：viewport 的 screen_transform 与 canvas_transform 组合
+func screen_to_world(screen_pos: Vector2) -> Vector2:
+    var vp := get_viewport()
+    return (vp.get_screen_transform() * vp.get_canvas_transform()).affine_inverse() * screen_pos
+```
+
+⛔ **不要用 `Camera2D` 继承来的 `get_screen_transform()` 做这件事** ——
+它是 `CanvasItem` 的方法，含义是**该节点自身变换到屏幕**的变换，
+其逆变换把屏幕点换到**该节点的局部空间**，不是世界空间。
+相机节点不在世界原点时，框选结果整体偏移，
+⛔ 而相机平滑关掉时偏移恰好为 0 —— **于是只在开了平滑之后才暴露**。
+
+ⓘ `_input()` / `_unhandled_input()` 里 `event.position` 是
+**viewport 坐标**（官方论坛口径），换算前不要当成世界坐标用。
+
+## 10. 流程：按什么顺序做
+
+> 选择层 / 命令层 / 执行层 / 感知层四层按什么顺序落地、
+> 大规模单位怎么分档降级、验收要跑哪些敌意场景
+> → `flow/godot/rts/`
+
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/genres-rts.md`

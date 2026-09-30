@@ -1338,6 +1338,14 @@ def cmd_self_test():
             chk(len(_r['domains']) >= 30,
                 '域声明核查解析到域（当前 %d 个；过少说明扫描失效）'
                 % len(_r['domains']))
+            # ⓘ howto 正文写的「流程域 → flow/godot/xxx/」必须真实存在。
+            #   实证：upscaling.md 写了该指向而域当时没建 —— 只查索引表查不到。
+            chk(not _r['howto_fp_bad'],
+                'howto 声明的流程域真实存在（悬空 %d: %s）'
+                % (len(_r['howto_fp_bad']), _r['howto_fp_bad'][:3]))
+            chk(_r['n_howto_fp'] >= 10,
+                'howto 流程域扫描取到样本（当前 %d 处；过少说明扫描失效）'
+                % _r['n_howto_fp'])
         except Exception as _e4:     # ⓘ 检查器自身出错不应静默放行
             chk(False, '域声明核查可运行（%s）' % _e4)
 

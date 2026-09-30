@@ -128,6 +128,22 @@ jobs:
     echo "$KEYSTORE_B64" | base64 -d > $HOME/release.keystore
 ```
 
+### 凭据的真实存放处：export_credentials.cfg
+
+ⓘ 官方口径纠正：导出配置分两个文件 ——
+
+| 文件 | 官方说明 | 是否入库 |
+|---|---|---|
+| `export_presets.cfg` | "can be safely committed to version control. There is nothing in here that you would normally have to keep secret." | ✅ 入库 |
+| `.godot/export_credentials.cfg` | 存密码、加密密钥等**被视为机密**的选项 | ⛔ 不入库 |
+
+⛔ 后果：因为凭据文件不入库，**clone 到新机器后部分导出选项会缺失**
+（不是报错，是选项不在了）。官方给的解决办法是**手动从旧机器拷贝该文件**。
+
+ⓘ 这与"CI 上用 Secret"不冲突：Secret 解决的是自动化注入，
+而 `export_credentials.cfg` 缺失导致的"本地导出行为与 CI 不同"是另一回事，
+⛔ 两者都不是靠报错暴露的。
+
 ## 3. 导出
 
 ### 3.1 模板版本必须严格匹配
@@ -191,6 +207,50 @@ Android 预设里要为每种架构选 ETC2 / ASTC / DXT。
 ⚠ **立项时就要定平台**。如果目标是 Web，就不能用 C# 作主语言，
 且这个决定后期无法低成本更改。
 
+### 3.5 文件包含边界：非资源文件与点开头文件
+
+⛔ **Godot 只自动打包"资源"**。官方文档原文：非资源文件（`.txt`、`.json`、`.csv`）
+要在导出预设的 **Resources 页 → Filters to export non-resource files** 里显式声明，
+逗号分隔，例如 `*.json, *.csv`。
+
+⛔ 表现为**编辑器里一切正常、导出后读不到文件**：配置表、本地化文本、
+活动 JSON 全部落空。而排查时 `FileAccess.open()` 的错误是"打不开"，
+⛔ 必然被引向路径拼写或打包损坏，不会想到"这个文件根本没进包"。
+
+⛔ **以点开头的文件或文件夹永远不会被导出**（官方原文，目的是防止 `.git` 进包）。
+把配置放在 `.config/` 或命名 `.env.json` —— **它永远不会进包，且不报错**。
+
+ⓘ 这条是 `datatable` / `i18n` / `ops` 域的下游依赖：
+那些域讲"表怎么设计、文本怎么组织"，但**文件能不能进包**由本节决定。
+
+### 3.6 ETC2/ASTC 关闭时，Web 与 Apple Embedded 的空白错误
+
+⛔ 关闭 ETC2/ASTC 导入后，Web 与 Apple Embedded 导出会**显示红色校验错误、
+但消息框是空的** —— 没有文字、没有提示、没有任何可搜索的字符串。
+
+官方修复进度：macOS 在 **4.3**（PR #86769）、Android 在 **4.7**（PR #117341）
+才补上说明文字；⛔ **Web 与 Apple Embedded 至今没有**（issue #119803）。
+
+⛔ 后果：面对一个空的红色叉，排查方向必然被引向场景、图标或导出模板安装，
+⛔ 而真正的成因是纹理格式设置，两者毫无关系。
+
+ⓘ 另一个同源陷阱：4.5 之前（PR #107015，issue #106992）
+点 "Fix Import" 按钮**只改项目设置、不真正重新导入**，
+`.import` 里不会写入 `.etc2` 变体。
+⛔ 在 4.4.x 及更早版本上，必须 **Project → Reload Current Project** 才算生效。
+
+### 3.7 预设名大小写敏感，且导出失败退出码仍是 0
+
+⛔ 预设名要**完全一致**（含空格与大小写）：`--export-release "Windows"`
+在预设名为 `Windows Desktop` 时**失败**。（官方：含空格或特殊字符必须加引号。）
+
+⛔ **导出失败时 Godot 仍然以退出码 0 退出**（GH-83042，官方讨论确认
+"Failure in Godot currently is silent"）。所以 CI 全绿 ≠ 有产物。
+
+⛔ 配套的第二个静默点：`custom_template` 填**相对路径**会静默失效 ——
+回退到默认模板，**且没有任何警告**。
+⛔ 表现为"改了自定义模板但产物没变"，而配置面板上路径确实填着。
+
 ## 4. 发布与版本
 
 ### 版本号
@@ -223,7 +283,15 @@ var v := ProjectSettings.get_setting("application/config/version")
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/cicd-publish.md`
 
 
-## 5. 相关文档
+## 5. 流程：按什么顺序做
+
+→ `flow/godot/cicd-publish/00-域流程总览.md`
+
+⛔ 单个技术点都做对、但顺序错了，仍会返工：
+先配好各平台预设再定平台矩阵，等于每个平台重配一遍；
+先接 CI 再定产物校验，等于 CI 长期全绿却没产物。
+
+## 6. 相关文档
 
 - 项目设置与 Autoload → `project.md`
 - 导出预设配置 → `project.md`

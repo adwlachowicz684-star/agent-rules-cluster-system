@@ -20,6 +20,12 @@
        （实测全库 8 处：security / ops / performance / account-security /
          platform-export，全都只有 howto 没有 flow 域）
        ⓘ 允许显式标注 `` `xxx` ⓘ howto 层，暂无 flow 域 ``，此时校验 howto 文件存在。
+   6. **howto 声明的流程域不存在** —— howto 正文写 ``流程域 → `flow/godot/xxx/```，
+      但 godot/xxx/ 在磁盘上没有。
+       ⛔ 本轮实证：`upscaling.md` 的「流程：按什么顺序做」节写了该指向，
+          而当时域根本没建 —— howto / audit 都反哺好了，唯独流程域是空的，
+          读者点过去什么都没有。
+       ⛔ 既有检查只查「索引表登记 vs 磁盘」，查不到**正文里**的这类指向。
 
 反向也查：**磁盘上有目录但索引没登记** —— 铺完忘了登记，等于别人找不到。
 
@@ -158,7 +164,26 @@ def scan():
     if n_seam == 0:
         raise AssertionError('接缝表未解析到任何行（扫描路径失效 / 格式变了）')
 
+    # 6. howto 正文声明的流程域必须真实存在
+    #    ⛔ 判据同样是"解析结果必须非空"：扫描失效会静默归零 → 形同虚设
+    howto_fp_bad = []
+    n_howto_fp = 0
+    if os.path.isdir(HOWTO):
+        for f in sorted(os.listdir(HOWTO)):
+            if not f.endswith('.md'):
+                continue
+            t = _read(os.path.join(HOWTO, f))
+            for m in re.finditer(r'`flow/godot/([\w-]+)/`', t):
+                tgt = m.group(1)
+                n_howto_fp += 1
+                if not os.path.isdir(os.path.join(g_root, tgt)):
+                    howto_fp_bad.append('%s → flow/godot/%s/（不存在）' % (f[:-3], tgt))
+    if n_howto_fp == 0:
+        raise AssertionError('howto 流程域声明未解析到任何处（扫描失效 / 格式变了）')
+
     return {
+        'howto_fp_bad': howto_fp_bad,
+        'n_howto_fp': n_howto_fp,
         'seam_bad': seam_bad,
         'seam_howto_bad': seam_howto_bad,
         'n_seam': n_seam,
@@ -182,9 +207,12 @@ if __name__ == '__main__':
     print('功能点数不符：%d %s' % (len(r['miscount']), r['miscount'][:5]))
     print('未登记域（磁盘有、索引无）：%d %s' % (len(r['unregistered']), r['unregistered'][:5]))
     print('表头数字失真：%d %s' % (len(r['head_bad']), r['head_bad'][:5]))
+    print('howto 流程域声明：%d 处（指向不存在 %d %s）'
+          % (r['n_howto_fp'], len(r['howto_fp_bad']), r['howto_fp_bad'][:3]))
     # ⛔ seam 必须进退出码：漏掉它 = 打印了问题却返回 0 → 挂进自检后
     #    整套接缝检查形同虚设（变异验证实测：报"不合格 1"但 exit=0）
     bad = bool(r['ghosts'] or r['missing_fp'] or r['miscount']
                or r['unregistered'] or r['head_bad']
-               or r['seam_bad'] or r['seam_howto_bad'])
+               or r['seam_bad'] or r['seam_howto_bad']
+               or r['howto_fp_bad'])
     raise SystemExit(1 if bad else 0)
