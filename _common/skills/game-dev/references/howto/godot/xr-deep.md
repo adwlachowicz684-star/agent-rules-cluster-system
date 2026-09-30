@@ -140,7 +140,56 @@ func _release(body: RigidBody3D) -> void:
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/xr-deep.md`
 
 
-## 6. 待核对项（运行时验证）
+## 6. ⛔ 官方口径：渲染器、foveation 与设置时机
+
+### ⛔ 动态 foveation 只在 Compatibility 渲染器上工作
+
+官方 `foveation_dynamic` 原话：*"Note: Only works on the Compatibility
+renderer."*；而 `is_foveation_supported()` 另注明：Vulkan 驱动下
+*"Viewport.vrs_mode must be set to Viewport.VRS_XR to support foveation."*
+
+⛔ 这与"XR 必须用 Mobile 或 Forward+"是**直接冲突**的：
+想要动态注视点渲染就必须 Compatibility。
+所以渲染器选型要先定"要不要动态 foveation"，⛔ 不能先定渲染器再补 foveation。
+
+### ⛔ 两个设置的时机要求相反
+
+| 设置 | 时机（官方原话） |
+|---|---|
+| `render_target_size_multiplier` | *"Must be set **before** the interface has been initialized."* |
+| `foveation_level` / `foveation_dynamic` / `display_refresh_rate` | *"The interface must be initialized **before** this is accessible."* |
+
+⛔ 在 `_ready()` 里设 `render_target_size_multiplier` 通常已经太晚，
+表现为"设了没效果"，而面板上值确实是你写的那个。
+
+### ⛔ 支持性查询在初始化前返回 false
+
+官方：`is_hand_tracking_supported()` 与 `is_eye_gaze_interaction_supported()`
+都注明 *"This only returns a valid value after OpenXR has been initialized."*
+
+⛔ 初始化前调用得到默认值 `false`，会被误判成"设备不支持手部追踪"
+→ 直接走进降级分支，而真机上的光学追踪**根本没试过**。
+
+### ⛔ 手关节 API 返回的位姿不含 world_scale
+
+官方 `get_hand_joint_position` / `_linear_velocity` / `_radius` 均注明
+*"This is relative to XROrigin3D **without worldscale applied**"*。
+
+⛔ 而 `world_scale`（实际是 `XRServer.world_scale`，由 `XROrigin3D` 管理）
+是**全局**缩放。改了它之后手关节位置与半径**不会跟着变**，要自己乘。
+表现为"手模型大小/位置不对"，而代码里没有任何乘法错误。
+
+### ⓘ 已核对：`ArcCast3D` 不是引擎节点
+
+官方 All classes 索引的 A 段没有 `ArcCast3D`（只有 `AimModifier3D` /
+`AnimatableBody2D` / `Area2D` 等）—— 它是 **godot-xr-tools** 提供的节点。
+⛔ 按引擎节点去找会白找，且找不到时容易误判成"版本不对"。
+
+## 7. 流程：按什么顺序做
+
+→ `flow/godot/xr/00-域流程总览.md`
+
+## 8. 待核对项（运行时验证）
 
 ⚠ 待核对：`ArcCast3D` 节点在 4.7.2 是否存在 · 验证：编辑器节点搜索框输入 ArcCast3D
 
@@ -152,7 +201,7 @@ func _release(body: RigidBody3D) -> void:
 
 ⚠ 待核对：Compatibility 渲染器能否运行 XR · 验证：切到 Compatibility 在目标设备导出测试
 
-## 7. 相关文档
+## 9. 相关文档
 
 - XR 基础场景 → `xr.md`
 - 性能与热节流 → `perf-profiling.md`

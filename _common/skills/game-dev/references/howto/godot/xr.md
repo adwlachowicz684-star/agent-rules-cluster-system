@@ -28,8 +28,20 @@ XROrigin3D                    ← 移动的是这个，不是相机
 ⚠ **`XRCamera3D` 每帧位置由头显覆盖**。
 想移动玩家 → 移动 `XROrigin3D`。直接改相机 = 眩晕 + 位置被覆盖。
 
-⚠ `XROrigin3D.world_scale` 是**全局统一缩放**。
+⚠ `XROrigin3D.world_scale` 是**全局统一缩放**（实际是 `XRServer.world_scale`，由 origin 管理）。
 改它会影响所有 XR 节点，不是"只缩放某个物体"。
+
+⚠ **重新校准走 `XRServer.center_on_hmd(mode, keep_height)`，两个参数都要显式给。**
+官方 `RotationMode` 三档：
+
+| 常量 | 含义 |
+|---|---|
+| `RESET_FULL_ROTATION = 0` | 完全重置朝向（⛔ **默认值**） |
+| `RESET_BUT_KEEP_TILT = 1` | 重置朝向但保留倾斜 |
+| `DONT_RESET_ROTATION = 2` | 只居中位置，不动朝向 |
+
+⛔ 不写第二/第三参数就是 `RESET_FULL_ROTATION`，会在玩家刚转身之后把朝向掰回正前方。
+⚠ 不支持空间追踪的平台上原点就是头显位置，⛔ 玩家朝向基本不可控。
 
 ## 2. 控制器输入
 
@@ -54,14 +66,18 @@ func _process(_d: float) -> void:
 ✅ 判据要**两个一起看**：
 
 ```gdscript
-if not ctrl.has_tracking_data:
+var pose := ctrl.get_pose()
+if pose == null or not pose.has_tracking_data:
     _on_lost()                      # 明确丢失
-elif not ctrl.has_tracking_data or ctrl.tracking_confidence < CONF_THRESHOLD:
+elif pose.tracking_confidence != XRPose.XR_TRACKING_CONFIDENCE_HIGH:
     _on_unreliable()                # ⚠ 有"数据"但不可信
 ```
 
-⚠ **`has_tracking_data` 是布尔，不能表达"可信度"** ——
-需要分级还必须看 `tracking_confidence`（⚠ 待核对：目标 OpenXR 运行时是否上报该值 · 验证：真机将被遮挡/移出版图时的返回值打日志）。
+⛔ **置信度在 `XRPose` 上，不在 `XRController3D` 上** ——
+官方 `XRNode3D` 的公开属性只有 `pose` / `show_when_tracked` / `tracker` /
+`physics_interpolation_mode`，方法只有 `get_has_tracking_data()` /
+`get_is_active()` / `get_pose()` / `trigger_haptic_pulse()`，**没有 `tracking_confidence`**。
+详见 §8。
 
 ⛔ **推论**：任何"手的位置驱动玩法"的逻辑，
 都要有"位姿不可信"的降级路径（暂停交互 / 保持上一有效姿态 / 提示玩家），
@@ -190,7 +206,71 @@ func _release() -> void:
 - [ ] 手部追踪的真机精度验证过
 - [ ] 版本链对齐（Godot / xr-tools / Vendors）
 
-## 8. 相关文档
+## 8. ⛔ 官方口径：相机权威、插值与追踪置信度
+
+三条都属于"属性面板看着有、实际不可信或不存在"这一类。
+
+### ⛔ 相机大多数属性被 XRInterface 重写，唯一可信的是近/远裁剪面
+
+官方原话（`XRCamera3D`）：*"if `Viewport.use_xr` is true, most of the camera
+properties are ignored, as the HMD information overrides them. The only
+properties that can be trusted are the near and far planes."*
+
+⛔ 在 `XRCamera3D` 上调 FOV、`cull_mask`、`keep_aspect` 全部无效。
+⛔ 尤其 `cull_mask`：想在 VR 里隐藏某一层，改相机 cull_mask **不会生效**，
+而属性面板上它确实是勾好的 —— 排查必然被引向层名或渲染层设置。
+
+### ⛔ XRCamera3D 强制关闭物理插值（硬编码 OFF）
+
+官方源码在构造函数里直接 `set_physics_interpolation_mode(PHYSICS_INTERPOLATION_MODE_OFF)`，
+注释写的是 *"XRCamera3D gets its transform updated every render frame and
+shouldn't be interpolated."*，属性面板显示为 `physics_interpolation_mode = 2 (overrides Node)`。
+
+⛔ 它是**强制**的，不继承项目设置 —— 面板上改不动。
+⛔ 推论：把 HUD 或手持物挂在 `XRCamera3D` 下面，在项目开了物理插值时会与
+场景其余部分**不同步**（其余插值、它不插值），表现为相对抖动。
+
+### ⛔ 相机位置滞后几毫秒，不是权威物理抓手
+
+官方原话：*"the render thread has access to the most up-to-date tracking data
+of the HMD and the location of the XRCamera3D can lag a few milliseconds behind
+what is used for rendering as a result."*
+
+### ⛔ tracking_confidence 在 XRPose 上，不在 XRController3D 上
+
+置信度是 **`XRPose`** 的属性，枚举 `TrackingConfidence` 三个值：
+
+| 值 | 官方含义 |
+|---|---|
+| `XR_TRACKING_CONFIDENCE_NONE = 0` | 无追踪信息 |
+| `XR_TRACKING_CONFIDENCE_LOW = 1` | 可能不准或是估算（官方举例：inside-out 追踪下控制器被部分遮挡） |
+| `XR_TRACKING_CONFIDENCE_HIGH = 2` | 准确且最新 |
+
+配套两条官方口径：
+
+- ⛔ `XRPose.has_tracking_data` 为 false 时，官方原话是
+  *"our state is whatever that last valid state was"* —— **不是清零**，
+  所以"手柄放在桌上"照样返回一个看着合理的旧位姿。
+- ⛔ `XRPositionalTracker.invalidate_pose()` 官方原话 *"we don't clear the
+  last reported state"*，同理；官方给的对应机制是 `pose_lost_tracking` 信号
+  与 `show_when_tracked` 属性（⛔ 默认 `false`，即丢失时**不隐藏**）。
+
+⛔ 上一版写法里的 `elif not ctrl.has_tracking_data or ...` 是**死分支**
+（`if` 已处理同一条件），且 `ctrl.tracking_confidence` 这个属性根本不存在。
+
+### ⛔ XRPose.transform 不含 world_scale，要取用 get_adjusted_transform()
+
+官方：`XRPose.transform` 是运行时上报的原始变换，而 `get_adjusted_transform()`
+才是 *"the transform with world scale and our reference frame applied"*，
+且它就是用来定位 `XRNode3D` 的那个。
+
+⛔ 自己读 `pose.transform` 算世界坐标，在 `world_scale != 1` 时会得到错误尺度。
+
+## 9. 流程：按什么顺序做
+
+→ `flow/godot/xr/00-域流程总览.md`
+
+## 10. 相关文档
 
 - 3D 基础 → `3d.md`
 - 性能 → `performance.md`
