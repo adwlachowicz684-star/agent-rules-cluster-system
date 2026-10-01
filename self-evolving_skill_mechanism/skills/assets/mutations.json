@@ -939,5 +939,65 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M73",
+  "target": "scripts/lint.py",
+  "desc": "[弱断言] 不认 `X or True` → 最隐蔽的恒真形态漏网",
+  "old": "        elif isinstance(a, ast.BoolOp) and isinstance(a.op, ast.Or):",
+  "new": "        elif False:   # 变异：不认 X or True",
+  "expect": "KILLED",
+  "why": "⛔ 实测真库有 `chk(not check_root(cfg) or True, …)`——形状像断言、内容恒真，肉眼最难发现。去掉这分支 ⇒ 反侧二用例失效。",
+  "source": "2026-10-01 check_weak_assertions",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M74",
+  "target": "scripts/lint.py",
+  "desc": "[弱断言] 不认 `len(x) >= 0` → 假正向漏网",
+  "old": "        elif is_len_ge0(a):",
+  "new": "        elif False:   # 变异：不认 len(x)>=0",
+  "expect": "KILLED",
+  "why": "⛔ 实测真库有 3 条 `chk(len(...) >= 0)`，msg 还自称「直接断言」。这类只证明函数没抛异常，不证明它查出了东西。",
+  "source": "2026-10-01 check_weak_assertions",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M75",
+  "target": "scripts/lint.py",
+  "desc": "[误报] 不豁免 except 里的 chk(False) → 合法失败报告被误报",
+  "old": "            if a.value is False and id(c) in in_except:",
+  "new": "            if False:   # 变异：不豁免 chk(False)",
+  "expect": "KILLED",
+  "why": "⛔ 实测 234 条里有 1 条 `chk(False, …)` 在 except ImportError 内——那是合法的失败报告。不豁免 ⇒ 误报 ⇒ 误报的检查会被关掉（第二十九条）。",
+  "source": "2026-10-01 check_weak_assertions",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M76",
+  "target": "scripts/lint.py",
+  "desc": "[info 归属] 章节过多 issue 去掉前缀 → 数字在中间的模板永远反查不到",
+  "old": "                \"issue\": \"章节过多：单文件 %d 个 ## 章节（>12）\"",
+  "new": "                \"issue\": \"单文件 %d 个 ## 章节（>12）\"   # 变异：去掉前缀",
+  "expect": "KILLED",
+  "why": "⛔ 反查按 issue 文本匹配检查器源码，而模板里的 %d 在源码中保留、issue 里数字被 NUM_RX 删掉 ⇒ 数字在中间的模板永远匹配不上（实测这条反查失败）。issue 必须以「这是什么」开头、变量放后面。",
+  "source": "2026-10-01 check_info_attributable",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
  }
 ]

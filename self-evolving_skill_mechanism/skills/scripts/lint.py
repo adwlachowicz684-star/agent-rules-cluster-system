@@ -926,7 +926,11 @@ def check_doc_shape(cfg, limits=None, root=None):
             issues.append({
                 "level": "info",
                 "file": rel,
-                "issue": "单文件 %d 个 ## 章节（>12）" % len(heads),
+                # ⛔ 前缀「章节过多：」不是修辞：info 反查按 issue 文本匹配检查器，
+                #    而模板里的 `%d` 在源码中保留、issue 里数字被 NUM_RX 删掉 ⇒ 数字
+                #    在中间的模板**永远匹配不上**（实测这条反查失败）。
+                #    ⇒ issue 必须以「这是什么」开头，变量放后面。
+                "issue": "章节过多：单文件 %d 个 ## 章节（>12）" % len(heads),
                 "hint": "一个文件塞了多个主题 → 按主题拆开，"
                         "每份可独立定向加载。"
                         "⚠ 章节数不是充实度：12 个空章节比 3 个写透的差得多"
@@ -3483,6 +3487,150 @@ def check_mutation_staleness(cfg, root=None):
     return issues
 
 
+def _chk_weak_hits(tree):
+    """给定 lint.py 的 AST，返回 cmd_self_test 里的弱断言列表。
+
+    纯函数（不碰文件系统），好单独测。
+
+    | 形态 | 为什么是"弱" |
+    |---|---|
+    | `chk(True, ...)` | ⛔ 恒真。给自检总数 +1，**什么都没验证** |
+    | `chk(X or True, ...)` | ⛔ 恒真，连"能调用"都算不上 |
+    | `chk(len(x) >= 0, ...)` | ⛔ len 恒 >= 0 ⇒ 恒真（假正向） |
+    | `chk(callable(f), ...)` | ⚠ 只验符号存在，不验行为 |
+
+    ### ⛔ 为什么 `chk(False, ...)` 不算弱
+
+    在 `except ImportError:` 里写 `chk(False, ...)` 是**合法的失败报告**
+    （模块导入不了就该报红）。实测 234 条里有 1 条正是这种，
+    ⛔ 不豁免会误报 ⇒ 误报的检查会被关掉（第二十九条）。
+    """
+    st = [n for n in tree.body
+          if isinstance(n, ast.FunctionDef) and n.name == "cmd_self_test"]
+    if not st:
+        return []
+    in_except = set()
+    for h in ast.walk(st[0]):
+        if isinstance(h, ast.ExceptHandler):
+            for n in ast.walk(h):
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                        and n.func.id == "chk":
+                    in_except.add(id(n))
+
+    def is_len_ge0(a):
+        """`len(x) >= 0` / `len(x) > -1`：恒真。"""
+        if not isinstance(a, ast.Compare) or len(a.ops) != 1:
+            return False
+        op = a.ops[0]
+        if not isinstance(op, (ast.GtE, ast.Gt)):
+            return False
+        lft = a.left
+        if not (isinstance(lft, ast.Call) and isinstance(lft.func, ast.Name)
+                and lft.func.id == "len"):
+            return False
+        c = a.comparators[0]
+        if not isinstance(c, ast.Constant):
+            return False
+        return ((isinstance(op, ast.GtE) and c.value == 0)
+                or (isinstance(op, ast.Gt) and c.value == -1))
+
+    hits = []
+    for c in ast.walk(st[0]):
+        if not (isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                and c.func.id == "chk"):
+            continue
+        if not c.args:
+            continue
+        a = c.args[0]
+        why = None
+        lvl = "error"
+        if isinstance(a, ast.Constant):
+            if a.value is False and id(c) in in_except:
+                continue          # 合法的失败报告，见上
+            why = "断言是常量 %r ⇒ 恒真/恒假，用例什么都没验证" % (a.value,)
+        elif isinstance(a, ast.BoolOp) and isinstance(a.op, ast.Or):
+            if any(isinstance(v, ast.Constant) and v.value is True
+                   for v in a.values):
+                why = "`X or True` ⇒ 恒真（连「能调用」都算不上）"
+        elif is_len_ge0(a):
+            why = "`len(x) >= 0` ⇒ 恒真（假正向：只证明函数没抛异常）"
+        elif (isinstance(a, ast.Call) and isinstance(a.func, ast.Name)
+              and a.func.id == "callable"):
+            why = "只断言符号存在（`callable`），不断言行为"
+            lvl = "warn"
+        if why:
+            hits.append({"level": lvl, "line": c.lineno, "why": why,
+                         "expr": ast.unparse(a)[:60]})
+    return hits
+
+
+def check_weak_assertions(cfg, root=None):
+    """自检用例里的**恒真断言**。
+
+    ⛔ 来源（本轮实测，234 条 chk 里命中 6 条，误报 0）：
+
+    ```
+    chk(True, '自造形态检查见 EV-M11（此处不重复）')
+    chk(not check_root(cfg) or True, 'check_root 不崩')
+    chk(len(check_landing(cfg)) >= 0, '知识点落地检查可用（直接断言）')
+    chk(len(check_size(...)) >= 0,    '体积检查可用（直接断言）')
+    chk(len(check_doc_commands(cfg, vroot)) >= 0, '文档命令检查可用（直接断言）')
+    ```
+
+    ### ⛔ 最狠的一点：这 6 条是**为了应付另一个检查器而写的**
+
+    `check_selftest_duality` 要求"每个检查项必须在自检里被**直接**调用"，
+    报了「只被间接引用」。我的处置是把间接形式改成直接调用——
+    **改了形式，断言内容写成 `len(x) >= 0`**。
+
+    ⇒ 检查器说通过了，**问题原封不动**。这正是第十四条
+      （判据看语义方向，不看表面特征）：我让检查器认"调用出现了"，
+      于是我就把调用写上去，而它恒真。
+
+    ### ⛔ 一个新模式：检查器会催生"专门让它闭嘴"的内容
+
+    > 当你加一个检查器要求「X 必须以某种形式出现」，
+    > 写的人（包括我自己）会产出**有 X 的形式、没有 X 的实质**的内容。
+
+    ⛔ 它的危害不只是"这条没验证"：**它让自检总数虚高**。
+       `233/233` 里混着恒真断言 ⇒ 用总数论证质量时数字是注水的
+       （第二十三条：能数出来的不等于该判的）。
+
+    ### ⛔ 更讽刺的实证
+
+    `check_size` 的 docstring 里我自己写着：
+
+    > ⚠ 不注入就只能测真库…用例没有验证任何东西
+    > （第二十四条实证：把断言换成 `chk(True)`，自检总数完全不变 61/0 → 61/0）
+
+    **早就知道、写成了注释警告别人，然后自己照样犯。**
+    ⇒ **文档里写着"别这么做"的地方，恰恰是这么做最可能发生的地方**：
+      写那句话时注意力在"我已经知道了"，执行时注意力在别处。
+    """
+    base = Path(root) if root else ROOT
+    # ⛔ 扫的是**那棵树里的 lint.py**（自检用例要能注入坏样本）；
+    #    生产调用 root=None ⇒ 扫自己。
+    lf = base / "scripts" / "lint.py"
+    if not lf.is_file():
+        return []
+    try:
+        tree = ast.parse(lf.read_text(encoding="utf-8"))
+    except (SyntaxError, OSError):
+        return []
+    hits = _chk_weak_hits(tree)
+    if not hits:
+        return []
+    # ⛔ 一条一条报：合并成一条会让「哪一行」这个信息丢失，
+    #    而它是唯一能让人直接跳过去修的东西。
+    return [{"level": h["level"],
+             "file": "scripts/lint.py",
+             "issue": "自检第 %d 行：%s（表达式 `%s`）"
+                      % (h["line"], h["why"], h["expr"]),
+             "hint": "恒真断言让「自检 N/N」这个数字虚高：它计入总数、"
+                     "却永远不会红。改成在该样本上**必然成立/必然不成立**"
+                     "的真断言（⛔ 不要改成 `chk(True)` 让它闭嘴）。"}
+            for h in hits]
+
 def check_codeblock_paths(cfg, root=None):
     """代码块里的**本仓库路径**是否真的存在。
 
@@ -4177,7 +4325,19 @@ trigger: 测试
             '豁免理由会被带上（可复核）')
 
         # 体积检查本身
-        chk(callable(check_size), '体积检查可用')
+        # ⛔ 原为 `callable(check_size)` ⇒ 只证明符号存在，不断言行为。
+        #    而上面 4316~4321 已经断言了豁免行为 ⇒ 这条是纯冗余，
+        #    真正缺的是「没声明豁免的超限文件照样报」这一侧。
+        # ⛔ 用已建好的 `dom`（= tmp/开发/skills），不要另起 tmp2：
+        #    check_size 扫的是 domains 下的 skills 目录，
+        #    写到一个它不扫的位置 ⇒ 空集 ⇒ 断言恒假/恒真都查不出（第 N 次踩）
+        (dom / 'plain.md').write_text('# p\n' + ('y\n' * 260),
+                                      encoding='utf-8')
+        _pl = [i for i in check_size(cfg2, cfg2['size_limits'])
+               if 'plain.md' in str(i.get('file', ''))]
+        chk(bool(_pl) and _pl[0].get('level') in ('error', 'warn'),
+            '未声明豁免的超限文件照样报（⛔ 不是 callable）')
+        (dom / 'plain.md').unlink(missing_ok=True)
 
         # ---- 新增检查项：各自造一个坏样例，确认真能查出来 ----
         # 纪律：加检查项必须同步加自检用例。永远绿的检查等于没有检查，
@@ -5393,6 +5553,61 @@ trigger: 测试
             'target 文件不存在 → 也报（该变异永远不会应用）')
         mfp.unlink(missing_ok=True)
 
+        # ---- check_weak_assertions：自检用例里的恒真断言 ----
+        # ⛔ 正向必须用**真库**：vroot 里没有 scripts/lint.py（或只有前面
+        #    用例留下的空壳）⇒ 扫的是空集 ⇒ 断言恒绿而从未验证。
+        #    这正是本检查要抓的东西的镜像（EV-M67 同款坑）。
+        chk(not check_weak_assertions(cfg),
+            '真库自检里没有恒真断言（⛔ 恒真断言让「自检 N/N」虚高：'
+            '计入总数、却永远不会红）')
+        # 反向一：chk(True, ...) ⇒ error
+        _wl = vroot / 'scripts' / 'lint.py'
+        _wl.parent.mkdir(parents=True, exist_ok=True)
+        _wl.write_text(
+            'def cmd_self_test():\n'
+            '    chk(True, "占位")\n',
+            encoding='utf-8')
+        _g1 = check_weak_assertions(cfg, vroot)
+        chk(bool(_g1) and _g1[0]['level'] == 'error',
+            'chk(True) → 报 error（⛔ 占位断言：计入总数却永不红）')
+        # 反向二：X or True ⇒ error（最隐蔽：形状像断言）
+        _wl.write_text(
+            'def cmd_self_test():\n'
+            '    chk(not f() or True, "看起来在验证")\n',
+            encoding='utf-8')
+        chk(any('or True' in str(i2.get('issue', ''))
+                for i2 in check_weak_assertions(cfg, vroot)),
+            '`X or True` → 报（连「能调用」都算不上）')
+        # 反向三：len(x) >= 0 ⇒ error（假正向：只证明没抛异常）
+        _wl.write_text(
+            'def cmd_self_test():\n'
+            '    chk(len(f()) >= 0, "直接断言")\n',
+            encoding='utf-8')
+        chk(any('len(x) >= 0' in str(i2.get('issue', ''))
+                for i2 in check_weak_assertions(cfg, vroot)),
+            '`len(x) >= 0` → 报（假正向）')
+        # 反向四：callable() ⇒ warn（弱，但只验符号存在）
+        _wl.write_text(
+            'def cmd_self_test():\n'
+            '    chk(callable(f), "可用")\n',
+            encoding='utf-8')
+        chk(any(i2['level'] == 'warn' and 'callable' in str(i2.get('issue', ''))
+                for i2 in check_weak_assertions(cfg, vroot)),
+            'callable() → 报 warn（只验符号存在，不断言行为）')
+        # ⛔ 精度：except 里的 chk(False) 是**合法的失败报告**（模块导入
+        #    失败就该报红）。不豁免会误报 ⇒ 误报的检查会被关掉。
+        _wl.write_text(
+            'def cmd_self_test():\n'
+            '    try:\n'
+            '        import exitcode\n'
+            '    except ImportError as e:\n'
+            '        chk(False, "exitcode 模块可导入（%s）" % e)\n',
+            encoding='utf-8')
+        chk(not check_weak_assertions(cfg, vroot),
+            'except 里的 chk(False) 不报（合法的失败报告，'
+            '⛔ 不豁免会误报，实测真库就有 1 条）')
+        _wl.unlink(missing_ok=True)
+
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
                  or 'f.md' in str(i.get('file', ''))],
@@ -5733,7 +5948,10 @@ trigger: 测试
         # 反侧：自造形态仍然报（确认没有一刀切放行）
         af.write_text(head + '| # | 我的分类 | 备注 |\n|---|---|---|\n'
                       '| 1 | x | y |\n', encoding='utf-8')
-        chk(True, '自造形态检查见 EV-M11（此处不重复）')
+        chk(any('不是三种标准形态' in str(i.get('issue', ''))
+                for i in check_antipattern_tables(cfg, vroot)),
+            '自造形态表头能报出来（⛔ 原为 chk(True)——占位断言，'
+            '什么都没验证却给自检总数 +1）')
         af.unlink(missing_ok=True)
 
         # ---- 豁免注释块内含其他字段（EV-M21） ----
@@ -5893,17 +6111,39 @@ trigger: 测试
         (_ma / 'one.md').unlink(missing_ok=True)
 
         # check_root：⚠ 此前缺正向（证明不了干净时不误报）
-        chk(not check_root(cfg) or True,
-            'check_root 不崩（domains 未初始化时不误报为 0 命中通过）')
+        chk(check_root({'root': str(dr), '_root': str(dr)}) == [],
+            'check_root 正向：domains 存在且里面有包 → 返回 []'
+            '（⛔ 原为 `not check_root(cfg) or True`——恒真，'
+            '连「能调用」都算不上）')
 
         # check_degeneracy / check_exemptions / check_frontmatter /
         # check_sibling_limits / check_landing / check_size / check_duplicates /
         # check_doc_commands：⛔ 只有间接引用 → 改为直接断言形式
         #   ⚠ 间接形式（赋值给变量）**谎报覆盖**——它确实出现在自检里，
         #   但正反两侧都确认不了。
-        chk(len(check_landing(cfg)) >= 0, '知识点落地检查可用（直接断言）')
-        chk(len(check_size(cfg, cfg.get('size_limits', {}))) >= 0,
-            '体积检查可用（直接断言）')
+        # ⛔ 原为 `len(x) >= 0` ⇒ 恒真（假正向）。
+        #    真断言必须在该样本上**必然成立**：
+        #      check_landing → 造一个含占位符的包，必然报「占位符」
+        #      check_size    → 造一个超限文件，必然报「超限」
+        _ld = vroot / 'ldom'
+        (_ld / 'domains' / 'dev' / 'skills').mkdir(parents=True, exist_ok=True)
+        (_ld / 'domains' / 'dev' / 'skills' / 'p.md').write_text(
+            '# p\n\n## 一、注意事项\n\n- 孤立知识点\n\nTODO 待补\n',
+            encoding='utf-8')
+        chk(any('占位符' in str(i.get('issue', ''))
+                for i in check_landing({'root': str(_ld / 'domains'),
+                                        '_root': str(_ld),
+                                        'domains': {'dev': {'name': '开发'}}})),
+            'check_landing 正向：包里有占位符 → 报（⛔ 不是 len>=0）')
+        _szd = vroot / 'sz'
+        _szd.mkdir(parents=True, exist_ok=True)
+        (_szd / 'SKILL.md').write_text('# s\n' + ('x\n' * 300),
+                                       encoding='utf-8')
+        chk(any(i.get('level') in ('error', 'warn')
+                and 'SKILL.md' in str(i.get('file', ''))
+                for i in check_size({'size_limits': {'SKILL.md': 200}},
+                                    {'SKILL.md': 200}, root=_szd)),
+            'check_size 正向：超限文件 → 报（⛔ 不是 len>=0）')
         #   ⛔ 不能断言"全库 0 条"——前面用例留下的文件会污染（第 4 次踩）。
         #     只断言**我造的那个文件**不出现在结果里。
         _ud = vroot / 'reference' / 'common'
@@ -5914,8 +6154,27 @@ trigger: 测试
                     for i in check_duplicates(cfg, vroot)),
             '重复副本：唯一文件不误报（⛔ 只断言自造文件，不看全库）')
         _uf.unlink(missing_ok=True)
-        chk(len(check_doc_commands(cfg, vroot)) >= 0,
-            '文档命令检查可用（直接断言）')
+        # ⛔ 原为 `len(x) >= 0` ⇒ 恒真。
+        #    真断言：文档写了脚本不支持的 flag → 必然报 error。
+        _dc = vroot / 'reference' / 'howto'
+        _dc.mkdir(parents=True, exist_ok=True)
+        _df = _dc / 'cmd.md'
+        # ⛔ 两个坑（都是"样本没触发目标状态"，第 N 次踩）：
+        #   ① FLAG_RX 是 `--[a-z][a-z0-9-]*` ⇒ **不匹配中文**，
+        #      写 `--没有这个参数` 匹配不到 ⇒ 用例恒绿
+        #   ② `py.is_file()` 为假时 continue ⇒ vroot 下**必须有**
+        #      scripts/lint.py，否则扫的是空集（第十八条）
+        (vroot / 'scripts').mkdir(parents=True, exist_ok=True)
+        _lp = vroot / 'scripts' / 'lint.py'
+        _lp.write_text('def main():\n    pass\n', encoding='utf-8')
+        _df.write_text('# c\n\n跑 `python3 scripts/lint.py --nosuchflag`\n',
+                       encoding='utf-8')
+        chk(any('nosuchflag' in str(i.get('issue', ''))
+                for i in check_doc_commands(cfg, vroot)),
+            'check_doc_commands 正向：文档写了脚本不支持的 flag → 报'
+            '（⛔ 不是 len>=0）')
+        _df.unlink(missing_ok=True)
+        _lp.unlink(missing_ok=True)
 
         # ---- 补最后 4 个真缺口（EV-M26） ----
         # ⚠ duality 精度提升后剩 4 条（原 11 条里 7 条是**误报**——
@@ -6335,7 +6594,8 @@ def main():
               + check_unwired_checks(cfg)
               + check_codeblock_paths(cfg)
               + check_phantom_symbols(cfg)
-              + check_mutation_staleness(cfg))
+              + check_mutation_staleness(cfg)
+              + check_weak_assertions(cfg))
     # ⛔ 回填：check_info_attributable 要复用上面已经算出的结果，
     #    否则它会把 43 个检查器**再各跑一遍** ⇒ lint 慢到跑不完
     #    （实测超时 300s 无输出）。
