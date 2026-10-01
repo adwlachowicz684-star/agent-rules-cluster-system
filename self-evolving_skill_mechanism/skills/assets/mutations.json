@@ -479,7 +479,7 @@
   "id": "EV-M42",
   "target": "scripts/lint.py",
   "desc": "[跨skill] 不加 game-dev/code-audit 前缀 → 跨 skill 引用永不验证",
-  "old": "                    % (\"|\".join(ZONES), \"|\".join(CROSS_SKILLS)))",
+  "old": "                    % (\"|\".join(ZONES), \"|\".join(_cross_skills(base))))",
   "new": "                    % (\"|\".join(ZONES), \"|\".join(ZONES)))  # 变异：无跨skill前缀",
   "expect": "KILLED",
   "why": "⛔ 实测 CROSS_OK 恒为 0 = 从来没验过一条跨 skill 引用。写「反哺自 game-dev `scripts/check-craft.py`」被判死链（它真存在，只是在对方仓库）。⛔ 排除掉 = 跨 skill 引用永远不验证，而它最容易过期（对方是活跃区，改名不通知）。",
@@ -509,7 +509,7 @@
   "id": "EV-M44",
   "target": "scripts/lint.py",
   "desc": "[craft接入表] 不扫 craft/index.md → 接入表锚点错了查不出来",
-  "old": "    idx = craft / \"index.md\"\n    if idx.is_file():",
+  "old": "    idx = zd / \"index.md\"\n    if idx.is_file():",
   "new": "    idx = None  # 变异：不扫接入表\n    if idx is not None and idx.is_file():",
   "expect": "KILLED",
   "why": "⛔ 接入表写的是同目录相对（`taste.md#1. ...`），不带 craft/ 前缀 ⇒ 不在主匹配范围。它是「按动作找条目」的唯一入口，指错了读的人跳过去是空的，而 lint 全绿。",
@@ -839,7 +839,7 @@
   "id": "EV-M66",
   "target": "scripts/lint.py",
   "desc": "[归属可查] 跳过自引用 → 无限递归，lint 挂死",
-  "old": "               and n not in (\"check_info_attributable\",\n                             \"check_unwired_checks\")]:",
+  "old": "                   and n not in (\"check_info_attributable\",\n                                 \"check_unwired_checks\")]:",
   "new": "               ]:",
   "expect": "KILLED",
   "why": "⛔ 遍历 dir(module) 会包含本函数自己，直接调 = 无限递归（实测 lint 挂死到 502）。递归入口必须排除自身。",
@@ -859,6 +859,81 @@
   "expect": "KILLED",
   "why": "⛔ issue 是本模块的函数产出的，拿另一份源码（vroot 的假 lint.py）比对必然对不上 ⇒ 真实函数的 issue 全部反查失败。实测自检里就这么失败过。",
   "source": "2026-09-26 check_info_attributable",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M68",
+  "target": "scripts/lint.py",
+  "desc": "[幻影符号] 不限同行 → 已标注「现名 X」的历史条目被误报",
+  "old": "            if any(o2 != nm and o2 in have\n                   for o2 in _PHANTOM_RX.findall(ln_txt)):",
+  "new": "            if any(o2 != nm and o2 in have\n                   for o2 in _PHANTOM_RX.findall(txt)):",
+  "expect": "KILLED",
+  "why": "⛔ 跨行会误配到无关条目：全文只要别处出现过任何存在的名字就不报 ⇒ 检查形同虚设。判据必须是**同行**（实测 changelog.md:41 就靠同行标注过豁免）。",
+  "source": "2026-09-26 check_phantom_symbols",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M69",
+  "target": "scripts/lint.py",
+  "desc": "[幻影符号] 认散文里的裸 check_* → 散文不构成承诺却被报",
+  "old": "_PHANTOM_RX = re.compile(r'`(check_[a-z_]+)`')",
+  "new": "_PHANTOM_RX = re.compile(r'(check_[a-z_]+)')",
+  "expect": "KILLED",
+  "why": "⛔ 只认反引号内的：反引号=「这是具体的、可查找的东西」。散文里提到「应该有个 check_x」不构成承诺。误报的检查会被关掉。",
+  "source": "2026-09-26 check_phantom_symbols",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M70",
+  "target": "scripts/lint.py",
+  "desc": "[性能] 归属可查不复用 main 结果 → lint 慢到跑不完",
+  "old": "    if _LAST_ISSUES:\n        collected = [i for i in _LAST_ISSUES if i.get(\"level\") == \"info\"]",
+  "new": "    if False:\n        collected = [i for i in _LAST_ISSUES if i.get(\"level\") == \"info\"]",
+  "expect": "KILLED",
+  "why": "⛔ 实测 `check_refs` 单独跑 5.5 秒；43 个检查器各重跑一遍 ⇒ lint 超时 300s 无输出。检查器不该让被检查的东西不可用——这是本检查自己引入的性能问题。",
+  "source": "2026-09-26 check_info_attributable",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M71",
+  "target": "scripts/lint.py",
+  "desc": "[变异陈旧] old 不在代码里却不报 → 该变异什么都没验证",
+  "old": "        if (m.get(\"old\") or \"\") in src:\n            continue",
+  "new": "        if True:\n            continue   # 变异：陈旧也不报",
+  "expect": "KILLED",
+  "why": "⛔ NOT_APPLIED 比 SURVIVED 更危险：改都没改上，用例恒绿是因为压根没验证。实测 70 条里有 4 条（M01/M42/M44/M66）old 已不在代码里。",
+  "source": "2026-09-30 check_mutation_staleness",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M72",
+  "target": "scripts/mutate.py",
+  "desc": "[残留自愈] 短 new 也盲还原 → 把正常代码替换成变异 old（实测 n_lines 被改语法错）",
+  "old": "        if \"变异\" not in nv and len(nv.strip()) < 20:\n            continue",
+  "new": "        if False:\n            continue   # 变异：短 new 也还原",
+  "expect": "KILLED",
+  "why": "⛔ EV-M01 的 new 是 ，真库里必然存在 ⇒ 盲替换会误伤正常代码（实测把 n_lines 改成语法错）。判据必须与 check_residue 一致。",
+  "source": "2026-09-30 restore_residue",
   "test_cmd": [
    "python3",
    "scripts/lint.py",

@@ -131,12 +131,63 @@ def check_residue(muts):
     return hits
 
 
+def restore_residue(muts):
+    """把磁盘上残留的变异**还原回 old**，返回还原了哪几条。
+
+    ⛔ 来源：本轮实测，全量回放 70 条跑不完（每条一次完整自检，
+       单条 30~60s）⇒ 超时被 SIGKILL ⇒ `finally` 根本没机会跑
+       ⇒ 磁盘上留一个被改坏的文件。
+
+    连续 5 次：EV-M02 → 还原 → 又出现 → 还原 → EV-M03 → …
+    ⛔ 每次报错的 ID 都不一样，看起来像"又冒出来一条新的"，
+       实际是"上次那条没还原干净，这次才被检测到"。
+
+    ### ⛔ 短 new 必须跳过
+
+    EV-M01 的 new 是 `        return`（8 空格 + return）——
+    真库里**必然存在**成百上千处。盲替换会把正常代码改成
+    变异的 old 片段（实测把 `n_lines` 改成语法错）。
+
+    ⇒ 判据与 `check_residue` **必须一致**：只还原带「变异」字样
+      或长度 ≥20 的 new。⛔ 两处判据不一致 = 一个说有残留、
+      另一个还原不了 ⇒ 永久阻塞（实测就是这么卡住的）。
+    """
+    fixed = []
+    for m in muts:
+        p = os.path.join(ROOT, m.get("target", ""))
+        if not os.path.isfile(p):
+            continue
+        nv, ov = m.get("new") or "", m.get("old") or ""
+        if not nv.strip():
+            continue
+        if "变异" not in nv and len(nv.strip()) < 20:
+            continue
+        try:
+            with open(p, encoding="utf-8") as f:
+                src = f.read()
+        except OSError:
+            continue
+        if nv not in src:
+            continue
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(src.replace(nv, ov, 1))
+        fixed.append((m["id"], m.get("target")))
+    return fixed
+
+
 def main():
     ap = argparse.ArgumentParser(epilog=help_text())
     ap.add_argument('--mutations', default=DEFAULT_MUTATIONS,
                     help='变异定义 JSON 文件')
     ap.add_argument('--id', default='', help='只跑某一条（默认全部）')
     ap.add_argument('--json', action='store_true', help='机器可读')
+    ap.add_argument('--restore', action='store_true',
+                    help='只还原磁盘上残留的变异，不回放（⛔ 超时被 kill 后用它自救）')
+    ap.add_argument('--limit', type=int, default=0,
+                    help='只回放前 N 条（⛔ 全量 70 条跑不完会被 SIGKILL'
+                         ' → finally 来不及还原 → 残留）')
+    ap.add_argument('--offset', type=int, default=0,
+                    help='配合 --limit：从第 N 条开始')
     args = ap.parse_args()
 
     if not os.path.isfile(args.mutations):
@@ -151,8 +202,25 @@ def main():
 
     res = check_residue(muts)
     if res:
-        die(ERR, '⛔ 磁盘上有残留变异，先还原再跑：\n'
+        if args.restore:
+            fixed = restore_residue(muts)
+            print('自愈：还原 %d 处' % len(fixed))
+            for i, t in fixed:
+                print('  %s  %s' % (i, t))
+            rest = check_residue(muts)
+            if rest:
+                die(ERR, '⛔ 仍有残留（多半是短 new，需人工看）：\n'
+                         + '\n'.join('  %s  %s' % (i, t) for i, t in rest))
+            sys.exit(OK)
+        die(ERR, '⛔ 磁盘上有残留变异（用 `--restore` 还原，'
+                 '或先手动还原）：\n'
                  + '\n'.join('  %s  %s' % (i, t) for i, t in res))
+
+    if args.offset:
+        muts = muts[args.offset:]
+    if args.limit:
+        muts = muts[:args.limit]
+        print('ⓘ 分批回放：本轮 %d 条（用 --offset/--limit 续跑）' % len(muts))
 
     results = []
     for m in muts:

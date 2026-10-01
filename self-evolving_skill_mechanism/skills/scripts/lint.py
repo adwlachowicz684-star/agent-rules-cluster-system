@@ -3196,6 +3196,12 @@ def check_spec_drift(cfg, root=None):
 
 NUM_RX = re.compile(r'\d+')
 
+# 反引号内的 check_* = 一个可查找的承诺（散文里提到不算）
+_PHANTOM_RX = re.compile(r'`(check_[a-z_]+)`')
+
+# main() 算完后回填：让「反查归属」复用结果，不重跑所有检查器
+_LAST_ISSUES = []
+
 # 代码块路径的"示意性"标注：同行出现才算（⛔ 跨行会误配）
 _CB_MARK_RX = re.compile(r"示意|示例|举例|待建|尚未|计划中|虚构|假想")
 
@@ -3256,25 +3262,32 @@ def check_info_attributable(cfg, root=None, inject=None):
             for n in tree.body
             if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")]
 
-    collected = []
-    # ⛔ 必须跳过自己：遍历 dir(module) 会包含本函数，
-    #    直接调 = 无限递归（实测：lint 直接挂死）。
-    for fn in [n for n in dir(sys.modules[__name__])
-               if n.startswith("check_")
-               and n not in ("check_info_attributable",
-                             "check_unwired_checks")]:
-        try:
-            got = getattr(sys.modules[__name__], fn)(cfg, root)
-        except TypeError:
+    # ⛔ 必须复用 main() 已经算过的结果，不能在这里重跑一遍所有 check_*：
+    #    实测 `check_refs` 单独跑就要 5.5 秒，43 个检查器各跑一遍
+    #    ⇒ lint 从几秒涨到**跑不完**（超时 300s 无输出）。
+    #    ⛔ 这是本检查自己引入的性能问题：检查器不该让被检查的东西不可用。
+    if _LAST_ISSUES:
+        collected = [i for i in _LAST_ISSUES if i.get("level") == "info"]
+    else:
+        collected = []
+        # ⛔ 必须跳过自己：遍历 dir(module) 会包含本函数，
+        #    直接调 = 无限递归（实测：lint 直接挂死）。
+        for fn in [n for n in dir(sys.modules[__name__])
+                   if n.startswith("check_")
+                   and n not in ("check_info_attributable",
+                                 "check_unwired_checks")]:
             try:
-                got = getattr(sys.modules[__name__], fn)(cfg)
+                got = getattr(sys.modules[__name__], fn)(cfg, root)
+            except TypeError:
+                try:
+                    got = getattr(sys.modules[__name__], fn)(cfg)
+                except Exception:
+                    continue
             except Exception:
                 continue
-        except Exception:
-            continue
-        for i in got or []:
-            if i.get("level") == "info":
-                collected.append(i)
+            for i in got or []:
+                if i.get("level") == "info":
+                    collected.append(i)
     return _info_attribution(segm, collected)
 
 
@@ -3317,6 +3330,156 @@ def _info_attribution(segm, issues_in):
                         "修法：issue 文本**以「这是什么」开头，变量放后面**"
                         "（实测 `%s 区条目级接入率` → `条目级接入率：%s 区`，"
                         "45 条里 6 条反查失败降到 0）"})
+    return issues
+
+
+def check_phantom_symbols(cfg, root=None):
+    """文档里以 `check_xxx` 形式提到的检查器，在代码里必须真的存在。
+
+    ⛔ 来源：这几十轮最严重的一次自欺——
+
+        我在回复里写「新增 `check_codeblock_paths` 和 `check_ignored_levels`」，
+        而**两个函数都不在代码里**（那轮改动在提交前中断了）。
+
+    ⇒ 这正是本库反复记录的「假生效」，只不过主体是我自己：
+      **声称做了 = 没做**。而它没有任何机制能拦住——
+      `check_unwired_checks` 只能抓"加了没接"，抓不到"根本没加"。
+
+    ### 判据
+
+    | 侧 | 取法 |
+    |---|---|
+    | 代码侧 | AST 解析 `scripts/lint.py` 的**顶层函数定义** |
+    | 文档侧 | 反引号里的 `check_[a-z_]+` |
+
+    ⛔ 只认**反引号内**的：散文里提到「检查项」不产生承诺，
+      而反引号是"这是一个具体的、可查找的东西"的标记。
+
+    ### 分级
+
+    | 位置 | 级别 | 理由 |
+    |---|---|---|
+    | `reference/**` / `SKILL.md` | **error** | 当前文档 = **承诺**，指向不存在的东西 = 死承诺 |
+    | `assets/changelog*.md` | **warn** | ⛔ 历史记录不该改写（改名是合法的）；但读者按名去查会查不到 ⇒ 应标注「现名 X」 |
+
+    ### 实测
+
+    首次上线：**1 条**——`changelog.md:41` 写
+    「新增 `check_hardcoded_zone_list`」，而它后来扩展成了
+    `check_hardcoded_scan_sets`（区名 + skill 名都查）。
+    ⇒ 不改写历史（那会丢掉"当时为什么改"），而是标注现名。
+    """
+    base = Path(root) if root else ROOT
+    srcf = base / "scripts" / "lint.py"
+    if not srcf.is_file():
+        return []
+    try:
+        tree = ast.parse(srcf.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return []
+    have = {n.name for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")}
+    issues = []
+    for f in sorted(base.rglob("*.md")):
+        rel = str(f.relative_to(base)) if str(f).startswith(str(base)) else str(f)
+        if rel.startswith("assets/") and "changelog" not in rel:
+            continue
+        if ".git" in rel:
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # ⛔ changelog 是历史记录：改名合法，不能要求它跟着改
+        lvl = "warn" if "changelog" in rel else "error"
+        for m in _PHANTOM_RX.finditer(txt):
+            nm = m.group(1)
+            if nm in have:
+                continue
+            # 同行出现了另一个**存在**的名字 ⇒ 视为已标注「现名 X」
+            #    ⛔ 历史记录不该改写（改名是合法的），
+            #       但读者按旧名去查会查不到 ⇒ 标注现名就够了。
+            #    ⛔ 必须**同行**：跨行会误配到无关条目上。
+            ln_txt = txt.split("\n")[txt[:m.start()].count("\n")]
+            if any(o2 != nm and o2 in have
+                   for o2 in _PHANTOM_RX.findall(ln_txt)):
+                continue
+            ln = txt[:m.start()].count("\n") + 1
+            issues.append({
+                "level": lvl, "file": "%s:%d" % (rel, ln),
+                "issue": "⛔ 提到的检查器 `%s` 在代码里不存在" % nm,
+                "hint": "⛔ 声称做了 = 没做。这是本库踩过最严重的一次自欺"
+                        "（回复里写「新增 X」，X 压根不存在）。"
+                        "处置：① 真去实现它；② 改名为现名"
+                        + ("；③ changelog 是历史记录，**不要改写**，"
+                           "标注「现名 X」即可" if lvl == "warn" else "")})
+    return issues
+
+
+def check_mutation_staleness(cfg, root=None):
+    """变异定义里的 `old` 片段必须在目标文件里**真的存在**。
+
+    ⛔ 来源：本轮实测，70 条变异里有 4 条（EV-M01 / M42 / M44 / M66）
+       `old` 已经**不在代码里** ⇒ 回放时根本应用不上 ⇒
+       **它们什么都没验证**，而 mutate 汇报里它们只是"不在报告里"。
+
+    三种成因，都是静默的：
+
+    | 成因 | 例子 | 表现 |
+    |---|---|---|
+    | 代码重构 | EV-M01 `--json` 分支改了写法 | old 整段消失 |
+    | 变量改名 | EV-M44 `craft` → `zd` | old 还在，但只是"长得像" |
+    | **缩进漂移** | EV-M66 续行少 4 个空格 | ⛔ 最难发现：肉眼看一模一样 |
+
+    ### ⛔ 为什么它比 SURVIVED 更危险
+
+    ```
+    SURVIVED     改坏了、测过了、没抓到   → 至少说明检查真的跑了
+    NOT_APPLIED  改都没改上               → 用例恒绿是因为**压根没验证**
+    ```
+
+    ⇒ 一条 NOT_APPLIED 的变异会让"变异数量"这个数字继续增长，
+      而**守住的东西一件也没增加**。这正是第二十三条（能数出来的
+      不等于该判的）在测试侧的形态。
+
+    ### 判据
+
+    `old` 是**字面量**比对（不做归一化）：缩进、换行、变量名都必须一致。
+    ⛔ 不能用"去掉空白后再比"——那会让 EV-M66 这种缩进漂移继续漏网，
+      而它恰恰是最难人工发现的那一种。
+    """
+    base = Path(root) if root else ROOT
+    mf = base / "assets" / "mutations.json"
+    if not mf.is_file():
+        return []
+    try:
+        muts = json.loads(mf.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return []
+    if isinstance(muts, dict):
+        muts = muts.get("mutations", [])
+    issues = []
+    for m in muts:
+        tgt = base / (m.get("target") or "")
+        if not tgt.is_file():
+            issues.append({
+                "level": "warn", "file": "assets/mutations.json",
+                "issue": "变异 %s 的 target 不存在：%s" % (m.get("id"), m.get("target")),
+                "hint": "指向不存在的文件 = 该变异永远不会应用"})
+            continue
+        try:
+            src = tgt.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if (m.get("old") or "") in src:
+            continue
+        issues.append({
+            "level": "error", "file": "assets/mutations.json",
+            "issue": "⛔ 变异 %s 的 old 片段在 %s 里不存在 ⇒ 它什么都没验证"
+                     % (m.get("id"), m.get("target")),
+            "hint": "NOT_APPLIED 比 SURVIVED 更危险：用例恒绿是因为压根没改上。"
+                    "成因通常是代码重构 / 变量改名 / **缩进漂移**（最难发现）。"
+                    "处置：把 old 更新成当前代码里的原文"})
     return issues
 
 
@@ -5123,8 +5286,112 @@ trigger: 测试
                                "issue": "条目级接入率：howto 区 很低"}])),
             'issue 以「这是什么」开头 → 不报（确认没有一刀切）')
         cbf.unlink(missing_ok=True)
+
+        # ---- check_phantom_symbols：声称做了 ≠ 做了 ----
+        chk(not check_phantom_symbols(cfg),
+            '真库无幻影符号（文档提到的 check_* 在代码里都存在）')
+        pr = vroot / 'reference' / 'howto'
+        pr.mkdir(parents=True, exist_ok=True)
+        prf = pr / 'w.md'
+        # ⛔ 必须自己造一份 vroot 的 lint.py：本检查读的是
+        #    `base/scripts/lint.py`，而前面用例往那里写过
+        #    **只有 check_x 的假文件** ⇒ 不重建，`check_refs`
+        #    会被当成不存在（实测「存在的检查器名不报」就这么红的）。
+        lf = vroot / 'scripts'
+        lf.mkdir(parents=True, exist_ok=True)
+        (lf / 'lint.py').write_text(
+            'def check_refs(cfg, root=None):\n    return []\n',
+            encoding='utf-8')
+        prf.write_text('已新增 `check_phantom_x`，用法见下。\n',
+                       encoding='utf-8')
+        got = [i2 for i2 in check_phantom_symbols(cfg, vroot)
+               if 'check_phantom_x' in i2.get('issue', '')]
+        #    ⛔ 反侧必须是**直接调用**（`bool(check_x(...))`），
+        #       `bool(got)` 这种间接形式会让 check_selftest_duality
+        #       认不出它是反向用例（实测报「缺反向用例」）。
+        chk(bool(check_phantom_symbols(cfg, vroot)),
+            '文档提到不存在的检查器 → 报 error'
+            '（⛔ 当前文档 = 承诺；声称做了 = 没做，本库最严重的一次自欺）')
+        chk(all(i2['level'] == 'error' for i2 in got),
+            '当前文档里的幻影符号是 error 级（不是 warn）')
+        prf.write_text('见 `check_refs` 的判据。\n', encoding='utf-8')
+        chk(not [i2 for i2 in check_phantom_symbols(cfg, vroot)
+                 if 'check_refs' in i2.get('issue', '')],
+            '存在的检查器名不报（确认没有一刀切）')
+        prf.write_text('应该有个 check_phantom_x 之类的检查。\n',
+                       encoding='utf-8')
+        chk(not check_phantom_symbols(cfg, vroot),
+            '散文里提到（非反引号）不报'
+            '（⛔ 只有反引号才表示"这是具体的、可查找的东西"）')
+        cl = vroot / 'assets'
+        cl.mkdir(parents=True, exist_ok=True)
+        clf = cl / 'changelog.md'
+        clf.write_text('| d | 新增 `check_old_name` | 新增 | x |\n',
+                       encoding='utf-8')
+        g2 = [i2 for i2 in check_phantom_symbols(cfg, vroot)
+              if 'check_old_name' in i2.get('issue', '')]
+        chk(bool(g2) and g2[0]['level'] == 'warn',
+            'changelog 里的历史名字只 warn'
+            '（⛔ 历史记录不该改写，改名合法；但应标注现名）')
+        # ⛔ 反向二：**同一个文件里别处**有存在的名字 ≠ 已标注现名
+        #    实测来源：若按"全文有没有出现过"判，只要别处提过
+        #    `check_refs`，所有历史名字都被豁免 ⇒ 检查形同虚设。
+        #    ⇒ 判据必须是**同行**（EV-M68 守着）。
+        clf.write_text(
+            '| d | 新增 `check_old_name` | 新增 | x |\n'
+            '| d | 修 `check_refs` | 修正 | y |\n',
+            encoding='utf-8')
+        g3 = [i2 for i2 in check_phantom_symbols(cfg, vroot)
+              if 'check_old_name' in i2.get('issue', '')]
+        chk(bool(g3),
+            '别处有存在的名字 ≠ 已标注现名 → 仍报'
+            '（⛔ 跨行会误配：只判"全文出现过"会让检查形同虚设）')
+        # 正向四：同行标注了现名 ⇒ 不报（历史记录不该改写）
+        clf.write_text(
+            '| d | 新增 `check_old_name`（现名 `check_refs`） | 新增 | x |\n'
+            '| d | 修 `check_refs` | 修正 | y |\n',
+            encoding='utf-8')
+        chk(not [i2 for i2 in check_phantom_symbols(cfg, vroot)
+                 if 'check_old_name' in i2.get('issue', '')],
+            '同行标注了现名 → 不报'
+            '（⛔ 历史记录不该改写，标注现名即可）')
+        clf.unlink(missing_ok=True)
+        prf.unlink(missing_ok=True)
         uwf.unlink(missing_ok=True)
         cpy.unlink()
+
+        # ---- check_mutation_staleness：变异的 old 必须真的在代码里 ----
+        chk(not check_mutation_staleness(cfg),
+            '真库所有变异的 old 都能在目标文件里找到'
+            '（⛔ NOT_APPLIED 比 SURVIVED 更危险：用例恒绿是因为压根没改上）')
+        mf = vroot / 'assets'
+        mf.mkdir(parents=True, exist_ok=True)
+        mfp = mf / 'mutations.json'
+        (vroot / 'scripts').mkdir(parents=True, exist_ok=True)
+        (vroot / 'scripts' / 'a.py').write_text(
+            'X = 1\n', encoding='utf-8')
+        mfp.write_text(json.dumps([
+            {'id': 'T1', 'target': 'scripts/a.py', 'old': 'X = 1',
+             'new': 'X = 2', 'desc': 'd', 'expect': 'KILLED'}],
+            ensure_ascii=False), encoding='utf-8')
+        chk(not check_mutation_staleness(cfg, vroot),
+            'old 存在 → 不报（确认没有一刀切）')
+        mfp.write_text(json.dumps([
+            {'id': 'T2', 'target': 'scripts/a.py', 'old': 'Y = 9',
+             'new': 'X = 2', 'desc': 'd', 'expect': 'KILLED'}],
+            ensure_ascii=False), encoding='utf-8')
+        chk(bool(check_mutation_staleness(cfg, vroot)),
+            'old 不存在 → 报 error（该变异什么都没验证）')
+        chk(all(i2['level'] == 'error'
+                for i2 in check_mutation_staleness(cfg, vroot)),
+            '陈旧变异是 error 级（不是 warn）')
+        mfp.write_text(json.dumps([
+            {'id': 'T3', 'target': 'scripts/none.py', 'old': 'Z = 1',
+             'new': 'd', 'expect': 'KILLED'}],
+            ensure_ascii=False), encoding='utf-8')
+        chk(bool(check_mutation_staleness(cfg, vroot)),
+            'target 文件不存在 → 也报（该变异永远不会应用）')
+        mfp.unlink(missing_ok=True)
 
         chk(not [i for i in check_zone_refs(cfg, vroot)
                  if 'f.md' in str(i.get('issue', ''))
@@ -6067,7 +6334,14 @@ def main():
               + check_antipattern_tables(cfg)
               + check_unwired_checks(cfg)
               + check_codeblock_paths(cfg)
-              + check_info_attributable(cfg))
+              + check_phantom_symbols(cfg)
+              + check_mutation_staleness(cfg))
+    # ⛔ 回填：check_info_attributable 要复用上面已经算出的结果，
+    #    否则它会把 43 个检查器**再各跑一遍** ⇒ lint 慢到跑不完
+    #    （实测超时 300s 无输出）。
+    global _LAST_ISSUES
+    _LAST_ISSUES = issues
+    issues = issues + check_info_attributable(cfg)
 
     if args.json:
         print(json.dumps(issues, ensure_ascii=False, indent=2))
