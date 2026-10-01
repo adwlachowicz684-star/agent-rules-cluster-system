@@ -3,7 +3,7 @@
 卡牌的架构核心是**"数据即 Resource + 效果栈即状态机"**，
 渲染节点只是观察者。
 
-## 0. 四层分离## 0. 四层分离
+## 0. 四层分离
 
 > 本篇讲**卡牌对战本身**（效果栈、洗牌、牌库回收、拖拽 UI）。
 > 构筑合法性、赛制与禁用表、词条/词缀的组合语义 → 见 `build-affix.md`。
@@ -124,6 +124,18 @@ ResourceSaver.save(state, "user://run.res", ResourceSaver.FLAG_COMPRESS)
 ⚠ **`FLAG_COMPRESS`（Zstandard）仅对二进制资源有效** ——
 `.tres`/`.tscn` 是文本格式，压缩标志对它们无意义。
 
+⚠ **换存档槽要带 `FLAG_CHANGE_PATH`** —— 官方语义是该标志
+*"Changes the `Resource.resource_path` of the saved resource to match its new location."*
+⛔ 只写 `save(state, "user://slot2.res")` 不带这个标志，
+`state.resource_path` 仍是旧槽位，之后任何**不带路径的自动保存**都会写回旧槽
+（不带路径时官方语义是尝试用 `Resource.resource_path`），
+表现为"玩了半天发现覆盖了另一个存档"，且不报错。
+
+⚠ **外部子资源要带 `FLAG_BUNDLE_RESOURCES`** —— 官方语义是
+*"Bundles external resources."*
+⛔ 不带则存档里只有一行路径引用，内容仍在原 `.tres` 里；
+原文件一变（换版本、热更、改数值），读档拿到的就是**新的**数据。
+
 ## 7. 拖拽 UI
 
 ```gdscript
@@ -137,5 +149,56 @@ func _drop_data(_pos: Vector2, data: Variant) -> void: ...
 
 ⚠ **UI 侧 `Control` 的子节点数量、布局重算比纹理更耗** ——
 `NOTIFICATION_SORT_CHILDREN` 与 `queue_redraw()` 滥用会拖垮拖拽帧。
+
+## 8. ⛔ Resource 带缓存：load() 拿的是同一个实例
+
+官方口径：`ResourceLoader` **会缓存加载结果**，
+*"Once a resource has been loaded by the engine, it is cached in memory for faster access,
+and future calls to the load method will use the cached version."*
+
+⚠ 所以 `load("res://cards/fireball.tres")` 每次返回的是**同一个对象** ——
+牌库、手牌、弃牌堆里所有同名"火球"是同一个实例，
+改一处全变，**且不报错**。
+
+⛔ 表现是"本回合费用 −1 一生效，牌库里剩下的火球全变 0 费"，
+排查时 `Array[CardData]`、`Resource`、`@export` 全部检查都对 ——
+因为错的不是类型，是**同一性**。
+
+ⓘ 判据：手牌与牌库里的同名卡 `get_instance_id()` 必须不同。
+⛔ 只在注释里写"别改定义"没有约束力，需要一处可断言的复制边界。
+
+## 9. ⛔ duplicate() 的深拷边界（版本相关）
+
+⚠ **`duplicate(true)` 不等于"深拷成功"** ——
+数组与字典里的子资源在 **4.2–4.4 不会被复制**（已知问题），
+4.5 起该行为修正并新增 `duplicate_deep()`（PR #100673）。
+
+⛔ 而 `CardData.effects` **正是** `Array[Effect]` ——
+于是"卡复制了、效果没复制"：改副本的效果参数，原卡跟着变。
+这是比完全不复制更难查的形态：
+检查时 `duplicate()` 确实调了，返回值也确实是新对象。
+
+ⓘ 另需注意同一版本族内的语义变更：
+4.5 起默认 `duplicate()` 对数组/字典是**只引用不复制**，
+⛔ 抄一段 4.2 时代的写法在 4.5 上会得到另一种错。
+
+```gdscript
+# ⛔ 不要指望 duplicate(true) 深拷数组内的 Effect
+func clone_card(src: CardData) -> CardData:
+    var c := src.duplicate() as CardData
+    c.effects = []
+    for e in src.effects:
+        c.effects.append(e.duplicate())
+    c.resource_path = ""        # 切断与原 .tres 的关联
+    return c
+```
+
+## 10. 流程：按什么顺序做
+
+→ `flow/godot/card/00-域流程总览.md`（7 个功能点 / 37 Step）
+
+⛔ 先定"卡牌是定义还是实例、随机走哪个源、连锁由谁收口"，
+再动手 —— 01 的同一性问题与 02 的随机源问题
+都是**事后补代价极高、且不报错**的。
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/genres-card.md`
