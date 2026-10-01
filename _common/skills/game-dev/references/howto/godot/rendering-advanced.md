@@ -129,6 +129,7 @@ visibility_range_end            # 相机比这更远时隐藏
 visibility_range_end_margin
 visibility_range_fade_mode      # 淡入淡出模式
 ```
+⚠ **`begin_margin` / `end_margin` 的行为取决于 `fade_mode`**（官方）：同是 margin，在滞后模式下是过渡缓冲距离，在 alpha 淡入淡出模式下是淡入淡出距离。**混着配会让过渡距离与预期不符**。
 
 ⚠ **AABB 会欺骗距离判断**。用引擎内置的 `visibility_range_*`
 比自己每帧算"相机到 AABB 中心距离"更可靠。

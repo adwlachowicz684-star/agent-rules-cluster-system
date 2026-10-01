@@ -103,3 +103,7 @@ VR **必须稳定 90fps**（或设备刷新率）。掉帧直接导致晕动症�
 | 10 | Shader | `load()` 当预热完成 | 首次出现仍卡顿 |
 | 11 | Shader | 只 instantiate 不渲染 | 不触发管线生成 |
 | 12 | Shader | 动态资源不预热 | 玩家换皮肤时卡一下 |
+| 13 | LOD | 把 `visibility_range_begin` 当成"开始显示的距离" | ⛔ 语义相反：官方是"相机比该值**更接近**时实例被**隐藏**"，近处该显示的反被隐藏 |
+| 14 | LOD | `begin_margin` / `end_margin` 留 0 | 相机停在过渡边界时 LOD 来回跳。官方：margin 就是滞后（hysteresis） |
+| 15 | LOD | 配了 margin 却不看 `fade_mode` | 官方：margin 行为**取决于 fade_mode**（滞后 vs alpha 过渡距离），混着配则过渡距离与预期不符 |
+| 16 | LOD | 自己每帧算"相机到 AABB 中心距离" | AABB 会欺骗距离判定：大物体或原点偏移时，该切的没切、不该切的先切 |
