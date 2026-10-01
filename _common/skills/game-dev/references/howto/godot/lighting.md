@@ -114,6 +114,10 @@ UV2 的关键是**每个面在 UV 里有独立位置、不共享像素**。
 它比 Shadow Bias 引起的 peter-panning 少，但可能让某些阴影变细。
 
 ⚠ **没有通用值**，要按几何尺寸和复杂度逐灯调，每盏灯可以不同。
+
+ⓘ **Pancake Size** 用于修复**大物体 + 未细分网格**导致的阴影缺失，
+官方明确**只在确认不是 shadow biasing 问题之后**才改它。
+⛔ 把它当成"又一种 bias"去调，会掩盖真正的成因。
 提高阴影图分辨率也能缓解 acne，代价是性能。
 
 ⚠ 平面/薄片几何两面都难调，最终往往是组合方案：
@@ -174,6 +178,106 @@ Mobile 支持有限（PCSS 半影不随距离正确变化）；
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/lighting.md`
 
+
+## 7. ⛔ 烘焙的静默失效：三类不报错的错
+
+### 隐藏灯 ≠ 不参与烘焙
+
+官方 WARNING 原文：*"Hiding a light has no effect on the resulting lightmap bake.
+This means you must use the Disabled bake mode instead of hiding the Light node
+by disabling its Visible property."*
+
+⛔ 把灯 `visible = false` 以为它不参与烘焙 —— **照样烘进去**。
+表现为"烘完场景里多了一块不该有的光"，
+排查必然被引向漏光或反弹次数，
+⛔ 不会想到是那盏"看不见的灯"。
+
+✅ 唯一正确的做法是 `Light3D.light_bake_mode = BAKE_MODE_DISABLED`。
+
+### 环境光：编辑器预览天空不被计入
+
+`ENVIRONMENT_MODE_SCENE` 在场景**没有 WorldEnvironment 节点**时
+**等同 DISABLED**，且官方注明
+**编辑器的预览天空与太阳不被 LightmapGI 计入**。
+
+⛔ 表现为"编辑器里看着有天空、烘出来是黑的"，
+而排查时"场景里明明有光"会是第一反应。
+
+### 8 个节点上限
+
+官方：Godot **最多同时渲染 8 个 LightmapGI 节点**。
+超出后视口内的实例会 **popping in and out（闪烁）**。
+
+⛔ 表现为"相机移动时光照闪"，
+排查被引向纹素密度或烘焙质量，与节点数量无关的表象很像。
+
+### 探针：手动放置后必须重烘
+
+动态物体的间接光靠探针。官方：手动放置 `LightmapProbe` 之后
+**必须重新烘焙才生效**；自动生成的探针
+**在场景树里不可见、烘焙后无法修改**。
+
+ⓘ 烘焙后编辑器里显示的白色球体**不在运行项目中出现**。
+
+ⓘ **直接光永远由 Light3D 实时施加在动态物体上**，
+即使该灯的 bake mode 是 Static —— 探针只存间接光。
+
+### 数据落盘与显存
+
+- ⛔ `.tscn` 里内联 light data 会用 Base64 膨胀 → 应存外部 `.lmbake`
+- ⛔ 烘焙可能**耗尽显存导致引擎崩溃**
+  （官方注明：即使显存很大的系统也可能）
+
+## 8. ⛔ SDFGI 的反馈循环、收敛与更新时机
+
+| 项 | 官方口径 | 后果 |
+|---|---|---|
+| Bounce Feedback | **> 0.5 可能导致无限反馈循环，场景几秒内变得极亮** | 调参时看着"变亮了挺好" |
+| 收敛 | 默认 **25 帧**才完全收敛 | 切场景时有明显过渡 |
+| 更新时机 | **仅在相机移入/移出级联时更新 SDF** | 改了网格不动相机 = 间接光一直错 |
+| 网格 GI mode | **Dynamic 等同 Disabled**（不贡献间接光） | 摆了物体却不参与 GI |
+| Max Distance | 应**始终低于相机 far** | 超出部分算了也没有收益 |
+
+⛔ **生成后修改网格**：官方要求**相机远离再靠近**，或**关闭再开启 SDFGI**。
+否则间接光"看起来不对劲"，而 SDFGI 面板上一切正常。
+
+ⓘ Y Scale 设 **75% 或 50%** 可减少漏光且**不影响性能**
+（多数场景不是高度垂直的）。
+
+## 9. 体积雾的可见性前提与薄雾闪烁
+
+⛔ `FogVolume` **只在 `Environment.volumetric_fog_enabled = true` 时有可见效果**。
+
+ⓘ 想只保留局部雾：把全局 `volumetric_fog_density` 设为 `0.0`，
+**而不是关掉体积雾** —— 关掉会让 FogVolume 一起失效。
+
+⛔ **薄雾闪烁**：相机移动 / 旋转时薄 FogVolume 会闪。三条官方修法：
+
+1. 提高 `rendering/environment/volumetric_fog/volume_depth`（**有性能代价**）
+2. 降低 `volumetric_fog_length`（**无性能代价**，但雾程变短）
+3. 加厚体积 + 降低材质密度
+
+⛔ cone / cylinder **不支持用 size 做非均匀缩放** —— 要缩放节点本身。
+
+## 10. 面光源的预算与几何限制
+
+⛔ **预算**：Forward+ 下**只要视锥内有一个面光源，
+所有渲染物体都有额外 GPU 成本**（clustered lighting 性质）。
+官方建议只用于过场动画或高端设备。
+
+⛔ **几何**：投射阴影的物体**细分不足且离面光源很近**时阴影会不对
+（与 OmniLight3D 的 Dual Paraboloid 限制相同）。
+
+⛔ **衰减**：`area_attenuation = 2.0` 是物理正确，但
+range 4096 时 100 单位处衰减因子为 **0.0001** ——
+默认亮度下那盏灯**根本看不见**。负值或 > 10.0 会有意外结果。
+
+⛔ **纹理**：运行时切换面光源纹理有性能代价；
+每维为 **128 的倍数或 2 的幂**时可省掉缩放 pass。
+
+## 11. 流程：按什么顺序做
+
+→ `flow/godot/lighting/`
 
 ## 6. 相关文档
 

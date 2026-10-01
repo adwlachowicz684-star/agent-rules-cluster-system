@@ -151,4 +151,99 @@ func take_damage(amount: float, type: int) -> void: ...
 ⚠ **运行时频繁改建筑的塔防，用 `NavigationObstacle2D` 切导航网格
 代价远高于改 A* 图**。重算一张 100×60 的网格比切导航网格便宜得多。
 
+## 8. ⛔ 官方口径：路径查询、避让默认值与 force_update 的代价
+
+### 8.1 `map_get_path` 的 `optimize` 是玩法选型，不是画质开关
+
+官方（Using NavigationPaths）：
+
+- `optimize = true` —— 用 funnel 算法沿多边形拐角**收缩**路径。
+  官方补充：**网格用小格子时，A* 会产生很窄的 funnel 走廊，
+  配合网格使用会得到难看的拐角路径。**
+- `optimize = false` —— 路径点落在**多边形边中点**。适合等大网格的纯格子移动。
+  官方补充：**网格之外，多边形常以单条长边覆盖大片开阔区，
+  这时会产生不必要的绕远。**
+
+⛔ 两句话合起来才是完整口径：**不是"网格就一定用 false"，
+而是"等大网格 + 纯格子移动"用 false；自由移动用 true。**
+只记"网格用 false"，在开阔地形的混合关卡上会得到绕远路径。
+
+### 8.2 `map_force_update()` 会 flush 整个命令队列（官方严厉警告）
+
+库里常说"建塔后要立刻生效就调 `map_force_update()`"。官方原文：
+
+> *"Due to technical restrictions the current NavigationServer command queue
+> will be flushed. This means all already queued update commands for this
+> physics frame will be executed, even those intended for other maps,
+> regions and agents not part of the specified map."*
+
+> *"Note: With great power comes great responsibility. This function should
+> only be used by users that really know what they are doing and have a good
+> reason for it."*
+
+⛔ 所以它**不是"让改动立即生效的免费开关"**：
+它清空的是**整个** NavigationServer 的命令队列（含别的地图、区域、代理），
+官方明说会严重影响性能并可能引入 bug。
+
+ⓘ 塔防里的正确用法：**只在"一帧内建/拆一批塔之后"调一次**，
+而不是每放一座塔调一次。批量收敛到帧末由引擎自然同步，通常根本不需要它。
+
+### 8.3 避让相关默认值（官方 `NavigationAgent2D`）
+
+| 属性 | 默认值 | ⛔ 后果 |
+|---|---|---|
+| `avoidance_enabled` | **`false`** | ⛔ 避让**默认不开启**，不是"开了才要配" |
+| `max_speed` | `100.0` | 开启后不显式配置，千军万马挤成一团或走得极慢 |
+| `max_neighbors` | `10` | 只考虑 10 个邻居，密集阵型下避让不完整 |
+| `neighbor_distance` | `500.0` | 搜索半径，超出这个距离的怪互相看不见 |
+| `path_desired_distance` | `20.0` | ⛔ **双向都会出问题**，见下 |
+
+⛔ `path_desired_distance` 是塔防最该显式配置的一个：
+
+- **设太高** —— 官方：*"the NavigationAgent will skip points on the path,
+  which can lead to it leaving the navigation mesh"*（跳过路径点，
+  **走出导航网格**）
+- **设太低** —— 官方：*"will be stuck in a repath loop because it will
+  constantly overshoot the distance to the next point on each physics frame
+  update"*（**陷入重寻路循环**）
+
+ⓘ 两种失败都不报错：前者表现为"怪偶尔走到墙里/贴边卡住"，
+后者表现为"帧率莫名下降"（重寻路是真开销）。
+
+### 8.4 `intersect_shape` 的两个静默边界
+
+官方：
+
+- **已经重叠的形状会被忽略** —— *"Any Shape2Ds that the shape is already
+  colliding with e.g. inside of, will be ignored. Use `collide_shape` to
+  determine the Shape2Ds that the shape is already colliding with."*
+  ⛔ 怪贴着塔刷出来时查不到，官方给的补法就是 `collide_shape()`。
+- **`max_results` 默认 32** —— 超过的结果**静默截断，不报错**。
+  ⛔ 塔的射程很大 + 怪很密集时，会**漏掉一部分怪**，
+  表现为"塔偶尔不攻击"，而射程、mask、冷却全对。
+
+### 8.5 `AStarGrid2D` 的 `allow_partial_path` 默认 `false`
+
+签名：`get_id_path(from_id, to_id, allow_partial_path = false)`。
+
+⛔ **目标不可达时返回空数组**，而不是"走到最接近的点"。
+
+ⓘ 这对塔防是**核心机制级**的：如果玩法允许用塔封路（大多数塔防不允许完全封死），
+封死的那一刻 `get_id_path` 返回空，怪**原地不动且不报错** ——
+`is_point_solid` 检查处处是绿的，路径缓存也是绿的。
+
+⛔ 正确做法不是"返回一个空路径让怪停着"，而是**在建塔前就用同一张图验证**：
+放下去之后从每个出生点到终点仍需有解，否则**拒绝这次建造**。
+
+## 9. 流程：按什么顺序做
+
+> **本域流程** → `flow/godot/tower-defense/00-域流程总览.md`
+
+7 个功能点按依赖排序：波次数据化 → 路径与寻路 → 敌人移动与避让 →
+建塔与格子 → 索敌与伤害分发 → 波次结算与经济 → 验收。
+
+⛔ **01 不能跳过** —— 波次一旦写成"每只怪自己计时的 Timer"，
+后面所有"这波到底刷完没有"的判定都要靠猜，
+而 `get_nodes_in_group().is_empty()` 会被池里的休眠怪污染。
+
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/genres-tower-defense.md`
