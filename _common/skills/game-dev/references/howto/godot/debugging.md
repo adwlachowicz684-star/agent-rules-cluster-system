@@ -17,6 +17,13 @@
 
 ## 1. 断点
 
+⛔ **官方 Warning（原文要点）：断点不会在线程里运行的代码上中断**
+（*Breakpoints won't break on code if it's running in a thread*）。
+这是 GDScript 调试器的**当前限制**。
+⛔ 表现是断点永远不命中，于是得出"这段代码没执行"的错误结论 ——
+而它一直在跑，且不报任何错。
+
+
 ### 两种断点，用途不同
 
 | | 存在哪 | 跨机器同步 |
@@ -270,6 +277,65 @@ print(obj.is_connected("pressed", callable))
 ⚠ 看**对象数**比看内存总量有用得多。内存总量受 GC/分配器影响会滞后。
 
 > **反模式清单（不能怎么做，审核用）** → `audit/godot/debugging.md`
+
+
+
+## 4.5 自定义性能监视器（官方机制，可带进发布版）
+
+```gdscript
+func _ready() -> void:
+    # 斜杠决定分类；不给斜杠则归入泛化 Custom 类
+    Performance.add_custom_monitor("game/enemies", _count_enemies)
+
+func _count_enemies() -> int:
+    return get_tree().get_nodes_in_group("enemies").size()
+```
+
+ⓘ **这是唯一能在 release 导出版里也拿到的自定义指标**：官方明确
+`get_custom_monitor()` 在 debug 与 release 下都可用。对比之下
+`MEMORY_STATIC` 一类内建项在 release 恒为 0（见 §3.1）。
+
+⛔ **自定义监视器不支持负值，负值会被静默钳到 0**（官方）。
+跟踪「增量 / 差值」这类可正可负的指标时，负向变化全部显示为 0，
+图上看着一直没问题。
+
+⛔ 取值函数**每次查询都调用**（编辑器内约每秒一次）——
+在里面做重查询，监视器本身就成了性能问题。
+
+⚠ 内建监视器**非实时更新**，官方注明最多延迟 1 秒；
+`TIME_FPS` 更是每秒才更新一次，查得再快也是旧值。
+
+## 4.6 命令行调试开关（不用改代码就能注入条件）
+
+| 开关 | 用途 |
+|---|---|
+| `--remote-debug tcp://127.0.0.1:6007` | 连回本机调试器（注意要带 `tcp://`） |
+| `--debug-collisions` / `--debug-paths` / `--debug-navigation` / `--debug-avoidance` | 直接显示碰撞体 / 路径 / 导航多边形 / 避障 |
+| `--frame-delay <ms>` | ⛔ **模拟高 CPU 负载**，官方明确不要当帧率限制用 |
+| `--max-fps <n>` | 限帧，0 = 不限 |
+| `--single-threaded-scene` | 场景树单线程，子线程组关闭 |
+| `--print-fps` | 帧率打到 stdout |
+| `--disable-crash-handler` | 关崩溃处理器（接外部调试器时用） |
+
+⛔ `--frame-delay` 与 `--max-fps` 的差别很实际：前者是**注入 CPU 负载**
+用来复现低端机才卡的场景，后者是**限制帧率**用来省电。
+用前者限帧会同时把 CPU 时间算进去，性能数据失真。
+
+⛔ `--extra-gpu-memory-tracking` 官方注明**仅 Vulkan 实现，且在某些系统上因驱动问题会崩溃**。
+
+## 4.7 Visual Profiler 的四条读数前提
+
+⛔ 目标帧时间**硬编码为 16.67ms（60FPS）**（官方）。目标不是 60fps 的项目
+（VR 90fps、移动端锁 30）**百分比列全部失真**，只能看毫秒值。
+
+⛔ 结果**随视口分辨率剧烈变化**（官方）。不同次运行对比必须同一视口尺寸。
+
+⛔ 有帧率尖峰时图会被缩放搞坏，需**关闭 Fit to Frame** 才能看清 60fps+ 段。
+
+⛔ 分类项**随渲染方法不同而不同**（Forward+ / Mobile / Compatibility），
+跨渲染器横比无意义。
+
+ⓘ 停止运行后结果仍在，**退出编辑器就没了** —— 要留证先截图。
 
 
 ## 5. 相关文档
