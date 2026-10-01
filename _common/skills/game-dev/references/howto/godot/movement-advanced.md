@@ -20,6 +20,10 @@
 - ⚠ 空中水平控制的手感：不是"能不能控制"，是**加速度给多少**
 - 可变跳高（松开键短跳）
 
+⚠ 次数重置要读**每帧状态**，不要靠"落地事件"。
+官方：`is_on_floor()` 只反映**本帧**最近一次 `move_and_slide()` 的结果 ——
+斜坡、吸附失效、平台边缘这些地方信号型重置会漏或重。
+
 ## 2. 爬墙 / 抓边（重点）
 
 ### 抓边要两条射线
@@ -36,6 +40,9 @@
 
 ⚠ **不要直接 `global_transform.origin = edge_point`** —— 可能穿透薄墙或动画不匹配。
 更好是用 `move_and_collide()` 朝目标移动并设最大插值距离。
+
+ⓘ 攀爬姿态对齐若用 `get_floor_normal()`，注意官方 Warning：
+**碰撞法线并不总是与表面法线相同**，在部分几何上会偏。
 
 ### 蹬墙跳
 
@@ -75,17 +82,88 @@
 **真正导致失效的常见原因是这五个**：
 
 1. **先读状态后移动**（顺序错了）
-2. 碰撞面与当前上方向夹角超过 `floor_max_angle`
+2. 碰撞面与当前上方向夹角超过 `floor_max_angle`（官方默认 **45°**，即 0.785398 弧度）
 3. 把角色节点随意旋转却**没同步上方向**
 4. 切换到 Floating 模式
 5. 坐标系不同步（up 改了但相机/移动平面没跟着变）
 
 ⚠ 改重力方向**不是只改 gravity 向量** —— 角色 up、相机、移动平面全要跟着变。
 
-> **反模式清单（不能怎么做，审核用）** → `audit/godot/movement-advanced.md`
+⚠ 顺带一条几何底线：官方 Warning —— **CharacterBody3D 在非均匀缩放下可能不按预期工作**，
+必须保持缩放均匀，尺寸差异改**碰撞形状**而不是改节点缩放。
 
+## 7. 移动平台承载：AnimatableBody3D 与三个平台参数
 
-## 7. 待核对项（运行时验证）
+ⓘ 承载是"角色站着不动，平台带着人走"，它**不是**角色自己的移动逻辑。
+
+官方对 `AnimatableBody3D` 的口径：它被移动时，
+**线速度与角速度会被估算出来**，并用来影响路径上的其他物理体。
+⛔ 所以平台必须是 `AnimatableBody3D`，**不能是 `StaticBody3D`** ——
+后者不做这个估算，表现为"人站着不动、平台从脚下抽走"，且不报错。
+
+三条官方约束：
+
+| 项 | 官方口径 |
+|---|---|
+| `sync_to_physics`（默认 true） | 为 true 时移动**与物理帧同步**，用 AnimationPlayer 驱动移动平台就靠它。⛔ 官方明确：**不要**与 `PhysicsBody3D.move_and_collide()` 同时使用 |
+| `platform_floor_layers`（默认 4294967295） | 哪些层算"可承载的地板"。默认全开 |
+| `platform_wall_layers`（默认 **0**） | 哪些层算"可承载的墙"。⛔ 默认 **0 = 所有墙体一律忽略** —— 与上面那个默认值**恰好相反** |
+
+ⓘ 垂直贴在角色侧面的移动平台（电梯井、上升气流墙）要显式开 `platform_wall_layers`，
+否则配置看起来"全默认、没动过"，而它**就是不承载**。
+
+**离开平台时的三种行为**（`platform_on_leave`）：
+
+| 枚举 | 官方语义 |
+|---|---|
+| `PLATFORM_ON_LEAVE_ADD_VELOCITY`（默认） | 离开时把平台最后速度加进 velocity |
+| `PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY` | 同上但**忽略向下运动** —— 官方注明：平台向下移动时**仍能保持完整跳跃高度** |
+| `PLATFORM_ON_LEAVE_DO_NOTHING` | 什么都不做 |
+
+⛔ 想让"从下行电梯上起跳"保持跳跃高度，必须用 `ADD_UPWARD_VELOCITY`；
+默认那条会把平台下行速度一起带走，跳跃变矮而没有任何提示。
+
+⛔ `get_platform_velocity()` / `get_platform_angular_velocity()` 官方注明
+**仅在调用 `move_and_slide()` 之后有效**，且 `move_and_slide()` **自己**已经把平台速度计入本步运动 ——
+⛔ 手动再加一次就是**双倍**，表现为"平台一启动人就飞出去"。
+
+⛔ **用 AnimationPlayer 驱动时的第二个条件（官方原文是个条件从句）**：
+官方对 `AnimatableBody3D` 速度估算的原文是 ——
+"either from code, or from an **AnimationPlayer** (with `playback_process_mode` set to **physics**)"。
+而 `AnimationMixer.callback_mode_process` **默认是 `1` = `ANIMATION_CALLBACK_MODE_PROCESS_IDLE`**（处理帧），
+**不是** `0` = `ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS`（物理帧）。
+⛔ 只开 `sync_to_physics` 而过程模式仍是默认的 IDLE，
+动画按渲染帧推进、物理按物理帧采样，**速度估算的前提不成立** ——
+⛔ 表现为"平台看着在动、人站上去时灵时不灵"，
+⛔ 而平台类型、`sync_to_physics`、层数三处**面板上全是对的**，
+排查被引向层数配置或驱动方式，不会想到是动画的过程模式。
+
+ⓘ 这类坑的共同形状值得记：**面板上每一处单独看都正确，错的是两处之间的时序关系**。
+
+## 8. 斜坡与吸附：floor_* 四件套
+
+| 参数 | 默认 | 官方口径 |
+|---|---|---|
+| `floor_max_angle` | 0.785398（45°） | 超过该角度的斜坡判为**墙**而非地板 |
+| `floor_snap_length` | 0.1 | 设为**非 0** 才保持附着斜坡；⛔ 0 = 完全禁用吸附 |
+| `floor_constant_speed` | false | 为 false 时**下坡更快、上坡更慢**；为 true 时恒速，⛔ 但官方注明**仍需 `floor_snap_length`** 才能在下坡上恒速贴合 |
+| `safe_margin` | 0.001 | 官方注：GROUNDED 模式下**只在 `floor_block_on_wall` 为 true 时**才影响移动 |
+
+⛔ 吸附**不是一直生效**：官方写明 —— 沿 `up_direction` 移动（含上升速度）时**不应用吸附**。
+这正是跳跃能脱离地面的原因。想无视速度强制吸附，用 `apply_floor_snap()`；
+⛔ 而该函数**在 `is_on_floor()` 返回 true 时什么都不做**。
+
+ⓘ 斜坡走不上去时，先分清是角度（`floor_max_angle`）还是margin（`safe_margin`）：
+⛔ 一味调大 `floor_max_angle` 会把陡壁也判成地板，角色开始"爬墙"。
+
+ⓘ 手感和特效要读 `get_real_velocity()`，不是 `velocity`：
+官方举例 —— 爬坡时即使 velocity 是水平的，实际移动也是**斜向**的，
+`velocity` 是"请求速度"，`get_real_velocity()` 才是实际值。
+
+ⓘ `max_slides` 默认 6，它决定一次 `move_and_slide()` 内允许改变方向的次数；
+调大只会让更多次滑动被计算，**掩盖的是几何问题**。
+
+## 9. 待核对项（运行时验证）
 
 ⚠ 待核对：抓边双射线的具体阈值 · 验证：按胶囊高度与目标台阶网格实测调参
 
@@ -93,11 +171,14 @@
 
 ⚠ 待核对：4.7.2 是否修改了 `move_and_slide` 的内部物理行为 · 验证：与 4.7-stable 对比回归
 
-## 8. 相关文档
+## 10. 相关文档
 
 - 基础角色移动 → `character.md`
 - 物理进阶 → `physics.md` / `vehicle-physics.md`
 - 水下环境 → `environment-systems.md`
-- 相机 → `camera-cutscene.md`
-- 动画状态机 → `animation-advanced.md`
-- 输入缓冲 → `input-audio.md`
+
+> **反模式清单（不能怎么做，审核用）** → `audit/godot/movement-advanced.md`
+
+## 11. 流程：按什么顺序做
+
+→ `flow/godot/movement-advanced/00-域流程总览.md`
