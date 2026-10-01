@@ -28,6 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from domain import load_config, domain_dir, domain_root, CONFIG  # noqa: E402
+import mheal  # noqa: E402
 from exitcode import OK, ERR, USAGE, ENV, BLOCKED, die, help_text  # 码表：0/1/2/3/4
 
 # 间接覆盖登记：某些检查项无法在自检里直接调用（要靠 subprocess 跑真实脚本），
@@ -1683,6 +1684,13 @@ SCAN_SCOPE_EXEMPT = {
     "check_degeneracy": "只查 `SKILLS/` 常驻层",
     "check_mirror_pairs": "只比对 howto↔audit **镜像对**的文件名——"
                           "SKILL.md 不是任何一册的成员",
+    # ⛔ 2026-10-01 实测补登：这 3 个此前长期报 info 却无人处理
+    #    ⇒ 「报了但没看 = 没报」，而它们确实不该扫 SKILL.md。
+    "check_domains_in_repo": "只查 `domains/` 下的技能包——SKILL.md 是入口不是技能包",
+    "check_flow_seams": "只查 `flow/` 区的流程文件——接缝是流程之间的，"
+                        "SKILL.md 不是流程文件",
+    "check_zone_index": "只查 `reference/` 下五区的索引——区定义在那个目录下，"
+                        "SKILL.md 不是任何一区的成员",
 }
 
 
@@ -1836,26 +1844,68 @@ def check_volatile_counts(cfg, root=None):
     #    所以宁可窄，不可宽。
     #    ⇒ 判据：光秃秃一个数字 = 声明现状（会过期）；
     #    带来源的统计 = 合法（可复现）。
+    # ⛔ 两种形态都要认（实测第二道过滤）：
+    #    A. `### howto/ 怎么做（16 个文件）`   目录标题，带"个文件"
+    #    B. `| **`howto/`** (17) |`            区表格，光一个数字
+    #   ⛔ 只认 A 的后果：SKILL.md 的五区计数**永远查不到**——
+    #      它用的正是 B。而 check_scan_scope 只会报「不含入口文件」，
+    #      报不出「含了也匹配不上」。
     RX = re.compile(r'^#{2,4}\s*.*?[（(]\s*(\d+)\s*(?:个|份)\s*(?:文件|文档)\s*[)）]')
-    for f in sorted((base / "reference").rglob("*.md")):
+    # ⚠ `**` 与 `(N)` 之间**有空格**——第一版漏了 `\s*` ⇒ 永远匹配不上，
+    #    而正向（"不该报时没报"）测不出这个错：它表现为**恒不报**。
+    #    ⛔ 只有反向注入（把 17 改成 99）才暴露得出来。
+    ZONE_RX = re.compile(r'\*\*\s*`?(\w+)/`?\s*\*\*\s*[（(]\s*(\d+)\s*[)）]')
+    files = sorted((base / "reference").rglob("*.md"))
+    # ⛔ 入口文件必须在范围内：实测 SKILL.md 的五区计数
+    #    （17 / 7 / 13 / 3 / 4）**就是**历史上过期 4 次的那个数字，
+    #    而它不在任何"批量扫描的目录"里。
+    _ent = base / "SKILL.md"
+    if _ent.is_file():
+        files.append(_ent)
+    for f in files:
         rel = str(f.relative_to(base))
         try:
             text = f.read_text(encoding="utf-8")
         except Exception:
             continue
         # 只查目录/索引型：正文里有「本区性质」或文件名含 index/split
-        if "索引" not in text[:400] and "本区性质" not in text[:600] \
+        # ⛔ **入口文件无条件算索引型**——它是"目录的目录"。
+        #    靠「前 400 字含『索引』」这种巧合来放行，会在改了开头
+        #    （比如先写一段导言）之后**静默失去检查**，且不报错。
+        is_entry = (f.name == "SKILL.md")
+        if not is_entry and "索引" not in text[:400] \
+                and "本区性质" not in text[:600] \
                 and "index" not in f.name and "split" not in f.name:
             continue
         for i, ln in enumerate(_outside_code_blocks(text), 1):
-            m = RX.search(ln.strip())
-            if not m:
+            ln2 = ln.strip()
+            m = RX.search(ln2)
+            if m:
+                # 形态 A：`### howto/ 怎么做（16 个文件）`——
+                #   光秃秃一个数字 = 声明现状，会过期。
+                issues.append({
+                    "level": "info", "file": rel,
+                    "issue": f"目录标题里写了会变的计数「{m.group(1)} 个文件」",
+                    "hint": "⛔ 计数是快照会过期（split-two-books.md 已第 4 次修同一个数字）。"
+                            "✅ 写**怎么算**（ls reference/<区>/*.md | wc -l）或干脆不写"})
                 continue
-            issues.append({
-                "level": "info", "file": rel,
-                "issue": f"目录标题里写了会变的计数「{m.group(1)} 个文件」",
-                "hint": "⛔ 计数是快照会过期（split-two-books.md 已第 4 次修同一个数字）。"
-                        "✅ 写**怎么算**（ls reference/<区>/*.md | wc -l）或干脆不写"})
+            zm = ZONE_RX.search(ln2)
+            if zm:
+                # 形态 B：`| **`howto/`** (17) |`——**能算出真值**，
+                #   ⇒ 不一致才报（比无条件报精确，不误报）。
+                zdir = base / "reference" / zm.group(1)
+                if not zdir.is_dir():
+                    continue
+                real = len(list(zdir.glob("*.md")))
+                declared = int(zm.group(2))
+                if real == declared:
+                    continue
+                issues.append({
+                    "level": "warn", "file": rel,
+                    "issue": f"区计数过期：`{zm.group(1)}/` 写了 {declared}，实际 {real} 个",
+                    "hint": "⛔ 实测：把 SKILL.md 的区数字改成 99 → 此前报 0 条。"
+                            "两道过滤：① 扫不到入口文件 ② 正则不认 `(N)` 形态。"
+                            "✅ 写**怎么算**，或让脚本生成这一列"})
     return issues
 
 
@@ -2451,6 +2501,73 @@ def _anchor_match(anc, title):
     return False
 
 
+_CN_DIGITS = '一二三四五六七八九'
+
+
+def _cn_num(sv):
+    """中文序号 → 阿拉伯数字（模块级，供多处复用）。
+
+    ### ⛔ 中文序号转数连踩三坑（写检查器时连错三次才对）
+
+    ```
+    ① 十一 → 10   （个位忘 +1）
+    ② 二十 → 10   （十位忘 +1）
+    ③ 二十九 → 18
+    ```
+
+    三个都"看起来能跑"，**只在撞车时才暴露——而撞车正是它要抓的**。
+    """
+    if '十' not in sv:
+        return _CN_DIGITS.index(sv) + 1
+    i = sv.index('十')
+    tens = 1 if i == 0 else _CN_DIGITS.index(sv[i-1]) + 1
+    ones = _CN_DIGITS.index(sv[i+1]) + 1 if len(sv) > i + 1 else 0
+    return tens * 10 + ones
+
+
+def _zone_nums(path):
+    """取一个 md 里所有 `## N、` 标题的编号集合（空集 = 该册无编号体系）。"""
+    try:
+        txt = path.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return set()
+    out = set()
+    for m in re.finditer(r'^#{2,4}\s*([一二三四五六七八九十\d]+)[、.．]',
+                         txt, re.M):
+        g = m.group(1)
+        out.add(int(g) if g.isdigit() else _cn_num(g))
+    return out
+
+
+def _fence(lines):
+    """逐行标记「是否在代码块外」（``` 围栏）。
+
+    ⛔ 抽出来是因为多处都要用，而**内联各写一遍**会漂移
+    （第四类：同一规范两份副本）。
+    """
+    (out, fence) = ([], False)
+    for ln in lines:
+        if ln.strip().startswith('```'):
+            fence = not fence
+            out.append(False)
+            continue
+        out.append(not fence)
+    return out
+
+
+def mheal_fails(cfg=None):
+    """跑 mheal 的自测，返回失败列表（空 = 全过）。
+
+    ⛔ 为什么要挂到 lint 的自检里：`mutate.py` 的默认测试套件
+    只有 `lint.py --self-test`，改坏 `mheal.py` 不会有任何用例变红
+    ⇒ 状态是 NOT_COVERED 却伪装成 SURVIVED（EV-M28~M31 的教训）。
+    """
+    try:
+        return list(mheal._self_test() or [])
+    except Exception as ex:
+        return ['mheal 自测抛异常：%s' % ex]
+
+
 def check_heading_numbering(cfg, root=None):
     """同一层级内**重复的中文序号**（编号撞车）。
 
@@ -2469,16 +2586,6 @@ def check_heading_numbering(cfg, root=None):
     """
     base = Path(root) if root else ROOT
     issues = []
-    CN = '一二三四五六七八九'
-
-    def cn_num(sv):
-        if '十' not in sv:
-            return CN.index(sv) + 1
-        i = sv.index('十')
-        tens = 1 if i == 0 else CN.index(sv[i-1]) + 1
-        ones = CN.index(sv[i+1]) + 1 if len(sv) > i + 1 else 0
-        return tens * 10 + ones
-
     EXEMPT = ('changelog-archive',)
     for f in sorted(base.rglob("*.md")):
         if ".git" in str(f):
@@ -2506,7 +2613,7 @@ def check_heading_numbering(cfg, root=None):
                              % lvl, ln.strip())
                 if not m:
                     continue
-                n = cn_num(m.group(1))
+                n = _cn_num(m.group(1))
                 if n in seen:
                     issues.append({
                         "level": "warn", "file": "%s:%d" % (rel, i + 1),
@@ -2518,6 +2625,129 @@ def check_heading_numbering(cfg, root=None):
                 else:
                     seen[n] = i + 1
     return issues
+
+_NUM_REF_RX = re.compile(
+    r'([\w.\-/]*[\w.\-]+\.md|falsepos|silent|credibility)'
+    r'[`\s）)]*[，,、]?\s*第\s*([一二三四五六七八九十百\d]+)\s*条')
+_NUM_REF_ALIAS = {
+    'falsepos': 'reference/audit/self-verification-falsepos.md',
+    'silent': 'reference/audit/self-verification-silent.md',
+    'credibility': 'reference/audit/self-verification-credibility.md',
+}
+
+
+def _resolve_num_ref(base, src_file, tok):
+    """"册名" → 真实路径。多种写法都要认（⛔ 只认一种会系统性误报）。
+
+    实测四种写法同现于真库：
+
+    | 写法 | 例子 |
+    |---|---|
+    | 相对当前文件 | `../audit/self-verification-silent.md` |
+    | 相对 skill 根 | `audit/self-verification-falsepos.md` |
+    | 纯文件名 | `rejection.md` |
+    | 别名 | `falsepos` |
+    """
+    if tok in _NUM_REF_ALIAS:
+        return base / _NUM_REF_ALIAS[tok]
+    if tok.endswith('.md'):
+        cand = [(src_file.parent / tok), (base / tok), (base / 'reference' / tok)]
+        for c in cand:
+            if c.is_file():
+                return c
+        # 纯文件名：全库按名字找（⛔ 只按 basename 会撞同名，取第一个）
+        hits = sorted(base.rglob(tok))
+        return hits[0] if hits else None
+    return None
+
+
+def check_num_ref_target(cfg, root=None):
+    """「某册 第 N 条」——**那条真的在这册里吗**。
+
+    ⛔ 实测（2026-10-01，真库 17 处此类引用）：
+
+    ```
+    reference/flow/acceptance.md:302
+      ⓘ 与 `../audit/self-verification-falsepos.md` 第四条（正反双样本）
+                                                    ↑
+      falsepos.md 的编号是 [6,10,11,12,14,19,29,31,32] —— **没有第四条**
+      第四条「检测类规则必须配正反双样本」在 credibility.md
+    ```
+
+    ⇒ 读的人按引用跳过去，**目标册里根本没有这一条**，
+       而文档不会报错；他会以为"这条被删了"。
+
+    ### ⛔ 为什么现有检查抓不到
+
+    `check_anchor_refs` 只认 `路径#锚点` 的 Markdown 链接形式，
+    而「册名 第 N 条」是**自然语言引用**——它在正文里，不是链接。
+    两者是同一件事的两种写法，**只认一种 = 系统性漏报**。
+
+    ### ⛔ 这正是"拆分会切断跨文件锚点"的具体形态
+
+    当初 `self-verification.md` 拆成 silent/falsepos/credibility 三册时，
+    第四条进了 credibility，而 acceptance.md 的引用还写着 falsepos。
+    ⇒ **跨文件锚点保留了，跨文件条号没保留**：
+       编号分散到不同册后，"第 N 条"不再唯一指向一个册。
+
+    判据：**引用里写的是哪个册，就查哪个册里有没有第 N 条。**
+
+    ### ⚠ 误报控制（实测 17 处，收紧前 4 处误报 → 收紧后 0）
+
+    | 情形 | 处置 |
+    |---|---|
+    | 目标册**没有编号体系**（无 `## N、`） | ⛔ **跳过**（`rejection.md` 是表格清单，第 2 条指表格行） |
+    | 归档文件的历史记录 | 跳过（`changelog-archive`） |
+    | 册名解析不到文件 | 跳过（⛔ 报不出来 ≠ 有问题，第十八条） |
+    """
+    base = Path(root) if root else ROOT
+    issues = []
+    for f in sorted(base.rglob('*.md')):
+        if '.git' in str(f):
+            continue
+        if f.name.startswith('changelog-archive'):
+            continue
+        try:
+            lines = f.read_text(encoding='utf-8').split('\n')
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = str(f.relative_to(base))
+        inf = _fence(lines)
+        for (i, ln) in enumerate(lines, 1):
+            if not inf[i - 1]:
+                # ⛔ 代码块里的是**示例**（本册就引用了「falsepos 第四条」
+                #    这个错误写法来讲解它）。报出来是误报，
+                #    而误报的检查会被关掉（第二十九条）。
+                continue
+            for m in _NUM_REF_RX.finditer(ln):
+                tok, num_s = m.group(1), m.group(2)
+                tgt = _resolve_num_ref(base, f, tok)
+                if tgt is None:
+                    continue
+                nums = _zone_nums(tgt)
+                if not nums:
+                    # ⛔ 该册根本没有编号体系 ⇒ 无法判定，跳过
+                    #    （查不到 ≠ 没有，第十八条）
+                    continue
+                want = int(num_s) if num_s.isdigit() else _cn_num(num_s)
+                if want in nums:
+                    continue
+                try:
+                    trel = str(tgt.relative_to(base))
+                except ValueError:
+                    trel = str(tgt)
+                issues.append({
+                    "level": "error",
+                    "file": "%s:%d" % (rel, i),
+                    "issue": "条号指错册：`%s` 里没有第 %d 条（该册编号：%s）"
+                             % (trel, want,
+                                '/'.join(str(x) for x in sorted(nums)[:12])),
+                    "hint": "⛔ 读的人按引用跳过去，目标册里没有这一条，"
+                            "会以为它被删了。⛔ **拆分册时最易断**："
+                            "编号分散到多个册后，「第 N 条」不再唯一指向一个册。"
+                            "去 self-verification.md 索引里查它现在在哪一册。"})
+    return issues
+
 
 
 def check_flow_seams(cfg, root=None):
@@ -5553,6 +5783,74 @@ trigger: 测试
             'target 文件不存在 → 也报（该变异永远不会应用）')
         mfp.unlink(missing_ok=True)
 
+        # ---- check_num_ref_target：「某册 第 N 条」真的在那册里吗 ----
+        # ⛔ 正向用真库：vroot 里没有那些册 ⇒ 扫的是空集 ⇒ 断言恒绿。
+        chk(not check_num_ref_target(cfg),
+            '真库「册名 第 N 条」引用全部指向正确的册'
+            '（⛔ 拆分册时最易断：编号分散后「第 N 条」不再唯一指向一册）')
+        _nd = vroot / 'reference' / 'audit'
+        _nd.mkdir(parents=True, exist_ok=True)
+        _nA = _nd / 'A.md'
+        _nA.write_text('# A\n\n## 四、正反双样本\n\n## 六、排除非执行代码\n',
+                       encoding='utf-8')
+        _nB = _nd / 'B.md'
+        _nB.write_text('# B\n\n## 六、别的条目\n', encoding='utf-8')
+        # 反向一：指错册（A 里有第四条，引用却写 B）
+        _nC = _nd / 'C.md'
+        _nC.write_text('# C\n\n见 `B.md` 第四条\n', encoding='utf-8')
+        # ⛔ 反向必须写成 `bool(...)` 形式：`check_selftest_duality`
+        #    按 `chk(not X)` 判正向、按 `bool(...)` 判反向
+        #    ⇒ 用 `any(...)` 会被算成正向 ⇒ 报「缺反向用例」。
+        chk(bool([i2 for i2 in check_num_ref_target(cfg, vroot)
+                  if '没有第 4 条' in str(i2.get('issue', ''))]),
+            '条号指错册 → 报 error（⛔ 读的人会以为那条被删了）')
+        _g = check_num_ref_target(cfg, vroot)
+        chk(all(i2['level'] == 'error' for i2 in _g),
+            '条号指错册是 error 级（不是 warn）')
+        # 反向二：别名写法（falsepos / silent / credibility）也查
+        _nC.write_text('# C\n\n见 `A.md` 第四条\n', encoding='utf-8')
+        chk(not check_num_ref_target(cfg, vroot),
+            '指对册 → 不报（确认没有一刀切）')
+        # ⛔ 精度一：目标册**没有编号体系** ⇒ 跳过（rejection.md 是表格清单，
+        #    「第 2 条」指表格行）。不跳过会误报 ⇒ 误报的检查会被关掉。
+        _nD = _nd / 'D.md'
+        _nD.write_text('# D\n\n| # | 内容 |\n|---|---|\n| 1 | x |\n',
+                       encoding='utf-8')
+        _nC.write_text('# C\n\n见 `D.md` 第 9 条\n', encoding='utf-8')
+        chk(not check_num_ref_target(cfg, vroot),
+            '目标册无编号体系 → 跳过（⛔ 不跳过会误报）')
+        # ⛔ 精度二：册名解析不到文件 ⇒ 跳过（查不到 ≠ 有问题，第十八条）
+        _nC.write_text('# C\n\n见 `不存在.md` 第四条\n', encoding='utf-8')
+        chk(not check_num_ref_target(cfg, vroot),
+            '册名解析不到 → 跳过（⛔ 报不出来 ≠ 有问题）')
+        for _x in (_nA, _nB, _nC, _nD):
+            _x.unlink(missing_ok=True)
+
+        # ---- mheal：变异残留自愈（⛔ 短 new 唯一能自愈的路径）----
+        # ⛔ 正向：mheal 自己的自测全过（含"短 new 能还原"这条核心用例）
+        chk(not mheal_fails(cfg),
+            'mheal 自测通过（⛔ 核心用例：new 短到 `        return` 也能还原，'
+            '而字符串反替换扫不到它）')
+        # ⛔ 反向：journal 有条目 ⇒ --check 必须报得出来
+        with tempfile.TemporaryDirectory() as mtd:
+            _mr = Path(mtd)
+            (_mr / 'scripts').mkdir(exist_ok=True)
+            _mt = _mr / 'scripts' / 'y.py'
+            _mt.write_text('def g():\n    return 2\n', encoding='utf-8')
+            _saved = (mheal.ROOT, mheal.JOURNAL, mheal.BACKUP_DIR)
+            mheal.ROOT = str(_mr)
+            mheal.JOURNAL = str(_mr / 'assets' / '.mutate-journal.json')
+            mheal.BACKUP_DIR = str(_mr / 'assets' / '.mutate-backup')
+            try:
+                mheal.before_mutate('TX', 'scripts/y.py')
+                chk(bool(mheal._journal_read()),
+                    'journal 有残留条目 ⇒ 能报出来（⛔ 报不出 = 短 new 永久残留）')
+                mheal.heal(str(_mr))
+                chk(not mheal._journal_read(),
+                    '还原后 journal 清空（⛔ 不清 = 下次误报残留）')
+            finally:
+                (mheal.ROOT, mheal.JOURNAL, mheal.BACKUP_DIR) = _saved
+
         # ---- check_weak_assertions：自检用例里的恒真断言 ----
         # ⛔ 正向必须用**真库**：vroot 里没有 scripts/lint.py（或只有前面
         #    用例留下的空壳）⇒ 扫的是空集 ⇒ 断言恒绿而从未验证。
@@ -6375,6 +6673,38 @@ trigger: 测试
             '正文里的实测统计不误报（带来源 = 可复现）')
         vf.unlink(missing_ok=True)
 
+        # ---- 区计数 `(N)` 形态 + 入口文件（2026-10-01 实测） ----
+        # ⛔ 来源：SKILL.md 五区计数**五条全过期**（17/7/13/3/4，
+        #    实际 18/9/14/5/5），而检查报 0 条。两道过滤：
+        #    ① 只扫 reference/ → 入口文件不在范围内
+        #    ② 正则只认「（16 个文件）」→ 不认「`(17)`」
+        #
+        # ⛔ **正向样本必须用真实文件数**，不能写死 2：
+        #    自检的 vroot 是**共用**的，前面的用例可能已在 howto/ 下
+        #    留下文件 ⇒ 写死会让正向用例恒红（实测就是这么失败的），
+        #    而报错信息看起来像"检查误报"，与污染原因完全无关。
+        _z = vroot / 'reference' / 'howto'
+        _z.mkdir(parents=True, exist_ok=True)
+        (_z / 'a.md').write_text('# a\n', encoding='utf-8')
+        (_z / 'b.md').write_text('# b\n', encoding='utf-8')
+        _real_z = len(list(_z.glob('*.md')))   # ⛔ 现场数，不写死
+        _sk = vroot / 'SKILL.md'
+        _sk.write_text('# s\n\n| 区 | 装什么 |\n|---|---|\n'
+                       '| **`howto/`** (%d) | 具体怎么做 |\n' % _real_z,
+                       encoding='utf-8')
+        chk(not check_volatile_counts(cfg, vroot),
+            '区计数与实际一致 → 不报（⛔ 缺正向 = 证明不了不误报；'
+            '样本里的数字必须现场数，vroot 是共用的）')
+        # 反侧：数字过期 → 必须报
+        _sk.write_text('# s\n\n| 区 | 装什么 |\n|---|---|\n'
+                       '| **`howto/`** (99) | 具体怎么做 |\n',
+                       encoding='utf-8')
+        chk(any('区计数过期' in str(i.get('issue', ''))
+                for i in check_volatile_counts(cfg, vroot)),
+            '⛔ 入口文件（SKILL.md）里的区计数过期能查出'
+            '（实测：此前扫不到入口 + 正则不认 `(N)` → 报 0 条）')
+        _sk.unlink(missing_ok=True)
+
         # ---- 反模式表形态（EV-M11） ----
         # 反哺自 game-dev 109 份反模式册：只有两种合法表头。
         # 只造正向（合法表）会让「缺列」从未验证。
@@ -6595,7 +6925,8 @@ def main():
               + check_codeblock_paths(cfg)
               + check_phantom_symbols(cfg)
               + check_mutation_staleness(cfg)
-              + check_weak_assertions(cfg))
+              + check_weak_assertions(cfg)
+              + check_num_ref_target(cfg))
     # ⛔ 回填：check_info_attributable 要复用上面已经算出的结果，
     #    否则它会把 43 个检查器**再各跑一遍** ⇒ lint 慢到跑不完
     #    （实测超时 300s 无输出）。

@@ -388,9 +388,9 @@
  {
   "id": "EV-M36",
   "target": "scripts/lint.py",
-  "desc": "[序号撞车] 中文序号转数十位忘 +1 → 二十=十=10，撞车检查全是假阳性",
-  "old": "        tens = 1 if i == 0 else CN.index(sv[i-1]) + 1",
-  "new": "        tens = 1 if i == 0 else CN.index(sv[i-1])  # 变异：十位忘 +1",
+  "desc": "[序号撞车] 中文序号转数十位忘 +1 → 二十=十=10，撞车检查全是假阳性（2026-10-01 更新：cn_num 抽为模块级 _cn_num，缩进与变量名都变了）",
+  "old": "    tens = 1 if i == 0 else _CN_DIGITS.index(sv[i-1]) + 1",
+  "new": "    tens = 1 if i == 0 else _CN_DIGITS.index(sv[i-1])  # 变异：十位忘 +1",
   "expect": "KILLED",
   "why": "⛔ 实测写检查器时连踩三坑：①十一→10（个位忘+1）②二十→10（十位忘+1）③二十九→18。三个都「看起来能跑」，只在撞车时才暴露——而撞车正是它要抓的。假阳性的检查会被关掉（第十四条）。",
   "source": "2026-09-26 序号撞车检查器",
@@ -999,5 +999,83 @@
    "scripts/lint.py",
    "--self-test"
   ]
+ },
+ {
+  "id": "EV-M77",
+  "target": "scripts/lint.py",
+  "desc": "[误报] 条号检查不跳过「无编号体系」的目标册 → rejection.md 第2条 被误报",
+  "old": "                if not nums:\n                    # ⛔ 该册根本没有编号体系 ⇒ 无法判定，跳过",
+  "new": "                if False:   # 变异：不跳过无编号体系的册",
+  "expect": "KILLED",
+  "why": "⛔ 实测 rejection.md 是表格清单，「第 2 条」指表格行。不跳过 ⇒ 误报 ⇒ 误报的检查会被关掉（第二十九条）。查不到 ≠ 没有（第十八条）。",
+  "source": "2026-10-01 check_num_ref_target",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M78",
+  "target": "scripts/lint.py",
+  "desc": "[漏报] 条号指错册不报 → 拆分册时引用静默断链",
+  "old": "                if want in nums:\n                    continue",
+  "new": "                if True:   # 变异：一律放行",
+  "expect": "KILLED",
+  "why": "⛔ 实测 acceptance.md 引用「falsepos 第四条」，而第四条在 credibility.md——读了几十轮没人发现。不报 ⇒ 拆分册时引用静默断链。",
+  "source": "2026-10-01 check_num_ref_target",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M79",
+  "target": "scripts/lint.py",
+  "desc": "[误报] 册名解析不到文件不跳过 → 大量误报",
+  "old": "                if tgt is None:\n                    continue",
+  "new": "                if False:   # 变异：解析不到也继续判",
+  "expect": "KILLED",
+  "why": "⛔ 报不出来 ≠ 有问题（第十八条）。解析不到就判「没有第 N 条」⇒ 系统性误报。",
+  "source": "2026-10-01 check_num_ref_target",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M80",
+  "target": "scripts/mheal.py",
+  "desc": "[残留] before_mutate 不写 journal → 短 new 的变异永久无法自愈",
+  "old": "    _journal_write(entries)\n    return bpath",
+  "new": "    return bpath  # 变异：不写 journal",
+  "expect": "KILLED",
+  "why": "⛔ EV-M01 的 new 是 `        return`（6 字符），字符串反替换**扫不到**它——真库里必然存在成百上千处，盲替换会把正常代码改成 old 片段。不写 journal ⇒ 它永久残留在磁盘上，且下次报错信息与变异无关。",
+  "source": "2026-10-01 mheal.py",
+  "test_cmd": [
+   "python3",
+   "scripts/lint.py",
+   "--self-test"
+  ]
+ },
+ {
+  "id": "EV-M81",
+  "target": "scripts/lint.py",
+  "desc": "[区计数] 扫描范围漏入口文件 → SKILL.md 五区计数过期查不出",
+  "old": "    _ent = base / \"SKILL.md\"\n    if _ent.is_file():\n        files.append(_ent)",
+  "new": "    # 变异：不加入口文件（只扫 reference/）",
+  "why": "⛔ 实测：SKILL.md 五区计数（17/7/13/3/4）全过期，实际 18/9/14/5/5，检查报 0 条。第一道过滤：入口文件不在任何\"批量扫描的目录\"里。",
+  "expect": "KILLED"
+ },
+ {
+  "id": "EV-M82",
+  "target": "scripts/lint.py",
+  "desc": "[区计数] 入口文件靠\"前400字含索引\"放行 → 改了开头就静默失去检查",
+  "old": "        is_entry = (f.name == \"SKILL.md\")\n        if not is_entry and \"索引\" not in text[:400] \\",
+  "new": "        if \"索引\" not in text[:400] \\  # 变异：不认入口文件",
+  "why": "⛔ 靠文本巧合放行：改了开头（先写导言）之后检查静默失效且不报错。判据：入口文件无条件算索引型。",
+  "expect": "KILLED"
  }
 ]
